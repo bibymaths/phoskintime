@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "PhosKinTime"
+version = "0.1.0"
+description = "ODE-based modeling of phosphorylation time dynamics - Time wise profiles"
+authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
+packages = [{ include = "distributive" }]
+
+[tool.poetry.dependencies]
+python = "=3.10"
+numpy = "*"
+pandas = "*"
+matplotlib = "*"
+scipy = "*"
+plotly = "*"
+openpyxl = "*"
+scikit-learn = "*"
+tqdm = "*"
+numba = "*"
+
+[tool.poetry.scripts]
+distributive = "distributive.main:main"
