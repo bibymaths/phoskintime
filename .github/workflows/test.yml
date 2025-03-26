@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -21,8 +22,8 @@ jobs:
           poetry config virtualenvs.create false
           poetry install
 
-      - name: Add package to PYTHONPATH
-        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-      - name: Run tests
-        run: poetry run pytest tests/ --cov=phoskintime
+      - name: Run tests with coverage
+        run: poetry run pytest tests/ --cov=phoskintime --cov-report=term-missing
