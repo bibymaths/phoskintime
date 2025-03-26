@@ -1,5 +1,5 @@
 import numpy as np
-from estimation.fit import prepare_model_func
+from estimation.estimation import prepare_model_func
 
 
 def test_prepare_model_func_structure():

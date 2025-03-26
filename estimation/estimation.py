@@ -1,14 +1,15 @@
 
+
 import numpy as np
+from scipy.optimize import curve_fit
+
 from config.config import score_fit
 from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION
 from config.logging_config import setup_logger
 from models.ode_model import solve_ode
 from models.weights import early_emphasis, get_weight_options
-from scipy.optimize import curve_fit
 
 logger = setup_logger(__name__)
-
 
 def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
                        time_points, use_regularization=True, lambda_reg=1e-3):
@@ -131,3 +132,4 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
         logger.info(f"[{gene}] Time Index {i}: Best Weight = {weight_key}")
 
     return est_params, model_fits, error_vals
+

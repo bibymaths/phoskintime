@@ -56,12 +56,12 @@ def parse_args():
     parser.add_argument("--fix-Ssite", type=parse_fix_value, default=None)
     parser.add_argument("--fix-Dsite", type=parse_fix_value, default=1)
 
-    parser.add_argument("--fix-t", type=str, default='',
+    parser.add_argument("--fix-t", type=str, default='{\"0\": {\"A\": 1}, \"60\": {\"A\": 1.3}, \"200\": {\"A\": 0.85}}',
                         help="JSON string mapping time points to fixed param values, e.g. '{\"60\": {\"A\": 1.3}}'")
-    parser.add_argument("--bootstraps", type=int, default=0)
+    parser.add_argument("--bootstraps", type=int, default=10)
     parser.add_argument("--profile-start", type=float, default=0)
-    parser.add_argument("--profile-end", type=float, default=100)
-    parser.add_argument("--profile-step", type=float, default=10)
+    parser.add_argument("--profile-end", type=float, default=200)
+    parser.add_argument("--profile-step", type=float, default=60)
     parser.add_argument("--input-excel", type=str,
                         default=INPUT_EXCEL,
                         help="Path to the input Excel file")

@@ -3,8 +3,10 @@ import os
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
+
 from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
@@ -13,7 +15,17 @@ from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-
+# -----------------------------
+# Parallel Coordinates Plot
+# -----------------------------
+# - Purpose: Visualizes the evolution of system state values (e.g., R, P, P1, P2, ...) across multiple time points.
+# - Time/Dynamics Assumptions:
+#   - The system follows a dynamic trajectory over time, possibly reaching equilibrium.
+#   - Time points are ordered and unevenly spaced; early dynamics are faster.
+# - Interpretation:
+#   - Reveals relative activation/inhibition of different states across time.
+#   - Decline in R (mRNA) and rise in P and phosphorylated states (P1, P2, ...) indicates cascade activation.
+#   - Useful for spotting saturation or feedback effects in the system’s progression.
 def plot_parallel(solution, labels, gene, out_dir):
     df = pd.DataFrame(solution, columns=labels)
     df['Time'] = range(1, len(df) + 1)
@@ -26,6 +38,17 @@ def plot_parallel(solution, labels, gene, out_dir):
     plt.savefig(os.path.join(out_dir, f"{gene}_parallel_coordinates_.png"), dpi=300)
     plt.close()
 
+# -----------------------------
+# PCA Plot (3D)
+# -----------------------------
+# - Purpose: Reduces high-dimensional ODE outputs into 3 orthogonal axes that explain most variance.
+# - Time/Dynamics Assumptions:
+#   - Early time points should be more dynamic; later ones may converge or stabilize.
+#   - PCA assumes linear separability of variance.
+# - Interpretation:
+#   - PC1 generally represents the major mode of change across the time course.
+#   - Curved or looping paths in PCA space suggest transitions between dynamic regimes.
+#   - Convergence or clustering of late points implies approach to steady-state.
 def pca_components(solution, gene, target_variance=0.99, out_dir=OUT_DIR):
     pca = PCA(n_components=min(solution.shape))
     pca.fit(solution)
@@ -71,7 +94,17 @@ def plot_pca(solution, gene, out_dir, components=3):
         plt.savefig(os.path.join(out_dir, f"{gene}_pca_plot_.png"), dpi=300)
         plt.close()
 
-
+# -----------------------------
+# 3. t-SNE
+# -----------------------------
+# - Purpose: Projects high-dimensional state space to 2D while preserving local distances (nonlinear structure).
+# - Time/Dynamics Assumptions:
+#   - Emphasizes local similarity; less emphasis on global distances.
+#   - Assumes short time intervals reflect similar biological states.
+# - Interpretation:
+#   - Curved trajectories indicate progressive changes; abrupt turns highlight possible phase transitions.
+#   - Clusters suggest metastable or recurring system states.
+#   - Temporal coloring helps trace how states evolve and diverge nonlinearly over time.
 def plot_tsne(solution, gene, out_dir, perplexity=30):
     perplexity = min(perplexity, len(solution) - 1)
     tsne_result = TSNE(n_components=2, perplexity=perplexity, random_state=42).fit_transform(solution)
@@ -108,6 +141,21 @@ def plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
     plt.savefig(os.path.join(out_dir, f"{gene}_params_.png"), dpi=300)
     plt.close()
 
+def plot_profiles(gene, data, out_dir):
+    df = pd.DataFrame(data)
+    plt.figure(figsize=(8, 8))
+    for col in df.columns:
+        if col != "Time (min)":
+            plt.plot(df["Time (min)"], df[col], marker='o', label=col)
+    plt.xlabel("Time (min)")
+    plt.ylabel("Kinetic Rates")
+    plt.title(f"{gene}")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plot_filename = os.path.join(out_dir, f"{gene}_profiles.png")
+    plt.savefig(plot_filename, dpi=300)
+    plt.close()
 
 def plot_model_fit(gene, model_fit, P_data, sol, num_psites, psite_labels, time_points, out_dir):
     plt.figure(figsize=(8, 8))
@@ -125,7 +173,70 @@ def plot_model_fit(gene, model_fit, P_data, sol, num_psites, psite_labels, time_
     plt.savefig(os.path.join(out_dir, f"{gene}_model_fit_.png"), dpi=300)
     plt.close()
 
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=time_points,
+        y=sol[:,0],
+        mode='lines+markers',
+        name='mRNA(R)(model)',
+        line=dict(color='black')
+    ))
+    fig.add_trace(go.Scatter(
+        x=time_points,
+        y=sol[:,1],
+        mode='lines+markers',
+        name='Protein(P)(model)',
+        line=dict(color='red')
+    ))
+    for i in range(num_psites):
+        fig.add_trace(go.Scatter(
+            x=time_points,
+            y=P_data[i, :] if num_psites > 1 else P_data.flatten(),
+            mode='lines+markers',
+            name=f'P+{psite_labels[i]}',
+            line=dict(dash='dash', color=COLOR_PALETTE[i])
+        ))
+        fig.add_trace(go.Scatter(
+            x=time_points,
+            y=model_fit[i, :],
+            mode='lines+markers',
+            name=f'P+{psite_labels[i]}(model)',
+            line=dict(color=COLOR_PALETTE[i])
+        ))
+    fig.update_layout(title=f'{gene}',
+                      xaxis_title="Time (minutes)", yaxis_title="Phosphorylation level (FC)",
+                      template="plotly_white", width=900, height=900)
+    fig.write_html(os.path.join(out_dir, f"{gene}_model_fit_.html"))
 
+# ------------------------------------------------------------
+# A–S Density Contour Plot
+# ------------------------------------------------------------
+# This plot visualizes the joint distribution of estimated parameters A (mRNA production rate)
+# and S (phosphorylation rate) across all time points and phosphorylation sites for a given protein.
+#
+# - The background shows density contours based on a kernel density estimate (KDE).
+# - Warmer colors (e.g., yellow, orange) indicate regions where A–S parameter combinations occur more frequently.
+# - Overlaid black dots represent the actual estimated parameter values.
+#
+# Interpretation:
+# - Reveals clusters or dense regions in parameter space.
+# - Highlights typical regions of activity and detects outliers.
+# - Ignores time progression—focuses only on spatial frequency in A–S space.
+
+# ------------------------------------------------------------
+# A–S Scatter Plot Colored by Time with Linear Regression
+# ------------------------------------------------------------
+# This plot shows the temporal evolution of phosphorylation rates (S) against mRNA production rates (A)
+# for each phosphorylation site.
+#
+# - Each phosphorylation site (e.g., S1, S2, S3, ...) is plotted with a unique marker.
+# - Points are color-coded by time (from early to late), using a continuous colormap.
+# - A linear regression line is fitted for each site's S vs. A values.
+#
+# Interpretation:
+# - Illustrates how phosphorylation responds to changes in mRNA production across time.
+# - Site-specific slopes reveal coupling or independence between A and S.
+# - Useful for identifying regulatory trends and time-resolved behaviors across phosphorylation sites.
 def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
     est_arr = np.array(est_arr)
     A_vals = est_arr[:, 0]

@@ -6,7 +6,7 @@ from concurrent.futures import ProcessPoolExecutor
 from config.config import parse_args, extract_config, log_config
 from config.constants import OUT_DIR, TIME_POINTS
 from config.logging_config import setup_logger
-from fit.core import process_gene_wrapper
+from estimation.core import process_gene_wrapper
 from utils.io_utils import ensure_output_directory, save_result
 
 logger = setup_logger(__name__)
@@ -26,7 +26,7 @@ def main():
 
     desired_times = np.arange(config['profile_start'], config['profile_end'] + config['profile_step'], config['profile_step'])
     data = pd.read_excel(config['input_excel'], sheet_name='Estimated Values')
-    genes = data["Gene"].unique().tolist()
+    genes = data["Gene"].unique().tolist()[:1]
     logger.info(f"Loaded Time Series for {len(genes)} Protein(s).")
 
     with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:
