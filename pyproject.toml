@@ -16,7 +16,7 @@ openpyxl = "*"
 scikit-learn = "*"
 tqdm = "*"
 numba = "*"
-xlsxwrite = '*'
+XlsxWriter = '*'
 
 [tool.poetry.scripts]
 phoskintime = "phoskintime.bin:main"
