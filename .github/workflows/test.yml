@@ -31,3 +31,5 @@ jobs:
 
       - name: Run tests with coverage
         run: poetry run pytest tests/ --cov=phoskintime --cov-report=term-missing
+        env:
+          PYTHONPATH: ${{ github.workspace }}
