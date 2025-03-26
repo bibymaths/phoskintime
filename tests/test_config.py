@@ -1,4 +1,4 @@
-from phoskintime.config.config import extract_config
+from phoskintime.config.config import (extract_config)
 
 def test_extract_config_defaults():
     class Args:
