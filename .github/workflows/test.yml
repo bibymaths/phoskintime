@@ -20,7 +20,10 @@ jobs:
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install
+          poetry install 
+
+      - name: Set PYTHONPATH to parent of workspace
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
       - name: Debug Python path
         run: |
