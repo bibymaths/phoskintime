@@ -6,7 +6,7 @@ import pandas as pd
 
 from config.constants import get_param_names, generate_labels, OUT_DIR
 from config.logging_config import setup_logger
-from estimation.estimation import sequential_estimation
+from estimation.fit import sequential_estimation
 from models.ode_model import solve_ode
 
 from plotting.plotting import (plot_parallel, plot_tsne, plot_pca, pca_components,
@@ -103,18 +103,12 @@ def process_gene(gene, measurement_data, time_points, bounds, fixed_params,
     plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
     plot_model_fit(gene, seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points, out_dir)
     plot_A_S(gene, estimated_params, num_psites, time_points, out_dir)
-
-    logger.info("Parameter Estimation Finished")
-    logger.info(f"Plots Saved: {out_dir}")
-
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     df_params.to_excel(os.path.join(out_dir, f"{gene}_parameters.xlsx"), index=False)
-
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
         gene_psite_dict_local[name] = [final_params[i]]
-
     final_data_flat = P_data.flatten()
     final_pred = seq_model_fit.flatten()
     mse = mean_squared_error(final_data_flat, final_pred)

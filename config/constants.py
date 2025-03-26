@@ -1,4 +1,4 @@
-
+import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib.markers as mmarkers
@@ -28,3 +28,5 @@ LAMBDA_REG = 1e-3
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / 'results'
+
+TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])

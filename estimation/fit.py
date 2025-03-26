@@ -1,7 +1,7 @@
 
 import numpy as np
 from config.config import score_fit
-from config.constants import get_param_names
+from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION
 from config.logging_config import setup_logger
 from models.ode_model import solve_ode
 from models.weights import early_emphasis, get_weight_options
@@ -85,7 +85,7 @@ def fit_parameters(time_points, P_data, model_func, p0_free,
 
 def sequential_estimation(P_data, time_points, init_cond, bounds,
                           fixed_params, num_psites, gene,
-                          use_regularization=True, lambda_reg=1e-3):
+                          use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
     est_params, model_fits, error_vals = [], [], []
 
     model_func, free_indices, free_bounds, fixed_values, num_total_params = (
