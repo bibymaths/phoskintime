@@ -19,4 +19,4 @@ numba = "*"
 XlsxWriter = '*'
 
 [tool.poetry.scripts]
-phoskintime = "phoskintime.bin:main"
+phoskintime = "bin.bin:main"
