@@ -6,7 +6,7 @@ authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 packages = [{ include = "phoskintime" }]
 
 [tool.poetry.dependencies]
-python = "=3.13"
+python = "=3.13.2"
 numpy = "*"
 pandas = "*"
 matplotlib = "*"
