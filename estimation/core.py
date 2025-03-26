@@ -4,12 +4,12 @@ import os
 import numpy as np
 import pandas as pd
 
-from phoskintime.config.constants import get_param_names, generate_labels, OUT_DIR
-from phoskintime.config.logging_config import setup_logger
-from phoskintime.estimation.estimation import sequential_estimation
-from phoskintime.models.ode_model import solve_ode
+from config.constants import get_param_names, generate_labels, OUT_DIR
+from config.logging_config import setup_logger
+from estimation.estimation import sequential_estimation
+from models.ode_model import solve_ode
 
-from phoskintime.plotting.plotting import (plot_parallel, plot_tsne, plot_pca, pca_components,
+from plotting.plotting import (plot_parallel, plot_tsne, plot_pca, pca_components,
                                            plot_param_series, plot_model_fit, plot_A_S)
 
 from numba import njit

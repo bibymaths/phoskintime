@@ -15,7 +15,15 @@ def test_extract_config_defaults():
         fix_Ssite = None
         fix_Dsite = 1
         fix_t = ''
+        bootstraps = 0
+        profile_start = 0
+        profile_end = 100
+        profile_step = 10
+        out_dir = "test_output"
+
     bounds, fixed, tfixed = extract_config(Args())
     assert bounds["A"] == (0, 20)
+    assert bounds["Ssite"] == (0, 20)
     assert fixed["B"] == 1
+    assert fixed["Ssite"] is None
     assert tfixed == {}
