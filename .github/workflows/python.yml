@@ -19,5 +19,7 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Run tests
-        run: poetry run pytest tests/
+      - name: Run tests with PYTHONPATH
+        run: |
+          export PYTHONPATH=./
+          poetry run pytest tests/ --maxfail=2 --disable-warnings
