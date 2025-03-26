@@ -6,7 +6,7 @@ authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 packages = [{ include = "phoskintime" }]
 
 [tool.poetry.dependencies]
-python = "=3.13.2"
+python = "^3.10"
 numpy = "*"
 pandas = "*"
 matplotlib = "*"
@@ -16,8 +16,11 @@ openpyxl = "*"
 scikit-learn = "*"
 tqdm = "*"
 numba = "*"
-XlsxWriter = '*'
+XlsxWriter = "*"
+
+[tool.poetry.dev-dependencies]
 pytest = "*"
+pytest-cov = "*"
 
 [tool.poetry.scripts]
 phoskintime = "phoskintime.bin.main:main"
