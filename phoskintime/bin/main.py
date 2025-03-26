@@ -3,12 +3,11 @@ from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
-
-from config.constants import OUT_DIR
-from estimation.core import process_gene_wrapper
-from utils.io_utils import ensure_output_directory, save_result
-from config.logging_config import setup_logger
-from config.config import parse_args, extract_config, log_config
+from phoskintime.config.config import parse_args, extract_config, log_config
+from phoskintime.config.constants import OUT_DIR
+from phoskintime.config.logging_config import setup_logger
+from phoskintime.estimation.core import process_gene_wrapper
+from phoskintime.utils.io_utils import ensure_output_directory, save_result
 
 logger = setup_logger(__name__)
 

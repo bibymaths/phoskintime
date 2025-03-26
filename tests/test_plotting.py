@@ -1,6 +1,8 @@
-import numpy as np
 import os
+
+import numpy as np
 from plotting.plotting import plot_param_series
+
 
 def test_plot_param_series(tmp_path):
     params = [np.random.rand(6) for _ in range(10)]

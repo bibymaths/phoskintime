@@ -2,12 +2,11 @@
 import logging
 import os
 import re
-
-from tqdm import tqdm
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from utils.io_utils import format_duration
+from tqdm import tqdm
+from phoskintime.utils.io_utils import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {

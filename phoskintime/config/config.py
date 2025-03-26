@@ -1,13 +1,14 @@
 import argparse
 import json
 import os
-import numpy as np
-
 from pathlib import Path
+
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'optimization_results.xlsx'
+OUTPUT_DIR = PROJECT_ROOT / 'results'
 
 def parse_bound_pair(val):
     try:

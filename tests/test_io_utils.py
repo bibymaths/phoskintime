@@ -1,6 +1,8 @@
 import os
+
 import pandas as pd
 from utils.io_utils import ensure_output_directory, save_result
+
 
 def test_ensure_output_directory(tmp_path):
     dir_path = tmp_path / "new_dir"

@@ -1,19 +1,18 @@
 
 import os
-import numpy as np
-import pandas as pd
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from phoskintime.config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 from matplotlib.lines import Line2D
-
 from pandas.plotting import parallel_coordinates
 from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 
 def plot_parallel(solution, labels, gene, out_dir):
     df = pd.DataFrame(solution, columns=labels)
