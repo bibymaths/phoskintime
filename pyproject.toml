@@ -3,7 +3,7 @@ name = "phoskintime"
 version = "0.1.0"
 description = "ODE-based modeling of phosphorylation time dynamics - Time wise profiles"
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
-packages = [{ include = "phoskintime" }]
+packages = [{ include = "." }]
 
 [tool.poetry.dependencies]
 python = "=3.13.2"
