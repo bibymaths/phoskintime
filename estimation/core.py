@@ -1,16 +1,18 @@
 
 import os
-
 import numpy as np
 import pandas as pd
-from config.constants import get_param_names, generate_labels, OUT_DIR
-from config.logging_config import setup_logger
+
 from numba import njit
-from plotting.plotting import plot_parallel, plot_tsne, plot_pca, pca_components, plot_param_series, plot_model_fit, plot_A_S
 from scipy.optimize import minimize
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+from models.ode_model import solve_ode
+from config.logging_config import setup_logger
 from estimation.estimation import sequential_estimation
+from config.constants import get_param_names, generate_labels, OUT_DIR
+from plotting.plotting import plot_parallel, plot_tsne, plot_pca, pca_components, plot_param_series, plot_model_fit, plot_A_S
+
 
 logger = setup_logger(__name__)
 
@@ -33,6 +35,7 @@ def initial_condition(num_psites: int) -> list:
     bounds_local = [(1e-6, None)] * (num_psites + 2)
     result = minimize(lambda y: 0, y0_guess, method='SLSQP', bounds=bounds_local,
                       constraints={'type': 'eq', 'fun': steady_state_equations})
+    logger.info("Steady-State conditions calculated")
     if result.success:
         return result.x.tolist()
     else:
@@ -65,34 +68,8 @@ def early_emphasis(P_data, time_points, num_psites):
     return custom_weights.ravel()
 
 # ----------------------------------
-# ODE Definitions
+# Process Protein
 # ----------------------------------
-@njit
-def ode_core(y, A, B, C, D, S_rates, D_rates):
-    R, P = y[0], y[1]
-    n = S_rates.shape[0]
-    dydt = np.empty_like(y)
-    dydt[0] = A - B * R
-    sum_S = np.sum(S_rates)
-    sum_P_sites = np.sum(y[2:])
-    dydt[1] = C * R - (D + sum_S) * P + sum_P_sites
-    for i in range(n):
-        dydt[2 + i] = S_rates[i] * P - (1.0 + D_rates[i]) * y[2 + i]
-    return dydt
-
-def ode_system(y, t, params, num_psites):
-    A, B, C, D = params[:4]
-    S_rates = np.array(params[4:4+num_psites])
-    D_rates = np.array(params[4+num_psites:])
-    return ode_core(y, A, B, C, D, S_rates, D_rates)
-
-def solve_ode(params, init_cond, num_psites, t):
-    from scipy.integrate import odeint
-    sol = odeint(ode_system, init_cond, t, args=(params, num_psites))
-    sol = np.clip(sol, 0, None)
-    P_fitted = sol[:, 2:].T
-    return sol, P_fitted
-
 def process_gene(gene, measurement_data, time_points, bounds, fixed_params,
                  desired_times=None, time_fixed=None, bootstraps=0, out_dir=OUT_DIR):
     gene_data = measurement_data[measurement_data['Gene'] == gene]
@@ -124,6 +101,9 @@ def process_gene(gene, measurement_data, time_points, bounds, fixed_params,
     plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
     plot_model_fit(gene, seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points, out_dir)
     plot_A_S(gene, estimated_params, num_psites, time_points, out_dir)
+
+    logger.info("Parameter Estimation Finished")
+    logger.info(f"Plots Saved: {out_dir}")
 
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])

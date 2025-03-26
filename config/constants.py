@@ -9,9 +9,8 @@ def get_param_names(num_psites: int) -> list:
 def generate_labels(num_psites: int) -> list:
     return ["R", "P"] + [f"P{i}" for i in range(1, num_psites + 1)]
 
-
 # Output directory
-OUT_DIR = "../results"
+OUT_DIR = "results"
 
 # Color palette for plots (every second color from tab20 for visual distinction)
 COLOR_PALETTE = [mcolors.to_hex(cm.tab20(i)) for i in range(0, 20, 2)]

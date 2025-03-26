@@ -1,18 +1,19 @@
 
-
 import os
+import numpy as np
+import pandas as pd
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
+from matplotlib.lines import Line2D
+
 from pandas.plotting import parallel_coordinates
 from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 
 def plot_parallel(solution, labels, gene, out_dir):
     df = pd.DataFrame(solution, columns=labels)
@@ -23,7 +24,7 @@ def plot_parallel(solution, labels, gene, out_dir):
     plt.xlabel("States")
     plt.ylabel("Values")
     plt.legend(title="Time Points", loc="upper right", labels=df['Time'].astype(str).tolist())
-    plt.savefig(os.path.join(out_dir, f"parallel_coordinates_{gene}.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_parallel_coordinates_.png"), dpi=300)
     plt.close()
 
 def pca_components(solution, gene, target_variance=0.99, out_dir=OUT_DIR):
@@ -44,7 +45,7 @@ def pca_components(solution, gene, target_variance=0.99, out_dir=OUT_DIR):
     plt.ylabel('Explained Variance (%)')
     plt.legend()
     plt.grid(True)
-    plt.savefig(os.path.join(out_dir, f"scree_plot_{gene}.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_scree_plot_.png"), dpi=300)
     plt.close()
 
 def plot_pca(solution, gene, out_dir, components=3):
@@ -68,7 +69,7 @@ def plot_pca(solution, gene, out_dir, components=3):
         ax.set_zlabel(f"PC3 ({ev[2]:.1f}%)")
         ax.set_title(gene)
         plt.legend()
-        plt.savefig(os.path.join(out_dir, f"pca_plot_{gene}.png"), dpi=300)
+        plt.savefig(os.path.join(out_dir, f"{gene}_pca_plot_.png"), dpi=300)
         plt.close()
 
 
@@ -90,7 +91,7 @@ def plot_tsne(solution, gene, out_dir, perplexity=30):
     plt.title(gene)
     plt.grid(True)
     plt.legend()
-    plt.savefig(os.path.join(out_dir, f"tsne_plot_{gene}.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_tsne_plot_.png"), dpi=300)
     plt.close()
 
 
@@ -105,7 +106,7 @@ def plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
     plt.grid(True)
     plt.legend(loc="best")
     plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, f"param_series_{gene}.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_params_.png"), dpi=300)
     plt.close()
 
 
@@ -122,7 +123,7 @@ def plot_model_fit(gene, model_fit, P_data, sol, num_psites, psite_labels, time_
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, f"model_fit_{gene}.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_model_fit_.png"), dpi=300)
     plt.close()
 
 
@@ -131,8 +132,9 @@ def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
     A_vals = est_arr[:, 0]
     cmap = plt.get_cmap("viridis")
     norm = mcolors.Normalize(vmin=min(time_vals), vmax=max(time_vals))
-
     plt.figure(figsize=(8, 8))
+    legend_handles = []
+
     for i in range(num_psites):
         S_vals = est_arr[:, 4 + i]
         sc = plt.scatter(A_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
@@ -140,17 +142,24 @@ def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
         slope, intercept = np.polyfit(A_vals, S_vals, 1)
         x_fit = np.linspace(A_vals.min(), A_vals.max(), 100)
         y_fit = slope * x_fit + intercept
-        plt.plot(x_fit, y_fit, color=f"C{i}", lw=1, label=f"S{i+1}")
-
+        line_color = f"C{i}"
+        plt.plot(x_fit, y_fit, color=line_color, lw=1)
+        legend_handles.append(Line2D([0], [0],
+                                     marker=available_markers[i],
+                                     color='w',
+                                     markerfacecolor=line_color,
+                                     markeredgecolor='k',
+                                     markersize=8,
+                                     label=f"S{i + 1}"))
     plt.xlabel("A (mRNA production rate)")
     plt.ylabel("S (Phosphorylation rate)")
     plt.title(gene)
     cbar = plt.colorbar(sc)
     cbar.set_label("Time (min)")
     plt.grid(True)
-    plt.legend()
+    plt.legend(handles=legend_handles)
     plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, f"A_S_{gene}_scatter.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_scatter_A_S_.png"), dpi=300)
     plt.close()
 
     all_points = np.vstack([np.column_stack((A_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
@@ -171,5 +180,5 @@ def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
     cbar = plt.colorbar(contourf)
     cbar.set_label("Density")
     plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, f"A_S_{gene}_density.png"), dpi=300)
+    plt.savefig(os.path.join(out_dir, f"{gene}_density_A_S_.png"), dpi=300)
     plt.close()

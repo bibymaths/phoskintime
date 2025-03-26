@@ -1,10 +1,12 @@
-# estimation.py
+
 import numpy as np
+
+from config.config import score_fit
 from config.constants import get_param_names
 from config.logging_config import setup_logger
+
 from models.ode_model import solve_ode
 from scipy.optimize import curve_fit
-from tqdm import tqdm
 from models.weights import early_emphasis, get_weight_options
 
 logger = setup_logger(__name__)
@@ -50,13 +52,13 @@ def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
 
     free_bounds = ([lower_bounds_full[i] for i in free_indices],
                    [upper_bounds_full[i] for i in free_indices])
-
+    logger.info(f"Model Building Complete")
     return model_func, free_indices, free_bounds, fixed_values, num_total_params
 
 def fit_parameters(time_points, P_data, model_func, p0_free,
-                   bounds, fixed_values, weight_options,
+                   bounds, weight_options,
                    use_regularization=True):
-    errors, popts = {}, {}
+    scores, popts = {}, {}
     target = P_data.flatten()
 
     if use_regularization:
@@ -71,12 +73,17 @@ def fit_parameters(time_points, P_data, model_func, p0_free,
         except Exception as e:
             logger.warning(f"Fit failed with {key}: {e}")
             popt = p0_free
-        popts[key] = popt
-        residual = target - model_func(time_points, *popt)
-        errors[key] = np.sum(residual**2)
 
-    best_key = min(errors, key=errors.get)
-    return popts[best_key], best_key, errors
+        popts[key] = popt
+        prediction = model_func(time_points, *popt)
+        score = score_fit(target, prediction, popt)
+        scores[key] = score
+        logger.debug(f"[{key}] Score: {score:.4f}")
+
+    best_key = min(scores, key=scores.get)
+    best_score = scores[best_key]
+    logger.info(f"Best Fit Weight: {best_key} with Score: {best_score:.4f}")
+    return popts[best_key], best_key, scores
 
 def sequential_estimation(P_data, time_points, init_cond, bounds,
                           fixed_params, num_psites, gene,
@@ -90,7 +97,7 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
 
     p0_free = np.array([(lb + ub) / 2 for lb, ub in zip(*free_bounds)])
 
-    for i in tqdm(range(1, len(time_points) + 1), desc=f"{gene} Estimation"):
+    for i in range(1, len(time_points) + 1):
         t_now = time_points[:i]
         y_now = P_data[:, :i] if P_data.ndim > 1 else P_data[:i].reshape(1, -1)
         y_flat = y_now.flatten()
@@ -106,26 +113,23 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
             logger.warning(f"Initial fit failed at time index {i} for gene {gene}: {e}")
             popt_init = p0_free
 
-        residuals = target_fit - model_func(t_now, *popt_init)
         early_emphasis_weights = early_emphasis(y_now, t_now, num_psites)
-        weights = get_weight_options(y_flat, residuals, t_now, num_psites,
+        weights = get_weight_options(y_flat, t_now, num_psites,
                                      use_regularization, len(p0_free), early_emphasis_weights)
+
         best_fit, weight_key, _ = fit_parameters(t_now, y_now, model_func, popt_init,
-                                                 free_bounds, fixed_values, weights,
+                                                 free_bounds, weights,
                                                  use_regularization)
-
-        logger.info(f"[{gene}] Time index {i}: best weight = {weight_key}") # FIXME: Add different style of logging
-
         p_full = np.zeros(num_total_params)
         free_iter = iter(best_fit)
         for j in range(num_total_params):
             p_full[j] = fixed_values[j] if j in fixed_values else next(free_iter)
-
         est_params.append(p_full)
         sol, P_fit = solve_ode(p_full, init_cond, num_psites, t_now)
         model_fits.append((sol, P_fit))
         error_vals.append(np.sum((y_flat - P_fit.flatten()) ** 2))
-
         p0_free = best_fit
+
+        logger.info(f"[{gene}] Time Index {i}: Best Weight = {weight_key}")
 
     return est_params, model_fits, error_vals

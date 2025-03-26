@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "PhosKinTime"
+name = "phoskintime"
 version = "0.1.0"
 description = "ODE-based modeling of phosphorylation time dynamics - Time wise profiles"
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
-packages = [{ include = "distributive" }]
+packages = [{ include = "phoskintime" }]
 
 [tool.poetry.dependencies]
 python = "=3.10"
@@ -16,6 +16,7 @@ openpyxl = "*"
 scikit-learn = "*"
 tqdm = "*"
 numba = "*"
+xlsxwrite = '*'
 
 [tool.poetry.scripts]
-distributive = "distributive.main:main"
+phoskintime = "phoskintime.bin:main"

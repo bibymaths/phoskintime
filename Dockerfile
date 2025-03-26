@@ -1,10 +1,10 @@
-FROM python:3.10-slim
-LABEL authors="abhinavmishra"
+FROM python:3.13-slim
 
 WORKDIR /app
 COPY . /app
 
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install
 
-CMD ["python", "main.py"]
+CMD ["poetry", "run", "pytest", "tests/"]

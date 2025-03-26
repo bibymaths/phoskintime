@@ -1,10 +1,13 @@
 import argparse
 import json
 import os
-from tqdm import tqdm
-from config.logging_config import logging
 import numpy as np
 
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / 'data'
+INPUT_EXCEL = DATA_DIR / 'optimization_results.xlsx'
 
 def parse_bound_pair(val):
     try:
@@ -38,7 +41,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Sequential ODE Parameter Estimation with Fixed/Bounded Params and Bootstrap Support"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,1")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
@@ -59,13 +62,12 @@ def parse_args():
     parser.add_argument("--profile-end", type=float, default=100)
     parser.add_argument("--profile-step", type=float, default=10)
     parser.add_argument("--input-excel", type=str,
-                        default="../data/optimization_results.xlsx",
+                        default=INPUT_EXCEL,
                         help="Path to the input Excel file")
 
     return parser.parse_args()
 
 def log_config(logger, bounds, fixed_params, time_fixed, args):
-    logger.info("Sequential Phosphorylation Modeling Configuration")
     logger.info("Parameter Bounds:")
     for key, val in bounds.items():
         logger.info(f"   {key}: {val}")
@@ -119,3 +121,30 @@ def extract_config(args):
         'max_workers': os.cpu_count(),
     }
     return config
+
+
+def score_fit(target, prediction, params, alpha=1.0, beta=0.5, gamma=0.2, reg_penalty=0.1):
+    # Composite Scoring Function:
+    #
+    # score = α * RMSE + β * MAE + γ * Var(residual) + λ * ||θ||₂
+    #
+    # Where:
+    #   RMSE         = Root Mean Squared Error between model prediction and target
+    #   MAE          = Mean Absolute Error
+    #   Var(residual)= Variance of residuals to penalize unstable fits
+    #   ||θ||₂       = L2 norm of estimated parameters (regularization)
+    #
+    #   α (alpha)    = Weight for RMSE
+    #   β (beta)     = Weight for MAE
+    #   γ (gamma)    = Weight for residual variance
+    #   λ (lambda)   = Regularization penalty for parameter magnitude
+    #
+    # Lower score indicates a better fit
+    residual = target - prediction
+    rmse = np.sqrt(np.mean(residual ** 2))
+    mae = np.mean(np.abs(residual))
+    variance = np.var(residual)
+    l2_norm = np.linalg.norm(params)
+
+    score = alpha * rmse + beta * mae + gamma * variance + reg_penalty * l2_norm
+    return score
