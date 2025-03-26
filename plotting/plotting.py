@@ -1,4 +1,4 @@
-# plotting.py
+
 
 import os
 
@@ -6,7 +6,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from constants import COLOR_PALETTE, OUT_DIR
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 from pandas.plotting import parallel_coordinates
 from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde
@@ -98,7 +98,7 @@ def plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
     arr = np.array(estimated_params)
     plt.figure(figsize=(8, 8))
     for i in range(arr.shape[1]):
-        plt.plot(time_points, arr[:, i], marker='s', label=param_names[i])
+        plt.plot(time_points, arr[:, i], label=param_names[i])
     plt.title(f"{gene}")
     plt.xlabel("Time")
     plt.ylabel("Kinetic Rates")
@@ -136,11 +136,11 @@ def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
     for i in range(num_psites):
         S_vals = est_arr[:, 4 + i]
         sc = plt.scatter(A_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
-                         s=50, alpha=0.8, marker='o')
+                         s=50, alpha=0.8, marker=available_markers[i])
         slope, intercept = np.polyfit(A_vals, S_vals, 1)
         x_fit = np.linspace(A_vals.min(), A_vals.max(), 100)
         y_fit = slope * x_fit + intercept
-        plt.plot(x_fit, y_fit, color=f"C{i}", lw=1, label=f"Fit S{i+1}")
+        plt.plot(x_fit, y_fit, color=f"C{i}", lw=1, label=f"S{i+1}")
 
     plt.xlabel("A (mRNA production rate)")
     plt.ylabel("S (Phosphorylation rate)")
@@ -164,7 +164,7 @@ def plot_A_S(gene, est_arr, num_psites, time_vals, out_dir):
     plt.figure(figsize=(8, 8))
     plt.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
     contourf = plt.contourf(A_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
-    plt.contour(A_grid, S_grid, density, levels=10, colors='white', linewidths=0.5)
+    plt.contour(A_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
     plt.xlabel("A")
     plt.ylabel("S")
     plt.title(gene)

@@ -1,4 +1,4 @@
-# constants.py
+
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib.markers as mmarkers
@@ -11,7 +11,7 @@ def generate_labels(num_psites: int) -> list:
 
 
 # Output directory
-OUT_DIR = "distributive_profiles"
+OUT_DIR = "../results"
 
 # Color palette for plots (every second color from tab20 for visual distinction)
 COLOR_PALETTE = [mcolors.to_hex(cm.tab20(i)) for i in range(0, 20, 2)]

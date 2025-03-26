@@ -1,16 +1,16 @@
-# core.py
+
 import os
 
 import numpy as np
 import pandas as pd
-from constants import get_param_names, generate_labels, OUT_DIR
-from logging_config import setup_logger
+from config.constants import get_param_names, generate_labels, OUT_DIR
+from config.logging_config import setup_logger
 from numba import njit
-from plotting import plot_parallel, plot_tsne, plot_pca, pca_components, plot_param_series, plot_model_fit, plot_A_S
+from plotting.plotting import plot_parallel, plot_tsne, plot_pca, pca_components, plot_param_series, plot_model_fit, plot_A_S
 from scipy.optimize import minimize
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-from estimation import sequential_estimation
+from estimation.estimation import sequential_estimation
 
 logger = setup_logger(__name__)
 

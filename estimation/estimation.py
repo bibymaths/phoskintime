@@ -1,11 +1,11 @@
 # estimation.py
 import numpy as np
-from constants import get_param_names
-from logging_config import setup_logger
-from ode_model import solve_ode
+from config.constants import get_param_names
+from config.logging_config import setup_logger
+from models.ode_model import solve_ode
 from scipy.optimize import curve_fit
 from tqdm import tqdm
-from weights import early_emphasis, get_weight_options
+from models.weights import early_emphasis, get_weight_options
 
 logger = setup_logger(__name__)
 
@@ -101,8 +101,7 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
             target_fit = y_flat
 
         try:
-            popt_init, _ = curve_fit(model_func, t_now, target_fit,
-                                     p0=p0_free, bounds=free_bounds, maxfev=20000)
+            popt_init, _ = curve_fit(model_func, t_now, target_fit, p0=p0_free, bounds=free_bounds, maxfev=20000)
         except Exception as e:
             logger.warning(f"Initial fit failed at time index {i} for gene {gene}: {e}")
             popt_init = p0_free
@@ -115,7 +114,7 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
                                                  free_bounds, fixed_values, weights,
                                                  use_regularization)
 
-        logger.info(f"[{gene}] Time index {i}: best weight = {weight_key}")
+        logger.info(f"[{gene}] Time index {i}: best weight = {weight_key}") # FIXME: Add different style of logging
 
         p_full = np.zeros(num_total_params)
         free_iter = iter(best_fit)

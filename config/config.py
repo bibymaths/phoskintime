@@ -1,7 +1,8 @@
 import argparse
 import json
 import os
-
+from tqdm import tqdm
+from config.logging_config import logging
 import numpy as np
 
 
@@ -12,7 +13,7 @@ def parse_bound_pair(val):
             raise ValueError("Bounds must be provided as 'lower,upper'")
         lower = float(parts[0])
         upper = float(parts[1]) if parts[1].lower() not in ["inf", "infinity"] else float("inf")
-        return (lower, upper)
+        return lower, upper
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Invalid bound pair '{val}': {e}")
 
@@ -37,14 +38,14 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Sequential ODE Parameter Estimation with Fixed/Bounded Params and Bootstrap Support"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,1")
     parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
 
-    parser.add_argument("--fix-A", type=float, default=1)
+    parser.add_argument("--fix-A", type=float, default=None)
     parser.add_argument("--fix-B", type=float, default=1)
     parser.add_argument("--fix-C", type=float, default=1)
     parser.add_argument("--fix-D", type=float, default=1)
@@ -57,42 +58,34 @@ def parse_args():
     parser.add_argument("--profile-start", type=float, default=0)
     parser.add_argument("--profile-end", type=float, default=100)
     parser.add_argument("--profile-step", type=float, default=10)
-    parser.add_argument("--out-dir", type=str, default="distributive_profiles")
-
-    # Missing: add this
     parser.add_argument("--input-excel", type=str,
-                        default="optimization_results.xlsx",
+                        default="../data/optimization_results.xlsx",
                         help="Path to the input Excel file")
 
     return parser.parse_args()
 
+def log_config(logger, bounds, fixed_params, time_fixed, args):
+    logger.info("Sequential Phosphorylation Modeling Configuration")
+    logger.info("Parameter Bounds:")
+    for key, val in bounds.items():
+        logger.info(f"   {key}: {val}")
+    logger.info("Fixed Parameters:")
+    for key, val in fixed_params.items():
+        logger.info(f"   {key}: {val}")
 
-def print_config(bounds, fixed_params, time_fixed, args):
-    separator = "=" * 70
-    print("\n" + separator)
-    print("Sequential Phosphorylation Modeling Configuration")
-    print(separator)
-    print("Parameter Bounds:")
-    for key in bounds:
-        print(f"   {key}: {bounds[key]}")
+    logger.info(f"Bootstrapping Iterations: {args.bootstraps}")
 
-    print("\nFixed Parameters:")
-    for key in fixed_params:
-        print(f"   {key}: {fixed_params.get(key)}")
-
-    print("\nBootstrapping Iterations:", args.bootstraps)
-    print("\nTime-specific Fixed Parameters:")
+    logger.info("Time-specific Fixed Parameters:")
     if time_fixed:
         for t, p in time_fixed.items():
-            print(f"   Time {t} min: {p}")
+            logger.info(f"   Time {t} min: {p}")
     else:
-        print("   None")
+        logger.info("   None")
 
-    print("\nProfile Estimation:")
-    print(f"   Start: {args.profile_start} min")
-    print(f"   End:   {args.profile_end} min")
-    print(f"   Step:  {args.profile_step} min")
-    print(separator)
+    logger.info("Profile Estimation:")
+    logger.info(f"   Start: {args.profile_start} min")
+    logger.info(f"   End:   {args.profile_end} min")
+    logger.info(f"   Step:  {args.profile_step} min")
     np.set_printoptions(suppress=True)
 
 def extract_config(args):
@@ -122,7 +115,6 @@ def extract_config(args):
         'profile_start': args.profile_start,
         'profile_end': args.profile_end,
         'profile_step': args.profile_step,
-        'out_dir': args.out_dir,
         'input_excel': args.input_excel,
         'max_workers': os.cpu_count(),
     }

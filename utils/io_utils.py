@@ -1,8 +1,8 @@
 import os
 
 import pandas as pd
-from constants import OUT_DIR
-from core import get_param_names
+from config.constants import OUT_DIR
+from estimation.core import get_param_names
 
 
 def ensure_output_directory(directory):
