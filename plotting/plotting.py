@@ -5,7 +5,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from phoskintime.config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
 from scipy.interpolate import CubicSpline

@@ -1,7 +1,7 @@
 import os
 
 import pandas as pd
-from phoskintime.config.constants import OUT_DIR, get_param_names
+from config.constants import OUT_DIR, get_param_names
 
 
 def ensure_output_directory(directory):

@@ -1,10 +1,10 @@
 
 import numpy as np
-from phoskintime.config.config import score_fit
-from phoskintime.config.constants import get_param_names
-from phoskintime.config.logging_config import setup_logger
-from phoskintime.models.ode_model import solve_ode
-from phoskintime.models.weights import early_emphasis, get_weight_options
+from config.config import score_fit
+from config.constants import get_param_names
+from config.logging_config import setup_logger
+from models.ode_model import solve_ode
+from models.weights import early_emphasis, get_weight_options
 from scipy.optimize import curve_fit
 
 logger = setup_logger(__name__)

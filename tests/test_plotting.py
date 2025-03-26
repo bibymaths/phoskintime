@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from phoskintime.plotting.plotting import plot_param_series
+from plotting.plotting import plot_param_series
 
 
 def test_plot_param_series(tmp_path):

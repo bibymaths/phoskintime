@@ -1,7 +1,7 @@
 import os
 
 import pandas as pd
-from phoskintime.utils.io_utils import ensure_output_directory, save_result
+from utils.io_utils import ensure_output_directory, save_result
 
 
 def test_ensure_output_directory(tmp_path):

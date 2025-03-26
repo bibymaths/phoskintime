@@ -20,17 +20,13 @@ jobs:
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install 
+          poetry install
 
-      - name: Set PYTHONPATH correctly
-        run: echo "PYTHONPATH=$(dirname "$GITHUB_WORKSPACE")" >> $GITHUB_ENV
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
-      - name: Debug Python path
+      - name: Show Python path
         run: python -c "import sys; print('\n'.join(sys.path))"
-        env:
-          PYTHONPATH: ${{ env.PYTHONPATH }}
 
       - name: Run tests with coverage
-        run: poetry run pytest tests/ --cov=phoskintime --cov-report=term-missing
-        env:
-          PYTHONPATH: ${{ env.PYTHONPATH }}
+        run: poetry run pytest tests/ --cov=. --cov-report=term-missing
