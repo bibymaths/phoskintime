@@ -20,7 +20,11 @@ jobs:
       - name: Install dependencies
         run: |
           poetry config virtualenvs.create false
-          poetry install
+          poetry install 
+
+      - name: Debug Python path
+        run: |
+          python -c "import sys; print('\n'.join(sys.path))" 
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
