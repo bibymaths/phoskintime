@@ -40,7 +40,7 @@ def ensure_output_directory(directory):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Sequential ODE Parameter Estimation with Fixed/Bounded Params and Bootstrap Support"
+        description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
     parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
