@@ -17,6 +17,7 @@ scikit-learn = "*"
 tqdm = "*"
 numba = "*"
 XlsxWriter = '*'
+pytest = "*"
 
 [tool.poetry.scripts]
 phoskintime = "phoskintime.bin.main:main"
