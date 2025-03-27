@@ -1,9 +1,6 @@
 import os, re, shutil
 import pandas as pd
 
-from config.logging_config import setup_logger
-logger = setup_logger(__name__)
-
 def ensure_output_directory(directory):
     os.makedirs(directory, exist_ok=True)
 
@@ -47,7 +44,6 @@ def organize_output_files(*directories):
             if os.path.isfile(file_path):
                 destination_path = os.path.join(general_folder, filename)
                 shutil.move(file_path, destination_path)
-        logger.info('Organized output files')
 
 
 def save_result(results, excel_filename):
