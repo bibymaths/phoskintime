@@ -4,10 +4,10 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 
 from config.config import parse_args, extract_config, log_config
-from config.constants import OUT_DIR, TIME_POINTS
+from config.constants import OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR
 from config.logging_config import setup_logger
 from estimation.core import process_gene_wrapper
-from utils.io_utils import ensure_output_directory, save_result
+from utils.utils import ensure_output_directory, save_result, organize_output_files
 
 logger = setup_logger(__name__)
 
@@ -41,10 +41,12 @@ def main():
             [config['bootstraps']] * len(genes)
         ))
 
-    save_result(results, TIME_POINTS)
+    save_result(results, excel_filename=OUT_RESULTS_DIR)
 
     logger.info("Parameter Estimation Finished")
     logger.info(f"Plots Saved at {OUT_DIR}")
+
+    organize_output_files(OUT_DIR)
     logger.info("All results saved successfully.")
 
 if __name__ == "__main__":

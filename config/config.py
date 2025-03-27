@@ -1,14 +1,20 @@
-import argparse
-import json
+
 import os
+import json
+import argparse
+import numpy as np
 from pathlib import Path
 
-import numpy as np
+from config.constants import (
+    ALPHA_WEIGHT,
+    BETA_WEIGHT,
+    GAMMA_WEIGHT,
+    DELTA_WEIGHT,
+    MU_REG,
+    INPUT_EXCEL
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / 'data'
-INPUT_EXCEL = DATA_DIR / 'optimization_results.xlsx'
-OUTPUT_DIR = PROJECT_ROOT / 'results'
 
 def parse_bound_pair(val):
     try:
@@ -42,25 +48,25 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,2")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,2")
 
     parser.add_argument("--fix-A", type=float, default=None)
-    parser.add_argument("--fix-B", type=float, default=1)
-    parser.add_argument("--fix-C", type=float, default=1)
-    parser.add_argument("--fix-D", type=float, default=1)
+    parser.add_argument("--fix-B", type=float, default=None)
+    parser.add_argument("--fix-C", type=float, default=None)
+    parser.add_argument("--fix-D", type=float, default=None)
     parser.add_argument("--fix-Ssite", type=parse_fix_value, default=None)
-    parser.add_argument("--fix-Dsite", type=parse_fix_value, default=1)
+    parser.add_argument("--fix-Dsite", type=parse_fix_value, default=None)
 
-    parser.add_argument("--fix-t", type=str, default='{\"0\": {\"A\": 1}, \"60\": {\"A\": 1.3}, \"200\": {\"A\": 0.85}}',
+    parser.add_argument("--fix-t", type=str, default='{\"60\": {\"A\": 1.3}, \"200\": {\"A\": 0.85}}',
                         help="JSON string mapping time points to fixed param values, e.g. '{\"60\": {\"A\": 1.3}}'")
-    parser.add_argument("--bootstraps", type=int, default=10)
+    parser.add_argument("--bootstraps", type=int, default=0)
     parser.add_argument("--profile-start", type=float, default=0)
-    parser.add_argument("--profile-end", type=float, default=200)
+    parser.add_argument("--profile-end", type=float, default=240)
     parser.add_argument("--profile-step", type=float, default=60)
     parser.add_argument("--input-excel", type=str,
                         default=INPUT_EXCEL,
@@ -119,33 +125,22 @@ def extract_config(args):
         'profile_end': args.profile_end,
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
-        'max_workers': os.cpu_count(),
+        'max_workers': 1,
     }
     return config
 
-
-def score_fit(target, prediction, params, alpha=1.0, beta=0.5, gamma=0.2, reg_penalty=0.1):
-    # Composite Scoring Function:
-    #
-    # score = α * RMSE + β * MAE + γ * Var(residual) + λ * ||θ||₂
-    #
-    # Where:
-    #   RMSE         = Root Mean Squared Error between model prediction and target
-    #   MAE          = Mean Absolute Error
-    #   Var(residual)= Variance of residuals to penalize unstable fits
-    #   ||θ||₂       = L2 norm of estimated parameters (regularization)
-    #
-    #   α (alpha)    = Weight for RMSE
-    #   β (beta)     = Weight for MAE
-    #   γ (gamma)    = Weight for residual variance
-    #   λ (lambda)   = Regularization penalty for parameter magnitude
-    #
-    # Lower score indicates a better fit
+def score_fit(target, prediction, params,
+              alpha=ALPHA_WEIGHT,
+              beta=BETA_WEIGHT,
+              gamma=GAMMA_WEIGHT,
+              delta=DELTA_WEIGHT,
+              reg_penalty=MU_REG):
     residual = target - prediction
+    mse = np.sum(np.abs(residual) ** 2)
     rmse = np.sqrt(np.mean(residual ** 2))
     mae = np.mean(np.abs(residual))
     variance = np.var(residual)
     l2_norm = np.linalg.norm(params)
 
-    score = alpha * rmse + beta * mae + gamma * variance + reg_penalty * l2_norm
+    score = delta * mse + alpha * rmse + beta * mae + gamma * variance + reg_penalty * l2_norm
     return score

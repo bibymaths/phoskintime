@@ -1,12 +1,11 @@
-
 import logging
 import os
 import re
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from tqdm import tqdm
-from utils.io_utils import format_duration
+from config.constants import LOG_DIR
+from utils.utils import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {
@@ -15,50 +14,42 @@ LOG_COLORS = {
     "WARNING": "\033[93m",  # Yellow
     "ERROR": "\033[91m",    # Red
     "CRITICAL": "\033[95m", # Magenta
+    "ELAPSED": "\033[96m",  # Cyan (right-aligned clock)
     "ENDC": "\033[0m",      # Reset
 }
 
 class ColoredFormatter(logging.Formatter):
-    def __init__(self, fmt=None, datefmt=None, width=150):
+    def __init__(self, fmt=None, datefmt=None, width=200):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
-        self.width = width  # total width of the message line (before ⏱)
+        self.width = width
 
     def format(self, record):
         elapsed = (datetime.now() - self.start_time).total_seconds()
-        elapsed_str = f"⏱ {format_duration(elapsed)}"
+        elapsed_str = f"{LOG_COLORS['ELAPSED']}⏱ {format_duration(elapsed)}{LOG_COLORS['ENDC']}"
 
-        level_color = LOG_COLORS.get(record.levelname, "")
-        end_color = LOG_COLORS["ENDC"]
-        base_msg = super().format(record)
+        # Compose colored parts
+        color = LOG_COLORS.get(record.levelname, LOG_COLORS["INFO"])
+        time_str = f"{LOG_COLORS['DEBUG']}{self.formatTime(record)}{LOG_COLORS['ENDC']}"
+        name_str = f"{LOG_COLORS['WARNING']}{record.name}{LOG_COLORS['ENDC']}"
+        level_str = f"{color}{record.levelname}{LOG_COLORS['ENDC']}"
+        msg_str = f"{color}{record.getMessage()}{LOG_COLORS['ENDC']}"
 
-        # Strip ANSI for length calculation
-        raw_msg = self.remove_ansi(base_msg)
-        padding = max(0, self.width - len(raw_msg))
-        padded_msg = f"{level_color}{base_msg}{end_color}{' ' * padding}{elapsed_str}"
-
-        return padded_msg
+        raw_msg = f"{time_str} - {name_str} - {level_str} - {msg_str}"
+        no_ansi_len = len(self.remove_ansi(raw_msg))
+        padding = max(0, self.width - no_ansi_len)
+        return f"{raw_msg}{' ' * padding}{elapsed_str}"
 
     @staticmethod
     def remove_ansi(s):
         ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', s)
 
-class TqdmLoggingHandler(logging.Handler):
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.write(msg)  # Write using tqdm-safe print
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-
 def setup_logger(
     name=__name__,
     log_file=None,
     level=logging.DEBUG,
-    log_dir="logs",
+    log_dir=LOG_DIR,
     rotate=True,
     max_bytes=2 * 1024 * 1024,
     backup_count=5
@@ -76,20 +67,21 @@ def setup_logger(
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # File handler
+    # File Handler
     if rotate:
         file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
     else:
         file_handler = logging.FileHandler(log_file)
+
     file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(file_format)
     logger.addHandler(file_handler)
 
-    # TQDM-aware stream handler for console
-    tqdm_handler = TqdmLoggingHandler()
+    # Stream Handler (Console)
+    stream_handler = logging.StreamHandler()
     stream_format = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    tqdm_handler.setFormatter(stream_format)
-    tqdm_handler.setLevel(logging.INFO)
-    logger.addHandler(tqdm_handler)
+    stream_handler.setFormatter(stream_format)
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
 
     return logger

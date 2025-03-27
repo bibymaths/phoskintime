@@ -7,7 +7,7 @@ import pandas as pd
 from config.constants import get_param_names, generate_labels, OUT_DIR
 from config.logging_config import setup_logger
 from estimation.estimation import sequential_estimation
-from adaptive_estimation import save_profiles
+from estimation.adaptive_estimation import estimate_profiles
 from models.ode_model import solve_ode
 from plotting.plotting import (plot_parallel, plot_tsne, plot_pca, pca_components,
                                            plot_param_series, plot_model_fit, plot_A_S)
@@ -72,70 +72,92 @@ def early_emphasis(P_data, time_points, num_psites):
 # ----------------------------------
 # Process Protein
 # ----------------------------------
-def process_gene(gene, measurement_data, time_points, bounds, fixed_params,
-                 desired_times=None, time_fixed=None, bootstraps=0, out_dir=OUT_DIR):
+
+def process_gene(
+    gene,
+    measurement_data,
+    time_points,
+    bounds,
+    fixed_params,
+    desired_times=None,
+    time_fixed=None,
+    bootstraps=0,
+    out_dir=OUT_DIR
+):
+    # 1. Extract Gene-specific Data
     gene_data = measurement_data[measurement_data['Gene'] == gene]
     num_psites = gene_data.shape[0]
     psite_values = gene_data['Psite'].values
     init_cond = initial_condition(num_psites)
     P_data = gene_data.iloc[:, 2:].values
 
-    # Estimate parameters sequentially
+    # 2. Sequential Time-point Estimation
     estimated_params, model_fits, errors = sequential_estimation(
         P_data, time_points, init_cond, bounds, fixed_params, num_psites, gene
     )
 
-    # Extract final model fit at each step
+    # Extract final fit values
     seq_model_fit = np.zeros((num_psites, len(time_points)))
     for i, (_, P_fitted) in enumerate(model_fits):
         seq_model_fit[:, i] = P_fitted[:, -1]
 
-    # Save profile estimates of given fixed or/and
-    # free parameters at given times
+    # 3. Adaptive Profile Estimation (Optional)
+    profiles_df, profiles_dict = None, None
     if desired_times is not None and time_fixed is not None:
-        save_profiles(
+        profiles_df, profiles_dict = estimate_profiles(
             gene, measurement_data, init_cond, num_psites,
             time_points, desired_times, bounds, fixed_params,
-            bootstraps, time_fixed, out_dir
+            bootstraps, time_fixed
         )
+        # Save profile Excel
+        profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
+        profiles_df.to_excel(profile_path, index=False)
+        logger.info(f"Saved profile estimates to: {profile_path}")
 
-    # Generate outputs
-    labels = generate_labels(num_psites)
+    # 4. Solve Full ODE with Final Params
     final_params = estimated_params[-1]
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
-    param_names = get_param_names(num_psites)
 
-    # Plotting
+    # 5. Plotting Outputs
+    labels = generate_labels(num_psites)
     plot_parallel(sol_full, labels, gene, out_dir)
     plot_tsne(sol_full, gene, perplexity=5, out_dir=out_dir)
     plot_pca(sol_full, gene, components=3, out_dir=out_dir)
     pca_components(sol_full, gene, target_variance=0.99, out_dir=out_dir)
-    plot_param_series(gene, estimated_params, param_names, time_points, out_dir)
+    plot_param_series(gene, estimated_params, get_param_names(num_psites), time_points, out_dir)
     plot_model_fit(gene, seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points, out_dir)
     plot_A_S(gene, estimated_params, num_psites, time_points, out_dir)
 
-    # Saving parameters
+    # 6. Save Sequential Parameters to Excel
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
-    df_params.to_excel(os.path.join(out_dir, f"{gene}_parameters.xlsx"), index=False)
+    param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
+    df_params.to_excel(param_path, index=False)
+    logger.info(f"Saved estimated parameters to: {param_path}")
+
+    # 7. Error Metrics
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
         gene_psite_dict_local[name] = [final_params[i]]
-    final_data_flat = P_data.flatten()
-    final_pred = seq_model_fit.flatten()
 
-    # Displaying protein-wise errors
-    mse = mean_squared_error(final_data_flat, final_pred)
-    mae = mean_absolute_error(final_data_flat, final_pred)
-
+    mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
+    mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
     logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
 
+    # 8. Return Results
     return {
         "gene": gene,
         "estimated_params": estimated_params,
+        "model_fits": model_fits,
         "seq_model_fit": seq_model_fit,
         "errors": errors,
+        "final_params": final_params,
+        "profiles": profiles_dict,
+        "profiles_df": profiles_df,
+        "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
+        "mse": mse,
+        "mae": mae
     }
 
 def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,
