@@ -15,7 +15,6 @@ def test_save_result(tmp_path):
     gene = "TestGene"
     estimated_params = [np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])] * 3
     errors = [0.01, 0.02, 0.03]
-    time_points = [0, 1, 2]
 
     results = [{
         "gene": gene,
@@ -24,7 +23,7 @@ def test_save_result(tmp_path):
     }]
 
     excel_filename = tmp_path / "test_results.xlsx"
-    save_result(results, time_points, str(excel_filename))
+    save_result(results, str(excel_filename))
 
     assert os.path.exists(excel_filename)
 

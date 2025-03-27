@@ -17,7 +17,7 @@ def format_duration(seconds):
 
 
 def organize_output_files(*directories):
-    protein_regex = re.compile(r'([A-Z0-9]{2,6})\.(json|svg|png|html|csv)$')
+    protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv)$')
 
     for directory in directories:
         if not os.path.isdir(directory):
