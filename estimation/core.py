@@ -5,43 +5,16 @@ import numpy as np
 import pandas as pd
 
 from config.constants import get_param_names, generate_labels, OUT_DIR
-from config.logging_config import setup_logger
 from estimation.estimation import sequential_estimation
 from estimation.adaptive_estimation import estimate_profiles
-from models.ode_model import solve_ode
-from plotting.plotting import (plot_parallel, plot_tsne, plot_pca, pca_components,
-                                           plot_param_series, plot_model_fit, plot_A_S)
-
+from models import solve_ode
+from steadystate import initial_condition
+from plotting import Plotter
 from numba import njit
-from scipy.optimize import minimize
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+from config.logging_config import setup_logger
 logger = setup_logger(__name__)
-
-# ----------------------------------
-# Parameter + State Initialization
-# ----------------------------------
-def initial_condition(num_psites: int) -> list:
-    A, B, C, D = 1, 1, 1, 1
-    S_rates = np.ones(num_psites)
-    D_rates = np.ones(num_psites)
-
-    def steady_state_equations(y):
-        R, P, *P_sites = y
-        dR_dt = A - B * R
-        dP_dt = C * R - (D + np.sum(S_rates)) * P + np.sum(P_sites)
-        dP_sites_dt = [S_rates[i] * P - (1 + D_rates[i]) * P_sites[i] for i in range(num_psites)]
-        return [dR_dt, dP_dt] + dP_sites_dt
-
-    y0_guess = np.ones(num_psites + 2)
-    bounds_local = [(1e-6, None)] * (num_psites + 2)
-    result = minimize(lambda y: 0, y0_guess, method='SLSQP', bounds=bounds_local,
-                      constraints={'type': 'eq', 'fun': steady_state_equations})
-    logger.info("Steady-State conditions calculated")
-    if result.success:
-        return result.x.tolist()
-    else:
-        raise ValueError("Failed to find steady-state conditions")
 
 # ----------------------------------
 # Early-Weighted Scheme
@@ -120,13 +93,13 @@ def process_gene(
 
     # 5. Plotting Outputs
     labels = generate_labels(num_psites)
-    plot_parallel(sol_full, labels, gene, out_dir)
-    plot_tsne(sol_full, gene, perplexity=5, out_dir=out_dir)
-    plot_pca(sol_full, gene, components=3, out_dir=out_dir)
-    pca_components(sol_full, gene, target_variance=0.99, out_dir=out_dir)
-    plot_param_series(gene, estimated_params, get_param_names(num_psites), time_points, out_dir)
-    plot_model_fit(gene, seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points, out_dir)
-    plot_A_S(gene, estimated_params, num_psites, time_points, out_dir)
+    # Create a single Plotter instance.
+    plotter = Plotter(gene, out_dir)
+    # Call plot_all with all necessary data.
+    plotter.plot_all(solution=sol_full, labels=labels,
+                     estimated_params=estimated_params, time_points=time_points,
+                     P_data=P_data, seq_model_fit=seq_model_fit,
+                     psite_labels=psite_values, perplexity=5, components=3, target_variance=0.99)
 
     # 6. Save Sequential Parameters to Excel
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))

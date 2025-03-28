@@ -6,12 +6,12 @@ from scipy.optimize import curve_fit
 from scipy.interpolate import PchipInterpolator
 
 from config.constants import OUT_DIR
-from plotting.plotting import plot_profiles
 from config.config import score_fit
 from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION
 from config.logging_config import setup_logger
-from models.ode_model import solve_ode
+from models.distmod import solve_ode
 from models.weights import early_emphasis, get_weight_options
+from plotting import Plotter
 
 logger = setup_logger(__name__)
 
@@ -148,6 +148,6 @@ def estimate_profiles(gene, P_data, init_cond, num_psites, time_points, desired_
     data = {"Time (min)": list(profiles.keys())}
     for i, name in enumerate(param_names):
         data[name] = [profiles[T][i] for T in desired_times]
-    plot_profiles(gene, data, OUT_DIR)
+    Plotter.plot_profiles(gene, data)
     df = pd.DataFrame(data)
     return df, profiles

@@ -1,5 +1,5 @@
 import numpy as np
-from models.ode_model import solve_ode
+from models.distmod import solve_ode
 
 
 def test_solve_ode():

@@ -6,7 +6,7 @@ from scipy.optimize import curve_fit
 from config.config import score_fit
 from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION
 from config.logging_config import setup_logger
-from models.ode_model import solve_ode
+from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
 
 logger = setup_logger(__name__)
