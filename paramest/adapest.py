@@ -2,32 +2,57 @@
 
 import pandas as pd
 import numpy as np
+from itertools import combinations
 from scipy.optimize import curve_fit
 from scipy.interpolate import PchipInterpolator
 
-from config.constants import OUT_DIR
 from config.config import score_fit
-from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION
-from config.logging_config import setup_logger
+from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL
+from config.logconf import setup_logger
 from models.distmod import solve_ode
 from models.weights import early_emphasis, get_weight_options
 from plotting import Plotter
 
-logger = setup_logger(__name__)
+if ODE_MODEL == 'randmod':
+    from config.helpers import get_param_names_rand
+    get_param_names = get_param_names_rand
+else:
+    from config.constants import get_param_names
+
+logger = setup_logger()
 
 def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
                        time_points, use_regularization=True, lambda_reg=1e-3):
-    num_total_params = 4 + 2 * num_psites
-    lower_bounds_full = (
-        [bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]] +
-        [bounds["Ssite"][0]] * num_psites +
-        [bounds["Dsite"][0]] * num_psites
-    )
-    upper_bounds_full = (
-        [bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]] +
-        [bounds["Ssite"][1]] * num_psites +
-        [bounds["Dsite"][1]] * num_psites
-    )
+    if ODE_MODEL == 'randmod':
+        # Build lower and upper bounds from config.
+        lower_bounds_full = [
+            bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]
+        ]
+        upper_bounds_full = [
+            bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]
+        ]
+        # For phosphorylation parameters: use Ssite bounds.
+        lower_bounds_full += [bounds["Ssite"][0]] * num_psites
+        upper_bounds_full += [bounds["Ssite"][1]] * num_psites
+        # For dephosphorylation parameters: for each combination, use Dsite bounds.
+        for i in range(1, num_psites + 1):
+            for _ in combinations(range(1, num_psites + 1), i):
+                lower_bounds_full.append(bounds["Dsite"][0])
+                upper_bounds_full.append(bounds["Dsite"][1])
+        num_total_params = len(lower_bounds_full)
+    else:
+        # Existing approach for distributive or successive models.
+        num_total_params = 4 + 2 * num_psites
+        lower_bounds_full = (
+            [bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]] +
+            [bounds["Ssite"][0]] * num_psites +
+            [bounds["Dsite"][0]] * num_psites
+        )
+        upper_bounds_full = (
+            [bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]] +
+            [bounds["Ssite"][1]] * num_psites +
+            [bounds["Dsite"][1]] * num_psites
+        )
     fixed_values = {}
     free_indices = []
     param_names = get_param_names(num_psites)
@@ -53,7 +78,7 @@ def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
     free_bounds = ([lower_bounds_full[i] for i in free_indices],
                    [upper_bounds_full[i] for i in free_indices])
 
-    logger.info("Model built with fixed and free parameters.")
+    # logger.info("Model built")
     return model_func, free_indices, free_bounds, fixed_values, num_total_params
 
 
@@ -108,11 +133,12 @@ def adaptive_estimation(P_data, init_cond, num_psites, time_points, T,
         scores[wname] = score_fit(target_fit, pred, popt)
 
     best_weight = min(scores, key=scores.get)
+    best_score = scores[best_weight]
     popt_best = popts[best_weight]
-    logger.info(f"[{gene}] T={T} best weight: {best_weight}")
+    logger.info(f"[{gene}] Time = {T} Best Weight = {best_weight} Score: {best_score:.2f}")
 
     if bootstraps > 0:
-        logger.info(f"[{gene}] Bootstrapping {bootstraps}x at T={T}")
+        logger.info(f"[{gene}] Bootstrapping {bootstraps}x at T = {T}")
         est_list = []
         for _ in range(bootstraps):
             noise = np.random.normal(0, 0.05, size=target_fit.shape)
@@ -138,7 +164,7 @@ def estimate_profiles(gene, P_data, init_cond, num_psites, time_points, desired_
                       bounds, fixed_params, bootstraps, time_fixed_dict):
     profiles = {}
     for T in desired_times:
-        logger.info(f"[{gene}] Estimating adaptive profile at T = {T}")
+        # logger.info(f"[{gene}] Estimating Adaptive Profile at T = {T}")
         extra_fixed = time_fixed_dict.get(str(T), {})
         profiled_params = adaptive_estimation(P_data, init_cond, num_psites, time_points, T,
                                               bounds, fixed_params, gene, bootstraps, extra_fixed)
@@ -148,6 +174,7 @@ def estimate_profiles(gene, P_data, init_cond, num_psites, time_points, desired_
     data = {"Time (min)": list(profiles.keys())}
     for i, name in enumerate(param_names):
         data[name] = [profiles[T][i] for T in desired_times]
-    Plotter.plot_profiles(gene, data)
     df = pd.DataFrame(data)
+    plotter = Plotter(gene)
+    plotter.plot_profiles(df)
     return df, profiles

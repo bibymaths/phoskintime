@@ -3,7 +3,7 @@ import pandas as pd
 from pandas import MultiIndex, concat
 
 from config.constants import OUT_DIR
-from config.logging_config import setup_logger
+from config.logconf import setup_logger
 logger = setup_logger(__name__)
 
 def generate_tables(xlsx_file_path):

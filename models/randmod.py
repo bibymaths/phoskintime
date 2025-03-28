@@ -101,7 +101,9 @@ def solve_ode(popt, initial_conditions, num_psites, time_points):
     A_val, B_val, C_val, D_val = ode_params[:4]
     remaining = ode_params[4:]
     sol = odeint(ode_system, ic, time_points, args=(A_val, B_val, C_val, D_val, num_psites, binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *remaining))
+    sol = np.clip(sol, 0, None)
     if num_psites > 1:
-        return tuple(sol[:, i] for i in range(2, 2 + num_psites))
+        P_fitted = sol[:, 2:2 + num_psites].T
     else:
-        return sol[:, 2]
+        P_fitted = sol[:, 2]
+    return sol, P_fitted

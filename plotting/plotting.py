@@ -11,7 +11,7 @@ from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
+from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
 
 
 class Plotter:

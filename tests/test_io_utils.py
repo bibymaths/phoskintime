@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from utils.utils import ensure_output_directory, save_result
+from utils.display import ensure_output_directory, save_result
 
 def test_ensure_output_directory(tmp_path):
     dir_path = tmp_path / "new_dir"

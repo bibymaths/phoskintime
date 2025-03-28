@@ -2,8 +2,8 @@ import numpy as np
 from scipy.optimize import minimize
 from itertools import combinations
 
-from config.logging_config import setup_logger
-logger = setup_logger(__name__)
+from config.logconf import setup_logger
+logger = setup_logger()
 
 def initial_condition(num_psites: int) -> list:
     subsets = []

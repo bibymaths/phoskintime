@@ -1,5 +1,5 @@
 import numpy as np
-from estimation.estimation import prepare_model_func
+from paramest.seqest import prepare_model_func
 
 
 def test_prepare_model_func_structure():

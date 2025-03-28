@@ -5,7 +5,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 from config.constants import LOG_DIR
-from utils.utils import format_duration
+from utils.display import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {
@@ -19,7 +19,7 @@ LOG_COLORS = {
 }
 
 class ColoredFormatter(logging.Formatter):
-    def __init__(self, fmt=None, datefmt=None, width=200):
+    def __init__(self, fmt=None, datefmt=None, width=150):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
         self.width = width
@@ -46,7 +46,7 @@ class ColoredFormatter(logging.Formatter):
         return ansi_escape.sub('', s)
 
 def setup_logger(
-    name=__name__,
+    name="phoskintime",
     log_file=None,
     level=logging.DEBUG,
     log_dir=LOG_DIR,

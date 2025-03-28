@@ -49,25 +49,29 @@ def parse_args():
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
     parser.add_argument("--A-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
 
     parser.add_argument("--fix-A", type=float, default=None)
-    parser.add_argument("--fix-B", type=float, default=None)
-    parser.add_argument("--fix-C", type=float, default=None)
-    parser.add_argument("--fix-D", type=float, default=None)
+    parser.add_argument("--fix-B", type=float, default=1)
+    parser.add_argument("--fix-C", type=float, default=1)
+    parser.add_argument("--fix-D", type=float, default=1)
     parser.add_argument("--fix-Ssite", type=parse_fix_value, default=None)
-    parser.add_argument("--fix-Dsite", type=parse_fix_value, default=None)
+    parser.add_argument("--fix-Dsite", type=parse_fix_value, default=1)
 
-    parser.add_argument("--fix-t", type=str, default='{\"60\": {\"A\": 1.3}, \"200\": {\"A\": 0.85}}',
+    parser.add_argument("--fix-t", type=str, default='{ '
+                                                     '\"0\": {\"A\": 0.85, \"S\": 0.1},  '
+                                                     '\"60\": {\"A\":0.85, \"S\": 0.2},  '
+                                                     '\"200\": {\"A\":0.85, \"S\": 0.4} '
+                                                     '}',
                         help="JSON string mapping time points to fixed param values, e.g. '{\"60\": {\"A\": 1.3}}'")
     parser.add_argument("--bootstraps", type=int, default=0)
-    parser.add_argument("--profile-start", type=float, default=0)
-    parser.add_argument("--profile-end", type=float, default=240)
-    parser.add_argument("--profile-step", type=float, default=60)
+    parser.add_argument("--profile-start", type=float, default=None)
+    parser.add_argument("--profile-end", type=float, default=None)
+    parser.add_argument("--profile-step", type=float, default=None)
     parser.add_argument("--input-excel", type=str,
                         default=INPUT_EXCEL,
                         help="Path to the input Excel file")

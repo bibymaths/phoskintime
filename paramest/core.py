@@ -5,16 +5,16 @@ import numpy as np
 import pandas as pd
 
 from config.constants import get_param_names, generate_labels, OUT_DIR
-from estimation.estimation import sequential_estimation
-from estimation.adaptive_estimation import estimate_profiles
+from paramest.seqest import sequential_estimation
+from paramest.adapest import estimate_profiles
 from models import solve_ode
-from steadystate import initial_condition
+from steady import initial_condition
 from plotting import Plotter
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-from config.logging_config import setup_logger
-logger = setup_logger(__name__)
+from config.logconf import setup_logger
+logger = setup_logger()
 
 # ----------------------------------
 # Early-Weighted Scheme
@@ -74,6 +74,11 @@ def process_gene(
     for i, (_, P_fitted) in enumerate(model_fits):
         seq_model_fit[:, i] = P_fitted[:, -1]
 
+    # 7. Error Metrics
+    mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
+    mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
+    logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
+
     # 3. Adaptive Profile Estimation (Optional)
     profiles_df, profiles_dict = None, None
     if desired_times is not None and time_fixed is not None:
@@ -85,10 +90,14 @@ def process_gene(
         # Save profile Excel
         profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
         profiles_df.to_excel(profile_path, index=False)
-        logger.info(f"Saved profile estimates to: {profile_path}")
+        # logger.info(f"Profiled Estimates: {profile_path}")
 
     # 4. Solve Full ODE with Final Params
     final_params = estimated_params[-1]
+    gene_psite_dict_local = {'Protein': gene}
+    for i, name in enumerate(get_param_names(num_psites)):
+        gene_psite_dict_local[name] = [final_params[i]]
+
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
     # 5. Plotting Outputs
@@ -106,16 +115,7 @@ def process_gene(
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
-    logger.info(f"Saved estimated parameters to: {param_path}")
-
-    # 7. Error Metrics
-    gene_psite_dict_local = {'Protein': gene}
-    for i, name in enumerate(get_param_names(num_psites)):
-        gene_psite_dict_local[name] = [final_params[i]]
-
-    mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
-    mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
-    logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
+    # logger.info(f"Estimated Parameters: {param_path}")
 
     # 8. Return Results
     return {

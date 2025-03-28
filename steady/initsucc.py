@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.optimize import minimize
 
-from config.logging_config import setup_logger
-logger = setup_logger(__name__)
+from config.logconf import setup_logger
+logger = setup_logger()
 
 def initial_condition(num_psites: int) -> list:
     A, B, C, D = 1, 1, 1, 1
@@ -18,8 +18,14 @@ def initial_condition(num_psites: int) -> list:
 
     y0_guess = np.ones(num_psites + 2)
     bounds_local = [(1e-6, None)] * (num_psites + 2)
-    result = minimize(lambda y: 0, y0_guess, method='SLSQP', bounds=bounds_local,
-                      constraints={'type': 'eq', 'fun': steady_state_equations})
+    result = minimize(
+        lambda y: 0,
+        y0_guess,
+        method='SLSQP',
+        bounds=bounds_local,
+        constraints={'type': 'eq', 'fun': steady_state_equations}
+    )
+
     logger.info("Steady-State conditions calculated")
     if result.success:
         return result.x.tolist()

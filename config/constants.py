@@ -11,7 +11,15 @@ from config.helpers import *
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
+
+# Mapping ODE_MODEL values to display names.
+model_names = {
+    "distmod": "Distributive",
+    "succmod": "Successive",
+    "randmod": "Random"
+}
+model_type = model_names.get(ODE_MODEL, "Unknown")
 
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
@@ -24,9 +32,9 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - CONTOUR_LEVELS: Defines the number of contour levels used in density plots.
 # - USE_REGULARIZATION: Enables (True) or disables (False) Tikhonov (L2) regularization during model fitting.
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
-CONTOUR_LEVELS = 10
+CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-3
+LAMBDA_REG = 1e-6
 
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
@@ -47,10 +55,10 @@ LAMBDA_REG = 1e-3
 #
 # Lower score indicates a better fit.
 DELTA_WEIGHT = 1.0
-ALPHA_WEIGHT = 0.8
-BETA_WEIGHT = 0.5
-GAMMA_WEIGHT = 0.2
-MU_REG = 0.1
+ALPHA_WEIGHT = 1.0
+BETA_WEIGHT = 1.0
+GAMMA_WEIGHT = 1.0
+MU_REG = 2.0
 
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
