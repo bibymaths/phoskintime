@@ -9,15 +9,10 @@ from scipy.interpolate import PchipInterpolator
 from config.config import score_fit
 from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL
 from config.logconf import setup_logger
-from models.distmod import solve_ode
+from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
 from plotting import Plotter
-
-if ODE_MODEL == 'randmod':
-    from config.helpers import get_param_names_rand
-    get_param_names = get_param_names_rand
-else:
-    from config.constants import get_param_names
+from config.constants import get_param_names
 
 logger = setup_logger()
 

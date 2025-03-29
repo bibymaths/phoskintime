@@ -9,12 +9,7 @@ from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL
 from config.logconf import setup_logger
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
-
-if ODE_MODEL == 'randmod':
-    from config.helpers import get_param_names_rand
-    get_param_names = get_param_names_rand
-else:
-    from config.constants import get_param_names
+from config.constants import get_param_names
 
 logger = setup_logger()
 
@@ -151,7 +146,7 @@ def sequential_estimation(P_data, time_points, init_cond, bounds,
         est_params.append(p_full)
         sol, P_fit = solve_ode(p_full, init_cond, num_psites, t_now)
         model_fits.append((sol, P_fit))
-        error_vals.append(np.sum((y_flat - P_fit.flatten()) ** 2))
+        error_vals.append(np.sum(np.abs(y_flat - P_fit.flatten()) ** 2))
         p0_free = best_fit
 
         logger.info(f"[{gene}] Time Index {i} Best Weight = {weight_key}")

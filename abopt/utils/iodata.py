@@ -1,11 +1,9 @@
 import os, re, shutil
 import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
-def ensure_output_directory(directory):
-    os.makedirs(directory, exist_ok=True)
-
-def load_data(excel_file, sheet="Estimated Values"):
-    return pd.read_excel(excel_file, sheet_name=sheet)
+from abopt.config.constants import INPUT1, INPUT2
 
 def format_duration(seconds):
     if seconds < 60:
@@ -15,33 +13,43 @@ def format_duration(seconds):
     else:
         return f"{seconds / 3600:.2f} hr"
 
-def save_result(results, excel_filename):
-    with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
-        for res in results:
-            gene = res["gene"]
-            sheet_prefix = gene[:25]  # Excel sheet names must be ≤31 chars
+def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
+    full_hgnc_df = pd.read_csv(INPUT1)
+    time_series_cols = [f'x{i}' for i in range(1, 15)]
+    full_hgnc_df = apply_scaling(full_hgnc_df, time_series_cols, scaling_method, split_point, seg_points)
+    interaction_df = pd.read_csv(INPUT2, header=0)
+    if estimate_missing:
+        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"]).drop(columns=["max", "min"])
+        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
+    else:
+        interaction_df = interaction_df[interaction_df['Kinase'].apply(
+            lambda k: all(kinase in set(full_hgnc_df['GeneID'][1:]) for kinase in k.strip('{}').split(',')))]
+        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
+        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"]).drop(columns=["max", "min"])
+    return full_hgnc_df, interaction_df, observed
 
-            # 1. Save Sequential Parameter Estimates
-            param_df = res["param_df"].copy()
-            if "errors" in res:
-                param_df["MSE"] = pd.Series(res["errors"][:len(param_df)])
-            param_df.insert(0, "Gene", gene)
-            param_df.to_excel(writer, sheet_name=f"{sheet_prefix}_params", index=False)
 
-            # 2. Save Profiled Estimates if available
-            if "profiles_df" in res and res["profiles_df"] is not None:
-                prof_df = res["profiles_df"].copy()
-                prof_df.insert(0, "Gene", gene)
-                prof_df.to_excel(writer, sheet_name=f"{sheet_prefix}_profiles", index=False)
-
-            # 4. Save errors summary
-            error_summary = {
-                "Gene": gene,
-                "MSE": res.get("mse", ""),
-                "MAE": res.get("mae", "")
-            }
-            err_df = pd.DataFrame([error_summary])
-            err_df.to_excel(writer, sheet_name=f"{sheet_prefix}_errors", index=False)
+def apply_scaling(df, cols, method, split_point, seg_points):
+    if method == 'min_max':
+        scaler = MinMaxScaler()
+        df[cols] = pd.DataFrame(df[cols].apply(lambda r: scaler.fit_transform(r.values.reshape(-1, 1)).flatten(), axis=1).tolist(), index=df.index)
+    elif method == 'log':
+        df[cols] = df[cols].applymap(np.log)
+    elif method == 'temporal':
+        first, second = cols[:split_point], cols[split_point:]
+        scaler1, scaler2 = MinMaxScaler(), MinMaxScaler()
+        df[first] = scaler1.fit_transform(df[first])
+        df[second] = scaler2.fit_transform(df[second])
+    elif method == 'segmented':
+        if not seg_points:
+            raise ValueError("Segment points must be provided.")
+        for seg in [cols[seg_points[i]:seg_points[i+1]] for i in range(len(seg_points)-1)]:
+            df[seg] = MinMaxScaler().fit_transform(df[seg])
+    elif method == 'slope':
+        df[cols] = MinMaxScaler().fit_transform(df[cols].diff(axis=1).fillna(0))
+    elif method == 'cumulative':
+        df[cols] = MinMaxScaler().fit_transform(df[cols].cumsum(axis=1))
+    return df
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """

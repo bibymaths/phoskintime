@@ -12,3 +12,4 @@ openpyxl
 python-dotenv
 xlsxwriter
 pytest
+statsmodels
