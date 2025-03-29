@@ -16,6 +16,8 @@ INPUT1 = DATA_DIR / 'input1.csv'
 INPUT2 = DATA_DIR / 'input2.csv'
 OUT_FILE = OUT_DIR / 'results.csv'
 LOG_DIR = OUT_DIR / 'logs'
+ODE_DATA_DIR = PROJECT_ROOT.parent / "data"
+ODE_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
@@ -23,7 +25,6 @@ LOG_DIR = OUT_DIR / 'logs'
 # to account for rapid changes and broader intervals later up to 960.0 minutes.
 TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
                         16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - Optimization Problem prior to ODE Modelling."

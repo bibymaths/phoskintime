@@ -71,7 +71,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / 'results'
 OUT_RESULTS_DIR = OUT_DIR / 'results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
-INPUT_EXCEL = DATA_DIR / 'optimization_results.xlsx'
+INPUT_EXCEL = DATA_DIR / 'results.xlsx'
 LOG_DIR = OUT_DIR / 'logs'
 
 # Plotting Style Configuration

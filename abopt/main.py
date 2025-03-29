@@ -1,5 +1,5 @@
-
-from abopt.config.constants import parse_args, OUT_DIR
+import shutil
+from abopt.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from abopt.config.helpers import location
 from abopt.exporter.sheetutils import output_results
 from abopt.opt.optrun import run_optimization
@@ -62,7 +62,7 @@ def main():
     # Output results.
     output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, mse, rmse, mae, mape, r_squared)
-
+    shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

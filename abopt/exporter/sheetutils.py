@@ -81,4 +81,4 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
         residuals_df = pd.concat([residuals_keys_df, residuals_df], axis=1)
         residuals_df.to_excel(writer, sheet_name="Residuals", index=False)
 
-    logger.info(f"Results saved.")
+    logger.info(f"Optimization results saved for ODE modelling.")

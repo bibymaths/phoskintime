@@ -5,6 +5,7 @@ matplotlib
 seaborn
 scikit-learn
 scipy
+pymoo
 numba
 tqdm
 plotly
