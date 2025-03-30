@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import numpy as np
 from utils.display import ensure_output_directory, save_result
 
 def test_ensure_output_directory(tmp_path):
