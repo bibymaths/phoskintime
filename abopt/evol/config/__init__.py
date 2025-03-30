@@ -1,7 +1,7 @@
 from abopt.evol.config.constants import _parse_arguments
 
 parse_arguments =_parse_arguments
-lb, ub, loss_type, include_regularization, estimate_missing_kinases, scaling_method, split_point, segment_points =  parse_arguments()
+METHOD, lb, ub, loss_type, include_regularization, estimate_missing_kinases, scaling_method, split_point, segment_points =  parse_arguments()
 
 # Define the dictionary mapping kinases to their respective add_psites
 kinase_to_psites = {

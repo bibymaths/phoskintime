@@ -1,5 +1,4 @@
 import io
-import sys
 import contextlib
 import numpy as np
 import subprocess
@@ -12,11 +11,13 @@ from pymoo.indicators.hv import Hypervolume
 from pymoo.mcdm.pseudo_weights import PseudoWeights
 from pymoo.indicators.igd_plus import IGDPlus
 from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.core.problem import StarmapParallelization
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.termination.default import DefaultMultiObjectiveTermination
+from pymoo.termination.default import DefaultSingleObjectiveTermination
+from abopt.evol.config import METHOD
 from abopt.evol.config.constants import OUT_DIR
-
 from abopt.evol.config.logconf import setup_logger
 logger = setup_logger()
 
@@ -62,20 +63,28 @@ def run_optimization(
         beta_counts=beta_counts,
         elementwise_runner=runner
     )
-
-    # 4) Set up the NSGA2 algorithm and termination criteria
-    algorithm = NSGA2(
+    if METHOD == "DE":
+        algorithm = DE()
+        termination = DefaultSingleObjectiveTermination(
+            xtol=1e-12,
+            cvtol=1e-12,
+            ftol=1e-12,
+            period=20,
+            n_max_gen=1000,
+            n_max_evals=100000
+        )
+    else:
+        algorithm = NSGA2(
         pop_size=100,
         crossover=TwoPointCrossover(),
-        eliminate_duplicates=True
-    )
-    termination = DefaultMultiObjectiveTermination(
+        eliminate_duplicates=True)
+
+        termination = DefaultMultiObjectiveTermination(
         xtol=1e-8,
         cvtol=1e-6,
         ftol=0.0025,
         n_max_gen=1000,
-        n_max_evals=100000
-    )
+        n_max_evals=100000)
 
     # 5) Run the optimization
     buf = io.StringIO()

@@ -1,7 +1,7 @@
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 from abopt.evol.config import include_regularization, lb, ub, loss_type
-from abopt.evol.optcon import n
+from abopt.evol.optcon import n, P_initial_array
 
 class PhosphorylationOptimizationProblem(ElementwiseProblem):
     """
@@ -170,4 +170,70 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
             return np.mean(np.abs(residuals / (self.P_initial_array + 1e-12))) * 100 + np.sum(np.abs(params)) + np.sum(
                 (params) ** 2)
 
-        # Function to calculate the estimated series using optimized alpha and beta values
+
+# Function to calculate the estimated series using optimized alpha and beta values
+def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, beta_counts):
+    """
+    Calculates the estimated time series for each gene-psite based on the optimized parameters.
+
+    Args:
+        params (np.ndarray): Optimized parameter vector containing alphas and betas.
+        P_initial (dict): Dictionary with keys as (gene, psite) and values containing 'Kinases' and 'TimeSeries'.
+        K_index (dict): Dictionary mapping each kinase to a list of (psite, time_series) tuples.
+        K_array (np.ndarray): Array of kinase-psite time-series data.
+        gene_psite_counts (list): List of integers indicating the number of kinases associated with each gene-psite.
+        beta_counts (dict): Dictionary indicating how many beta values correspond to each kinase-psite combination.
+
+    Returns:
+        np.ndarray: Estimated time series matrix (i_max x t_max) for all gene-psite combinations.
+    """
+    alpha, beta = {}, {}
+    alpha_start, beta_start = 0, sum(gene_psite_counts)
+
+    # Extract alphas for each gene-psite-kinase combination
+    alpha = []
+    for count in gene_psite_counts:
+        alpha.append(params[alpha_start:alpha_start + count])
+        alpha_start += count
+
+    # Extract betas for each kinase-psite combination
+    for idx, count in beta_counts.items():
+        beta[idx] = params[beta_start:beta_start + count]
+        beta_start += count
+
+    # Calculate estimated time series
+    i_max, t_max = P_initial_array.shape
+    P_i_t_estimated = np.zeros((i_max, t_max))
+
+    for i, ((gene, psite), data) in enumerate(P_initial.items()):
+        kinases = data['Kinases']
+        gene_psite_prediction = np.zeros(t_max, dtype=np.float64)
+
+        # Sum contributions of each kinase for the gene-psite
+        for j, kinase in enumerate(kinases):
+            kinase_psites = K_index.get(kinase)
+            if kinase_psites is None:
+                continue
+
+            # Sum contributions across all psites of the kinase
+            for k_idx, (k_psite, k_time_series) in enumerate(kinase_psites):
+                kinase_betas = beta[k_idx]
+                gene_psite_prediction += alpha[i][j] * kinase_betas * k_time_series
+
+        P_i_t_estimated[i, :] = gene_psite_prediction
+
+    return P_i_t_estimated
+
+# Function to calculate residuals
+def _residuals(P_initial_array, P_estimated):
+    """
+    Calculates the residuals (difference between observed and estimated values).
+
+    Args:
+        P_initial_array (np.ndarray): Observed gene-psite data.
+        P_estimated (np.ndarray): Estimated gene-psite data from the model.
+
+    Returns:
+        np.ndarray: Residuals matrix (same shape as P_initial_array).
+    """
+    return P_initial_array - P_estimated

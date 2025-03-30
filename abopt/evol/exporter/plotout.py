@@ -139,7 +139,7 @@ def plot_residuals_for_gene(gene, gene_data):
     plt.savefig(f"{OUT_DIR}/qqplot_residuals_{gene}.png", format='png', dpi=300)
     plt.close('all')
 
-def opt_analyze(problem, result, F, pairs, approx_ideal,
+def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
                 approx_nadir, asf_i, pseudo_i, n_evals,
                 hv, hist, val, hist_cv_avg, k, igd, best_objectives,
                 waterfall_df, convergence_df, alpha_values,

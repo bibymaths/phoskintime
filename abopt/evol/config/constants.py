@@ -55,11 +55,14 @@ def _parse_arguments():
     # Segmented scaling points
     parser.add_argument("--segment_points", type=str, default="0,3,6,9,14",
                         help="Comma-separated segment points for segmented scaling.")
+    parser.add_argument("--method", type=str, default="DE",
+                        help="Method chosen for optimization: Differential Evolution (DE) or NSGA-II (Use DE or NSGA-II)).")
     args = parser.parse_args()
     # Convert arguments to proper types
+    method = args.method
     include_regularization = args.regularization == "yes"
     estimate_missing_kinases = args.estimate_missing_kinases == "yes"
     segment_points = list(map(int, args.segment_points.split(","))) if args.scaling_method == "segmented" else None
 
-    return args.lower_bound, args.upper_bound, args.loss_type, include_regularization, estimate_missing_kinases, args.scaling_method, args.split_point, segment_points
+    return method, args.lower_bound, args.upper_bound, args.loss_type, include_regularization, estimate_missing_kinases, args.scaling_method, args.split_point, segment_points
 
