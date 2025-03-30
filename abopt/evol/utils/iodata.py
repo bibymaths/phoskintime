@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
-from abopt.nsgaii.config.constants import INPUT1, INPUT2
+from abopt.evol.config.constants import INPUT1, INPUT2
 
 def format_duration(seconds):
     if seconds < 60:

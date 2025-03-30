@@ -1,7 +1,7 @@
 import pandas as pd
-from abopt.nsgaii.exporter.helpers import build_genes_data
-from abopt.nsgaii.exporter.plotout import plot_residuals_for_gene
-from abopt.nsgaii.config.logconf import setup_logger
+from abopt.evol.exporter.helpers import build_genes_data
+from abopt.evol.exporter.plotout import plot_residuals_for_gene
+from abopt.evol.config.logconf import setup_logger
 logger = setup_logger()
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,

@@ -1,17 +1,17 @@
 import shutil
 
-from abopt.nsgaii.config import time_series_columns
-from abopt.nsgaii.config.constants import OUT_DIR, OUT_FILE, ODE_DATA_DIR
-from abopt.nsgaii.config.helpers import location
-from abopt.nsgaii.exporter.plotout import opt_analyze
-from abopt.nsgaii.exporter.sheetutils import output_results
-from abopt.nsgaii.objfn import estimated_series, residuals
-from abopt.nsgaii.objfn.minfn import PhosphorylationOptimizationProblem
-from abopt.nsgaii.opt.optrun import run_optimization, post_optimization
-from abopt.nsgaii.utils.iodata import organize_output_files, create_report
-from abopt.nsgaii.optcon import P_initial, P_initial_array, K_array, K_index, beta_counts, gene_psite_counts
-from abopt.nsgaii.utils.params import extract_parameters
-from abopt.nsgaii.config.logconf import setup_logger
+from abopt.evol.config import time_series_columns
+from abopt.evol.config.constants import OUT_DIR, OUT_FILE, ODE_DATA_DIR
+from abopt.evol.config.helpers import location
+from abopt.evol.exporter.plotout import opt_analyze
+from abopt.evol.exporter.sheetutils import output_results
+from abopt.evol.objfn import estimated_series, residuals
+from abopt.evol.objfn.minfnnsgaii import PhosphorylationOptimizationProblem
+from abopt.evol.opt.optrun import run_optimization, post_optimization
+from abopt.evol.utils.iodata import organize_output_files, create_report
+from abopt.evol.optcon import P_initial, P_initial_array, K_array, K_index, beta_counts, gene_psite_counts
+from abopt.evol.utils.params import extract_parameters
+from abopt.evol.config.logconf import setup_logger
 from abopt.optimality.KKT import post_optimization_results
 
 logger = setup_logger()

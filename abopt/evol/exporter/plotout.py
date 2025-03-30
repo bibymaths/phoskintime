@@ -10,7 +10,7 @@ mpl.use("Agg")
 from matplotlib.animation import PillowWriter
 from matplotlib.animation import FuncAnimation
 from pymoo.visualization.radar import Radar
-from abopt.nsgaii.config.constants import OUT_DIR, TIME_POINTS
+from abopt.evol.config.constants import OUT_DIR, TIME_POINTS
 
 def plot_residuals_for_gene(gene, gene_data):
     """

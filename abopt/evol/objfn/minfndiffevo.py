@@ -1,7 +1,7 @@
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
-from abopt.nsgaii.config import include_regularization, lb, ub, loss_type
-from abopt.nsgaii.optcon import n
+from abopt.evol.config import include_regularization, lb, ub, loss_type
+from abopt.evol.optcon import n
 
 class PhosphorylationOptimizationProblem(ElementwiseProblem):
     """

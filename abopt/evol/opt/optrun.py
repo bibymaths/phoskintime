@@ -15,9 +15,9 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import StarmapParallelization
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.termination.default import DefaultMultiObjectiveTermination
-from abopt.nsgaii.config.constants import OUT_DIR
+from abopt.evol.config.constants import OUT_DIR
 
-from abopt.nsgaii.config.logconf import setup_logger
+from abopt.evol.config.logconf import setup_logger
 logger = setup_logger()
 
 def run_optimization(

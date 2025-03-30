@@ -1,6 +1,6 @@
 import numpy as np
-from abopt.nsgaii.objfn import estimated_series
-from abopt.nsgaii.config.logconf import setup_logger
+from abopt.evol.objfn import estimated_series
+from abopt.evol.config.logconf import setup_logger
 logger = setup_logger()
 
 def extract_parameters(P_initial, gene_psite_counts, K_index, optimized_params):

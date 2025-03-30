@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from abopt.nsgaii.config.constants import LOG_DIR
-from abopt.nsgaii.utils.iodata import format_duration
+from abopt.evol.config.constants import LOG_DIR
+from abopt.evol.utils.iodata import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {

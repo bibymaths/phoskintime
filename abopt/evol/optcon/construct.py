@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from abopt.nsgaii.utils.iodata import apply_scaling
+from abopt.evol.utils.iodata import apply_scaling
 
 def _load_and_scale_data(
     input1_path: str,
