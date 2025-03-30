@@ -12,6 +12,8 @@ from abopt.nsgaii.utils.iodata import organize_output_files, create_report
 from abopt.nsgaii.optcon import P_initial, P_initial_array, K_array, K_index, beta_counts, gene_psite_counts
 from abopt.nsgaii.utils.params import extract_parameters
 from abopt.nsgaii.config.logconf import setup_logger
+from abopt.optimality.KKT import post_optimization_results
+
 logger = setup_logger()
 
 
@@ -43,6 +45,8 @@ def main():
     opt_analyze(problem, result, F, pairs, approx_ideal, approx_nadir, asf_i, pseudo_i, n_evals, hist_hv, hist, val,
                 hist_cv_avg, k, hist_igd, best_objectives, waterfall_df, convergence_df, alpha_values, beta_values)
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
+    KKT = post_optimization_results()
+    logger.info(KKT)
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
