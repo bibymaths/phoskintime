@@ -1,8 +1,9 @@
 # PhosKinTime
 ODE-based modeling and parameter estimation of phosphorylation.
  
-[![CI/CD](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml/badge.svg)](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml) [![codecov](https://codecov.io/gh/bibymaths/phoskintime/branch/master/graph/badge.svg?token=JVCFNL8VLZ)](https://codecov.io/gh/bibymaths/phoskintime)
+[![CI/CD](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml/badge.svg)](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml)   
 
+<!-- [![codecov](https://codecov.io/gh/bibymaths/phoskintime/branch/master/graph/badge.svg?token=JVCFNL8VLZ)](https://codecov.io/gh/bibymaths/phoskintime) -->
 ## Usage
 ```bash
 usage: main.py [-h] [--A-bound A_BOUND] [--B-bound B_BOUND] [--C-bound C_BOUND] [--D-bound D_BOUND] [--Ssite-bound SSITE_BOUND] [--Dsite-bound DSITE_BOUND] [--fix-A FIX_A] [--fix-B FIX_B] [--fix-C FIX_C] [--fix-D FIX_D] [--fix-Ssite FIX_SSITE] [--fix-Dsite FIX_DSITE] [--fix-t FIX_T]

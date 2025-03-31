@@ -13,7 +13,7 @@ from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers
+from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
 
 
 class Plotter:
@@ -393,11 +393,11 @@ class Plotter:
                 color='gray', linestyle='--', linewidth=1)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_gof_1.png")
+        self._save_fig(fig, f"_gof_1.png")
 
     # -----------------------------
     # Goodness of Fit: Time-Series with Axis Expansion (gof_2)
@@ -452,11 +452,11 @@ class Plotter:
         ax.set_ylim(y_min, y_max)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_gof_2.png")
+        self._save_fig(fig, f"_gof_2.png")
 
     # -----------------------------
     # Goodness of Fit: Time-Series with Outlier Text (gof_3)
@@ -508,12 +508,12 @@ class Plotter:
                 color='gray', linestyle='--', linewidth=1)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"{self.gene}_gof_3.png")
+        self._save_fig(fig, f"gof_3.png")
 
     # -----------------------------
     # Goodness of Fit: Time-Series with Outlier Text & Axis Expansion (gof_4)
@@ -572,12 +572,12 @@ class Plotter:
         ax.set_ylim(y_min, y_max)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"{self.gene}_gof_4.png")
+        self._save_fig(fig, f"_gof_4.png")
 
     # -----------------------------
     # Goodness of Fit: Overall (gof_5)
@@ -620,11 +620,11 @@ class Plotter:
                 color='gray', linestyle='--', linewidth=1)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_gof_5.png")
+        self._save_fig(fig, f"_gof_5.png")
 
     # -----------------------------
     # Goodness of Fit: Overall with Sorting (gof_6)
@@ -673,11 +673,11 @@ class Plotter:
                 color='gray', linestyle='--', linewidth=1)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{self.gene} model")
+        ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_gof_6.png")
+        self._save_fig(fig, f"_gof_6.png")
 
     # -----------------------------
     # Kullback-Liebler Divergence Plot
@@ -705,4 +705,4 @@ class Plotter:
         ax.set_title("Kullback-Liebler Divergence")
         ax.legend()
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_kld.png")
+        self._save_fig(fig, f"_kld.png")

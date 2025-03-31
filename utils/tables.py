@@ -2,8 +2,8 @@ import os
 import pandas as pd
 from pandas import MultiIndex, concat
 
-from abopt.nsgaii.config.constants import OUT_FILE
 from config.constants import OUT_DIR
+from abopt.evol.config.constants import OUT_FILE
 from config.logconf import setup_logger
 logger = setup_logger(__name__)
 
@@ -93,7 +93,7 @@ def save_master_table(folder="latex", output_file="latex/all_tables.tex"):
     print(f"Generated {output_file} with {len(files)} entries.")
 
 if __name__ == "__main__":
-    xlsx_file_path = OUT_FILE # Replace with your XLSX file path
+    xlsx_file_path = OUT_FILE
     output_dir = OUT_DIR
     # Generate hierarchical tables
     tables = generate_tables(xlsx_file_path)
