@@ -1,7 +1,33 @@
+import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
+from matplotlib import pyplot as plt
+from config.constants import OUT_DIR, ODE_MODEL
+from config.helpers import (get_number_of_params_rand, get_param_names_rand,
+                            get_bounds_rand)
+from models import solve_ode
 
-def define_sensitivity_problem(num_psites):
+def define_sensitivity_problem_rand(num_psites):
+    """
+    Defines the Morris sensitivity analysis problem for a dynamic number of parameters.
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+
+    Returns:
+        dict: Problem definition for sensitivity analysis.
+    """
+    num_vars = get_number_of_params_rand(num_psites)
+    param_names = get_param_names_rand(num_psites)
+    bounds = get_bounds_rand(num_psites)
+    problem = {
+        'num_vars': num_vars,
+        'names': param_names,
+        'bounds': bounds
+    }
+    return problem
+
+def define_sensitivity_problem_ds(ub, num_psites):
     """
     Defines the Morris sensitivity analysis problem for a dynamic number of parameters.
 
@@ -13,14 +39,14 @@ def define_sensitivity_problem(num_psites):
     """
     num_vars = 4 + 2 * num_psites  # A, B, C, D, and S1, S2, ..., Sn, D1, D2, ..., Dn
     param_names = ['A', 'B', 'C', 'D'] + \
-                  [f'S{i+1}' for i in range(num_psites)] + \
-                  [f'D{i+1}' for i in range(num_psites)]
+                  [f'S{i + 1}' for i in range(num_psites)] + \
+                  [f'D{i + 1}' for i in range(num_psites)]
     bounds = [
-        [0, ub],  # A
-        [0, ub],  # B
-        [0, ub],  # C
-        [0, ub],  # D
-    ] + [[0, ub]] * num_psites + [[0, ub]] * num_psites  # S and D parameters
+                 [0, ub],  # A
+                 [0, ub],  # B
+                 [0, ub],  # C
+                 [0, ub],  # D
+             ] + [[0, ub]] * num_psites + [[0, ub]] * num_psites  # S and D parameters
     problem = {
         'num_vars': num_vars,
         'names': param_names,
@@ -28,14 +54,14 @@ def define_sensitivity_problem(num_psites):
     }
     return problem
 
-def sensitivity_analysis(init_cond, time_points, num_psites, gene):
-    y0 = init_cond
-    problem = define_sensitivity_problem(num_psites)
+def sensitivity_analysis(time_points, num_psites, init_cond, gene):
+    if ODE_MODEL == 'randmod':
+        problem = define_sensitivity_problem_rand(num_psites=num_psites)
+    else:
+        problem = define_sensitivity_problem_ds(num_psites=num_psites)
     N = 10000
     num_levels = 400
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
-    t = time_points
-    ode_system = make_ode_system(num_psites)
     Y = np.zeros(len(param_values))
     for i, X in enumerate(param_values):
         A, B, C, D, *rest = X
@@ -43,8 +69,9 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
         D_list = rest[num_psites:]
         params = (A, B, C, D, *S_list, *D_list)
         try:
-            sol = odeint(ode_system, y0, t, args=params)
-            Y[i] = np.sum(sol[-1, 2:2 + num_psites])  # Sum last time point P1, P2, ..., Pn
+            sol, _ = solve_ode(params, init_cond, num_psites, time_points)
+            # Sum last time point P1, P2, ..., Pn
+            Y[i] = np.sum(sol[-1, list(range(2, 2 + num_psites))]) if ODE_MODEL == 'randmod' else np.sum(sol[-1, 2:2 + num_psites])
         except Exception:
             Y[i] = np.nan
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
@@ -57,43 +84,43 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
     # 4. Radial plot (spider plot)
     # 5. CDF of sensitivity indices
     # 6. Pie chart of sensitivity contribution
-    # These plots help understand parameter importance and interactions.
-    # Plot the results of the sensitivity analysis
-    # Absolute Mean of Elementary Effects : represents the overall importance
-    # of each parameter, reflecting its sensitivity
-    ## Bar Plot of mu* ##
-    # Standard Deviation of Elementary Effects: High standard deviation suggests
-    # that the parameter has nonlinear effects or is involved in interactions
-    # with other parameters.
-    ## Bar Plot of sigma ##
-    # Distinguish between parameters with purely linear effects (low sigma) and
-    # those with nonlinear or interaction effects (high sigma).
+    # These plots help understand parameter importance and interactions. 
+    # Plot the results of the sensitivity analysis 
+    # Absolute Mean of Elementary Effects : represents the overall importance  
+    # of each parameter, reflecting its sensitivity 
+    ## Bar Plot of mu* ## 
+    # Standard Deviation of Elementary Effects: High standard deviation suggests  
+    # that the parameter has nonlinear effects or is involved in interactions  
+    # with other parameters.  
+    ## Bar Plot of sigma ##       
+    # Distinguish between parameters with purely linear effects (low sigma) and  
+    # those with nonlinear or interaction effects (high sigma).  
     # **--- Parameters with high mu* and high sigma ---**
     #           <particularly important to watch>
-    ## Scatter Plot of mu* vs sigma ##
-    # A radial plot (also known as a spider or radar plot) can give a visual
-    # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for
-    # each parameter in a circular format.
+    ## Scatter Plot of mu* vs sigma ##   
+    # A radial plot (also known as a spider or radar plot) can give a visual  
+    # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for  
+    # each parameter in a circular format. 
 
-    # Each parameter gets a spoke, and the distance from the center represents
+    # Each parameter gets a spoke, and the distance from the center represents  
     # the sensitivity for a given metric.
-    ## Radial Plot (Spider Plot) of Sensitivity Metrics ##
-    # CDF can show how often the effects of certain parameters are strong or
-    # weak across the model outputs.
-    # Visualizing how many times a parameter has a strong effect across
+    ## Radial Plot (Spider Plot) of Sensitivity Metrics ##  
+    # CDF can show how often the effects of certain parameters are strong or  
+    # weak across the model outputs. 
+    # Visualizing how many times a parameter has a strong effect across  
     # different sample runs.
-    ## Cumulative Distribution Function (CDF) of Sensitivity Indices ##
-    # Visualize the proportion of total sensitivity contributed by each
-    # parameter using a pie chart, showing the relative importance of each
-    # parameter's contribution to sensitivity.
-    ## Pie Chart for Sensitivity Contribution ##
+    ## Cumulative Distribution Function (CDF) of Sensitivity Indices ##  
+    # Visualize the proportion of total sensitivity contributed by each  
+    # parameter using a pie chart, showing the relative importance of each  
+    # parameter's contribution to sensitivity. 
+    ## Pie Chart for Sensitivity Contribution ## 
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.bar(problem['names'], Si['mu_star'], yerr=Si['mu_star_conf'], color='skyblue')
     ax.set_title(f'{gene}')
     ax.set_ylabel('mu* (Importance)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"distributive/bar_plot_mu_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/bar_plot_mu_{gene}.png", format='png', dpi=300)
     plt.close()
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.bar(problem['names'], Si['sigma'], color='orange')
@@ -101,7 +128,7 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
     ax.set_ylabel('σ (Standard Deviation)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"distributive/bar_plot_sigma_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/bar_plot_sigma_{gene}.png", format='png', dpi=300)
     plt.close()
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.scatter(Si['mu_star'], Si['sigma'], color='green', s=100)
@@ -112,7 +139,7 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
     ax.set_ylabel('σ (Standard Deviation)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"distributive/scatter_plot_musigma_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/scatter_plot_musigma_{gene}.png", format='png', dpi=300)
     plt.close()
     categories = problem['names']
     N_cat = len(categories)
@@ -130,7 +157,7 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
     ax.set_xticklabels(categories)
     ax.set_title(f'{gene}')
     plt.legend(loc='upper right')
-    plt.savefig(f"distributive/radial_plot_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/radial_plot_{gene}.png", format='png', dpi=300)
     plt.close()
     plt.figure(figsize=(8, 8))
     for i, param in enumerate(problem['names']):
@@ -140,12 +167,12 @@ def sensitivity_analysis(init_cond, time_points, num_psites, gene):
     plt.ylabel('Cumulative Probability')
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"distributive/cdf_plot_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/cdf_plot_{gene}.png", format='png', dpi=300)
     plt.close()
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.pie(Si['mu_star'], labels=problem['names'], autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors,
            textprops={'fontsize': 8})
     ax.set_title(f'{gene}')
     plt.tight_layout()
-    plt.savefig(f"distributive/pie_chart_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/pie_chart_{gene}.png", format='png', dpi=300)
     plt.close()

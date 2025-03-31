@@ -447,3 +447,122 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/parameter_scatter.png", format="png", dpi=300)
     plt.close()
+
+def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
+                   x_values, y_values, val):
+    # Waterfall plot
+    plt.figure(figsize=(8, 8))
+    plt.scatter(
+        range(len(ordered_optimizer_runs["Objective Value (F)"])),
+        ordered_optimizer_runs["Objective Value (F)"],
+        color="black",
+        marker="s",
+        label="Objective Value"
+    )
+    # Customize the plot
+    plt.title("")
+    plt.xlabel("Optimizer Runs", fontsize=8)
+    plt.ylabel("f", fontsize=8, fontstyle='italic')
+    plt.tight_layout()
+    plt.savefig(f'{OUT_DIR}/waterfall.png', dpi=300)
+    plt.close()
+    # Waterfall plot
+    plt.figure(figsize=(8, 8))
+    plt.plot(x_values, y_values, color="gray", linestyle="-", alpha=0.7)
+    # Plot the points
+    plt.scatter(
+        x_values,
+        y_values,
+        color="black",
+        marker="s",
+        label="Objective Value"
+    )
+    plt.title("")
+    plt.xlabel("Optimizer Runs", fontsize=8)
+    plt.ylabel("f", fontsize=8, fontstyle='italic')
+    plt.tight_layout()
+    plt.savefig(f'{OUT_DIR}/waterfall_2.png', dpi=300)
+    plt.close()
+
+    # Covergence plot
+    plt.figure(figsize=(8, 8))
+    plt.bar(
+        convergence_df["Iteration"],
+        convergence_df["Value"].diff().fillna(convergence_df["Value"]),  # Changes in Value
+        color="coral",
+        alpha=0.6,
+        label="∆Error"
+    )
+    plt.plot(convergence_df["Iteration"], convergence_df["Value"], marker="o", color="red", label="Error")
+    plt.title("")
+    plt.xlabel("Iteration", fontsize=8)
+    plt.ylabel("f", fontsize=8, fontstyle='italic')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f'{OUT_DIR}/convergence_2.png', dpi=300)
+    plt.close()
+
+    plt.figure(figsize=(8, 8))
+    plt.plot(np.arange(len(val)), val, marker='o', linestyle='-', color='red')
+    plt.title("")
+    plt.xlabel("Iteration", fontsize=8)
+    plt.ylabel("f", fontsize=8, fontstyle='italic')
+    plt.tight_layout()
+    plt.savefig(f"{OUT_DIR}/convergence.png", dpi=300)
+    plt.close()
+    plt.figure(figsize=(8, 8))
+    style = {"α": {"color": 'teal', "marker": "o"},
+             "β": {"color": 'indigo', "marker": "o"}}
+    for param_type, props in style.items():
+        subset = long_df[long_df["Type"] == param_type]
+        plt.scatter(
+            subset["Parameter Value"],
+            subset["Objective Value (F)"],
+            label=param_type,
+            alpha=0.4,
+            color=props["color"],
+            marker=props["marker"]
+        )
+    plt.title("")
+    plt.xlabel("Optimized Values", fontsize=10)
+    plt.ylabel("f", fontsize=8, fontstyle='italic')
+    plt.legend(title="Parameter")
+    plt.tight_layout()
+    plt.savefig(f'{OUT_DIR}/parameter_trend.png', dpi=300)
+    plt.close()
+    # Use a hexbin plot to visualize distributions of parameter values
+    # across the objective function
+    plt.figure(figsize=(8, 8))
+    hb = plt.hexbin(
+        long_df["Parameter Value"],
+        long_df["Objective Value (F)"],
+        gridsize=50,
+        cmap="viridis",
+        mincnt=1
+    )
+    plt.colorbar(hb, label="Frequency")
+    plt.title("")
+    plt.xlabel("Optimized Values", fontsize=8)
+    plt.ylabel("f", fontsize=10, fontstyle='italic')
+    plt.tight_layout()
+    plt.savefig(f"{OUT_DIR}/parameter_scan.png", dpi=300)
+    plt.close()
+    # Plot the distributional plot
+    plt.figure(figsize=(8, 8))  # Adjust width to accommodate many parameters
+    sns.violinplot(
+        x="Parameter",
+        y="Parameter Value",
+        hue="Objective Value (F)",  # This shows the distribution with respect to objective values
+        data=long_df,
+        palette="viridis",
+        density_norm='width',
+        cut=0,
+        legend=False,
+    )
+    plt.xticks([])  # Remove x-axis ticks
+    plt.title("")
+    plt.xlabel("")  # Remove the x-axis label
+    plt.ylabel("Optimized Values", fontsize=8)
+    plt.tight_layout()
+    plt.savefig(f"{OUT_DIR}/parameter_scatter.png", format="png", dpi=300)
+    plt.close()

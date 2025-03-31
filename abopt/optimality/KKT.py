@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
-from abopt.nsgaii.config.constants import OUT_FILE, OUT_DIR
-from abopt.nsgaii.config.logconf import setup_logger
+from abopt.evol.config.constants import OUT_FILE, OUT_DIR
+from abopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
@@ -128,7 +128,6 @@ def process_excel_results(file_path=OUT_FILE):
 
     Returns a dictionary with processed data.
     """
-    optimization_results = pd.ExcelFile(file_path)
     alpha_values = pd.read_excel(file_path, sheet_name='Alpha Values')
     beta_values = pd.read_excel(file_path, sheet_name='Beta Values')
     estimated_values = pd.read_excel(file_path, sheet_name='Estimated Values')

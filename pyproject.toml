@@ -19,6 +19,8 @@ numba = "*"
 XlsxWriter = "*"
 statsmodels = "*"
 pymoo = '*'
+adjusttext = '*'
+salid = '*'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
