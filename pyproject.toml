@@ -20,7 +20,7 @@ XlsxWriter = "*"
 statsmodels = "*"
 pymoo = '*'
 adjusttext = '*'
-salid = '*'
+salib = '*'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
