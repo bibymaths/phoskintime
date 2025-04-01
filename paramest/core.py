@@ -84,13 +84,10 @@ def process_gene(
             time_points, desired_times, bounds, fixed_params,
             bootstraps, time_fixed
         )
-        # Save profile Excel
-        profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
-        profiles_df.to_excel(profile_path, index=False)
-        # logger.info(f"Profiled Estimates: {profile_path}")
 
     # 4. Solve Full ODE with Final Params
     final_params = estimated_params[-1]
+    logger.info(f"estimated parameters: {final_params}")
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
         gene_psite_dict_local[name] = [final_params[i]]
@@ -112,6 +109,9 @@ def process_gene(
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
+    # Save profile Excel
+    profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
+    profiles_df.to_excel(profile_path, index=False)
     # logger.info(f"Estimated Parameters: {param_path}")
 
     # 8. Return Results

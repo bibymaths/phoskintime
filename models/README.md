@@ -60,3 +60,27 @@ except ModuleNotFoundError as e:
     raise ImportError(f"Cannot import model module 'models.{ODE_MODEL}'") from e
 
 solve_ode = model_module.solve_ode
+```
+---
+
+### Units in the ODE Model
+
+These ODE models supports **two interpretations** depending on whether quantities are scaled:
+
+#### 1. **Dimensionless Model (Scaled)**
+- All parameters and variables are **unitless**.
+- Time and concentrations are **rescaled** to reference values (e.g., max input, steady state).
+- Useful for qualitative dynamics, numerical stability, or fitting fold-change data.
+- Interpretation:  
+  - `A, B, C, D, S_rates[i], D_rates[i]` → **unitless**  
+  - `y` (state vector: R, P, P_sites) → **unitless**
+
+#### 2. **Dimensional (Mass-Action Style)**
+- Variables represent **concentration** (e.g., μM), and time is in seconds.
+- Parameters follow biochemical units:
+  - `A` → concentration/time (e.g., μM/s)  
+  - `B, C, D, S_rates[i], D_rates[i]` → 1/time (e.g., 1/s)  
+  - `R, P, y[2+i]` → concentration (e.g., μM)
+- Caveat: Dimensional consistency requires adjustment (e.g., replacing hardcoded `1.0` with a rate constant and scaling summed terms accordingly).
+
+---

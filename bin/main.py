@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
-from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR
+from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from utils.display import ensure_output_directory, save_result, organize_output_files, create_report
@@ -24,7 +24,7 @@ else:
 
 def main():
 
-    logger.info(f"{model_type} Phosphorylation Modelling Configuration - Time Profiles")
+    logger.info(f"{model_type} Phosphorylation Modelling Configuration - {ESTIMATION_MODE.upper()} Estimation Mode")
     log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
     ensure_output_directory(OUT_DIR)
     data = pd.read_excel(config['input_excel'], sheet_name='Estimated Values')

@@ -13,7 +13,8 @@ from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
+from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, \
+    ESTIMATION_MODE
 
 
 class Plotter:
@@ -186,8 +187,8 @@ class Plotter:
     def plot_profiles(self, data: pd.DataFrame):
         fig, ax = plt.subplots(figsize=(8, 8))
         for col in data.columns:
-            if col != "Time (min)":
-                ax.plot(data["Time (min)"], data[col], marker='o', label=col)
+            if col != "Time":
+                ax.plot(data["Time"], data[col], marker='o', label=col)
         ax.set_xlabel("Time (min)")
         ax.set_ylabel("Kinetic Rates")
         ax.set_title(self.gene)
@@ -323,8 +324,9 @@ class Plotter:
         self.plot_pca(solution, components=components)
         self.pca_components(solution, target_variance=target_variance)
         self.plot_model_fit(seq_model_fit, P_data, solution, len(psite_labels), psite_labels, time_points)
-        # self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
-        # self.plot_A_S(estimated_params, len(psite_labels), time_points)
+        if ESTIMATION_MODE == 'sequential':
+            self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
+            self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
     # -----------------------------
     # Protein Clusters Plot

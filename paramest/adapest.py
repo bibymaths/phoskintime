@@ -166,7 +166,7 @@ def estimate_profiles(gene, P_data, init_cond, num_psites, time_points, desired_
         profiles[T] = profiled_params
 
     param_names = get_param_names(num_psites)
-    data = {"Time (min)": list(profiles.keys())}
+    data = {"Time": list(profiles.keys())}
     for i, name in enumerate(param_names):
         data[name] = [profiles[T][i] for T in desired_times]
     df = pd.DataFrame(data)
