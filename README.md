@@ -7,8 +7,6 @@
 <!-- [![codecov](https://codecov.io/gh/bibymaths/phoskintime/branch/master/graph/badge.svg?token=JVCFNL8VLZ)](https://codecov.io/gh/bibymaths/phoskintime) --> 
 
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers explore kinase-substrate interactions in a temporal context.
- 
-![Goal](static/images/goal_1.png)
 
 ## Overview
 
@@ -159,6 +157,6 @@ PhosKinTime is a flexible and powerful package for modeling phosphorylation kine
 
 For more information, please refer to the individual module documentation and source code.
 
----
+--- 
 
-This README provides a comprehensive overview of your package, covering its main modules, features, usage instructions, and customization options.
+![Goal](static/images/goal_2.png)
