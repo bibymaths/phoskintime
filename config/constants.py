@@ -3,7 +3,6 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib.markers as mmarkers
 from pathlib import Path
-
 from config.helpers import *
 
 # Select the ODE model for phosphorylation kinetics.
@@ -12,30 +11,41 @@ from config.helpers import *
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
 ODE_MODEL = 'randmod'
-
-# Mapping ODE_MODEL values to display names.
+# ESTIMATION_MODE: Global constant to choose the estimation strategy.
+# Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
+# which produces a series of parameter estimates over time (one estimate per time point).
+# Set to "normal" to perform fitting using all time points at once (normal estimation),
+# yielding a single set of parameter estimates that best describes the entire time course.
+ESTIMATION_MODE = 'normal'
+# This global constant defines a mapping between internal ODE_MODEL identifiers
+# and human-readable display names for different types of ODE models.
+#
+# The keys in the dictionary are the internal codes used in the configuration:
+#   - "distmod" stands for the Distributive model.
+#   - "succmod" stands for the Successive model.
+#   - "randmod" stands for the Random model.
+#
+# The variable model_type is set by looking up the current ODE_MODEL value in this mapping.
+# If ODE_MODEL doesn't match any key, model_type defaults to "Unknown".
 model_names = {
     "distmod": "Distributive",
     "succmod": "Successive",
     "randmod": "Random"
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
-
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
 # These time points capture the dynamics of the system, with finer resolution at early times (0.0 to 16.0 minutes)
 # to account for rapid changes and broader intervals later up to 960.0 minutes.
 TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
                         16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
-
 # Top-Level Plotting and Regularization Settings:
 # - CONTOUR_LEVELS: Defines the number of contour levels used in density plots.
 # - USE_REGULARIZATION: Enables (True) or disables (False) Tikhonov (L2) regularization during model fitting.
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-6
-
+LAMBDA_REG = 1e-3
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #
@@ -58,8 +68,7 @@ DELTA_WEIGHT = 1.0
 ALPHA_WEIGHT = 1.0
 BETA_WEIGHT = 1.0
 GAMMA_WEIGHT = 1.0
-MU_REG = 2.0
-
+MU_REG = 1.0
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.
@@ -73,9 +82,7 @@ OUT_RESULTS_DIR = OUT_DIR / 'results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'results.xlsx'
 LOG_DIR = OUT_DIR / 'logs'
-
 # Plotting Style Configuration
-
 #   A list of hexadecimal color codes generated from the 'tab20' colormap.
 #   Colors are sampled every 2 steps from the colormap (from 0 to 20) to ensure distinctness.
 COLOR_PALETTE = [mcolors.to_hex(cm.tab20(i)) for i in range(0, 20, 2)]

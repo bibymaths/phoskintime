@@ -4,8 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from config.constants import get_param_names, generate_labels, OUT_DIR
-from paramest.seqest import sequential_estimation
+from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE
+from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
 from models import solve_ode
 from steady import initial_condition
@@ -64,15 +64,12 @@ def process_gene(
     init_cond = initial_condition(num_psites)
     P_data = gene_data.iloc[:, 2:].values
 
-    # 2. Sequential Time-point Estimation
-    estimated_params, model_fits, errors = sequential_estimation(
-        P_data, time_points, init_cond, bounds, fixed_params, num_psites, gene
-    )
+    # 2. Choose estimation mode
+    estimation_mode = ESTIMATION_MODE
 
-    # Extract final fit values
-    seq_model_fit = np.zeros((num_psites, len(time_points)))
-    for i, (_, P_fitted) in enumerate(model_fits):
-        seq_model_fit[:, i] = P_fitted[:, -1]
+    model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
+        estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
+    )
 
     # 7. Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())

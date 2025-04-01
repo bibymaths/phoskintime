@@ -287,9 +287,9 @@ class Plotter:
         self.plot_tsne(solution, perplexity=perplexity)
         self.plot_pca(solution, components=components)
         self.pca_components(solution, target_variance=target_variance)
-        self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
+        # self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
         self.plot_model_fit(seq_model_fit, P_data, solution, len(psite_labels), psite_labels, time_points)
-        self.plot_A_S(estimated_params, len(psite_labels), time_points)
+        # self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
     # -----------------------------
     # Protein Clusters Plot
