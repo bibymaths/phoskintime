@@ -129,6 +129,41 @@ class Plotter:
         ax.legend()
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
 
+    def plot_param_bar(self, params_df: pd.DataFrame, s_df: pd.DataFrame):
+        fig, ax = plt.subplots(figsize=(8, 8))
+        unique_psites = s_df.loc[s_df['GeneID'] == self.gene, 'Psite'].tolist()
+        color_map = {psite: plt.cm.tab20(i / len(unique_psites)) for i, psite in enumerate(unique_psites)}
+
+        if len(unique_psites) == 1:
+            single_psite = unique_psites[0]
+            color = color_map[single_psite]
+            if 'S' in params_df.columns and not params_df['S'].isna().all():
+                ax.bar('S', params_df['S'].mean(), color=color, label=f"{single_psite}")
+
+        for i, psite in enumerate(unique_psites):
+            color = color_map[psite]
+            for param in [f"S{i + 1}", f"D{i + 1}"]:
+                if param in params_df.columns and not params_df[param].isna().all():
+                    ax.bar(param, params_df[param].mean(), color=color,
+                           label=f"{psite}" if psite not in [h.get_label() for h in
+                                                             ax.get_legend_handles_labels()[0]] else None)
+
+        other_params = [col for col in params_df.columns
+                        if col not in ['Protein', 'S'] + [f"S{i + 1}" for i in range(len(unique_psites))] + [f"D{i + 1}"
+                                                                                                             for i in
+                                                                                                             range(
+                                                                                                                 len(unique_psites))]]
+        for i, param in enumerate(other_params):
+            if param in params_df.columns and not params_df[param].isna().all():
+                ax.bar(param, params_df[param].mean(), color=plt.cm.Paired(i / len(other_params)), alpha=0.6)
+
+        ax.set_title(self.gene)
+        ax.set_ylabel('Estimated Values')
+        ax.set_xlabel('Parameters')
+        plt.xticks(rotation=45)
+        ax.legend(title="Residue_Position", loc='upper right', ncol=2)
+        plt.tight_layout()
+        self._save_fig(fig, f"{self.gene}_params_bar_.png")
     # -----------------------------
     # Parameter Series Plot
     # -----------------------------
@@ -143,7 +178,7 @@ class Plotter:
         ax.grid(True)
         ax.legend(loc="best")
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_.png")
+        self._save_fig(fig, f"{self.gene}_params_series_.png")
 
     # -----------------------------
     # Profile Plot
@@ -159,7 +194,7 @@ class Plotter:
         ax.legend()
         ax.grid(True)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_profiles.png")
+        self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
     # -----------------------------
     # Model Fit Plot (Matplotlib & Plotly)
@@ -287,8 +322,8 @@ class Plotter:
         self.plot_tsne(solution, perplexity=perplexity)
         self.plot_pca(solution, components=components)
         self.pca_components(solution, target_variance=target_variance)
-        # self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
         self.plot_model_fit(seq_model_fit, P_data, solution, len(psite_labels), psite_labels, time_points)
+        # self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
         # self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
     # -----------------------------

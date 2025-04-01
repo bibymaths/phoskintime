@@ -22,7 +22,11 @@ def parse_bound_pair(val):
         if len(parts) != 2:
             raise ValueError("Bounds must be provided as 'lower,upper'")
         lower = float(parts[0])
-        upper = float(parts[1]) if parts[1].lower() not in ["inf", "infinity"] else float("inf")
+        upper_str = parts[1].strip().lower()
+        if upper_str in ["inf", "infinity"]:
+            upper = float("inf")
+        else:
+            upper = float(parts[1])
         return lower, upper
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Invalid bound pair '{val}': {e}")
@@ -48,12 +52,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,1e6")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,1e6")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,1e6")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,1e6")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,1e6")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,1e6")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,100")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,100")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,100")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,100")
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,100")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,100")
 
     parser.add_argument("--fix-A", type=float, default=None)
     parser.add_argument("--fix-B", type=float, default=None)
@@ -65,7 +69,7 @@ def parse_args():
     parser.add_argument("--fix-t", type=str, default='{ '
                                                      '\"0\": {\"A\": 0.85, \"S\": 0.1},  '
                                                      '\"60\": {\"A\":0.85, \"S\": 0.2},  '
-                                                     '\"1e6\": {\"A\":0.85, \"S\": 0.4} '
+                                                     '\"inf\": {\"A\":0.85, \"S\": 0.4} '
                                                      '}',
                         help="JSON string mapping time points to fixed param values, e.g. '{\"60\": {\"A\": 1.3}}'")
     parser.add_argument("--bootstraps", type=int, default=0)
