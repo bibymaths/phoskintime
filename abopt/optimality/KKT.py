@@ -15,7 +15,7 @@ def generate_latex_table(summary_dict, table_caption, table=None):
     """
     Generates a LaTeX table string from a summary dictionary.
     """
-    latex_table = "\\begin{table}[H]\n\\centering\n\\begin{tabular}{|l|c|}\\hline\n"
+    latex_table = "\n\\begin{table}[H]\n\\centering\n\\begin{tabular}{|l|c|}\\hline\n"
     latex_table += "Metric & Value \\\\ \\hline\n"
     for key, value in summary_dict.items():
         latex_table += f"{key} & {value} \\\\ \\hline\n"
@@ -36,11 +36,14 @@ def print_primal_feasibility_results(primal_summary, alpha_violations, beta_viol
     logger_obj.info("Primal Feasibility Summary:")
     for key, value in primal_summary.items():
         logger_obj.info(f"{key}: {value}")
-    logger_obj.info("\nAlpha Violations:")
-    logger_obj.info(alpha_violations)
-    logger_obj.info("\nBeta Violations:")
-    logger_obj.info(beta_violations)
 
+    logger_obj.info("Alpha Violations:")
+    for index, value in alpha_violations.items():
+        logger_obj.info(f"{index}: {value}")
+
+    logger_obj.info("Beta Violations:")
+    for index, value in beta_violations.items():
+        logger_obj.info(f"{index}: {value}")
 
 def print_sensitivity_and_active_constraints(sensitivity_summary, active_constraints_summary, logger_obj=None):
     """
@@ -48,10 +51,10 @@ def print_sensitivity_and_active_constraints(sensitivity_summary, active_constra
     """
     if logger_obj is None:
         logger_obj = logger
-    logger_obj.info("\nSensitivity Summary:")
+    logger_obj.info("Sensitivity Summary:")
     for key, value in sensitivity_summary.items():
         logger_obj.info(f"{key}: {value}")
-    logger_obj.info("\nActive Constraints Summary:")
+    logger_obj.info("Active Constraints Summary:")
     for key, value in active_constraints_summary.items():
         logger_obj.info(f"{key}: {value}")
 
@@ -64,7 +67,7 @@ def plot_constraint_violations(alpha_violations, beta_violations, out_dir):
     Creates and saves a bar plot for constraint violations.
     """
     # Group and combine violations
-    alpha_violations_abs = alpha_violations.abs().groupby('Protein').sum()
+    alpha_violations_abs = alpha_violations.abs().groupby('Gene').sum()
     beta_violations_abs = beta_violations.abs().reindex(alpha_violations_abs.index, fill_value=0)
     combined = pd.DataFrame({
         "Alpha Violations": alpha_violations_abs,
@@ -130,11 +133,11 @@ def process_excel_results(file_path=OUT_FILE):
     """
     alpha_values = pd.read_excel(file_path, sheet_name='Alpha Values')
     beta_values = pd.read_excel(file_path, sheet_name='Beta Values')
-    estimated_values = pd.read_excel(file_path, sheet_name='Estimated Values')
-    observed_values = pd.read_excel(file_path, sheet_name='Observed Values')
+    estimated_values = pd.read_excel(file_path, sheet_name='Estimated')
+    observed_values = pd.read_excel(file_path, sheet_name='Observed')
 
     # Validate normalization constraints
-    alpha_sum = alpha_values.groupby(['Protein', 'Psite'])['Alpha'].sum()
+    alpha_sum = alpha_values.groupby(['Gene', 'Psite'])['Alpha'].sum()
     alpha_violations = alpha_sum[alpha_sum != 1]
     beta_sum = beta_values.groupby(['Kinase'])['Beta'].sum()
     beta_violations = beta_sum[beta_sum != 1]

@@ -10,7 +10,7 @@ from abopt.local.optcon import (build_K_data, build_constraints, build_P_initial
 from abopt.local.utils.params import compute_metrics, extract_parameters
 from abopt.local.config.logconf import setup_logger
 from abopt.optimality.KKT import post_optimization_results
-
+from abopt.fitanalysis import optimization_performance
 logger = setup_logger()
 
 
@@ -56,6 +56,7 @@ def main():
                    result, mse, rmse, mae, mape, r_squared)
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     post_optimization_results()
+    optimization_performance()
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

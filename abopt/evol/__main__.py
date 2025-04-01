@@ -5,6 +5,8 @@ from abopt.evol.config.constants import OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from abopt.evol.config.helpers import location
 from abopt.evol.exporter.sheetutils import output_results
 from abopt.evol.objfn import estimated_series, residuals
+from abopt.fitanalysis import optimization_performance
+
 if METHOD == "DE":
     from abopt.evol.objfn.minfndiffevo import PhosphorylationOptimizationProblem
     from abopt.evol.opt.optrun import run_optimization, post_optimization_de
@@ -56,6 +58,7 @@ def main():
                     hist_cv_avg, k, hist_igd, best_objectives, waterfall_df, convergence_df, alpha_values, beta_values)
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     post_optimization_results()
+    optimization_performance()
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

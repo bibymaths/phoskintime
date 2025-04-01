@@ -450,16 +450,16 @@ def goodnessoffit(estimated, observed):
 
 # Function to reshape alpha and beta values
 def reshape_alpha_beta(alpha_values, beta_values):
-    alpha_values['Protein'] = alpha_values['Protein'].astype(str)
+    alpha_values['Gene'] = alpha_values['Gene'].astype(str)
     alpha_values['Psite'] = alpha_values['Psite'].astype(str)
     alpha_values['Kinase'] = alpha_values['Kinase'].astype(str)
 
     beta_values['Kinase'] = beta_values['Kinase'].astype(str)
     beta_values['Psite'] = beta_values['Psite'].astype(str)
 
-    alpha_values_reshaped = alpha_values[['Protein', 'Psite', 'Alpha']].rename(
-        columns={'Protein': 'GeneID', 'Alpha': 'Value'})
-    alpha_values_reshaped['Parameter'] = 'α_' + alpha_values['Protein'] + '_' + alpha_values['Psite'] + '_' + \
+    alpha_values_reshaped = alpha_values[['Gene', 'Psite', 'Alpha']].rename(
+        columns={'Gene': 'GeneID', 'Alpha': 'Value'})
+    alpha_values_reshaped['Parameter'] = 'α_' + alpha_values['Gene'] + '_' + alpha_values['Psite'] + '_' + \
                                          alpha_values['Kinase']
 
     beta_values_reshaped = beta_values[['Kinase', 'Psite', 'Beta']].rename(
@@ -576,7 +576,7 @@ def additional_plots(df, scaled_data, alpha_values, beta_values, residuals_df):
     plt.close()
 
     # Prepare data
-    alpha_data = alpha_values[['Protein', 'Alpha']].rename(columns={'Protein': 'Group', 'Alpha': 'Value'})
+    alpha_data = alpha_values[['Gene', 'Alpha']].rename(columns={'Gene': 'Group', 'Alpha': 'Value'})
     alpha_data['Parameter'] = r'$\alpha$'
     beta_data = beta_values[['Kinase', 'Beta']].rename(columns={'Kinase': 'Group', 'Beta': 'Value'})
     beta_data['Parameter'] = r'$\beta$'
@@ -800,4 +800,3 @@ def important_connections(output_dir, data, top_n=20):
     sorted_edges = data.sort_values(by="Value", key=abs, ascending=False).head(top_n)
     important_connections = sorted_edges[["Source", "Target", "Value"]]
     important_connections.to_csv(f"{output_dir}/top_connections.csv", index=False)
-    print(f"Top {top_n} important connections have been saved.")

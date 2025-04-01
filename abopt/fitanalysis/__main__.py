@@ -7,13 +7,13 @@ from abopt.fitanalysis.helpers.postfit import goodnessoffit, reshape_alpha_beta,
 from abopt.local.config.constants import OUT_FILE, OUT_DIR
 
 
-def main():
+def optimization_performance():
     file_path = OUT_FILE
     output_dir = OUT_DIR
     alpha_values = pd.read_excel(file_path, sheet_name='Alpha Values')
     beta_values = pd.read_excel(file_path, sheet_name='Beta Values')
-    estimated_df = pd.read_excel(file_path, sheet_name='Estimated Values')
-    observed_df = pd.read_excel(file_path, sheet_name='Observed Values')
+    estimated_df = pd.read_excel(file_path, sheet_name='Estimated')
+    observed_df = pd.read_excel(file_path, sheet_name='Observed')
     residuals_df = pd.read_excel(file_path, sheet_name='Residuals')
     goodnessoffit(estimated_df, observed_df)
     df = reshape_alpha_beta(alpha_values, beta_values)
@@ -25,7 +25,7 @@ def main():
     tsne_result_df_sorted = perform_tsne(scaled_data, df)
     plot_pca(tsne_result_df_sorted, 'tSNE')
     additional_plots(df, scaled_data, alpha_values, beta_values, residuals_df)
-    combined_alpha = alpha_values.rename(columns={'Protein': 'Target', 'Kinase': 'Source', 'Alpha': 'Value'})
+    combined_alpha = alpha_values.rename(columns={'Gene': 'Target', 'Kinase': 'Source', 'Alpha': 'Value'})
     combined_alpha['Type'] = 'Alpha'
     data = combined_alpha.dropna(subset=['Source', 'Target'])
     # Renaming and transforming columns
@@ -43,5 +43,3 @@ def main():
     create_sankey_from_network(output_dir, data, "Phosphorylation Connections")
     important_connections(output_dir, data)
 
-if __name__ == "__main__":
-    main()
