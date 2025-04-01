@@ -8,7 +8,7 @@
 
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers explore kinase-substrate interactions in a temporal context.
  
-![Description of image](static/images/goal_1.png)
+![Goal](static/images/goal_1.png)
 
 ## Overview
 
