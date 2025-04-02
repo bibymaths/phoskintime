@@ -10,13 +10,13 @@ from config.helpers import *
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'succmod'
+ODE_MODEL = 'distmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
 # Set to "normal" to perform fitting using all time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'normal'
+ESTIMATION_MODE = 'sequential'
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #

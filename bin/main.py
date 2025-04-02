@@ -27,7 +27,7 @@ def main():
     logger.info(f"{model_type} Phosphorylation Modelling Configuration - {ESTIMATION_MODE.upper()} Estimation Mode")
     log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
     ensure_output_directory(OUT_DIR)
-    data = pd.read_excel(config['input_excel'], sheet_name='Estimated Values')
+    data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
     genes = data["Gene"].unique().tolist()[:1]
     logger.info(f"Loaded Time Series for {len(genes)} Protein(s).")
 

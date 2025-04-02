@@ -35,6 +35,9 @@ def ode_system(y, t, params, num_psites):
 
 def solve_ode(params, init_cond, num_psites, t):
     sol = odeint(ode_system, init_cond, t, args=(params, num_psites))
-    sol = np.clip(sol, 0, None)
+    np.clip(sol, 0, None, out=sol)
+    norm_init = np.array(init_cond, dtype=sol.dtype)
+    recip = 1.0 / norm_init
+    sol *= recip[np.newaxis, :]
     P_fitted = sol[:, 2:].T
     return sol, P_fitted

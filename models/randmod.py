@@ -94,14 +94,19 @@ def ode_system(y, t, A, B, C, D, num_sites, binary_states, PHOSPHO_TARGET, DEPHO
         dydt[2 + i] = dX_dt[i]
     return dydt
 
+
 def solve_ode(popt, initial_conditions, num_psites, time_points):
     binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET = prepare_vectorized_arrays(num_psites)
     ode_params = popt
-    ic = initial_conditions
     A_val, B_val, C_val, D_val = ode_params[:4]
     remaining = ode_params[4:]
-    sol = odeint(ode_system, ic, time_points, args=(A_val, B_val, C_val, D_val, num_psites, binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *remaining))
-    sol = np.clip(sol, 0, None)
+    sol = odeint(ode_system, initial_conditions, time_points,
+                 args=(A_val, B_val, C_val, D_val, num_psites,
+                       binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *remaining))
+    np.clip(sol, 0, None, out=sol)
+    norm_ic = np.array(initial_conditions, dtype=sol.dtype)
+    recip = 1.0 / norm_ic
+    sol *= recip[np.newaxis, :]
     if num_psites > 1:
         P_fitted = sol[:, 2:2 + num_psites].T
     else:
