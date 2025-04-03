@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.markers as mmarkers
 from pathlib import Path
@@ -14,9 +14,22 @@ ODE_MODEL = 'distmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
-# Set to "normal" to perform fitting using all time points at once (normal estimation),
+# Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
 ESTIMATION_MODE = 'sequential'
+# Whether to normalize model output to match fold change (FC) data
+# ----------------------------------------------------------------
+# Set to True when experimental data is provided in fold change format
+# (i.e., values are already normalized relative to the baseline time point, typically t=0).
+#
+# When enabled, model outputs Y(t) will be divided by Y(t0) for each species:
+#     FC_model(t) = Y(t) / Y(t0)
+#
+# This ensures the model output is in the same scale and units as the FC data.
+# If False, raw concentrations will be used directly
+# (only valid if data is also in absolute units).
+# IMPORTANT: Set to True if your time series data represents relative changes.
+NORMALIZE_MODEL_OUTPUT = True
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #
@@ -85,7 +98,7 @@ LOG_DIR = OUT_DIR / 'logs'
 # Plotting Style Configuration
 #   A list of hexadecimal color codes generated from the 'tab20' colormap.
 #   Colors are sampled every 2 steps from the colormap (from 0 to 20) to ensure distinctness.
-COLOR_PALETTE = [mcolors.to_hex(cm.tab20(i)) for i in range(0, 20, 2)]
+COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 
 #   A list of valid marker styles (as strings) from matplotlib, excluding markers like '.', ',', and whitespace.
 available_markers = [

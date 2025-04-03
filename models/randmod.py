@@ -1,6 +1,8 @@
 import numpy as np
 from numba import njit
 from scipy.integrate import odeint
+from config.constants import NORMALIZE_MODEL_OUTPUT
+
 
 def prepare_vectorized_arrays(num_sites):
     num_states = 2 ** num_sites - 1
@@ -100,13 +102,14 @@ def solve_ode(popt, initial_conditions, num_psites, time_points):
     ode_params = popt
     A_val, B_val, C_val, D_val = ode_params[:4]
     remaining = ode_params[4:]
-    sol = odeint(ode_system, initial_conditions, time_points,
+    sol = np.asarray(odeint(ode_system, initial_conditions, time_points,
                  args=(A_val, B_val, C_val, D_val, num_psites,
-                       binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *remaining))
+                       binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *remaining)))
     np.clip(sol, 0, None, out=sol)
-    norm_ic = np.array(initial_conditions, dtype=sol.dtype)
-    recip = 1.0 / norm_ic
-    sol *= recip[np.newaxis, :]
+    if NORMALIZE_MODEL_OUTPUT:
+        norm_ic = np.array(initial_conditions, dtype=sol.dtype)
+        recip = 1.0 / norm_ic
+        sol *= recip[np.newaxis, :]
     if num_psites > 1:
         P_fitted = sol[:, 2:2 + num_psites].T
     else:

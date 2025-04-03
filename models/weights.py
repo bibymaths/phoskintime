@@ -4,9 +4,9 @@ from numba import njit
 from scipy.ndimage import uniform_filter1d
 
 @njit
-def early_emphasis(P_data, time_points, num_psites):
-    if P_data.ndim == 1:
-        P_data = P_data.reshape(1, P_data.size)
+def early_emphasis(p_data, time_points, num_psites):
+    if p_data.ndim == 1:
+        p_data = p_data.reshape(1, p_data.size)
 
     n_times = len(time_points)
     custom_weights = np.ones((num_psites, n_times))
@@ -19,7 +19,7 @@ def early_emphasis(P_data, time_points, num_psites):
     for i in range(num_psites):
         limit = min(5, n_times)
         for j in range(1, limit):
-            data_based_weight = 1.0 / (abs(P_data[i, j]) + 1e-5)
+            data_based_weight = 1.0 / (abs(p_data[i, j]) + 1e-5)
             time_based_weight = 1.0 / (time_diffs[j] + 1e-5)
             custom_weights[i, j] = data_based_weight * time_based_weight
 
@@ -28,7 +28,7 @@ def early_emphasis(P_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
-def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_emphasis):
+def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights):
     time_indices = np.tile(np.arange(1, len(t_target) + 1), num_psites)
     log_scale = np.log1p(np.abs(target))
     sqrt_signal = np.sqrt(np.maximum(np.abs(target), 1e-5))
@@ -73,7 +73,7 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
                 np.full(8, 0.05), np.full(2, 0.2), np.ones(max(0, len(t_target) * num_psites - 10))]), 1)
             if len(t_target) * num_psites >= 10 else np.ones(len(target))
         ),
-        "custom_early_points_emphasis": early_emphasis
+        "custom_early_points_emphasis": early_weights
     }
 
     if use_regularization:
