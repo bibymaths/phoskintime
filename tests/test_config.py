@@ -3,7 +3,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from config.logconf import setup_logger, ColoredFormatter
 
-def logger_creation_defaults(tmp_path):
+def test_logger_creation_defaults(tmp_path):
     log_directory = str(tmp_path / "logs")
     logger = setup_logger(name="unittest_logger", log_dir=log_directory)
     assert logger.name == "unittest_logger"
@@ -18,7 +18,7 @@ def logger_creation_defaults(tmp_path):
     assert stream_handler is not None
     assert os.path.exists(log_directory)
 
-def logger_without_rotation_creates_regular_file_handler(tmp_path):
+def test_logger_without_rotation_creates_regular_file_handler(tmp_path):
     log_directory = str(tmp_path / "logs")
     logger = setup_logger(name="unittest_logger_no_rotate", log_dir=log_directory, rotate=False)
     file_handler = None
@@ -28,13 +28,13 @@ def logger_without_rotation_creates_regular_file_handler(tmp_path):
     assert file_handler is not None
     assert not isinstance(file_handler, RotatingFileHandler)
 
-def colored_formatter_provides_ansi_output():
+def test_colored_formatter_provides_ansi_output():
     formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     record = logging.LogRecord("color_test", logging.INFO, "", 0, "colored message", None, None)
     formatted = formatter.format(record)
     assert "\033" in formatted
 
-def logger_emits_log_message_to_stream(capsys, tmp_path):
+def test_logger_emits_log_message_to_stream(capsys, tmp_path):
     log_directory = str(tmp_path / "logs")
     logger = setup_logger(name="unittest_logger_stream", log_dir=log_directory)
     logger.info("stream test message")

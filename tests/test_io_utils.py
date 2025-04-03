@@ -3,12 +3,12 @@ import pytest
 import pandas as pd
 from utils.display import ensure_output_directory, save_result
 
-def ensure_output_directory_creates_nested_directories(tmp_path):
+def test_ensure_output_directory_creates_nested_directories(tmp_path):
     nested_dir = tmp_path / "nested" / "subdir" / "results"
     ensure_output_directory(nested_dir)
     assert nested_dir.exists()
 
-def save_result_creates_file_with_multiple_gene_sheets(tmp_path):
+def test_save_result_creates_file_with_multiple_gene_sheets(tmp_path):
     gene_a = "GeneA"
     gene_b = "GeneB"
     param_df_a = pd.DataFrame({"param_1": [1, 2], "param_2": [3, 4]})
@@ -25,14 +25,14 @@ def save_result_creates_file_with_multiple_gene_sheets(tmp_path):
     assert not df_a.empty
     assert not df_b.empty
 
-def save_result_handles_empty_results_list(tmp_path):
+def test_save_result_handles_empty_results_list(tmp_path):
     excel_filename = tmp_path / "empty_results.xlsx"
     save_result([], str(excel_filename))
     assert os.path.exists(excel_filename)
     with pytest.raises(ValueError):
         pd.read_excel(str(excel_filename))
 
-def ensure_output_directory_passes_existing_directory(tmp_path):
+def test_ensure_output_directory_passes_existing_directory(tmp_path):
     existing_dir = tmp_path / "existing_directory"
     existing_dir.mkdir()
     ensure_output_directory(existing_dir)

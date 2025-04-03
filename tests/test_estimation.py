@@ -2,14 +2,13 @@ import numpy as np
 import pytest
 from paramest.seqest import prepare_model_func
 
-def verify_prepare_model_func_returns_empty_free_indices_when_all_params_fixed():
+def test_prepare_model_func_returns_empty_free_indices_when_all_params_fixed():
     num_psites = 2
     init_cond = [1.0, 0.0, 0.0, 0.0]
     bounds = {
         "A": (0, 10), "B": (0, 10), "C": (0, 10), "D": (0, 10),
         "Ssite": (0, 10), "Dsite": (0, 10)
     }
-    # All parameters are fixed (no None values)
     fixed_params = {
         "A": 1, "B": 1, "C": 1, "D": 1,
         "Ssite_1": 2, "Ssite_2": 2,
@@ -26,7 +25,7 @@ def verify_prepare_model_func_returns_empty_free_indices_when_all_params_fixed()
     assert free_indices == []
     assert len(fixed_values) == num_total_params
 
-def verify_prepare_model_func_raises_error_for_empty_time_points():
+def test_prepare_model_func_raises_error_for_empty_time_points():
     num_psites = 2
     init_cond = [1.0, 0.0, 0.0, 0.0]
     bounds = {
@@ -48,10 +47,9 @@ def verify_prepare_model_func_raises_error_for_empty_time_points():
             time_points=empty_time_points
         )
 
-def verify_prepare_model_func_raises_error_for_invalid_bounds():
+def test_prepare_model_func_raises_error_for_invalid_bounds():
     num_psites = 1
     init_cond = [1.0, 0.0, 0.0, 0.0]
-    # Use an invalid bound: lower equals upper
     bounds = {
         "A": (5, 5), "B": (0, 10), "C": (0, 10), "D": (0, 10),
         "Ssite": (0, 10), "Dsite": (0, 10)
