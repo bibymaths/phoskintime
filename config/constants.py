@@ -10,13 +10,13 @@ from config.helpers import *
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'testmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'sequential'
+ESTIMATION_MODE = 'normal'
 # Whether to normalize model output to match fold change (FC) data
 # ----------------------------------------------------------------
 # Set to True when experimental data is provided in fold change format

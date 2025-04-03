@@ -1,7 +1,6 @@
-
-from typing import cast, Tuple
 import pandas as pd
 import numpy as np
+from typing import cast, Tuple
 from itertools import combinations
 from scipy.optimize import curve_fit
 from scipy.interpolate import PchipInterpolator
