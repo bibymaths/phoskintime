@@ -83,4 +83,44 @@ These ODE models supports **two interpretations** depending on whether quantitie
   - `R, P, y[2+i]` → concentration (e.g., μM)
 - Caveat: Dimensional consistency requires adjustment (e.g., replacing hardcoded `1.0` with a rate constant and scaling summed terms accordingly).
 
+Here’s a concise and clear `README` section tailored for your **PhosKinTime** tool, explaining the normalization logic for fold change data:
+
+---
+
+### Fold Change Normalization in PhosKinTime
+
+**PhosKinTime** supports modeling and parameter estimation of phosphorylation dynamics using time series data. Often, such experimental data is provided not in absolute concentration units but as **fold change (FC)** relative to a baseline (usually time point 0). To ensure accurate and biologically meaningful comparison between model output and experimental data, **PhosKinTime includes built-in support to normalize model output to fold change form.**
+
+#### Why Normalize?
+
+Experimental FC data is typically defined as:
+
+$$
+\text{FC}(t) = \frac{X(t)}{X(t_0)}
+$$
+
+where $X(t)$ is the measured signal (e.g., intensity or concentration) at time $t$, and $X(t_0)$ is the baseline (often the 0 min time point). It reflects **relative change**, not absolute concentration.
+
+However, PhosKinTime's ODE models simulate **absolute concentrations** over time:
+
+$$
+Y(t) = \text{ODE solution}
+$$
+
+Directly comparing $Y(t)$ to FC data is **invalid**, as it compares mismatched scales and units. To bridge this gap, PhosKinTime transforms the model output into comparable fold change form by:
+
+$$
+\text{FC}_{\text{model}}(t) = \frac{Y(t)}{Y(t_0) + \epsilon}
+$$
+
+($\epsilon$ is a small constant to avoid division by zero.)
+
+This transformation is applied per phosphorylation site (or species) independently, ensuring robust and interpretable parameter fitting.
+
+### References
+
+- Klipp, E., et al. (2016). *Systems Biology: A Textbook* (2nd ed.). Wiley-VCH.  
+- Raue, A., et al. (2013). Lessons learned from quantitative dynamical modeling in systems biology. *PLoS ONE*, 8(9), e74335.  
+- BioModels Documentation: [https://www.ebi.ac.uk/biomodels/docs/](https://www.ebi.ac.uk/biomodels/docs/)
+
 ---
