@@ -2,6 +2,17 @@
   
 <img src="static/images/logo_3.png" alt="Package Logo" width="200"/>
 
+![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)
+![NumPy](https://img.shields.io/badge/Numpy-1.24.3-red.svg)
+![SciPy](https://img.shields.io/badge/SciPy-1.10.1-orange.svg)
+![Pandas](https://img.shields.io/badge/Pandas-1.5.3-yellowgreen.svg)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0.2-lightgrey.svg)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-3.7.1-blueviolet.svg)
+![Seaborn](https://img.shields.io/badge/Seaborn-0.12.2-orange.svg)
+![Plotly](https://img.shields.io/badge/Plotly-5.15.0-brightgreen.svg)
+![SALib](https://img.shields.io/badge/SALib-1.4.5-lightgrey.svg)
+![Numba](https://img.shields.io/badge/Numba-0.56.4-yellowgreen.svg)
+
 [![CI/CD](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml/badge.svg)](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml)   
 
 <!-- [![codecov](https://codecov.io/gh/bibymaths/phoskintime/branch/master/graph/badge.svg?token=JVCFNL8VLZ)](https://codecov.io/gh/bibymaths/phoskintime) --> 
