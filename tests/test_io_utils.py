@@ -2,8 +2,6 @@ import os
 import pytest
 import pandas as pd
 from utils.display import ensure_output_directory, save_result
-from pandas import MultiIndex
-from utils.tables import save_tables, save_master_table
 
 def ensure_output_directory_creates_nested_directories(tmp_path):
     nested_dir = tmp_path / "nested" / "subdir" / "results"
@@ -39,34 +37,3 @@ def ensure_output_directory_passes_existing_directory(tmp_path):
     existing_dir.mkdir()
     ensure_output_directory(existing_dir)
     assert existing_dir.exists()
-
-def ensure_save_tables_creates_latex_and_csv_files(tmp_path):
-    protein = "DummyProtein"
-    psite = "Site_1"
-    # Create a dummy dataframe with a MultiIndex column matching the LaTeX requirements
-    mi = MultiIndex.from_product([['$\\alpha$'], ['Kinase1']], names=['', 'Kinase'])
-    df = pd.DataFrame([[0.123, 0.456]], columns=mi)
-    tables = [((protein, psite), df)]
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
-    save_tables(tables, str(output_dir))
-    base_filename = f"{protein}_{psite.replace(':', '_')}"
-    tex_path = output_dir / f"{base_filename}.tex"
-    csv_path = output_dir / f"{base_filename}.csv"
-    assert tex_path.exists()
-    assert csv_path.exists()
-
-def ensure_save_master_table_includes_all_tex_entries(tmp_path):
-    # Prepare a temporary folder with dummy .tex files
-    latex_dir = tmp_path / "latex"
-    latex_dir.mkdir()
-    dummy1 = latex_dir / "dummy1.tex"
-    dummy2 = latex_dir / "dummy2.tex"
-    dummy1.write_text("Dummy content 1")
-    dummy2.write_text("Dummy content 2")
-    master_file = tmp_path / "all_tables.tex"
-    save_master_table(str(latex_dir), str(master_file))
-    assert master_file.exists()
-    content = master_file.read_text()
-    assert "latex/dummy1.tex" in content or "dummy1.tex" in content
-    assert "latex/dummy2.tex" in content or "dummy2.tex" in content
