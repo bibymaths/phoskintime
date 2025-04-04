@@ -2,11 +2,12 @@ import numpy as np
 from numba import njit
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
-TEST_MODEL = 'semi_processive'  # Change this to the desired model type
+TEST_MODEL = 'neg_feedback'  # Change this to the desired model type
+NEGATIVE_FEEDBACK_CONSTANT = 0.1 # Feedback constant for negative feedback model
 PROCESSIVITY = 0.1 # Processivity rate for semi-processive model
-HILL_N = 0.1 # Hill coefficient for cooperative model
-K_HALF = 1.0 # Half-maximal activation constant for cooperative model
-# Works well for hill_n = 0.5 and K_half = 2
+HILL_N = 4 # Hill coefficient for cooperative model
+K_HALF = 0.5 # Half-maximal activation constant for cooperative model
+# Works well for hill_n =< 0.5 and K_half >= 2
 
 # ======================================================
 # 1. Semi-processive / Hybrid Model
@@ -89,6 +90,50 @@ def ode_core_site_affinity(y, A, B, C, D, S_rates, D_rates):
                 dydt[2+i] = S_rates[i] * y[1+i] - (1.0 + S_rates[i+1] + D_rates[i]) * y[2+i] + y[3+i]
             else:
                 dydt[2+i] = S_rates[i] * y[1+i] - (1.0 + D_rates[i]) * y[2+i]
+    return dydt
+
+# ======================================================
+# 7. Negative Feedback Phosphorylation Model
+#
+# Differential Equations:
+#   Let f = 1/(1 + k_fb·(P₁+...+Pₙ))
+#
+#   dR/dt = A - B·R
+#   dP/dt = C·R - D·P - f·S₁·P + P₁
+#
+# For n = 1:
+#   dP₁/dt = f·S₁·P - (1 + D₁)·P₁
+#
+# For n > 1:
+#   dP₁/dt = f·S₁·P - (1 + f·S₂ + D₁)·P₁ + P₂
+#   dPᵢ/dt = f·Sᵢ·Pᵢ₋₁ - (1 + f·Sᵢ₊₁ + Dᵢ)·Pᵢ + Pᵢ₊₁, for i = 2,…,n-1
+#   dPₙ/dt = f·Sₙ·Pₙ₋₁ - (1 + Dₙ)·Pₙ
+# ======================================================
+@njit
+def ode_core_negative_feedback(y, A, B, C, D, S_rates, D_rates, k_fb):
+    R = y[0]
+    P = y[1]
+    n = S_rates.shape[0]
+    # Compute total phosphorylation to define feedback factor
+    total = 0.0
+    for i in range(n):
+        total += y[2+i]
+    f = 1.0 / (1.0 + k_fb * total)
+    dR = A - B * R
+    dP = C * R - D * P - f * S_rates[0] * P + y[2]
+    dydt = np.empty_like(y)
+    dydt[0] = dR
+    dydt[1] = dP
+    if n == 1:
+        dydt[2] = f * S_rates[0] * P - (1.0 + D_rates[0]) * y[2]
+    elif n > 1:
+        for i in range(n):
+            if i == 0:
+                dydt[2] = f * S_rates[0] * P - (1.0 + f * S_rates[1] + D_rates[0]) * y[2] + y[3]
+            elif i < n - 1:
+                dydt[2+i] = f * S_rates[i] * y[1+i] - (1.0 + f * S_rates[i+1] + D_rates[i]) * y[2+i] + y[3+i]
+            else:
+                dydt[2+i] = f * S_rates[i] * y[1+i] - (1.0 + D_rates[i]) * y[2+i]
     return dydt
 
 # ======================================================
@@ -213,10 +258,12 @@ def ode_system(y, t, params, num_psites, model_type=TEST_MODEL):
     elif model_type == 'crosstalk':
         return ode_core_crosstalk(y, A, B, C, D, S_rates, D_rates)
     elif model_type == 'cooperative':
-
         hill_n = HILL_N
         K_half = K_HALF
         return ode_core_cooperative(y, A, B, C, D, S_rates, D_rates, hill_n, K_half)
+    elif model_type == 'neg_feedback':
+        k_fb = NEGATIVE_FEEDBACK_CONSTANT
+        return ode_core_negative_feedback(y, A, B, C, D, S_rates, D_rates, k_fb)
     else:
         raise ValueError("Unknown model_type: " + model_type)
 

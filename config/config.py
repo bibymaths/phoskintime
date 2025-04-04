@@ -52,11 +52,11 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--B-bound", type=parse_bound_pair, default="0,2")
     parser.add_argument("--C-bound", type=parse_bound_pair, default="0,2")
     parser.add_argument("--D-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,2")
 
     parser.add_argument("--fix-A", type=float, default=None)

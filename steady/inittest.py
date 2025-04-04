@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize
 from config.logconf import setup_logger
-from models.testmod import TEST_MODEL, HILL_N, K_HALF, PROCESSIVITY
+from models.testmod import TEST_MODEL, HILL_N, K_HALF, PROCESSIVITY, NEGATIVE_FEEDBACK_CONSTANT
 
 logger = setup_logger()
 
@@ -54,6 +54,29 @@ def initial_condition(num_psites: int) -> list:
                         i] + P_sites[i + 1]
                     eqs.append(eq_pi)
                 eq_last = p_proc * S_rates[-1] * P_sites[-2] - (1 + D_rates[-1]) * P_sites[-1]
+                eqs.append(eq_last)
+                return [eq_R, eq_P] + eqs
+
+    elif TEST_MODEL == 'neg_feedback':
+        k_fb = NEGATIVE_FEEDBACK_CONSTANT
+        def steady_state_equations(y):
+            R, P, *P_sites = y
+            # Compute the feedback factor: f = 1/(1 + k_fb * (P1 + P2 + ... + Pn))
+            f = 1.0 / (1.0 + k_fb * sum(P_sites))
+            eq_R = A - B * R
+            eq_P = C * R - D * P - f * S_rates[0] * P + (P_sites[0] if num_psites >= 1 else 0)
+            if num_psites == 1:
+                eq_P1 = f * S_rates[0] * P - (1 + D_rates[0]) * P_sites[0]
+                return [eq_R, eq_P, eq_P1]
+            else:
+                eqs = []
+                eq_P1 = f * S_rates[0] * P - (1 + f * S_rates[1] + D_rates[0]) * P_sites[0] + P_sites[1]
+                eqs.append(eq_P1)
+                for i in range(1, num_psites - 1):
+                    eq_pi = f * S_rates[i] * P_sites[i - 1] - (1 + f * S_rates[i + 1] + D_rates[i]) * P_sites[i] + P_sites[
+                        i + 1]
+                    eqs.append(eq_pi)
+                eq_last = f * S_rates[-1] * P_sites[-2] - (1 + D_rates[-1]) * P_sites[-1]
                 eqs.append(eq_last)
                 return [eq_R, eq_P] + eqs
 

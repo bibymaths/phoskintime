@@ -16,7 +16,7 @@ ODE_MODEL = 'testmod'
 # which produces a series of parameter estimates over time (one estimate per time point).
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'normal'
+ESTIMATION_MODE = 'sequential'
 # Whether to normalize model output to match fold change (FC) data
 # ----------------------------------------------------------------
 # Set to True when experimental data is provided in fold change format
@@ -29,7 +29,7 @@ ESTIMATION_MODE = 'normal'
 # If False, raw concentrations will be used directly
 # (only valid if data is also in absolute units).
 # IMPORTANT: Set to True if your time series data represents relative changes.
-NORMALIZE_MODEL_OUTPUT = True
+NORMALIZE_MODEL_OUTPUT = False
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #
@@ -43,7 +43,8 @@ NORMALIZE_MODEL_OUTPUT = True
 model_names = {
     "distmod": "Distributive",
     "succmod": "Successive",
-    "randmod": "Random"
+    "randmod": "Random",
+    "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
 # TIME_POINTS:
