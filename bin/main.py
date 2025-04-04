@@ -24,7 +24,8 @@ else:
 
 def main():
 
-    logger.info(f"{model_type} Phosphorylation Modelling Configuration - {ESTIMATION_MODE.upper()} Estimation Mode")
+    logger.info(f"{model_type} Phosphorylation Modelling Configuration")
+    logger.info(f"Estimation Mode: {ESTIMATION_MODE}")
     log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
     ensure_output_directory(OUT_DIR)
     data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
