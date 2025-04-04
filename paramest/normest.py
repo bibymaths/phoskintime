@@ -69,7 +69,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             [bounds["Dsite"][1]] * num_psites
         )
 
-    def model_func(tpts, *params):  # Renamed time_points -> tpts
+    def model_func(tpts, *params):
         if ODE_MODEL == 'randmod':
             param_vec = np.exp(np.array(params))
         else:
@@ -126,7 +126,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     popt_best = popts[best_weight]
     logger.info(f"[{gene}] Best Weight = {best_weight} Score: {best_score:.2f}")
 
-    # Bootstrapping (if requested)
+    # Bootstrapping
     if bootstraps > 0:
         logger.info(f"[{gene}] Performing bootstrapping with {bootstraps} iterations")
         boot_estimates = []

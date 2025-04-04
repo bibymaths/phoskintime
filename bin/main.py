@@ -29,7 +29,7 @@ def main():
     ensure_output_directory(OUT_DIR)
     data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
     genes = data["Gene"].unique().tolist()[:1]
-    logger.info(f"Loaded Time Series for {len(genes)} Protein(s).")
+    logger.info(f"Loaded Time Series for {len(genes)} Protein(s)")
 
     with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:
         results = list(executor.map(

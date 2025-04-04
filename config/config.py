@@ -53,11 +53,11 @@ def parse_args():
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
     parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,2")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,2")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
 
     parser.add_argument("--fix-A", type=float, default=None)
     parser.add_argument("--fix-B", type=float, default=None)
@@ -72,7 +72,7 @@ def parse_args():
                                                      '\"inf\": {\"A\":0.85, \"S\": 0.4} '
                                                      '}',
                         help="JSON string mapping time points to fixed param values, e.g. '{\"60\": {\"A\": 1.3}}'")
-    parser.add_argument("--bootstraps", type=int, default=0)
+    parser.add_argument("--bootstraps", type=int, default=10)
     parser.add_argument("--profile-start", type=float, default=None)
     parser.add_argument("--profile-end", type=float, default=1)
     parser.add_argument("--profile-step", type=float, default=0.5)
