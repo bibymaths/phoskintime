@@ -1,18 +1,17 @@
 
 import os
-
 import numpy as np
 import pandas as pd
+from numba import njit
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE
+from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
 from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
-from numba import njit
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-
 from config.logconf import setup_logger
 logger = setup_logger()
 
@@ -99,6 +98,7 @@ def process_gene(
 
     # 5. Plotting Outputs
     labels = generate_labels(num_psites)
+    illustrate(gene, num_psites)
     # Create a single Plotter instance.
     plotter = Plotter(gene, out_dir)
     # Call plot_all with all necessary data.

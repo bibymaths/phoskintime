@@ -56,6 +56,9 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         results_dir (str): Path to the root results directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
+    import os
+    import pandas as pd
+
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
         d for d in os.listdir(results_dir)
@@ -78,9 +81,9 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "  display: grid;",
         "  grid-template-columns: repeat(2, 500px);",
         "  column-gap: 20px;",
-        "  row-gap: 40px;", # /* extra vertical gap */
+        "  row-gap: 40px;",  #// extra vertical gap
         "  justify-content: left;",
-        "  margin-bottom: 20px;",
+        "  margin-bottom: 40px;",
         "}",
         ".plot-item {",
         "  width: 500px;",
@@ -110,7 +113,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Global Report</h1>"
+        "<h1>Modelling & Parameter Estimation Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.
@@ -123,12 +126,19 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         files = sorted(os.listdir(gene_folder))
         for filename in files:
             file_path = os.path.join(gene_folder, filename)
-            if os.path.isfile(file_path):
-                if filename.endswith(".png"):
-                    rel_path = os.path.join(gene, filename)
-                    html_parts.append(
-                        f'<div class="plot-item"><h3>{filename}</h3><img src="{rel_path}" alt="{filename}"></div>'
-                    )
+            if os.path.isfile(file_path) and filename.endswith(".png"):
+                rel_path = os.path.join(gene, filename)
+                # Remove the extension and split on '_'
+                base_name = os.path.splitext(filename)[0]
+                tokens = [token for token in base_name.split('_') if token]
+                # Remove the gene name if it matches (case-insensitive)
+                if tokens and tokens[0].upper() == gene.upper():
+                    tokens = tokens[1:]
+                # Join remaining tokens with space and convert to upper case
+                title = " ".join(tokens).upper()
+                html_parts.append(
+                    f'<div class="plot-item"><h3>{title}</h3><img src="{rel_path}" alt="{filename}"></div>'
+                )
         html_parts.append('</div>')  # End of plot container
 
         # Data tables: display XLSX or CSV files from the gene folder, one per row.
@@ -138,7 +148,15 @@ def create_report(results_dir: str, output_file: str = "report.html"):
                 try:
                     df = pd.read_excel(file_path)
                     table_html = df.to_html(index=False, border=0)
-                    html_parts.append(f'<div class="data-table"><h3>Data Table: {filename}</h3>{table_html}</div>')
+                    # Remove the extension and split on '_'
+                    base_name = os.path.splitext(filename)[0]
+                    tokens = [token for token in base_name.split('_') if token]
+                    # Remove the gene name if it matches (case-insensitive)
+                    if tokens and tokens[0].upper() == gene.upper():
+                        tokens = tokens[1:]
+                    # Join remaining tokens with space and convert to upper case
+                    title = " ".join(tokens).upper()
+                    html_parts.append(f'<div class="data-table"><h3>Data Table: {title}</h3>{table_html}</div>')
                 except Exception as e:
                     html_parts.append(
                         f'<div class="data-table"><h3>Data Table: {filename}</h3><p>Error reading {filename}: {e}</p></div>'
@@ -151,6 +169,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     output_path = os.path.join(results_dir, output_file)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_parts))
+
 
 def organize_output_files(*directories):
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')

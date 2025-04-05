@@ -16,3 +16,4 @@ pytest
 statsmodels
 adjusttext
 salib
+graphviz

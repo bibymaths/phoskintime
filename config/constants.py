@@ -17,6 +17,10 @@ ODE_MODEL = 'distmod'
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
 ESTIMATION_MODE = 'normal'
+# ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
+# For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
+# This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
+ALPHA_CI = 0.95
 # Whether to normalize model output to match fold change (FC) data
 # ----------------------------------------------------------------
 # Set to True when experimental data is provided in fold change format
@@ -29,7 +33,7 @@ ESTIMATION_MODE = 'normal'
 # If False, raw concentrations will be used directly
 # (only valid if data is also in absolute units).
 # IMPORTANT: Set to True if your time series data represents relative changes.
-NORMALIZE_MODEL_OUTPUT = False
+NORMALIZE_MODEL_OUTPUT = True
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #
@@ -58,8 +62,8 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - USE_REGULARIZATION: Enables (True) or disables (False) Tikhonov (L2) regularization during model fitting.
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
-USE_REGULARIZATION = False
-LAMBDA_REG = 1e-6
+USE_REGULARIZATION = True
+LAMBDA_REG = 1e-1
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #

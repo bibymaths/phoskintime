@@ -21,6 +21,7 @@ statsmodels = "*"
 pymoo = '*'
 adjusttext = '*'
 salib = '*'
+graphviz = '*'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

@@ -4,10 +4,11 @@ from itertools import combinations
 from typing import cast, Tuple
 
 from config.config import score_fit
-from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL
+from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI
 from config.logconf import setup_logger
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
+from .identifiability import confidence_intervals
 
 logger = setup_logger()
 
@@ -94,7 +95,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
     try:
         result = cast(Tuple[np.ndarray, np.ndarray],
-                      curve_fit(model_func, time_points, target_fit,
+                      curve_fit(model_func, time_points, target_fit, x_scale='jac',
                       p0=p0, bounds=free_bounds, sigma=default_sigma,
                       absolute_sigma=True, maxfev=20000))
         popt_init, _ = result
@@ -106,45 +107,62 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     weight_options = get_weight_options(target, time_points, num_psites,
                                         use_regularization, len(p0), early_weights)
 
-    scores, popts = {}, {}
+    scores, popts, pcovs = {}, {}, {}
     for wname, sigma in weight_options.items():
         try:
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, time_points, target_fit, p0=popt_init,
-                          bounds=free_bounds, sigma=sigma,
+                          bounds=free_bounds, sigma=sigma, x_scale='jac',
                           absolute_sigma=True, maxfev=20000))
-            popt, _ = result
+            popt, pcov = result
         except Exception as e:
             logger.warning(f"[{gene}] Fit failed for {wname}: {e}")
             popt = popt_init
+            pcov = None
         popts[wname] = popt
+        pcovs[wname] = pcov
         pred = model_func(time_points, *popt)
         scores[wname] = score_fit(target_fit, pred, popt)
 
     best_weight = min(scores, key=scores.get)
     best_score = scores[best_weight]
     popt_best = popts[best_weight]
-    logger.info(f"[{gene}] Best Weight = {best_weight} Score: {best_score:.2f}")
+    pcov_best = pcovs[best_weight]
+    logger.info(f"[{gene}] Best weight: {best_weight} with score: {best_score:.4f}")
+    ci_results = confidence_intervals(popt_best, pcov_best, target, alpha_val=ALPHA_CI)
 
     # Bootstrapping
+    boot_estimates = []
+    boot_covariances = []
     if bootstraps > 0:
         logger.info(f"[{gene}] Performing bootstrapping with {bootstraps} iterations")
-        boot_estimates = []
         for _ in range(bootstraps):
             noise = np.random.normal(0, 0.05, size=target_fit.shape)
             noisy_target = target_fit * (1 + noise)
             try:
                 result = cast(Tuple[np.ndarray, np.ndarray],
                               curve_fit(model_func, time_points, noisy_target,
-                              p0=popt_best, bounds=free_bounds, sigma=default_sigma,
-                              absolute_sigma=True, maxfev=20000))
-                popt_bs, _ = result
+                                        p0=popt_best, bounds=free_bounds, sigma=default_sigma,
+                                        absolute_sigma=True, maxfev=20000))
+                popt_bs, pcov_bs = result
             except Exception as e:
                 logger.warning(f"Bootstrapping iteration failed: {e}")
                 popt_bs = popt_best
+                pcov_bs = None
             boot_estimates.append(popt_bs)
+            boot_covariances.append(pcov_bs)
+        # Convert boot_estimates to an array and compute the mean parameter estimates.
         popt_best = np.mean(boot_estimates, axis=0)
 
+        # Process bootstrap covariance matrices:
+        # Only include iterations where pcov_bs is not None.
+        valid_covs = [cov for cov in boot_covariances if cov is not None]
+        if valid_covs:
+            # Compute an average covariance matrix from the valid ones.
+            pcov_best = np.mean(valid_covs, axis=0)
+        else:
+            pcov_best = None
+        ci_results = confidence_intervals(popt_best, pcov_best, target, alpha_val=ALPHA_CI)
     # Since all parameters are free, param_final is simply the best-fit vector.
     # If parameters were estimated in log-space, convert them back.
     if ODE_MODEL == 'randmod':
@@ -155,4 +173,4 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
     error_vals.append(np.sum(np.abs(target - p_fit.flatten()) ** 2))
-    return est_params, model_fits, error_vals
+    return est_params, model_fits, error_vals #, ci_results
