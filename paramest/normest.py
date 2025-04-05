@@ -128,8 +128,15 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     best_score = scores[best_weight]
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
+
     logger.info(f"[{gene}] Best weight: {best_weight} with score: {best_score:.4f}")
-    ci_results = confidence_intervals(popt_best, pcov_best, target, alpha_val=ALPHA_CI)
+
+    ci_results = confidence_intervals(
+        np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
+        pcov_best,
+        target,
+        alpha_val=ALPHA_CI
+    )
 
     # Bootstrapping
     boot_estimates = []
@@ -162,7 +169,13 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             pcov_best = np.mean(valid_covs, axis=0)
         else:
             pcov_best = None
-        ci_results = confidence_intervals(popt_best, pcov_best, target, alpha_val=ALPHA_CI)
+        # Compute confidence intervals for the bootstrapped estimates.
+        ci_results = confidence_intervals(
+            np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
+            pcov_best,
+            target,
+            alpha_val=ALPHA_CI
+        )
     # Since all parameters are free, param_final is simply the best-fit vector.
     # If parameters were estimated in log-space, convert them back.
     if ODE_MODEL == 'randmod':
