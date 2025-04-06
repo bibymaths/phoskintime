@@ -1,22 +1,16 @@
-#!/usr/bin/env python
+
 import pandas as pd
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, LinearConstraint
 from numba import njit, prange
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # -------------------------------
 # Data Preprocessing Functions
 # -------------------------------
 def load_mRNA_data(filename="input3.csv"):
-    """
-    Loads mRNA time series from input3.csv.
-    Assumes first column is 'GeneID' and remaining columns are time points.
-    Returns:
-      - mRNA_ids: list of gene IDs (strings)
-      - mRNA_mat: NumPy array of shape (n_mRNA, T) with measured values.
-      - time_cols: list of time point column names.
-    """
     df = pd.read_csv(filename)
     mRNA_ids = df["GeneID"].astype(str).tolist()
     time_cols = [col for col in df.columns if col != "GeneID"]
@@ -24,28 +18,23 @@ def load_mRNA_data(filename="input3.csv"):
     return mRNA_ids, mRNA_mat, time_cols
 
 def load_TF_data(filename="input1_msgauss.csv"):
-    """
-    Loads TF data from input1_msgauss.csv.
-    Assumes columns: 'GeneID', 'Psite', and time series columns (e.g., x1, x2, ...).
-    For each TF, rows with empty 'Psite' give the protein time series;
-    rows with nonempty 'Psite' give PSite time series.
-    In addition, the PSite label (its string value) is stored.
-    Returns:
-      - TF_ids: list of unique TF IDs.
-      - protein_dict: dict mapping TF_id -> protein array (1D, length T)
-      - psite_dict: dict mapping TF_id -> list of PSite arrays (each 1D, length T)
-      - psite_labels_dict: dict mapping TF_id -> list of PSite names.
-      - time_cols: list of time point column names.
-    """
     df = pd.read_csv(filename)
     protein_dict = {}
     psite_dict = {}
     psite_labels_dict = {}
+    # Original time columns from TF data (should be 14 columns)
+    orig_time_cols = [col for col in df.columns if col not in ["GeneID", "Psite"]]
+    # We'll use only time points from index 5 onward (i.e. last 9 time points).
+    if len(orig_time_cols) >= 14:
+        time_cols = orig_time_cols[5:]
+    else:
+        time_cols = orig_time_cols
     for _, row in df.iterrows():
         tf = str(row["GeneID"]).strip()
         psite = str(row["Psite"]).strip()
-        time_cols = [col for col in df.columns if col not in ["GeneID", "Psite"]]
-        vals = row[time_cols].to_numpy(dtype=float)
+        # Read all original values then slice.
+        vals = row[orig_time_cols].to_numpy(dtype=float)
+        vals = vals[5:] if len(orig_time_cols) >= 14 else vals
         if tf not in protein_dict:
             protein_dict[tf] = None
             psite_dict[tf] = []
@@ -60,63 +49,73 @@ def load_TF_data(filename="input1_msgauss.csv"):
 
 def load_regulation(filename="input4_reduced.csv"):
     """
-    Loads TF–mRNA interactions from input4_reduced.csv.
-    Assumes columns: 'Source' and 'Target'.
-    Returns:
-      - reg_map: dict mapping target (mRNA) -> list of regulating TF IDs.
+    Assumes the regulation file is reversed:
+      - The 'Source' column holds mRNA identifiers.
+      - The 'Target' column holds TF identifiers.
+    Returns a mapping from mRNA (source) to a list of TFs (targets).
     """
     df = pd.read_csv(filename)
     reg_map = {}
     for _, row in df.iterrows():
-        source = str(row["Source"]).strip()
-        target = str(row["Target"]).strip()
-        if target not in reg_map:
-            reg_map[target] = []
-        if source not in reg_map[target]:
-            reg_map[target].append(source)
+        mrna = str(row["Source"]).strip()
+        tf = str(row["Target"]).strip()
+        if mrna not in reg_map:
+            reg_map[mrna] = []
+        if tf not in reg_map[mrna]:
+            reg_map[mrna].append(tf)
     return reg_map
 
 def build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psite_labels_dict, reg_map):
     """
-    Builds fixed‐shape arrays from the input data.
-    For each mRNA, we use its regulators from reg_map.
-      - n_reg: maximum number of regulators among all mRNA targets.
-    For each TF, let n_psite be the maximum number of PSites among TFs that have PSite data.
-    For TFs that lack any PSite, we will still allocate n_psite columns but later add extra
-    constraints to force the PSite β's to zero.
+    Builds fixed-shape arrays from the input data.
     Returns:
-      - mRNA_mat: array (n_mRNA, T)
-      - regulators: array (n_mRNA, n_reg) with indices into TF_ids.
-      - protein_mat: array (n_TF, T) for TF protein time series.
-      - psite_tensor: array (n_TF, n_psite, T) for PSite data (padded with zeros).
-      - n_reg, n_psite, and
+      - mRNA_mat: array of shape (n_mRNA, T)
+      - regulators: array of shape (n_mRNA, n_reg) with indices into TF_ids.
+      - protein_mat: array of shape (n_TF, T)
+      - psite_tensor: array of shape (n_TF, n_psite_max, T), padded with zeros.
+      - n_reg: maximum number of regulators per mRNA.
+      - n_psite_max: maximum number of PSites among TFs.
       - psite_labels_arr: list (length n_TF) of lists of PSite names (padded with empty strings).
+      - num_psites: array of length n_TF with the actual number of PSites for each TF.
     """
     n_mRNA, T = mRNA_mat.shape
 
-    # Build mapping from TF_id to index
+    # Map TF_id to index.
     TF_index = {tf: idx for idx, tf in enumerate(TF_ids)}
     n_TF = len(TF_ids)
 
-    # Determine maximum number of regulators per mRNA.
-    max_reg = 0
+    # # Determine maximum number of regulators per mRNA.
+    # max_reg = 0
+    # reg_list = []
+    # for gene in mRNA_ids:
+    #     regs = reg_map.get(gene, [])
+    #     max_reg = max(max_reg, len(regs))
+    #     reg_list.append(regs)
+    # n_reg = max_reg if max_reg > 0 else 1
+    #
+    # # Build regulators array (n_mRNA x n_reg), padded with index 0.
+    # regulators = np.zeros((n_mRNA, n_reg), dtype=np.int32)
+    # for i, regs in enumerate(reg_list):
+    #     for j in range(n_reg):
+    #         if j < len(regs):
+    #             regulators[i, j] = TF_index.get(regs[j], 0)
+    #         else:
+    #             regulators[i, j] = 0
+
+    # Determine max number of valid regulators across all mRNA, and keep valid indices only.
     reg_list = []
     for gene in mRNA_ids:
-        regs = reg_map.get(gene, [])
-        max_reg = max(max_reg, len(regs))
+        regs = [tf for tf in reg_map.get(gene, []) if tf in TF_ids]
         reg_list.append(regs)
-    n_reg = max_reg if max_reg > 0 else 1
+    n_reg = max(len(regs) for regs in reg_list) if reg_list else 1
 
-    # Build regulators array (n_mRNA x n_reg), padding with index 0.
-    regulators = np.zeros((n_mRNA, n_reg), dtype=np.int32)
+    # Build regulators array (n_mRNA x n_reg), padded with -1 to mark invalid.
+    regulators = np.full((n_mRNA, n_reg), -1, dtype=np.int32)
     for i, regs in enumerate(reg_list):
-        for j in range(n_reg):
-            if j < len(regs):
-                regulators[i, j] = TF_index.get(regs[j], 0)
-            else:
-                regulators[i, j] = 0
+        for j, tf in enumerate(regs):
+            regulators[i, j] = TF_index.get(tf, -1)
 
-    # Build protein_mat: for each TF, get its protein measurement.
+    # Build protein_mat.
     protein_mat = np.zeros((n_TF, T), dtype=np.float64)
     for tf, idx in TF_index.items():
         if protein_dict.get(tf) is not None:
@@ -124,42 +123,36 @@ def build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psi
         else:
             protein_mat[idx, :] = np.zeros(T)
 
-    # Determine maximum number of PSites among TFs (if any have PSite data).
-    max_psite = 0
-    for tf in TF_ids:
-        n = len(psite_dict.get(tf, []))
-        max_psite = max(max_psite, n)
-    n_psite = max_psite  # Note: if none have PSite, n_psite==0.
+    # For each TF, record the actual number of PSites.
+    num_psites = np.zeros(n_TF, dtype=np.int32)
+    for i, tf in enumerate(TF_ids):
+        num_psites[i] = len(psite_dict.get(tf, []))
+    # Maximum number of PSites across all TFs.
+    n_psite_max = int(np.max(num_psites)) if np.max(num_psites) > 0 else 0
 
     # Build psite_tensor and psite_labels_arr.
-    # For each TF, if no PSite data is present, allocate an array of shape (n_psite, T) of zeros
-    # and a list of n_psite empty strings.
-    psite_tensor = np.zeros((n_TF, n_psite, T), dtype=np.float64)
+    # psite_tensor will have shape (n_TF, n_psite_max, T) and we pad shorter vectors with zeros.
+    psite_tensor = np.zeros((n_TF, n_psite_max, T), dtype=np.float64)
     psite_labels_arr = []
     for tf, idx in TF_index.items():
         psites = psite_dict.get(tf, [])
         labels = psite_labels_dict.get(tf, [])
-        for j in range(n_psite):
+        for j in range(n_psite_max):
             if j < len(psites):
                 psite_tensor[idx, j, :] = psites[j][:T]
             else:
                 psite_tensor[idx, j, :] = np.zeros(T)
-        padded_labels = labels + [""] * (n_psite - len(labels))
+        padded_labels = labels + [""] * (n_psite_max - len(labels))
         psite_labels_arr.append(padded_labels)
 
-    return mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, psite_labels_arr
+    return mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites
 
 # -------------------------------
-# Numba-Accelerated Objective
+# Objective (f1)
 # -------------------------------
+"""
 @njit(parallel=True)
-def objective_numba_fixed(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA, n_TF):
-    """
-    Computes the sum of squared errors.
-    x is a flat vector of parameters:
-      - First n_mRNA*n_reg entries are α parameters.
-      - Next n_TF*(1+n_psite) entries are β parameters for each TF.
-    """
+def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
     total_error = 0.0
     n_alpha = n_mRNA * n_reg
     for i in prange(n_mRNA):
@@ -169,23 +162,115 @@ def objective_numba_fixed(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_
             tf_idx = regulators[i, r]
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
-            beta_start = n_alpha + tf_idx * (1 + n_psite)
-            beta_vec = x[beta_start : beta_start + 1 + n_psite]
+            beta_start = beta_start_indices[tf_idx]
+            length = 1 + num_psites[tf_idx]
+            beta_vec = x[n_alpha + beta_start : n_alpha + beta_start + length]
             tf_effect = beta_vec[0] * protein
-            for k in range(n_psite):
+            for k in range(num_psites[tf_idx]):
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
             R_pred += a * tf_effect
         for t in range(T_use):
             diff = R_meas[t] - R_pred[t]
             total_error += diff * diff
-    return total_error
+    return total_error / (T_use * n_mRNA)
+"""
+# Loss functions for objective function.
+# 0: MSE, 1: MAE, 2: soft L1 (pseudo-Huber), 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov.
+# The loss functions are implemented in the objective_ function.
+# The loss function is selected using the loss_type parameter.
+# The default is MSE (0).
+@njit(parallel=True)
+def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA,
+                   beta_start_indices, num_psites, loss_type=0, lam1=1e-3, lam2=1e-3):
+    """
+    Computes a loss value using one of several loss functions.
 
-def objective_wrapper(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA, n_TF):
-    return objective_numba_fixed(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA, n_TF)
+    Parameters:
+      x               : Decision vector.
+      mRNA_mat        : (n_mRNA x T_use) measured mRNA values.
+      regulators      : (n_mRNA x n_reg) indices of TF regulators for each mRNA.
+      protein_mat     : (n_TF x T_use) TF protein time series.
+      psite_tensor    : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
+      n_reg           : Maximum number of regulators per mRNA.
+      T_use           : Number of time points used.
+      n_mRNA, n_TF    : Number of mRNA and TF respectively.
+      beta_start_indices: Integer array giving the starting index (in the β–segment)
+                         for each TF.
+      num_psites      : Integer array with the actual number of PSites for each TF.
+      loss_type       : Integer indicating the loss type (0: MSE, 1: MAE, 2: soft L1,
+                         3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov).
+      lam1, lam2      : Regularization parameters (used for loss_type 5 and 6).
+
+    Returns:
+      The computed loss (a scalar).
+    """
+    total_loss = 0.0
+    n_alpha = n_mRNA * n_reg
+    for i in prange(n_mRNA):
+        R_meas = mRNA_mat[i, :T_use]
+        R_pred = np.zeros(T_use)
+        for r in range(n_reg):
+            tf_idx = regulators[i, r]
+            if tf_idx == -1:
+                continue
+            a = x[i * n_reg + r]
+            protein = protein_mat[tf_idx, :T_use]
+            beta_start = beta_start_indices[tf_idx]
+            length = 1 + num_psites[tf_idx]  # actual length of beta vector for TF
+            beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
+            tf_effect = beta_vec[0] * protein
+            for k in range(num_psites[tf_idx]):
+                tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
+            R_pred += a * tf_effect
+        # For each time point, add loss according to loss_type.
+        for t in range(T_use):
+            e = R_meas[t] - R_pred[t]
+            if loss_type == 0:  # MSE
+                total_loss += e * e
+            elif loss_type == 1:  # MAE
+                total_loss += abs(e)
+            elif loss_type == 2:  # Soft L1 (pseudo-Huber)
+                total_loss += 2.0 * (np.sqrt(1.0 + e * e) - 1.0)
+            elif loss_type == 3:  # Cauchy
+                total_loss += np.log(1.0 + e * e)
+            elif loss_type == 4:  # Arctan
+                total_loss += np.arctan(e * e)
+            else:
+                # Default to MSE if unknown.
+                total_loss += e * e
+    loss = total_loss / (n_mRNA * T_use)
+
+    # For elastic net (loss_type 5), add L1 and L2 penalties on the beta portion.
+    if loss_type == 5:
+        l1 = 0.0
+        l2 = 0.0
+        # Compute over beta parameters only.
+        for i in range(n_alpha, x.shape[0]):
+            v = x[i]
+            l1 += abs(v)
+            l2 += v * v
+        loss += lam1 * l1 + lam2 * l2
+
+    # For Tikhonov (loss_type 6), add L2 penalty on the beta portion.
+    if loss_type == 6:
+        l2 = 0.0
+        for i in range(n_alpha, x.shape[0]):
+            v = x[i]
+            l2 += v * v
+        loss += lam1 * l2
+
+    return loss
+
+# Wrapper for the objective function to be used with scipy.optimize.minimize.
+# This is necessary because the objective function must take a single argument (the decision vector).
+# The other parameters are passed as additional arguments.
+def objective_wrapper(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
+    return objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites)
 
 # -------------------------------
 # Constraint Functions
 # -------------------------------
+# The constraints are defined as functions that return an array of values.
 def constraint_alpha_func(x, n_mRNA, n_reg):
     """
     For each mRNA, the sum of its α parameters must equal 1.
@@ -198,50 +283,93 @@ def constraint_alpha_func(x, n_mRNA, n_reg):
         cons.append(s - 1.0)
     return np.array(cons)
 
-def constraint_beta_func_extended(x, n_alpha, n_TF, n_psite, no_psite_tf):
-    """
-    For each TF, the sum of its β parameters must equal 1.
-    Additionally, for TFs with no PSite data (as indicated by no_psite_tf),
-    the additional β parameters (for PSites) must be 0.
-    """
+def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf):
     cons = []
     for tf in range(n_TF):
-        start = n_alpha + tf * (1 + n_psite)
-        beta_vec = x[start : start + (1 + n_psite)]
+        length = 1 + num_psites[tf]  # Total beta parameters for TF tf.
+        start = n_alpha + beta_start_indices[tf]
+        beta_vec = x[start : start + length]
+        # Constraint: Sum of beta parameters must equal 1.
         cons.append(np.sum(beta_vec) - 1.0)
+        # For TFs with no PSite data, force all extra beta parameters to be zero.
         if no_psite_tf[tf]:
-            # Force all PSite β's to 0.
-            for q in range(1, 1 + n_psite):
+            for q in range(1, length):
                 cons.append(beta_vec[q])
     return np.array(cons)
+
+def build_linear_constraints(n_mRNA, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf):
+    total_vars = n_alpha + sum(1 + num_psites[i] for i in range(n_TF))
+
+    # --- Alpha constraints ---
+    # For each mRNA, sum of its α values = 1
+    alpha_constraints_matrix = []
+    for i in range(n_mRNA):
+        row = np.zeros(total_vars)
+        for j in range(n_reg):
+            tf_idx = regulators[i, j]
+            if tf_idx != -1:  # only include valid TFs
+                row[i * n_reg + j] = 1.0
+        alpha_constraints_matrix.append(row)
+    alpha_constraints_matrix = np.array(alpha_constraints_matrix)
+    alpha_constraint = LinearConstraint(alpha_constraints_matrix, lb=1.0, ub=1.0)
+
+    # --- Beta constraints ---
+    beta_constraint_rows = []
+    lb_list = []
+    ub_list = []
+
+    for tf in range(n_TF):
+        start = n_alpha + beta_start_indices[tf]
+        length = 1 + num_psites[tf]
+
+        # Sum of beta values = 1
+        row = np.zeros(total_vars)
+        row[start: start + length] = 1.0
+        beta_constraint_rows.append(row)
+        lb_list.append(1.0)
+        ub_list.append(1.0)
+
+        # Zero out all PSite terms if TF has no PSite data
+        if no_psite_tf[tf]:
+            for q in range(1, length):
+                row = np.zeros(total_vars)
+                row[start + q] = 1.0
+                beta_constraint_rows.append(row)
+                lb_list.append(0.0)
+                ub_list.append(0.0)
+
+    beta_constraints_matrix = np.array(beta_constraint_rows)
+    beta_constraint = LinearConstraint(beta_constraints_matrix, lb=lb_list, ub=ub_list)
+
+    return [alpha_constraint, beta_constraint]
 
 # -------------------------------
 # Plotting Functions
 # -------------------------------
-def compute_predictions(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA):
-    """
-    Computes predicted mRNA time series for each mRNA.
-    """
+# Plotting function to visualize the estimated vs observed mRNA time series.
+def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
     n_alpha = n_mRNA * n_reg
     predictions = np.zeros((n_mRNA, T_use))
     for i in range(n_mRNA):
         R_pred = np.zeros(T_use)
         for r in range(n_reg):
             tf_idx = regulators[i, r]
+            if tf_idx == -1:
+                continue
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
-            beta_start = n_alpha + tf_idx * (1 + n_psite)
-            beta_vec = x[beta_start : beta_start + 1 + n_psite]
+            beta_start = beta_start_indices[tf_idx]
+            length = 1 + num_psites[tf_idx]
+            beta_vec = x[n_alpha + beta_start : n_alpha + beta_start + length]
             tf_effect = beta_vec[0] * protein
-            for k in range(n_psite):
+            for k in range(num_psites[tf_idx]):
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
             R_pred += a * tf_effect
         predictions[i, :] = R_pred
     return predictions
 
-
 def plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, time_points, regulators, protein_mat, TF_ids,
-                               num_targets=5):
+                               num_targets=5, save_path="results"):
     """
     Plots observed and estimated mRNA time series for the first num_targets mRNAs,
     and overlays the protein time series for all TFs regulating each mRNA.
@@ -257,37 +385,152 @@ def plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, time_points, reg
       num_targets: number of mRNA targets to plot.
     """
     T = len(time_points)
-    time_vals = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960]) #np.arange(T)
+    time_vals_mrna = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
+    time_vals_tf = np.array([4, 8, 16, 30, 60, 120, 240, 480, 960])
+    combined_ticks = np.unique(np.concatenate((time_vals_mrna, time_vals_tf)))
     num_targets = min(num_targets, predictions.shape[0])
-    plt.figure(figsize=(10, num_targets * 3))
+
     for i in range(num_targets):
-        plt.subplot(num_targets, 1, i + 1)
-        plt.plot(time_vals, mRNA_mat[i, :], 'o-', label='Observed')
-        plt.plot(time_vals, predictions[i, :], 's--', label='Estimated')
+        plt.figure(figsize=(8, 8))
+        plt.plot(time_vals_mrna, mRNA_mat[i, :], 's-', label='Observed')
+        plt.plot(time_vals_mrna, predictions[i, :], '-', label='Estimated')
         # Plot protein time series for each regulator of mRNA i (only unique TFs)
         plotted_tfs = set()
         for r in regulators[i, :]:
             tf_name = TF_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = protein_mat[r, :T]
-                plt.plot(time_vals, protein_signal, ':', label=f"TF: {tf_name}")
+                plt.plot(time_vals_tf, protein_signal, ':', label=f"TF: {tf_name}")
                 plotted_tfs.add(tf_name)
         plt.title(f"mRNA: {mRNA_ids[i]}")
-        plt.xlabel("Time Point")
-        plt.ylabel("Expression")
+        plt.xlabel("Time (minutes)")
+        plt.ylabel("Fold Changes")
+        plt.xticks(combined_ticks, combined_ticks, rotation=45)
         plt.legend()
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show(grid=True, alpha=0.3)
 
+        fig = go.Figure()
+        # Observed mRNA
+        fig.add_trace(go.Scatter(
+            x=time_vals_mrna,
+            y=mRNA_mat[i, :],
+            mode='markers+lines',
+            name='Observed',
+            marker=dict(symbol='square')
+        ))
+        # Estimated mRNA
+        fig.add_trace(go.Scatter(
+            x=time_vals_mrna,
+            y=predictions[i, :],
+            mode='lines+markers',
+            name='Estimated'
+        ))
+        # TF protein signals: plot each unique regulator only once.
+        plotted_tfs = set()
+        for r in regulators[i, :]:
+            tf_name = TF_ids[r]
+            if tf_name not in plotted_tfs:
+                protein_signal = protein_mat[r, :len(time_vals_tf)]
+                fig.add_trace(go.Scatter(
+                    x=time_vals_tf,
+                    y=protein_signal,
+                    mode='lines',
+                    name=f"TF: {tf_name}",
+                    line=dict(dash='dot')
+                ))
+                plotted_tfs.add(tf_name)
+        fig.update_layout(
+            title=f"mRNA: {mRNA_ids[i]}",
+            xaxis_title="Time (minutes)",
+            yaxis_title="Fold Changes",
+            xaxis=dict(
+                tickmode='array',
+                tickvals=combined_ticks,
+                ticktext=[str(t) for t in combined_ticks]
+            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        fig.write_html(f"{save_path}/mRNA_{mRNA_ids[i]}.html")
+
+# Save results to Excel file.
+def save_results_to_excel(
+    mRNA_ids, TF_ids,
+    final_alpha, final_beta, psite_labels_arr,
+    mRNA_mat, predictions,
+    objective_value,
+    reg_map,
+    filename="results/results.xlsx"
+):
+    # --- Alpha Values ---
+    alpha_rows = []
+    n_mRNA, n_reg = final_alpha.shape
+    for i in range(n_mRNA):
+        gene = mRNA_ids[i]
+        actual_tfs = [tf for tf in reg_map[gene] if tf in TF_ids]
+        for j, tf_name in enumerate(actual_tfs):
+            alpha_rows.append([gene, tf_name, final_alpha[i, j]])
+    df_alpha = pd.DataFrame(alpha_rows, columns=["mRNA", "TF", "Value"])
+
+    # --- Beta Values ---
+    beta_rows = []
+    for i, tf in enumerate(TF_ids):
+        beta_vec = final_beta[i]
+        beta_rows.append([tf, "", beta_vec[0]])  # Protein beta
+        for j in range(1, len(beta_vec)):
+            beta_rows.append([tf, psite_labels_arr[i][j - 1], beta_vec[j]])
+    df_beta = pd.DataFrame(beta_rows, columns=["TF", "Psite", "Value"])
+
+    # --- Residuals ---
+    residuals = mRNA_mat - predictions
+    df_residuals = pd.DataFrame(residuals, columns=[f"x{j+1}" for j in range(residuals.shape[1])])
+    df_residuals.insert(0, "mRNA", mRNA_ids)
+
+    # --- Observed ---
+    df_observed = pd.DataFrame(mRNA_mat, columns=[f"x{j+1}" for j in range(mRNA_mat.shape[1])])
+    df_observed.insert(0, "mRNA", mRNA_ids)
+
+    # --- Estimated ---
+    df_estimated = pd.DataFrame(predictions, columns=[f"x{j+1}" for j in range(predictions.shape[1])])
+    df_estimated.insert(0, "mRNA", mRNA_ids)
+
+    # --- Optimization Results ---
+    y_true = mRNA_mat.flatten()
+    y_pred = predictions.flatten()
+    mse = mean_squared_error(y_true, y_pred)
+    mae = mean_absolute_error(y_true, y_pred)
+    mape = np.mean(np.abs((y_true - y_pred) / (y_true + 1e-8))) * 100
+    r2 = r2_score(y_true, y_pred)
+    df_metrics = pd.DataFrame([
+        ["Objective Value", objective_value],
+        ["MSE", mse],
+        ["MAE", mae],
+        ["MAPE", mape],
+        ["R^2", r2],
+    ], columns=["Metric", "Value"])
+
+    # Write to Excel
+    with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
+        df_alpha.to_excel(writer, sheet_name="Alpha Values", index=False)
+        df_beta.to_excel(writer, sheet_name="Beta Values", index=False)
+        df_residuals.to_excel(writer, sheet_name="Residuals", index=False)
+        df_observed.to_excel(writer, sheet_name="Observed", index=False)
+        df_estimated.to_excel(writer, sheet_name="Estimated", index=False)
+        df_metrics.to_excel(writer, sheet_name="Optimization Results", index=False)
 
 # -------------------------------
 # Main Optimization Routine
 # -------------------------------
+# Main function to run the optimization.
 def main():
-    # Load raw data
     mRNA_ids, mRNA_mat, mRNA_time_cols = load_mRNA_data("../data/input3.csv")
     TF_ids, protein_dict, psite_dict, psite_labels_dict, TF_time_cols = load_TF_data("../data/input1_msgauss.csv")
+    # Reverse interpretation: mRNA are in Source, TFs in Target.
     reg_map = load_regulation("../data/input4_reduced.csv")
+
+    # Print time points (in minutes) for clarity.
+    time_points = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
+    print("Time points (minutes):", time_points)
 
     # Filter mRNA: keep only those with at least one regulator.
     filtered_indices = [i for i, gene in enumerate(mRNA_ids) if gene in reg_map and len(reg_map[gene]) > 0]
@@ -305,39 +548,54 @@ def main():
         reg_map[gene] = regs_filtered
         relevant_TFs.update(regs_filtered)
 
-    # Filter TFs to only those that actually regulate some mRNA.
+    # Filter TFs to only those that regulate some mRNA.
     TF_ids_filtered = [tf for tf in TF_ids if tf in relevant_TFs]
     TF_ids = TF_ids_filtered
     protein_dict = {tf: protein_dict[tf] for tf in TF_ids}
     psite_dict = {tf: psite_dict[tf] for tf in TF_ids}
     psite_labels_dict = {tf: psite_labels_dict[tf] for tf in TF_ids}
 
-    # Use common number of time points (T_use)
+    # Use common number of time points.
     T_use = min(mRNA_mat.shape[1], len(TF_time_cols))
     mRNA_mat = mRNA_mat[:, :T_use]
 
     # Build fixed arrays.
-    mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, psite_labels_arr = \
+    mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites = \
         build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psite_labels_dict, reg_map)
     n_mRNA = mRNA_mat.shape[0]
     n_TF = protein_mat.shape[0]
-    print(f"n_mRNA: {n_mRNA}, n_TF: {n_TF}, T_use: {T_use}, n_reg: {n_reg}, n_psite: {n_psite}")
+    print(f"n_mRNA: {n_mRNA}, n_TF: {n_TF}, T_use: {T_use}, n_reg: {n_reg}, n_psite_max: {n_psite_max}")
 
-    # Compute a boolean array indicating which TFs have no PSite data.
-    no_psite_tf = np.array([all(label == "" for label in labels) for labels in psite_labels_arr])
+    # Create boolean array for TFs with no PSite data.
+    no_psite_tf = np.array([ (num_psites[i] == 0) or all(label == "" for label in psite_labels_arr[i])
+                             for i in range(n_TF) ])
 
-    # Build initial guess vector x0:
-    n_alpha = n_mRNA * n_reg
+    # Compute cumulative starting indices for beta parameters for each TF.
+    beta_start_indices = np.zeros(n_TF, dtype=np.int32)
+    cum = 0
+    for i in range(n_TF):
+        beta_start_indices[i] = cum
+        cum += 1 + num_psites[i]
+    n_beta_total = cum
+
+    # Build initial guess vector x0.
+    n_alpha = np.sum(regulators != -1)
     x0_alpha = np.full(n_alpha, 1.0 / n_reg)
-    n_beta = n_TF * (1 + n_psite)
-    x0_beta = np.full(n_beta, 1.0 / (1 + n_psite))
+    x0_beta_list = []
+    for i in range(n_TF):
+        if no_psite_tf[i]:
+            x0_beta_list.extend([1.0])  # Only protein beta.
+        else:
+            length = 1 + num_psites[i]
+            x0_beta_list.extend([1.0 / length] * length)
+    x0_beta = np.array(x0_beta_list)
     x0 = np.concatenate([x0_alpha, x0_beta])
     total_dim = len(x0)
-    print(f"Total parameter dimension: {total_dim}")
+    print(f"Total Parameters: {total_dim}")
 
     # Set bounds.
     bounds_alpha = [(0.0, 1.0)] * n_alpha
-    bounds_beta = [(-4.0, 4.0)] * n_beta
+    bounds_beta = [(-4.0, 4.0)] * len(x0_beta)
     bounds = bounds_alpha + bounds_beta
 
     # Define constraints: both the sum constraints and for TFs with no PSite data, force extra β's to zero.
@@ -345,64 +603,74 @@ def main():
         {"type": "eq",
          "fun": lambda x: constraint_alpha_func(x, n_mRNA, n_reg)},
         {"type": "eq",
-         "fun": lambda x: constraint_beta_func_extended(x, n_alpha, n_TF, n_psite, no_psite_tf)}
+         "fun": lambda x: constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf)}
     ]
 
     # Run optimization using SLSQP.
     result = minimize(
         fun=objective_wrapper,
         x0=x0,
-        args=(mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA, n_TF),
+        args=(mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites),
         method="SLSQP",
         bounds=bounds,
-        constraints=cons,
+        constraints=build_linear_constraints(n_mRNA, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf),
         options={"disp": True, "maxiter": 20000}
     )
 
     print("Optimization Result:")
     print(result)
 
-    # --- Display Results with Detailed Mapping ---
     final_x = result.x
-    final_alpha = final_x[:n_alpha].reshape((n_mRNA, n_reg))
-    final_beta = final_x[n_alpha:].reshape((n_TF, 1 + n_psite))
+    print("\n--- Best Solution ---")
+    print(f"Objective Values (F): {result.fun}")
 
-    # Build mapping for α: each mRNA mapped to its regulating TFs and corresponding α.
+    final_alpha = final_x[:n_alpha].reshape((n_mRNA, n_reg))
+    final_beta = []
+    # Extract beta parameters per TF using beta_start_indices.
+    for i in range(n_TF):
+        start = beta_start_indices[i]
+        length = 1 + num_psites[i]
+        final_beta.append(final_x[n_alpha + start: n_alpha + start + length])
+    final_beta = np.array(final_beta, dtype=object)  # Use object array to hold variable-length vectors
+
+    # Build mapping for α.
     alpha_mapping = {}
-    for i, mRNA in enumerate(mRNA_ids):
-        alpha_mapping[mRNA] = {}
-        for j in range(n_reg):
-            tf_idx = regulators[i, j]
-            tf_name = TF_ids[tf_idx]
-            alpha_mapping[mRNA][tf_name] = final_alpha[i, j]
+    for i, mrna in enumerate(mRNA_ids):
+        actual_tfs = [tf for tf in reg_map[mrna] if tf in TF_ids]  # Only valid TFs
+        alpha_mapping[mrna] = {}
+        for j, tf in enumerate(actual_tfs):
+            alpha_mapping[mrna][tf] = final_alpha[i, j]
+
+    # Display α mapping in the same structure as the Excel output.
     print("\nMapping of mRNA targets to regulators (α values):")
-    for mRNA, mapping in alpha_mapping.items():
-        print(f"{mRNA}:")
+    for mrna, mapping in alpha_mapping.items():
+        print(f"{mrna}:")
         for tf, a_val in mapping.items():
             print(f"   {tf}: {a_val:.4f}")
 
-    # Build mapping for β:
-    # For each TF, label β0 as 'Protein: <TF name>'.
-    # For PSite entries, use the corresponding PSite name from psite_labels_arr.
+    # Build mapping for β.
     beta_mapping = {}
     for idx, tf in enumerate(TF_ids):
         beta_mapping[tf] = {}
-        beta_mapping[tf][f"Protein: {tf}"] = final_beta[idx, 0]
-        for q in range(1, 1 + n_psite):
+        beta_vec = final_beta[idx]
+        beta_mapping[tf][f"Protein: {tf}"] = beta_vec[0]
+        for q in range(1, len(beta_vec)):
             label = psite_labels_arr[idx][q - 1]
             if label == "":
                 label = f"PSite{q}"
-            beta_mapping[tf][label] = final_beta[idx, q]
+            beta_mapping[tf][label] = beta_vec[q]
     print("\nMapping of TFs to β parameters (interpreted as relative impacts):")
     for tf, mapping in beta_mapping.items():
         print(f"{tf}:")
         for label, b_val in mapping.items():
             print(f"   {label}: {b_val:.4f}")
 
-    # Compute predictions using the final parameter vector final_x.
-    predictions = compute_predictions(final_x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, n_psite, T_use, n_mRNA)
-    # Plot observed vs estimated mRNA time series with overlaid TF protein signals.
-    plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, mRNA_time_cols, regulators, protein_mat, TF_ids, num_targets=15)
+    # Compute predictions.
+    predictions = compute_predictions(final_x, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites)
+    # Plot observed vs. estimated mRNA time series with overlaid TF protein signals.
+    plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, mRNA_time_cols, regulators, protein_mat, TF_ids,
+                               num_targets=14)
+    save_results_to_excel(mRNA_ids, TF_ids, final_alpha, final_beta, psite_labels_arr, mRNA_mat, predictions, result.fun, reg_map)
 
 if __name__ == "__main__":
     main()
