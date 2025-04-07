@@ -44,6 +44,22 @@ git clone https://github.com/yourusername/phoskintime.git
 cd phoskintime
 pip install -r requirements.txt
 ```
+For making illustration diagrams, you need to install Graphviz. You can do this via conda or apt-get:
+ 
+```bash 
+conda install graphviz
+``` 
+or 
+
+```bash 
+apt-get install graphviz
+``` 
+or download it from the [Graphviz website](https://graphviz.gitlab.io/download/). 
+For macusers, you can use Homebrew:
+
+```bash  
+brew install graphviz
+``` 
 
 Ensure you have Python 3.7+ and that packages such as NumPy, SciPy, Pandas, scikit-learn, Matplotlib, Seaborn, Plotly, SALib, and Numba are installed.
 
