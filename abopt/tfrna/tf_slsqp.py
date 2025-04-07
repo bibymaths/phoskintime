@@ -328,31 +328,185 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
         predictions[i, :] = R_pred
     return predictions
 
-@njit
-def finite_diff_hessian(x, f, eps=1e-5):
-    n = x.shape[0]
-    H = np.zeros((n, n))
-    f0 = f(x)
-    for i in range(n):
-        for j in range(i, n):
-            # Create perturbed copies
-            x_pp = x.copy()
-            x_pp[i] += eps
-            x_pp[j] += eps
 
-            x_pi = x.copy()
-            x_pi[i] += eps
+def bootstrap_and_plot_landscape(gene_ids, expression_matrix, tf_ids, tf_protein,
+                                 tf_psite_data, tf_psite_labels, reg_map, T_use,
+                                 n_boot=20, contour_param_indices=(0, 5)):
+    """
+    Bootstraps the optimization by resampling the gene expression data (rows) with replacement,
+    re-optimizes on each bootstrap sample, and then:
+      (A) Generates a contour plot of the objective function landscape for two selected parameters,
+          using the full-data objective function.
+      (B) Plots the bootstrap distribution (via boxplots) of β-parameters grouped by TF.
 
-            x_pj = x.copy()
-            x_pj[j] += eps
+    Parameters:
+      gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map:
+          The input data.
+      T_use: Number of time points.
+      n_boot: Number of bootstrap iterations.
+      contour_param_indices: Tuple (i, j) giving two indices (in the decision vector) to vary for the contour plot.
 
-            f_pp = f(x_pp)
-            f_pi = f(x_pi)
-            f_pj = f(x_pj)
-            # Approximate mixed partial derivative
-            H[i, j] = (f_pp - f_pi - f_pj + f0) / (eps * eps)
-            H[j, i] = H[i, j]
-    return H
+    Returns:
+      boot_params: A list of final parameter vectors (each from one bootstrap optimization).
+      full_opt: The optimal parameter vector from the full-data optimization.
+    """
+    # --- Helper function to run the optimization on given (bootstrapped) data.
+    def run_optimization_on_data(gene_ids_local, expression_matrix_local):
+        # Filter genes: keep only those with at least one regulator.
+        filtered_idx = [i for i, gene in enumerate(gene_ids_local) if gene in reg_map and len(reg_map[gene]) > 0]
+        if len(filtered_idx) == 0:
+            raise ValueError("No genes with regulators found in bootstrap sample.")
+        gene_ids_bs = [gene_ids_local[i] for i in filtered_idx]
+        expression_matrix_bs = expression_matrix_local[filtered_idx, :]
+
+        # For each gene, filter its regulators to only those present in tf_ids.
+        bs_reg_map = {}
+        for gene in gene_ids_bs:
+            regs = reg_map.get(gene, [])
+            bs_reg_map[gene] = [tf for tf in regs if tf in tf_ids]
+
+        # Build fixed arrays.
+        (expr_mat, regulators, tf_protein_matrix, psite_tensor, n_reg,
+         n_psite_max, psite_labels_arr, num_psites) = build_fixed_arrays(gene_ids_bs,
+                                                                         expression_matrix_bs,
+                                                                         tf_ids, tf_protein,
+                                                                         tf_psite_data, tf_psite_labels,
+                                                                         bs_reg_map)
+        n_genes = expr_mat.shape[0]
+        n_TF = tf_protein_matrix.shape[0]
+
+        # Compute cumulative starting indices for β parameters.
+        beta_start_indices = np.zeros(n_TF, dtype=np.int32)
+        cum = 0
+        for i in range(n_TF):
+            beta_start_indices[i] = cum
+            cum += 1 + num_psites[i]
+
+        n_alpha = n_genes * n_reg
+        # Build initial guess: α's uniformly and β's uniformly.
+        x0_alpha = np.full(n_alpha, 1.0 / n_reg)
+        x0_beta_list = []
+        no_psite_tf = np.array([(num_psites[i] == 0) or all(label == "" for label in psite_labels_arr[i])
+                                for i in range(n_TF)])
+        for i in range(n_TF):
+            if no_psite_tf[i]:
+                x0_beta_list.extend([1.0])
+            else:
+                length = 1 + num_psites[i]
+                x0_beta_list.extend([1.0 / length] * length)
+        x0_beta = np.array(x0_beta_list)
+        x0 = np.concatenate([x0_alpha, x0_beta])
+
+        # Set bounds.
+        bounds_alpha = [(0.0, 1.0)] * n_alpha
+        bounds_beta = [(-4.0, 4.0)] * len(x0_beta)
+        bounds = bounds_alpha + bounds_beta
+
+        # Define constraints.
+        cons = [
+            {"type": "eq",
+             "fun": lambda x: constraint_alpha_func(x, n_genes, n_reg)},
+            {"type": "eq",
+             "fun": lambda x: constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf)}
+        ]
+
+        # Run optimization using SLSQP.
+        res = minimize(fun=objective_wrapper, x0=x0,
+                       args=(
+                       expr_mat, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
+                       num_psites),
+                       method="SLSQP", bounds=bounds,
+                       constraints=build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices,
+                                                            num_psites, no_psite_tf),
+                       options={"disp": False, "maxiter": 20000})
+        return res.x, n_genes, n_reg, beta_start_indices, num_psites, psite_labels_arr, regulators, tf_protein_matrix, psite_tensor
+
+    # --- (1) Run the full-data optimization to obtain the reference optimum.
+    full_opt, n_genes, n_reg, beta_start_indices, num_psites, psite_labels_arr, regulators, tf_protein_matrix, psite_tensor = run_optimization_on_data(
+        gene_ids, expression_matrix)
+    n_alpha = n_genes * n_reg
+
+    # --- (2) Perform bootstrap re-optimizations.
+    boot_params = []
+    for b in range(n_boot):
+        idxs = np.random.choice(len(gene_ids), size=len(gene_ids), replace=True)
+        gene_ids_bs = [gene_ids[i] for i in idxs]
+        expression_matrix_bs = expression_matrix[idxs, :]
+        try:
+            x_boot, _, _, _, _, _, _, _, _ = run_optimization_on_data(gene_ids_bs, expression_matrix_bs)
+            boot_params.append(x_boot)
+        except Exception as e:
+            print(f"Bootstrap iteration {b} failed: {e}")
+
+    # --- (3) Contour Plot for the Objective Landscape ---
+    i1, i2 = contour_param_indices
+    opt1 = full_opt[i1]
+    opt2 = full_opt[i2]
+    # Compute std for index i1 and i2 using only bootstrap samples that have enough length.
+    vals1 = [boot[i1] for boot in boot_params if len(boot) > i1]
+    vals2 = [boot[i2] for boot in boot_params if len(boot) > i2]
+    std1 = np.std(vals1) if vals1 else 0
+    std2 = np.std(vals2) if vals2 else 0
+    grid_points = 50
+    grid1 = np.linspace(opt1 - 3 * std1, opt1 + 3 * std1, grid_points)
+    grid2 = np.linspace(opt2 - 3 * std2, opt2 + 3 * std2, grid_points)
+    Z = np.zeros((grid_points, grid_points))
+    # Evaluate objective_ (the jitted function) on a grid around the optimum.
+    # Note: We use the full-data arrays (expression_matrix, regulators, etc.) from the full run.
+    for idx, val1 in enumerate(grid1):
+        for jdx, val2 in enumerate(grid2):
+            x_temp = full_opt.copy()
+            x_temp[i1] = val1
+            x_temp[i2] = val2
+            Z[jdx, idx] = objective_(x_temp, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg,
+                                     T_use, n_genes, beta_start_indices, num_psites)
+
+    plt.figure(figsize=(8, 6))
+    cp = plt.contourf(grid1, grid2, Z, levels=50, cmap='viridis')
+    plt.colorbar(cp)
+    plt.xlabel(f'Parameter index {i1} value')
+    plt.ylabel(f'Parameter index {i2} value')
+    plt.title('Objective Function Landscape (Full Data)')
+    plt.show()
+
+    # --- (4) Boxplot of β-Parameter Distributions Grouped by TF ---
+    n_TF = len(beta_start_indices)
+    beta_bootstrap = {}  # key: TF index, value: list of β vectors from bootstrap samples
+    for tf in range(n_TF):
+        start = beta_start_indices[tf]
+        length = 1 + num_psites[tf]
+        samples = []
+        for boot in boot_params:
+            if len(boot) >= n_alpha + start + length:
+                samples.append(boot[n_alpha + start: n_alpha + start + length])
+        if samples:
+            beta_bootstrap[tf] = np.array(samples)
+        else:
+            beta_bootstrap[tf] = np.empty((0, length))
+
+    box_data = []
+    box_labels = []
+    for tf in range(n_TF):
+        if beta_bootstrap[tf].shape[0] == 0:
+            continue
+        for p in range(beta_bootstrap[tf].shape[1]):
+            box_data.append(beta_bootstrap[tf][:, p])
+            if p == 0:
+                label = f'TF {tf} Protein'
+            else:
+                label = f'TF {tf} PSite{p}'
+            box_labels.append(label)
+
+    plt.figure(figsize=(12, 6))
+    plt.boxplot(box_data, labels=box_labels, showfliers=False)
+    plt.xlabel('TF Parameters')
+    plt.ylabel('Optimized Parameter Values')
+    plt.title('Bootstrap Distribution of β-Parameters by TF')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+    return boot_params, full_opt
 
 def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_points, regulators, tf_protein_matrix,
                                tf_ids,
@@ -714,6 +868,9 @@ def main():
         for label, b_val in mapping.items():
             print(f"   {label}: {b_val:.4f}")
 
+    boot_params, full_opt = bootstrap_and_plot_landscape(gene_ids, expression_matrix, tf_ids,
+                                                          tf_protein, tf_psite_data, tf_psite_labels,
+                                                          reg_map, T_use, n_boot=5, contour_param_indices=(0, 5))
     # Compute predictions.
     # predictions = compute_predictions(final_x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
     #                                   beta_start_indices, num_psites)
