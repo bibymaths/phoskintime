@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize, LinearConstraint
@@ -211,7 +210,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
         R_pred = np.zeros(T_use)
         for r in range(n_reg):
             tf_idx = regulators[i, r]
-            if tf_idx == -1:
+            if tf_idx == -1: # No valid TF for this regulator
                 continue
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
@@ -306,9 +305,7 @@ def build_linear_constraints(n_mRNA, n_TF, n_reg, n_alpha, beta_start_indices, n
     for i in range(n_mRNA):
         row = np.zeros(total_vars)
         for j in range(n_reg):
-            tf_idx = regulators[i, j]
-            if tf_idx != -1:  # only include valid TFs
-                row[i * n_reg + j] = 1.0
+            row[i * n_reg + j] = 1.0
         alpha_constraints_matrix.append(row)
     alpha_constraints_matrix = np.array(alpha_constraints_matrix)
     alpha_constraint = LinearConstraint(alpha_constraints_matrix, lb=1.0, ub=1.0)
@@ -354,7 +351,7 @@ def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, 
         R_pred = np.zeros(T_use)
         for r in range(n_reg):
             tf_idx = regulators[i, r]
-            if tf_idx == -1:
+            if tf_idx == -1: # No valid TF for this regulator
                 continue
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
@@ -579,7 +576,7 @@ def main():
     n_beta_total = cum
 
     # Build initial guess vector x0.
-    n_alpha = np.sum(regulators != -1)
+    n_alpha = n_mRNA * n_reg
     x0_alpha = np.full(n_alpha, 1.0 / n_reg)
     x0_beta_list = []
     for i in range(n_TF):
@@ -591,7 +588,7 @@ def main():
     x0_beta = np.array(x0_beta_list)
     x0 = np.concatenate([x0_alpha, x0_beta])
     total_dim = len(x0)
-    print(f"Total Parameters: {total_dim}")
+    print(f"Total parameter dimension: {total_dim}")
 
     # Set bounds.
     bounds_alpha = [(0.0, 1.0)] * n_alpha
