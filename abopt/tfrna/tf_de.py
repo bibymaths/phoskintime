@@ -11,8 +11,7 @@ from pymoo.algorithms.moo.sms import SMSEMOA
 from pymoo.core.problem import Problem, StarmapParallelization
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.operators.crossover.pntx import TwoPointCrossover
-from pymoo.operators.mutation.bitflip import BitflipMutation
-from pymoo.operators.sampling.rnd import BinaryRandomSampling
+from pymoo.operators.mutation.pm import PolynomialMutation
 from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -334,24 +333,97 @@ def plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, time_points, reg
     num_targets = min(num_targets, predictions.shape[0])
 
     for i in range(num_targets):
-        plt.figure(figsize=(8, 8))
-        plt.plot(time_vals_mrna, mRNA_mat[i, :], 's-', label='Observed')
-        plt.plot(time_vals_mrna, predictions[i, :], '-', label='Estimated')
-        # Plot protein time series for each regulator of mRNA i (only unique TFs)
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8))  # two side-by-side plots
+
+        # --- Full time series plot ---
+        ax = axes[0]
+        ax.plot(time_vals_mrna, mRNA_mat[i, :], 's-', label='Observed', color = 'black')
+        ax.plot(time_vals_mrna, predictions[i, :], '-', label='Estimated', color = 'red')
         plotted_tfs = set()
         for r in regulators[i, :]:
+            if r == -1:
+                continue
             tf_name = TF_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = protein_mat[r, :T]
-                plt.plot(time_vals_tf, protein_signal, ':', label=f"TF: {tf_name}")
+                ax.plot(time_vals_tf, protein_signal, ':', label=f"{tf_name}")
                 plotted_tfs.add(tf_name)
-        plt.title(f"mRNA: {mRNA_ids[i]}")
-        plt.xlabel("Time (minutes)")
-        plt.ylabel("Fold Changes")
-        plt.xticks(combined_ticks, combined_ticks, rotation=45)
-        plt.legend()
+        ax.set_title(f"{mRNA_ids[i]}")
+        ax.set_xlabel("Time (minutes)")
+        ax.set_ylabel("Fold Changes")
+        ax.set_xticks(combined_ticks)
+        ax.set_xticklabels(combined_ticks, rotation=45)
+        # ax.legend()
+        ax.grid(True, alpha=0.3)
+
+        # --- First 5 time points plot ---
+        ax = axes[1]
+        ax.plot(time_vals_mrna[:5], mRNA_mat[i, :5], 's-', label='Observed', color = 'black')
+        ax.plot(time_vals_mrna[:5], predictions[i, :5], '-', label='Estimated', color = 'red')
+        plotted_tfs = set()
+        for r in regulators[i, :]:
+            if r == -1:
+                continue
+            tf_name = TF_ids[r]
+            if tf_name not in plotted_tfs:
+                protein_signal = protein_mat[r, :5]
+                ax.plot(time_vals_tf[:5], protein_signal, ':', label=f"{tf_name}")
+                plotted_tfs.add(tf_name)
+        # ax.set_title(f"mRNA: {mRNA_ids[i]}")
+        ax.set_xlabel("Time (minutes)")
+        # ax.set_ylabel("Fold Changes")
+        ax.set_xticks(time_vals_mrna[:5])
+        ax.set_xticklabels(time_vals_mrna[:5], rotation=45)
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
         plt.tight_layout()
-        plt.show(grid=True, alpha=0.3)
+        plt.show()
+
+        # for i in range(num_targets):
+    #     plt.figure(figsize=(8, 8))
+    #     plt.plot(time_vals_mrna, mRNA_mat[i, :], 's-', label='Observed')
+    #     plt.plot(time_vals_mrna, predictions[i, :], '-', label='Estimated')
+    #     # Plot protein time series for each regulator of mRNA i (only unique TFs)
+    #     plotted_tfs = set()
+    #     for r in regulators[i, :]:
+    #         if r == -1:  # Skip invalid TF
+    #             continue
+    #         tf_name = TF_ids[r]
+    #         if tf_name not in plotted_tfs:
+    #             protein_signal = protein_mat[r, :T]
+    #             plt.plot(time_vals_tf, protein_signal, ':', label=f"TF: {tf_name}")
+    #             plotted_tfs.add(tf_name)
+    #     plt.title(f"mRNA: {mRNA_ids[i]}")
+    #     plt.xlabel("Time (minutes)")
+    #     plt.ylabel("Fold Changes")
+    #     plt.xticks(combined_ticks, combined_ticks, rotation=45)
+    #     plt.legend()
+    #     plt.tight_layout()
+    #     plt.grid(True, alpha=0.3)
+    #     plt.show()
+    #
+    #     plt.figure(figsize=(8, 8))
+    #     plt.plot(time_vals_mrna[:5], mRNA_mat[i, :5], 's-', label='Observed')
+    #     plt.plot(time_vals_mrna[:5], predictions[i, :5], '-', label='Estimated')
+    #     # Plot protein time series for each regulator of mRNA i (only unique TFs)
+    #     plotted_tfs = set()
+    #     for r in regulators[i, :]:
+    #         if r == -1:  # Skip invalid TF
+    #             continue
+    #         tf_name = TF_ids[r]
+    #         if tf_name not in plotted_tfs:
+    #             protein_signal = protein_mat[r, :5]
+    #             plt.plot(time_vals_tf[:5], protein_signal, ':', label=f"TF: {tf_name}")
+    #             plotted_tfs.add(tf_name)
+    #     plt.title(f"mRNA: {mRNA_ids[i]}")
+    #     plt.xlabel("Time (minutes)")
+    #     plt.ylabel("Fold Changes")
+    #     plt.xticks(time_vals_mrna[:5], time_vals_mrna[:5], rotation=45)
+    #     plt.legend()
+    #     plt.tight_layout()
+    #     plt.grid(True, alpha=0.3)
+    #     plt.show()
 
         fig = go.Figure()
         # Observed mRNA
@@ -372,6 +444,8 @@ def plot_estimated_vs_observed(predictions, mRNA_mat, mRNA_ids, time_points, reg
         # TF protein signals: plot each unique regulator only once.
         plotted_tfs = set()
         for r in regulators[i, :]:
+            if r == -1:  # Skip invalid TF
+                continue
             tf_name = TF_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = protein_mat[r, :len(time_vals_tf)]
@@ -413,7 +487,7 @@ def save_results_to_excel(
         actual_tfs = [tf for tf in reg_map[gene] if tf in TF_ids]
         for j, tf_name in enumerate(actual_tfs):
             alpha_rows.append([gene, tf_name, final_alpha[i, j]])
-    df_alpha = pd.DataFrame(alpha_rows, columns=["mRNA", "TF", "Value"])
+    df_alpha = pd.DataFrame(alpha_rows, columns=["TF", "mRNA", "Value"])
 
     # --- Beta Values ---
     beta_rows = []
@@ -422,20 +496,20 @@ def save_results_to_excel(
         beta_rows.append([tf, "", beta_vec[0]])  # Protein beta
         for j in range(1, len(beta_vec)):
             beta_rows.append([tf, psite_labels_arr[i][j - 1], beta_vec[j]])
-    df_beta = pd.DataFrame(beta_rows, columns=["TF", "Psite", "Value"])
+    df_beta = pd.DataFrame(beta_rows, columns=["mRNA", "Psite", "Value"])
 
     # --- Residuals ---
     residuals = mRNA_mat - predictions
     df_residuals = pd.DataFrame(residuals, columns=[f"x{j+1}" for j in range(residuals.shape[1])])
-    df_residuals.insert(0, "mRNA", mRNA_ids)
+    df_residuals.insert(0, "TF", mRNA_ids)
 
     # --- Observed ---
     df_observed = pd.DataFrame(mRNA_mat, columns=[f"x{j+1}" for j in range(mRNA_mat.shape[1])])
-    df_observed.insert(0, "mRNA", mRNA_ids)
+    df_observed.insert(0, "TF", mRNA_ids)
 
     # --- Estimated ---
     df_estimated = pd.DataFrame(predictions, columns=[f"x{j+1}" for j in range(predictions.shape[1])])
-    df_estimated.insert(0, "mRNA", mRNA_ids)
+    df_estimated.insert(0, "TF", mRNA_ids)
 
     # --- Optimization Results ---
     y_true = mRNA_mat.flatten()
@@ -610,24 +684,40 @@ def main():
         elementwise_runner=runner
     )
 
-    # Use NSGA2 from pymoo.
-    # algorithm = NSGA2(
-    #     pop_size=500,
-    #     crossover=TwoPointCrossover(),
-    #     eliminate_duplicates=True
-    # )
-    algorithm = SMSEMOA(pop_size=500,
-            crossover=TwoPointCrossover(),
-            eliminate_duplicates=True)
+    # Common settings for the algorithms:
+    pop_size = 500
+    crossover = TwoPointCrossover(prob=0.9)
+    mutation = PolynomialMutation(prob=1.0 / 120, eta=20)  # Adjust mutation probability as 1/n_var.
+    eliminate_duplicates = True
 
-    # algorithm = AGEMOEA(pop_size=500,
-    #         crossover=TwoPointCrossover(),
-    #         eliminate_duplicates=True)
+    # NSGA2 settings.
+    nsga2 = NSGA2(
+        pop_size=pop_size,
+        crossover=crossover,
+        mutation=mutation,
+        eliminate_duplicates=eliminate_duplicates
+    )
+
+    # SMSEMOA settings.
+    smsemoa = SMSEMOA(
+        pop_size=pop_size,
+        crossover=crossover,
+        mutation=mutation,
+        eliminate_duplicates=eliminate_duplicates
+    )
+
+    # AGEMOEA settings.
+    agemoea = AGEMOEA(
+        pop_size=pop_size,
+        crossover=crossover,
+        mutation=mutation,
+        eliminate_duplicates=eliminate_duplicates
+    )
 
     termination = DefaultMultiObjectiveTermination()
 
     res = pymoo_minimize(problem=problem,
-                         algorithm=algorithm,
+                         algorithm=nsga2,
                          termination=termination,
                          seed=1,
                          verbose=True)
@@ -670,7 +760,7 @@ def main():
             alpha_mapping[mrna][tf] = final_alpha[i, j]
 
     # Display α mapping in the same structure as the Excel output.
-    print("\nMapping of mRNA targets to regulators (α values):")
+    print("\nMapping of TFs to mRNAs (α values):")
     for mrna, mapping in alpha_mapping.items():
         print(f"{mrna}:")
         for tf, a_val in mapping.items():
@@ -687,7 +777,7 @@ def main():
             if label == "":
                 label = f"PSite{q}"
             beta_mapping[tf][label] = beta_vec[q]
-    print("\nMapping of TFs to β parameters (interpreted as relative impacts):")
+    print("\nMapping of mRNAs to β parameters:")
     for tf, mapping in beta_mapping.items():
         print(f"{tf}:")
         for label, b_val in mapping.items():
