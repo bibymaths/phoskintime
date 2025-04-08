@@ -45,7 +45,9 @@ def load_tf_protein_data(filename=INPUT1):
             tf_protein[tf] = None
             tf_psite_data[tf] = []
             tf_psite_labels[tf] = []
-        if psite == "" or psite.lower() == "nan":
+            # Skip when the Psite is starting with 'A_' for Alanaine and 'M_' for Methionine
+            # to match with kinase optimization done with kinopt
+        if psite == "" or psite.lower() == "nan" or psite.startswith('A_') or psite.startswith('M_'):
             tf_protein[tf] = vals
         else:
             tf_psite_data[tf].append(vals)
@@ -145,7 +147,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     # For each gene folder, create a section in the report.
     for gene in sorted(gene_folders):
         gene_folder = os.path.join(results_dir, gene)
-        html_parts.append(f"<h2>Protein Group: {gene}</h2>")
+        html_parts.append(f"<h2>mRNA: {gene}</h2>")
 
         # Create grid container for fixed-size plots.
         html_parts.append('<div class="plot-container">')
@@ -209,3 +211,11 @@ def organize_output_files(*directories):
             if os.path.isfile(file_path):
                 destination_path = os.path.join(general_folder, filename)
                 shutil.move(file_path, destination_path)
+
+def format_duration(seconds):
+    if seconds < 60:
+        return f"{seconds:.2f} sec"
+    elif seconds < 3600:
+        return f"{seconds / 60:.2f} min"
+    else:
+        return f"{seconds / 3600:.2f} hr"

@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from kinopt.local.config.constants import LOG_DIR
-from kinopt.local.utils.iodata import format_duration
+from tfopt.local.config.constants import LOG_DIR
+from tfopt.local.utils.iodata import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {

@@ -21,7 +21,7 @@ def save_results_to_excel(
         actual_tfs = [tf for tf in reg_map[gene] if tf in tf_ids]
         for j, tf_name in enumerate(actual_tfs):
             alpha_rows.append([gene, tf_name, final_alpha[i, j]])
-    df_alpha = pd.DataFrame(alpha_rows, columns=["TF", "mRNA", "Value"])
+    df_alpha = pd.DataFrame(alpha_rows, columns=["mRNA", "TF", "Value"])
 
     # --- Beta Values ---
     beta_rows = []
@@ -30,20 +30,20 @@ def save_results_to_excel(
         beta_rows.append([tf, "", beta_vec[0]])  # Protein beta
         for j in range(1, len(beta_vec)):
             beta_rows.append([tf, psite_labels_arr[i][j - 1], beta_vec[j]])
-    df_beta = pd.DataFrame(beta_rows, columns=["mRNA", "PSite", "Value"])
+    df_beta = pd.DataFrame(beta_rows, columns=["TF", "PSite", "Value"])
 
     # --- Residuals ---
     residuals = expression_matrix - predictions
     df_residuals = pd.DataFrame(residuals, columns=[f"x{j + 1}" for j in range(residuals.shape[1])])
-    df_residuals.insert(0, "TF", gene_ids)
+    df_residuals.insert(0, "mRNA", gene_ids)
 
     # --- Observed ---
     df_observed = pd.DataFrame(expression_matrix, columns=[f"x{j + 1}" for j in range(expression_matrix.shape[1])])
-    df_observed.insert(0, "TF", gene_ids)
+    df_observed.insert(0, "mRNA", gene_ids)
 
     # --- Estimated ---
     df_estimated = pd.DataFrame(predictions, columns=[f"x{j + 1}" for j in range(predictions.shape[1])])
-    df_estimated.insert(0, "TF", gene_ids)
+    df_estimated.insert(0, "mRNA", gene_ids)
 
     # --- Optimization Results ---
     y_true = expression_matrix.flatten()

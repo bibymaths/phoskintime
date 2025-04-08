@@ -21,8 +21,8 @@ ODE_DATA_DIR = PROJECT_ROOT.parent / "data"
 ODE_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # TIME_POINTS:
-# A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
-# These time points capture the dynamics of the system, with finer resolution at early times (0.0 to 16.0 minutes)
+# A numpy array representing the discrete time points (in minutes) obtained from experimental Rout_Limma TF data.
+# These time points capture the dynamics of the system, with finer resolution at early times (4.0 to 60.0 minutes)
 # to account for rapid changes and broader intervals later up to 960.0 minutes.
 TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
 
@@ -30,8 +30,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - SLSQP Optimization Problem prior to ODE Modelling."
     )
-    parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound.")
-    parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")
+    parser.add_argument("--lower_bound", type=float, default=-10, help="Lower Beta bound.")
+    parser.add_argument("--upper_bound", type=float, default=10, help="Upper Beta bound.")
     parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=0,
                         help="Loss function to use:  "
                              "0: MSE, 1: MAE, 2: soft L1, 3: Cauchy,"

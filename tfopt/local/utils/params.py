@@ -2,7 +2,7 @@ import numpy as np
 from tfopt.local.optcon.construct import build_linear_constraints
 from tfopt.local.config.logconf import setup_logger 
   
-logger = setup_logger(__name__)
+logger = setup_logger()
 
 def get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_use,
                                 psite_labels_arr, num_psites, lb, ub):
@@ -54,7 +54,7 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
         for j, tf in enumerate(actual_tfs):
             alpha_mapping[gene][tf] = final_alpha[i, j]
 
-    logger.info("\nMapping of TFs to mRNAs (α values):")
+    logger.info("Mapping of TFs to mRNAs (α values):")
     for gene, mapping in alpha_mapping.items():
         logger.info(f"{gene}:")
         for tf, a_val in mapping.items():
@@ -71,7 +71,7 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
             if label == "":
                 label = f"PSite{q}"
             beta_mapping[tf][label] = beta_vec[q]
-    logger.info("\nMapping of mRNAs to β parameters:")
+    logger.info("Mapping of phosphorylation sites to TFs (β parameters):")
     for tf, mapping in beta_mapping.items():
         logger.info(f"{tf}:")
         for label, b_val in mapping.items():

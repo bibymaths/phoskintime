@@ -33,7 +33,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
                 protein_signal = tf_protein_matrix[r, :T]
                 ax.plot(time_vals_tf, protein_signal, ':', label=f"{tf_name}")
                 plotted_tfs.add(tf_name)
-        ax.set_title(f"TF: {gene_ids[i]}")
+        ax.set_title(f"mRNA: {gene_ids[i]}")
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("Fold Changes")
         ax.set_xticks(combined_ticks)
@@ -56,10 +56,10 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_vals_expr[:5])
         ax.set_xticklabels(time_vals_expr[:5], rotation=45)
-        ax.legend(title="mRNAs")
+        ax.legend(title="TFs")
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(f"{save_path}/{gene_ids[i]}_model_fit_.png", dpi=300, format='png')
+        plt.savefig(f"{save_path}/{gene_ids[i]}_model_fit_.png", dpi=300)
 
         # This block is for saving two plots for one TF
         # One for full time series and one for first 5 time points
@@ -78,7 +78,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         #         protein_signal = tf_protein_matrix[r, :T]
         #         plt.plot(time_vals_tf, protein_signal, ':', label=f"mRNA: {tf_name}")
         #         plotted_tfs.add(tf_name)
-        # plt.title(f"TF: {gene_ids[i]}")
+        # plt.title(f"mRNA: {gene_ids[i]}")
         # plt.xlabel("Time (minutes)")
         # plt.ylabel("Fold Changes")
         # plt.xticks(combined_ticks, combined_ticks, rotation=45)
@@ -100,7 +100,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         #         protein_signal = tf_protein_matrix[r, :5]
         #         plt.plot(time_vals_tf[:5], protein_signal, ':', label=f"mRNA: {tf_name}")
         #         plotted_tfs.add(tf_name)
-        # plt.title(f"TF: {gene_ids[i]}")
+        # plt.title(f"mRNA: {gene_ids[i]}")
         # plt.xlabel("Time (minutes)")
         # plt.ylabel("Fold Changes")
         # plt.xticks(time_vals_expr[:5], time_vals_expr[:5], rotation=45)
@@ -139,7 +139,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
                 ))
                 plotted_tfs.add(tf_name)
         fig.update_layout(
-            title=f"TF: {gene_ids[i]}",
+            title=f"mRNA: {gene_ids[i]}",
             xaxis_title="Time (minutes)",
             yaxis_title="Fold Changes",
             xaxis=dict(

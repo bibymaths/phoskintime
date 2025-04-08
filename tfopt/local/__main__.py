@@ -1,3 +1,4 @@
+from config.helpers import location
 from tfopt.local.config.constants import parse_args, OUT_DIR
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report
@@ -50,6 +51,7 @@ def main():
                           predictions, result.fun, reg_map)
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
+    logger.info(f'Report & Results {location(str(OUT_DIR))}')
 
 if __name__ == "__main__":
     main()
