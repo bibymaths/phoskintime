@@ -25,8 +25,8 @@ def main():
     n_genes = expression_matrix.shape[0]
     n_TF = tf_protein_matrix.shape[0]
 
-    logger.info(f"Number of mRNAs: {n_genes}")
-    logger.info(f"Number of TFs: {n_TF}")
+    logger.info(f"Number of Transcription Factors: {n_genes}")
+    logger.info(f"Number of messenger RNAs: {n_TF}")
 
     # STEP 3: Set up optimization parameters.
     x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use = \
