@@ -3,7 +3,7 @@ import pandas as pd
 from pandas import MultiIndex, concat
 
 from config.constants import OUT_DIR
-from abopt.evol.config.constants import OUT_FILE
+from kinopt.evol.config.constants import OUT_FILE
 from config.logconf import setup_logger
 logger = setup_logger(__name__)
 
