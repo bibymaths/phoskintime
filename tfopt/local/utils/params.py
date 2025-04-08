@@ -56,16 +56,17 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
 
     logger.info("Mapping of TFs to mRNAs (α values):")
     for gene, mapping in alpha_mapping.items():
-        logger.info(f"{gene}:")
+        logger.info(f"mRNA {gene}:")
         for tf, a_val in mapping.items():
-            logger.info(f"   {tf}: {a_val:.4f}")
+            logger.info(f"TF   {tf}: {a_val:.4f}")
 
     # Build and logger.info β mapping.
     beta_mapping = {}
     for idx, tf in enumerate(tf_ids):
         beta_mapping[tf] = {}
         beta_vec = final_beta[idx]
-        beta_mapping[tf][f"Protein: {tf}"] = beta_vec[0]
+        logger.info(f"{tf}:")
+        beta_mapping[tf][f"mRNA {tf}"] = beta_vec[0]
         for q in range(1, len(beta_vec)):
             label = psite_labels_arr[idx][q - 1]
             if label == "":

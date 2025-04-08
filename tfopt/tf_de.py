@@ -263,30 +263,6 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
     return loss
 
 # -------------------------------
-# Additional Objectives (f2 and f3)
-# -------------------------------
-def alpha_objective(x, n_mRNA, n_reg):
-    f2 = 0.0
-    for i in range(n_mRNA):
-        s = 0.0
-        for r in range(n_reg):
-            s += x[i * n_reg + r]
-        f2 += (s - 1.0) ** 2
-    return f2
-
-def beta_objective(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf):
-    f3 = 0.0
-    for tf in range(n_TF):
-        start = n_alpha + beta_start_indices[tf]
-        length = 1 + num_psites[tf]
-        beta_vec = x[start : start + length]
-        f3 += (np.sum(beta_vec) - 1.0) ** 2
-        if no_psite_tf[tf]:
-            for q in range(1, length):
-                f3 += beta_vec[q] ** 2
-    return f3
-
-# -------------------------------
 # Plotting Functions
 # -------------------------------
 def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
