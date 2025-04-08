@@ -1,10 +1,6 @@
 import numpy as np
 from numba import njit, prange
 from pymoo.core.problem import Problem
-
-from kinopt.evol.config import loss_type
-
-
 # -------------------------------
 # Multi-Objective Problem Definition
 # -------------------------------

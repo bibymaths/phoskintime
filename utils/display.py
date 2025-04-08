@@ -56,9 +56,6 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         results_dir (str): Path to the root results directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
-    import os
-    import pandas as pd
-
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
         d for d in os.listdir(results_dir)
