@@ -84,7 +84,7 @@ def main():
     print_beta_mapping(TF_ids, final_beta, psite_labels_arr)
 
     # Perform post-processing (prediction, plotting, and Excel output).
-    post_processing(final_x, regulators, protein_mat, psite_tensor, n_reg, n_TF, T_use, n_mRNA,
+    post_processing(final_x, regulators, protein_mat, psite_tensor, n_reg, n_mRNA, T_use, n_mRNA,
                     beta_start_indices, num_psites, mRNA_ids, mRNA_mat, mRNA_time_cols, TF_ids,
                     final_alpha, final_beta, psite_labels_arr, best_objectives, reg_map)
     organize_output_files(OUT_DIR)

@@ -60,6 +60,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(f"{save_path}/{gene_ids[i]}_model_fit_.png", dpi=300)
+        plt.close()
 
         # This block is for saving two plots for one TF
         # One for full time series and one for first 5 time points

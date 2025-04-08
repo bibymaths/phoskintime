@@ -46,7 +46,7 @@ def main():
     predictions = compute_predictions(final_x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                                       beta_start_indices, num_psites)
     plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, expr_time_cols, regulators,
-                               tf_protein_matrix, tf_ids, num_targets=n_TF)
+                               tf_protein_matrix, tf_ids, num_targets=n_genes)
     save_results_to_excel(gene_ids, tf_ids, final_alpha, final_beta, psite_labels_arr, expression_matrix,
                           predictions, result.fun, reg_map)
     organize_output_files(OUT_DIR)
