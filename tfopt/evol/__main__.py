@@ -1,5 +1,5 @@
 from kinopt.evol.config.helpers import location
-from tfopt.evol.config.constants import parse_args, OUT_DIR
+from tfopt.evol.config.constants import parse_args, OUT_DIR, OUT_FILE
 from tfopt.evol.exporter import post_processing
 from tfopt.evol.objfn.minfn import TFOptimizationMultiObjectiveProblem
 from tfopt.evol.opt.optrun import run_optimization
@@ -9,6 +9,7 @@ from tfopt.evol.optcon.filter import filter_mrna, update_regulations, filter_TF,
 from tfopt.evol.utils.iodata import organize_output_files, create_report
 from tfopt.evol.utils.params import create_no_psite_array, compute_beta_indices, create_initial_guess, create_bounds, \
     get_parallel_runner, print_alpha_mapping, print_beta_mapping, extract_best_solution
+from tfopt.fitanalysis.helper import Plotter
 
 logger = setup_logger()
 
@@ -87,6 +88,20 @@ def main():
     post_processing(final_x, regulators, protein_mat, psite_tensor, n_reg, n_mRNA, T_use, n_mRNA,
                     beta_start_indices, num_psites, mRNA_ids, mRNA_mat, mRNA_time_cols, TF_ids,
                     final_alpha, final_beta, psite_labels_arr, best_objectives, reg_map)
+
+    plotter = Plotter(OUT_FILE, OUT_DIR)
+    plotter.plot_alpha_distribution()
+    # plotter.plot_beta_barplots()
+    plotter.plot_heatmap_abs_residuals()
+    plotter.plot_goodness_of_fit()
+    plotter.plot_kld()
+    plotter.plot_pca()
+    plotter.plot_boxplot_alpha()
+    plotter.plot_boxplot_beta()
+    plotter.plot_cdf_alpha()
+    plotter.plot_cdf_beta()
+    plotter.plot_time_wise_residuals()
+
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

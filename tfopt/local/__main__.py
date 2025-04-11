@@ -1,5 +1,5 @@
 from config.helpers import location
-from tfopt.local.config.constants import parse_args, OUT_DIR
+from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report
 from tfopt.local.exporter.plotout import plot_estimated_vs_observed
@@ -8,6 +8,7 @@ from tfopt.local.objfn.minfn import compute_predictions
 from tfopt.local.opt.optrun import run_optimizer
 from tfopt.local.optcon.filter import load_and_filter_data, prepare_data
 from tfopt.local.utils.params import get_optimization_parameters, postprocess_results
+from tfopt.fitanalysis.helper import Plotter
 
 logger = setup_logger()
 
@@ -25,8 +26,8 @@ def main():
     n_genes = expression_matrix.shape[0]
     n_TF = tf_protein_matrix.shape[0]
 
-    logger.info(f"Number of Transcription Factors: {n_genes}")
-    logger.info(f"Number of messenger RNAs: {n_TF}")
+    logger.info(f"Number of messenger RNAs: {n_genes}")
+    logger.info(f"Number of Transcription Factors: {n_TF}")
 
     # STEP 3: Set up optimization parameters.
     x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use = \
@@ -49,6 +50,19 @@ def main():
                                tf_protein_matrix, tf_ids, num_targets=n_genes)
     save_results_to_excel(gene_ids, tf_ids, final_alpha, final_beta, psite_labels_arr, expression_matrix,
                           predictions, result.fun, reg_map)
+    plotter = Plotter(OUT_FILE, OUT_DIR)
+    plotter.plot_alpha_distribution()
+    # plotter.plot_beta_barplots()
+    plotter.plot_heatmap_abs_residuals()
+    plotter.plot_goodness_of_fit()
+    plotter.plot_kld()
+    plotter.plot_pca()
+    plotter.plot_boxplot_alpha()
+    plotter.plot_boxplot_beta()
+    plotter.plot_cdf_alpha()
+    plotter.plot_cdf_beta()
+    plotter.plot_time_wise_residuals()
+
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

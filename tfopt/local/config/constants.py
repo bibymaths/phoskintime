@@ -30,8 +30,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - SLSQP Optimization Problem prior to ODE Modelling."
     )
-    parser.add_argument("--lower_bound", type=float, default=-10, help="Lower Beta bound.")
-    parser.add_argument("--upper_bound", type=float, default=10, help="Upper Beta bound.")
+    parser.add_argument("--lower_bound", type=float, default=-4, help="Lower Beta bound.")
+    parser.add_argument("--upper_bound", type=float, default=4, help="Upper Beta bound.")
     parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=0,
                         help="Loss function to use:  "
                              "0: MSE, 1: MAE, 2: soft L1, 3: Cauchy,"

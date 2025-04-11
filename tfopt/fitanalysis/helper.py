@@ -1,0 +1,338 @@
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+import pandas as pd
+import numpy as np
+from scipy.stats import entropy
+from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import matplotlib
+matplotlib.use('Agg')
+
+class Plotter:
+    def __init__(self, filepath, savepath):
+        """
+        Initializes the Plotter instance by loading data from the Excel file.
+        """
+        self.filepath = filepath
+        self.savepath = savepath
+        self.load_data()
+
+    def load_data(self):
+        """
+        Loads the Excel sheets into pandas DataFrames.
+        """
+        self.df = pd.read_excel(self.filepath, sheet_name='Residuals', index_col=0)
+        self.df_obs = pd.read_excel(self.filepath, sheet_name='Observed', index_col=0)
+        self.df_est = pd.read_excel(self.filepath, sheet_name='Estimated', index_col=0)
+        self.df_alpha = pd.read_excel(self.filepath, sheet_name='Alpha Values', index_col=(0,1))
+        self.df_beta = pd.read_excel(self.filepath, sheet_name='Beta Values')
+
+    def plot_alpha_distribution(self):
+        """
+        Plots the distribution of alpha parameter values grouped by transcription factors (TFs)
+        using a strip plot.
+        """
+        plt.figure(figsize=(10, 10))
+        all_markers = ['^', 'v', '<', '>', 's', 'p', '*', 'h', 'H', 'D', 'd', 'X', '+', 'x']
+        unique_tfs = self.df_alpha.index.get_level_values(1).unique()
+        marker_map = {tf: all_markers[i % len(all_markers)] for i, tf in enumerate(unique_tfs)}
+
+        for tf, marker in marker_map.items():
+            mask = self.df_alpha.index.get_level_values(1) == tf
+            sns.stripplot(
+                y=self.df_alpha.index.get_level_values(0)[mask],     # mRNA names
+                x=self.df_alpha.iloc[:, 0][mask],                     # Alpha values
+                hue=self.df_alpha.index.get_level_values(0)[mask],    # mRNA used for hue
+                label=tf,
+                palette='Dark2',
+                dodge=True,
+                size=12,
+                jitter=True,
+                marker=marker,
+                edgecolor='black'
+            )
+
+        # Create a custom legend for each TF
+        legend_handles = [
+            mlines.Line2D([], [], color='black', marker=marker_map[tf],
+                          linestyle='None', markersize=7, label=tf)
+            for tf in unique_tfs
+        ]
+        plt.legend(
+            handles=legend_handles,
+            title='TFs',
+            frameon=True,
+            loc='upper left',
+            bbox_to_anchor=(1, 1),
+            title_fontsize='10',
+            fontsize='7'
+        )
+        plt.title('Effect of Transcription Factors (TFs) on mRNA Expression')
+        plt.ylabel('mRNA')
+        plt.xlabel('Alpha Value')
+        plt.tight_layout()
+        plt.savefig(f"{self.savepath}/mRNA_alpha_group.png", dpi=300, bbox_inches='tight')
+        plt.close()
+
+    def plot_beta_barplots(self):
+        """
+        Processes the beta values DataFrame and creates a separate bar plot
+        for each unique transcription factor (TF).
+        """
+        # Data cleaning for df_beta
+        self.df_beta['PSite'] = self.df_beta['PSite'].fillna(self.df_beta['TF'])
+        self.df_beta['Value'] = self.df_beta.apply(
+            lambda row: 0 if row['PSite'] == row['TF'] and pd.isna(row['Value']) else row['Value'], axis=1
+        )
+        self.df_beta['PSite'] = self.df_beta.apply(
+            lambda row: 'β₀' if row['PSite'] == row['TF'] else row['PSite'], axis=1
+        )
+
+        unique_tfs = self.df_beta['TF'].unique()
+        # Plot bar plot for each TF
+        for tf in unique_tfs:
+            tf_data = self.df_beta[self.df_beta['TF'] == tf]
+            plt.figure(figsize=(6, 6))
+            sns.barplot(
+                data=tf_data,
+                x='PSite',
+                y='Value',
+                palette='Dark2',
+                edgecolor='black',
+                linewidth=0.5
+            )
+            plt.xlabel("Phosphorylation - Residue Position")
+            plt.ylabel("Transcription Factor")
+            plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity")
+            plt.grid(True, alpha=0.2)
+            plt.tight_layout()
+            plt.savefig(f'{self.savepath}/{tf}_beta_group.png', dpi=300)
+            plt.close()
+
+    def plot_heatmap_abs_residuals(self):
+        """
+        Plots a heatmap of the absolute values of the residuals.
+        """
+        plt.figure(figsize=(8, 8))
+        abs_df = self.df.abs()
+        # Use fixed x tick labels as given in the original code
+        sns.heatmap(
+            abs_df,
+            xticklabels=['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9'],
+            yticklabels=abs_df.index,
+            cmap='viridis'
+        )
+        plt.title('Heat of Absolute Residuals')
+        plt.xlabel('Time Points')
+        plt.ylabel('mRNA')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/Residual_Heatmap.png', dpi=300)
+        plt.close()
+
+    def plot_goodness_of_fit(self):
+        """
+        Creates a scatter plot comparing observed vs. estimated values,
+        fits a linear regression model, plots the 95% confidence interval,
+        and labels points outside the confidence interval.
+        """
+        plt.figure(figsize=(8, 8))
+        plt.scatter(self.df_obs, self.df_est, alpha=0.5)
+
+        mRNAs = self.df.index
+        for i, mRNA in enumerate(mRNAs):
+            plt.scatter(
+                self.df_obs.iloc[i],
+                self.df_est.iloc[i],
+                label=mRNA,
+                alpha=0.5,
+                s=100,
+                edgecolor='black'
+            )
+
+        # Linear Regression and Confidence Interval Calculation
+        X = self.df_obs.values.reshape(-1, 1)
+        y = self.df_est.values.reshape(-1, 1)
+        model = LinearRegression()
+        model.fit(X, y)
+        y_pred = model.predict(X)
+        mse = mean_squared_error(y, y_pred)
+        std_error = np.sqrt(mse)
+
+        # Flatten arrays for plotting
+        obs_flat = self.df_obs.values.flatten()
+        est_flat = self.df_est.values.flatten()
+
+        plt.fill_between(
+            obs_flat,
+            y_pred.flatten() - 1.96 * std_error,
+            y_pred.flatten() + 1.96 * std_error,
+            color='gray', alpha=0.3, label='95% CI'
+        )
+
+        # Label any points that lie outside the 95% confidence interval
+        for i, (x_val, y_val) in enumerate(zip(obs_flat, est_flat)):
+            if i < len(mRNAs):
+                if y_val < y_pred.flatten()[i] - 1.96 * std_error or y_val > y_pred.flatten()[i] + 1.96 * std_error:
+                    plt.text(
+                        x_val, y_val, mRNAs[i],
+                        fontsize=12, ha='right', va='bottom',
+                        fontweight='bold', fontstyle='italic'
+                    )
+
+        plt.plot(obs_flat, y_pred, color='red', linestyle='--', label='Estimated Values', linewidth=0.5)
+        plt.xlabel('Observed Values')
+        plt.ylabel('Estimated Values')
+        plt.title('Goodness of Fit')
+        plt.grid(True, alpha=0.1)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/Goodness_of_Fit.png', dpi=300)
+        plt.close()
+
+    def plot_kld(self):
+        """
+        Plots the Kullback-Leibler Divergence (KLD) for each mRNA.
+        The KLD is calculated between the observed and estimated distributions
+        of the mRNA expression levels.
+        """
+
+        # Normalize observed and estimated values
+        normalized_obs = self.df_obs.loc[:, 'x1':'x9'].div(self.df_obs.loc[:, 'x1':'x9'].sum(axis=1), axis=0)
+        normalized_est = self.df_est.loc[:, 'x1':'x9'].div(self.df_est.loc[:, 'x1':'x9'].sum(axis=1), axis=0)
+        # Calculate KLD for each mRNA
+        kld = normalized_obs.apply(lambda row: entropy(row, normalized_est.loc[row.name]), axis=1)
+        # Create a DataFrame for KLD values
+        kld_df = pd.DataFrame({'mRNA': self.df_obs.index, 'KL': kld.values}).set_index('mRNA')
+        # Sort KLD values by mRNA
+        kld_by_gene = kld_df.sort_values(by='KL', ascending=False)
+        # Plot the KLD values
+        plt.figure(figsize=(6, 6))
+        # Add horizontal bar plot for KLD values with different color for bars above 0.03
+        plt.barh(kld_by_gene.index[kld_by_gene['KL'] > 0.03], kld_by_gene['KL'][kld_by_gene['KL'] > 0.03],
+                 color='coral', alpha=0.6)
+        plt.barh(kld_by_gene.index[kld_by_gene['KL'] <= 0.03], kld_by_gene['KL'][kld_by_gene['KL'] <= 0.03],
+                 color='cornflowerblue', alpha=0.6)
+        plt.ylabel("mRNA", fontsize=7)
+        plt.yticks(fontsize=9)
+        plt.xticks(fontsize=9)
+        plt.xlabel("Kullback-Leibler Divergence", fontsize=7)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/KLD.png', dpi=300)
+        plt.close()
+
+    def plot_pca(self):
+        """
+        Plots a PCA (Principal Component Analysis) of the observed and estimated values.
+        """
+        # Standardize the data
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(self.df_est)
+        # Perform PCA
+        pca = PCA(n_components=2)
+        pca_result = pca.fit_transform(scaled_data)
+        # Create a DataFrame for PCA results
+        pca_df = pd.DataFrame(data=pca_result, columns=['PC1', 'PC2'], index=self.df_est.index)
+        # Perform KMeans clustering
+        kmeans = KMeans(n_clusters=3)
+        kmeans.fit(pca_df)
+        pca_df['Cluster'] = kmeans.labels_
+        # Add clusters to the PCA plot
+        plt.figure(figsize=(6, 6))
+        plt.scatter(pca_df['PC1'], pca_df['PC2'], alpha=0.5)
+        # Plot clusters
+        sns.scatterplot(data=pca_df, x='PC1', y='PC2', hue='Cluster', palette='Set1', alpha=0.5)
+        for i, mRNA in enumerate(pca_df.index):
+            plt.annotate(mRNA, (pca_df['PC1'].iloc[i], pca_df['PC2'].iloc[i]), fontsize=7, ha='right', va='bottom')
+        plt.title('Principal Component Analysis')
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/PCA.png', dpi=300)
+        plt.close()
+
+    def plot_boxplot_alpha(self):
+        """
+        Plots a boxplot of the alpha values.
+        """
+        plt.figure(figsize=(6, 6))
+        sns.boxplot(data=self.df_alpha.iloc[:, 0], palette='Dark2')
+        plt.title('Distribution of Alpha Values')
+        plt.ylabel('Alpha Value')
+        plt.xlabel('mRNA')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/Box_Plot_Alpha.png', dpi=300)
+        plt.close()
+
+    def plot_boxplot_beta(self):
+        """
+        Plots a boxplot of the beta values.
+        """
+        plt.figure(figsize=(6, 6))
+        sns.boxplot(data=self.df_beta['Value'], palette='Dark2')
+        plt.title('Distribution of Beta Values')
+        plt.ylabel('Beta Value')
+        plt.xlabel('Phosphorylation - Residue Position')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/Box_Plot_Beta.png', dpi=300)
+        plt.close()
+
+    def plot_cdf_alpha(self):
+        """
+        Plots the cumulative distribution function (CDF) of the alpha values.
+        """
+        plt.figure(figsize=(6, 6))
+        sns.ecdfplot(self.df_alpha.iloc[:, 0], stat='proportion')
+        plt.xlabel('Alpha Value')
+        plt.ylabel('Cumulative Probability')
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/CDF_Alpha.png', dpi=300)
+        plt.close()
+
+    def plot_cdf_beta(self):
+        """
+        Plots the cumulative distribution function (CDF) of the beta values.
+        """
+        plt.figure(figsize=(6, 6))
+        sns.ecdfplot(self.df_beta['Value'], stat='proportion')
+        plt.xlabel('Beta Value')
+        plt.ylabel('Cumulative Probability')
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/CDF_Beta.png', dpi=300)
+        plt.close()
+
+    def plot_time_wise_residuals(self):
+        """
+        Plots the residuals over time for each mRNA.
+        """
+        plt.figure(figsize=(6, 6))
+        # Generate a colormap for unique mRNAs with residuals > 0.5
+        unique_colors = plt.cm.tab10(np.linspace(0, 1, len(self.df.index)))
+        default_color = 'lightgray'
+
+        for i, mRNA in enumerate(self.df.index):
+            if any(self.df.iloc[i] > 0.5):
+                # Assign a unique color for mRNAs with residuals > 0.5
+                color = unique_colors[i % len(unique_colors)]
+                linestyle = '-'
+            else:
+                # Use the default color for other mRNAs
+                color = default_color
+                linestyle = ':'
+                mRNA = ''  # Hide label for mRNAs with no residuals > 0.5
+
+            plt.plot(self.df.columns, self.df.iloc[i], label=mRNA, color=color, linestyle=linestyle)
+
+        plt.xlabel('Time Points', fontsize=7)
+        plt.ylabel('Residuals', fontsize=7)
+        plt.yticks(fontsize=8)
+        plt.xticks(fontsize=8)
+        plt.legend(loc='best', fontsize=8, frameon=True)
+        plt.tight_layout()
+        plt.savefig(f'{self.savepath}/Time_Wise_Residuals.png', dpi=300)
+        plt.close()

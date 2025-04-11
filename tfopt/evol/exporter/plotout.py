@@ -1,9 +1,14 @@
+import os
+
 import numpy as np
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 from tfopt.evol.config.constants import OUT_DIR
 import matplotlib
 matplotlib.use('Agg')
+
+if not os.path.exists(OUT_DIR):
+    os.makedirs(OUT_DIR, exist_ok=True)
 
 def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_points, regulators, tf_protein_matrix,
                                tf_ids, num_targets, save_path=OUT_DIR):
@@ -150,7 +155,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
             ),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        fig.write_html(f"{save_path}/{gene_ids[i]}_TF_.html")
+        fig.write_html(f"{save_path}/{gene_ids[i]}_model_fit_.html")
 
 def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
     n_alpha = n_mRNA * n_reg
