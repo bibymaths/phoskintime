@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "phoskintime"
 version = "0.1.0"
-description = "ODE-based modeling of phosphorylation time dynamics - Time wise profiles"
+description = "ODE-based modeling of phosphorylation and transcriptional time dynamics"
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 packages = [{ include = "bin" }, { include = "config" }, { include = "paramest" }, { include = "models" }, { include = "plotting" }, { include = "utils" }, { include = "steady" }]
 
@@ -22,6 +22,8 @@ pymoo = '*'
 adjusttext = '*'
 salib = '*'
 graphviz = '*'
+mygene = '*'
+python-dotenv = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

@@ -12,9 +12,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = PROJECT_ROOT / 'results'
 DATA_DIR = PROJECT_ROOT / 'data'
-INPUT1 = DATA_DIR / 'input1_msgauss.csv'
+INPUT1 = DATA_DIR / 'input1.csv'
 INPUT3 = DATA_DIR / 'input3.csv'
-INPUT4 = DATA_DIR / 'input4_reduced.csv'
+INPUT4 = DATA_DIR / 'input4.csv'
 OUT_FILE = OUT_DIR / 'results.xlsx'
 LOG_DIR = OUT_DIR / 'logs'
 ODE_DATA_DIR = PROJECT_ROOT.parent / "data"

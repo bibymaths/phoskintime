@@ -11,9 +11,10 @@ tqdm
 plotly
 openpyxl
 python-dotenv
-xlsxwriter
+Xlsxwriter
 pytest
 statsmodels
 adjusttext
 salib
 graphviz
+mygene

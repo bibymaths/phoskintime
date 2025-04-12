@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
-import mygene
+import mygene, os, concurrent.futures
 from tqdm import tqdm
-import concurrent.futures
 
+# Directory where the raw data files are located
+base_dir = "raw"
 
 ###############################
 # 1. Process CollectTRI File  #
 ###############################
-def process_collectTRI():
+def process_collecttri():
     # Load CollecTRI.csv and keep only the source and target columns
-    df = pd.read_csv("CollecTRI.csv")
+    df = pd.read_csv(os.path.join(base_dir, "CollecTRI.csv"))
     df_readable = df[['source_genesymbol', 'target_genesymbol']].rename(
         columns={'source_genesymbol': 'Source', 'target_genesymbol': 'Target'}
     )
@@ -32,8 +33,7 @@ def process_collectTRI():
 
     # Save the cleaned interactions to input4.csv
     df_readable.to_csv("input4.csv", index=False)
-    print("Saved interactions to input4.csv")
-
+    print("Saved TF-mRNA interactions to input4.csv")
 
 ####################################
 # Utility: Format Site Information #
@@ -47,13 +47,12 @@ def format_site(site):
     else:
         return site.upper()
 
-
 ##############################################
 # 2. Process MS Gaussian (predict_mean only) #
 ##############################################
 def process_msgauss():
     # Load the MS_Gaussian_updated_09032023.csv file
-    df = pd.read_csv("MS_Gaussian_updated_09032023.csv")
+    df = pd.read_csv(os.path.join(base_dir,"MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
     # Compute 2^(predict_mean)
     df['predict_trans'] = 2 ** df['predict_mean']
@@ -70,17 +69,19 @@ def process_msgauss():
     new_names = {i: f'x{i + 1}' for i in range(14)}
     pivot_df.rename(columns=new_names, inplace=True)
     pivot_df['Psite'] = pivot_df['Psite'].apply(format_site)
-
-    # Save the cleaned time series to input1_msgauss.csv
-    pivot_df.to_csv("input1_msgauss.csv", index=False)
-    print("Saved MS Gaussian (predict_mean) time series to input1_msgauss.csv")
-
+    # Save the cleaned time series to input1.csv
+    pivot_df.to_csv("input1.csv", index=False)
+    # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
+    kinopt_df = pivot_df[pivot_df['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+    # Save the filtered time series to input1.csv
+    kinopt_df.to_csv("input1.csv", index=False)
+    print("Saved MS Gaussian (predict_mean) time series to input1.csv")
 
 ######################################################
 # 3. Process MS Gaussian with Standard Deviation Data #
 ######################################################
 def process_msgauss_std():
-    df = pd.read_csv("MS_Gaussian_updated_09032023.csv")
+    df = pd.read_csv(os.path.join(base_dir,"MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
     df['predict_trans'] = 2 ** df['predict_mean']
     # Error propagation: sigma_y = 2^(x) * ln(2) * sigma_x
@@ -107,18 +108,18 @@ def process_msgauss_std():
     # Merge the two pivot tables and format Psite
     result = pd.merge(pivot_trans, pivot_std, on=['GeneID', 'Psite'])
     result['Psite'] = result['Psite'].apply(format_site)
-
-    # Save to input1_msgauss_wstd.csv
-    result.to_csv("input1_msgauss_wstd.csv", index=False)
-    print("Saved MS Gaussian with standard deviations to input1_msgauss_wstd.csv")
-
+    # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
+    result = result[result['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+    # Save to input1_wstd.csv
+    result.to_csv("input1_wstd.csv", index=False)
+    print("Saved MS Gaussian time-series with standard deviations to input1_wstd.csv")
 
 #####################################
 # 4. Process Rout Limma Data File   #
 #####################################
 def process_routlimma():
     # Load Rout_LimmaTable.csv and select desired columns
-    df = pd.read_csv("Rout_LimmaTable.csv")
+    df = pd.read_csv(os.path.join(base_dir, "Rout_LimmaTable.csv"))
     selected_cols = [
         'GeneID',
         'Min4vsCtrl', 'Min8vsCtrl', 'Min15vsCtrl', 'Min30vsCtrl',
@@ -143,8 +144,7 @@ def process_routlimma():
         df_new[col] = 2 ** df_new[col]
     # Save the resulting time series to input3.csv
     df_new.to_csv("input3.csv", index=False)
-    print("Saved Rout Limma time series to input3.csv")
-
+    print("Saved Rout Limma time series - mRNA to input3.csv")
 
 #####################################################
 # 5. Update Gene Symbols using mygene and TQDM     #
@@ -164,8 +164,9 @@ def update_gene_symbols(filename):
                                  scopes='ensembl.gene,entrezgene,symbol',
                                  species='human',
                                  as_dataframe=True)
-    print("Query results preview:")
-    print(query_results.head())
+
+    # print("Query results preview:")
+    # print(query_results.head())
 
     # Filter out not found results if available.
     if 'notfound' in query_results.columns:
@@ -184,22 +185,106 @@ def update_gene_symbols(filename):
 
     df["GeneID"] = results
     df.to_csv(filename, index=False)
-    print(f"Updated gene symbols in {filename}")
+    print(f"Updated gene symbols in {filename}") 
+       
+#####################################################
+# 6. Reduces the processed CollecTRI file to TFs    #
+# present in phosphorylation and kinase interaction #
+# data.                                             #
+#####################################################
+def filter_tf_by_phospho(input4_path="input4.csv",
+                         input2_path="input2.csv"):
+    # Load input4.csv (which contains the Source and Target columns)
+    df_input4 = pd.read_csv(input4_path)
+
+    # Load input2.csv (which should contain a column named 'GeneID')
+    df_input2 = pd.read_csv(input2_path)
+
+    # Create a set of GeneID values from input2 for fast lookup
+    gene_ids = set(df_input2["GeneID"].dropna().astype(str))
+
+    # Filter rows in input4:
+    # Keep rows if either the Source or Target is found in the gene_ids set.
+    filtered_df = df_input4[
+        df_input4["Source"].astype(str).isin(gene_ids) |
+        df_input4["Target"].astype(str).isin(gene_ids)
+    ]
+
+    # Save the filtered DataFrame to a new CSV file (or overwrite input4.csv if preferred)
+    filtered_df.to_csv(input4_path, index=False)
+
+#####################################################
+# 7. Move processed files to respective directories #
+#####################################################
+def move_processed_files():
+    # Create a new directory if it doesn't exist
+    tf_data_dir = "../tfopt/data"
+    kin_data_dir = "../kinopt/data"
+
+    if not os.path.isdir(tf_data_dir) and os.path.exists(tf_data_dir):
+        os.makedirs(tf_data_dir)
+        os.makedirs(kin_data_dir)
+
+    kinopt_files = [
+        "input1.csv",
+    ]
+    # List of files to move
+    tfopt_files = [
+        "input1.csv",
+        # "input1_wstd.csv",
+        "input3.csv",
+        "input4.csv"
+    ]
+
+    # Move each file for kinopt and tfopt to theire respective directories
+    for f in kinopt_files:
+        if os.path.exists(f):
+            os.rename(f, os.path.join(kin_data_dir, f))
+            print(f"Moved {f} to {kin_data_dir}")
+        else:
+            print(f"{f} does not exist in the current directory.")
+
+    for f in tfopt_files:
+        if os.path.exists(f):
+            os.rename(f, os.path.join(tf_data_dir, f))
+            print(f"Moved {f} to {tf_data_dir}")
+        else:
+            print(f"{f} does not exist in the current directory.")
+
 
 #########################
 # Run All Processing    #
 #########################
 if __name__ == "__main__":
-    process_collectTRI()
+    # Process files
+    # 1. Process CollectTRI - TF interactions with mRNA
+    process_collecttri()
+
+    # 2. Process MS Gaussian - Time series data with proteins and its phosphorylation sites
     process_msgauss()
+
+    # 3. Process MS Gaussian to keep standard deviation data for each time point
+    # Possible Usage: Plotting error bars, error propagation, etc.
     process_msgauss_std()
+
+    # 4. Process Rout Limma - Time series data mRNA
     process_routlimma()
-    # List of files to update (all except input4.csv)
-    files_to_update = [
-        "input1_msgauss.csv",
-        "input1_msgauss_wstd.csv",
+
+    # List of files to update
+    # (all except input2.csv and input4.csv) - has symbols already
+    replace_ID_to_Symbol = [
+        "input1.csv",
+        "input1_wstd.csv",
         "input3.csv"
     ]
 
-    for file in files_to_update:
+    # 5. Update gene symbols in the specified files
+    for file in replace_ID_to_Symbol:
         update_gene_symbols(file)
+
+    # 6. Filter TFs from input4.csv based on phosphorylation and kinase interaction data
+    filter_tf_by_phospho()
+
+    # 7. Move processed files to the appropriate directories
+    # You need to manually put input2.csv in ./kinopt/data/ (if not already there)
+    move_processed_files()
