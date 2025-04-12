@@ -1,3 +1,10 @@
 /logs/
 /.github/
 /tfopt/data/
+/kinopt/data/
+/tfopt/results/
+/kinopt/results/
+/results/
+/data/
+/processing/raw/
+__pycache__/
