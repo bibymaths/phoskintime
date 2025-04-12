@@ -22,7 +22,7 @@ def process_collecttri():
     df_readable = df_readable.drop_duplicates()
 
     # Load HitGenes.xlsx (first sheet) and filter by the 'gene' column
-    df_genes = pd.read_excel("HitGenes.xlsx", sheet_name=0)
+    df_genes = pd.read_excel(os.path.join(base_dir, "HitGenes.xlsx"), sheet_name=0)
     df_genes = df_genes[['gene']].rename(columns={'gene': 'Source'})
     df_genes = df_genes.dropna()
     df_genes = df_genes[df_genes['Source'].str.strip() != '']
@@ -225,10 +225,10 @@ def move_processed_files():
         os.makedirs(tf_data_dir)
         os.makedirs(kin_data_dir)
 
+    # List of files to move
     kinopt_files = [
         "input1.csv",
     ]
-    # List of files to move
     tfopt_files = [
         "input1.csv",
         # "input1_wstd.csv",
