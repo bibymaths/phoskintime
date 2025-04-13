@@ -117,7 +117,7 @@ class Plotter:
         """
         Plots a heatmap of the absolute values of the residuals.
         """
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=(12, 12))
         abs_df = self.df.abs()
         # Use fixed x tick labels as given in the original code
         sns.heatmap(
@@ -129,6 +129,7 @@ class Plotter:
         plt.title('Absolute Residuals')
         plt.xlabel('Time Points')
         plt.ylabel('mRNA')
+        plt.yticks(fontsize=8, rotation=0)
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Residual_Heatmap.png', dpi=300)
@@ -140,7 +141,7 @@ class Plotter:
         fits a linear regression model, plots the 95% confidence interval,
         and labels points outside the confidence interval.
         """
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=(12, 12))
         plt.scatter(self.df_obs, self.df_est, alpha=0.5)
 
         mRNAs = self.df.index
@@ -180,8 +181,8 @@ class Plotter:
                 if y_val < y_pred.flatten()[i] - 1.96 * std_error or y_val > y_pred.flatten()[i] + 1.96 * std_error:
                     plt.text(
                         x_val, y_val, mRNAs[i],
-                        fontsize=12, ha='right', va='bottom',
-                        fontweight='bold', fontstyle='italic'
+                        fontsize=8, ha='right', va='bottom',
+                        fontweight='light', fontstyle='normal'
                     )
 
         plt.plot(obs_flat, y_pred, color='red', linestyle='--', label='Estimated Values', linewidth=0.5)
@@ -210,14 +211,14 @@ class Plotter:
         # Sort KLD values by mRNA
         kld_by_gene = kld_df.sort_values(by='KL', ascending=False)
         # Plot the KLD values
-        plt.figure(figsize=(6, 6))
+        plt.figure(figsize=(12, 12))
         # Add horizontal bar plot for KLD values with different color for bars above 0.03
         plt.barh(kld_by_gene.index[kld_by_gene['KL'] > 0.03], kld_by_gene['KL'][kld_by_gene['KL'] > 0.03],
                  color='coral', alpha=0.6)
         plt.barh(kld_by_gene.index[kld_by_gene['KL'] <= 0.03], kld_by_gene['KL'][kld_by_gene['KL'] <= 0.03],
                  color='cornflowerblue', alpha=0.6)
         plt.ylabel("mRNA", fontsize=7)
-        plt.yticks(fontsize=9)
+        plt.yticks(fontsize=6)
         plt.xticks(fontsize=9)
         plt.xlabel("Kullback-Leibler Divergence", fontsize=7)
         plt.tight_layout()
@@ -241,12 +242,13 @@ class Plotter:
         kmeans.fit(pca_df)
         pca_df['Cluster'] = kmeans.labels_
         # Add clusters to the PCA plot
-        plt.figure(figsize=(6, 6))
+        plt.figure(figsize=(12, 12))
         plt.scatter(pca_df['PC1'], pca_df['PC2'], alpha=0.5)
         # Plot clusters
         sns.scatterplot(data=pca_df, x='PC1', y='PC2', hue='Cluster', palette='Set1', alpha=0.5)
         for i, mRNA in enumerate(pca_df.index):
-            plt.annotate(mRNA, (pca_df['PC1'].iloc[i], pca_df['PC2'].iloc[i]), fontsize=7, ha='right', va='bottom')
+            plt.annotate(mRNA, (pca_df['PC1'].iloc[i], pca_df['PC2'].iloc[i]), fontsize=6,
+                         ha='right', va='bottom', annotation_clipped=True)
         plt.title('Principal Component Analysis')
         plt.xlabel('PC1')
         plt.ylabel('PC2')
@@ -314,9 +316,10 @@ class Plotter:
         # Generate a colormap for unique mRNAs with residuals > 0.5
         unique_colors = plt.cm.tab10(np.linspace(0, 1, len(self.df.index)))
         default_color = 'lightgray'
-
+        # Calculate a single mean absolute value across all time points for all mRNAs
+        mean_residuals = self.df.abs().mean(axis=1)
         for i, mRNA in enumerate(self.df.index):
-            if any(self.df.iloc[i] > 0.5):
+            if any(self.df.iloc[i] > mean_residuals):
                 # Assign a unique color for mRNAs with residuals > 0.5
                 color = unique_colors[i % len(unique_colors)]
                 linestyle = '-'

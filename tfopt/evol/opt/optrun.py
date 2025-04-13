@@ -54,17 +54,17 @@ def run_optimization(problem, total_dim, optimizer):
     termination = DefaultMultiObjectiveTermination()
 
     # Run the optimization
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        res = pymoo_minimize(problem=problem,
-                             algorithm=algo,
-                             termination=termination,
-                             seed=1,
-                             verbose=True)
+    # buf = io.StringIO()
+    # with contextlib.redirect_stdout(buf):
+    res = pymoo_minimize(problem=problem,
+                         algorithm=algo,
+                         termination=termination,
+                         seed=1,
+                         verbose=True)
 
         # Log the captured pymoo progress
-    pymoo_progress = buf.getvalue()
-    if pymoo_progress.strip():  # only log if there's actual text
-        logger.info("--- Progress Output ---\n" + pymoo_progress)
+    # pymoo_progress = buf.getvalue()
+    # if pymoo_progress.strip():  # only log if there's actual text
+    #     logger.info("--- Progress Output ---\n" + pymoo_progress)
 
     return res

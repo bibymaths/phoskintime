@@ -26,7 +26,9 @@ def load_TF_data(filename=INPUT1):
             protein_dict[tf] = None
             psite_dict[tf] = []
             psite_labels_dict[tf] = []
-        if psite == "" or psite.lower() == "nan" or psite.startswith('A_') or psite.startswith('A_'):
+            # Skip when the Psite is starting with 'A_' for Alanaine and 'M_' for Methionine
+            # to match with kinase optimization done with kinopt
+        if psite == "" or psite.lower() == "nan" or psite.startswith('A_') or psite.startswith('M_'):
             protein_dict[tf] = vals
         else:
             psite_dict[tf].append(vals)

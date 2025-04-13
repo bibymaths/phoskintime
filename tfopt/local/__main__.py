@@ -36,6 +36,8 @@ def main():
         get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_use,
                                 psite_labels_arr, num_psites, lb, ub)
 
+    # logger.info(f"Number of Parameters: {len(x0)}")
+
     # STEP 4: Run the optimization.
     result = run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
                            n_reg, T_use, n_genes, beta_start_indices, num_psites, loss_type)
