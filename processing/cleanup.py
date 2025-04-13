@@ -1,3 +1,5 @@
+import shutil
+
 import pandas as pd
 import numpy as np
 import mygene, os, concurrent.futures
@@ -12,6 +14,11 @@ base_dir = "raw"
 def process_collecttri():
     # Load CollecTRI.csv and keep only the source and target columns
     df = pd.read_csv(os.path.join(base_dir, "CollecTRI.csv"))
+
+    # Remove thr rows that starts with 'COMPLEX' in the source column
+    # Model doesn't support complex interactions, ony single mRNA
+    df = df[~df['source'].str.startswith('COMPLEX')]
+
     df_readable = df[['source_genesymbol', 'target_genesymbol']].rename(
         columns={'source_genesymbol': 'Source', 'target_genesymbol': 'Target'}
     )
@@ -21,18 +28,22 @@ def process_collecttri():
     df_readable = df_readable[df_readable['Target'].str.strip() != '']
     df_readable = df_readable.drop_duplicates()
 
-    # Load HitGenes.xlsx (first sheet) and filter by the 'gene' column
-    df_genes = pd.read_excel(os.path.join(base_dir, "HitGenes.xlsx"), sheet_name=0)
-    df_genes = df_genes[['gene']].rename(columns={'gene': 'Source'})
+    # Load phospho-kinase interaction data and search CollectTRI for same TFs
+    df_genes = pd.read_csv(os.path.join(base_dir, "input2.csv"))
+    df_genes = df_genes[['GeneID']].rename(columns={'GeneID': 'Target'})
     df_genes = df_genes.dropna()
-    df_genes = df_genes[df_genes['Source'].str.strip() != '']
+    df_genes = df_genes[df_genes['Target'].str.strip() != '']
     df_genes = df_genes.drop_duplicates()
 
-    # Keep only interactions where Source is present in HitGenes.xlsx
-    df_readable = df_readable[df_readable['Source'].isin(df_genes['Source'])]
+    # Keep only interactions where Target (TFs) is present in input2.csv
+    df_readable = df_readable[df_readable['Target'].isin(df_genes['Target'])]
 
-    # Save the cleaned interactions to input4.csv
+    # Save the cleaned mRNA - TFs interactions to input4.csv
     df_readable.to_csv("input4.csv", index=False)
+
+    # Copy the input2.csv file to the current directory using shutil
+    shutil.copy(os.path.join(base_dir, "input2.csv"), "input2.csv")
+
     print("Saved TF-mRNA interactions to input4.csv")
 
 ####################################
@@ -51,9 +62,11 @@ def format_site(site):
 # 2. Process MS Gaussian (predict_mean only) #
 ##############################################
 def process_msgauss():
+
     # Load the MS_Gaussian_updated_09032023.csv file
     df = pd.read_csv(os.path.join(base_dir,"MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
+
     # Compute 2^(predict_mean)
     df['predict_trans'] = 2 ** df['predict_mean']
 
@@ -69,21 +82,27 @@ def process_msgauss():
     new_names = {i: f'x{i + 1}' for i in range(14)}
     pivot_df.rename(columns=new_names, inplace=True)
     pivot_df['Psite'] = pivot_df['Psite'].apply(format_site)
+
     # Save the cleaned time series to input1.csv
     pivot_df.to_csv("input1.csv", index=False)
+
     # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
     kinopt_df = pivot_df[pivot_df['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+
     # Save the filtered time series to input1.csv
     kinopt_df.to_csv("input1.csv", index=False)
+
     print("Saved MS Gaussian (predict_mean) time series to input1.csv")
 
 ######################################################
 # 3. Process MS Gaussian with Standard Deviation Data #
 ######################################################
 def process_msgauss_std():
+
     df = pd.read_csv(os.path.join(base_dir,"MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
     df['predict_trans'] = 2 ** df['predict_mean']
+
     # Error propagation: sigma_y = 2^(x) * ln(2) * sigma_x
     df['predict_trans_std'] = df['predict_trans'] * np.log(2) * df['predict_std']
 
@@ -94,6 +113,7 @@ def process_msgauss_std():
         values='predict_trans',
         aggfunc='first'
     ).reset_index()
+
     pivot_trans = pivot_trans.rename(columns={i: f'x{i + 1}' for i in range(14)})
 
     # Pivot for the transformed standard deviations
@@ -108,16 +128,20 @@ def process_msgauss_std():
     # Merge the two pivot tables and format Psite
     result = pd.merge(pivot_trans, pivot_std, on=['GeneID', 'Psite'])
     result['Psite'] = result['Psite'].apply(format_site)
+
     # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
     result = result[result['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+
     # Save to input1_wstd.csv
     result.to_csv("input1_wstd.csv", index=False)
+
     print("Saved MS Gaussian time-series with standard deviations to input1_wstd.csv")
 
 #####################################
 # 4. Process Rout Limma Data File   #
 #####################################
 def process_routlimma():
+
     # Load Rout_LimmaTable.csv and select desired columns
     df = pd.read_csv(os.path.join(base_dir, "Rout_LimmaTable.csv"))
     selected_cols = [
@@ -126,6 +150,7 @@ def process_routlimma():
         'Hr1vsCtrl', 'Hr2vsCtrl', 'Hr4vsCtrl', 'Hr8vsCtrl', 'Hr16vsCtrl'
     ]
     df_new = df[selected_cols]
+
     # Rename the condition columns to x1 to x9
     rename_mapping = {
         'Min4vsCtrl': 'x1',
@@ -139,11 +164,14 @@ def process_routlimma():
         'Hr16vsCtrl': 'x9'
     }
     df_new = df_new.rename(columns=rename_mapping)
+
     # Convert each value in x1 to x9 as 2^(value)
     for col in rename_mapping.values():
         df_new[col] = 2 ** df_new[col]
+
     # Save the resulting time series to input3.csv
     df_new.to_csv("input3.csv", index=False)
+
     print("Saved Rout Limma time series - mRNA to input3.csv")
 
 #####################################################
@@ -185,38 +213,13 @@ def update_gene_symbols(filename):
 
     df["GeneID"] = results
     df.to_csv(filename, index=False)
-    print(f"Updated gene symbols in {filename}") 
-       
-#####################################################
-# 6. Reduces the processed CollecTRI file to TFs    #
-# present in phosphorylation and kinase interaction #
-# data.                                             #
-#####################################################
-def filter_tf_by_phospho(input4_path="input4.csv",
-                         input2_path="input2.csv"):
-    # Load input4.csv (which contains the Source and Target columns)
-    df_input4 = pd.read_csv(input4_path)
-
-    # Load input2.csv (which should contain a column named 'GeneID')
-    df_input2 = pd.read_csv(input2_path)
-
-    # Create a set of GeneID values from input2 for fast lookup
-    gene_ids = set(df_input2["GeneID"].dropna().astype(str))
-
-    # Filter rows in input4:
-    # Keep rows if either the Source or Target is found in the gene_ids set.
-    filtered_df = df_input4[
-        df_input4["Source"].astype(str).isin(gene_ids) |
-        df_input4["Target"].astype(str).isin(gene_ids)
-    ]
-
-    # Save the filtered DataFrame to a new CSV file (or overwrite input4.csv if preferred)
-    filtered_df.to_csv(input4_path, index=False)
+    print(f"Updated gene symbols in {filename}")
 
 #####################################################
 # 7. Move processed files to respective directories #
 #####################################################
 def move_processed_files():
+
     # Create a new directory if it doesn't exist
     tf_data_dir = "../tfopt/data"
     kin_data_dir = "../kinopt/data"
@@ -228,6 +231,7 @@ def move_processed_files():
     # List of files to move
     kinopt_files = [
         "input1.csv",
+        "input2.csv"
     ]
     tfopt_files = [
         "input1.csv",
@@ -282,9 +286,12 @@ if __name__ == "__main__":
     for file in replace_ID_to_Symbol:
         update_gene_symbols(file)
 
-    # 6. Filter TFs from input4.csv based on phosphorylation and kinase interaction data
-    filter_tf_by_phospho()
-
-    # 7. Move processed files to the appropriate directories
+    # 6. Move processed files to the appropriate directories
     # You need to manually put input2.csv in ./kinopt/data/ (if not already there)
     move_processed_files()
+
+""" 
+These IDs, cannot be converted to Symbols in MS Gaussian:
+
+4 input query terms found no hit:	['55747', '283331', '729269', '100133171'] 
+"""
