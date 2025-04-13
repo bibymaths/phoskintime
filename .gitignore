@@ -1,4 +1,4 @@
-/logs/
+logs/
 /.github/
 /tfopt/data/
 /kinopt/data/
@@ -7,4 +7,5 @@
 /results/
 /data/
 /processing/raw/
+/processing/*.csv
 __pycache__/
