@@ -110,7 +110,7 @@ class Plotter:
             plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity")
             plt.grid(True, alpha=0.2)
             plt.tight_layout()
-            plt.savefig(f'{self.savepath}/{tf}_beta_group.png', dpi=300)
+            plt.savefig(f'{self.savepath}/TF_{tf}_beta_group.png', dpi=300)
             plt.close()
 
     def plot_heatmap_abs_residuals(self):
@@ -126,7 +126,7 @@ class Plotter:
             yticklabels=abs_df.index,
             cmap='viridis'
         )
-        plt.title('Heat of Absolute Residuals')
+        plt.title('Absolute Residuals')
         plt.xlabel('Time Points')
         plt.ylabel('mRNA')
         plt.xticks(rotation=45)

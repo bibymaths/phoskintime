@@ -14,10 +14,12 @@ OUT_DIR = PROJECT_ROOT / 'results'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT1 = DATA_DIR / 'input1.csv'
 INPUT2 = DATA_DIR / 'input2.csv'
-OUT_FILE = OUT_DIR / 'results.xlsx'
+OUT_FILE = OUT_DIR / 'kinopt_results.xlsx'
 LOG_DIR = OUT_DIR / 'logs'
 ODE_DATA_DIR = PROJECT_ROOT.parent / "data"
 ODE_DATA_DIR.mkdir(parents=True, exist_ok=True)
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.

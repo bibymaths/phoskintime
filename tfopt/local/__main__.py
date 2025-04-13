@@ -1,5 +1,7 @@
+import shutil
+
 from config.helpers import location
-from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE
+from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report
 from tfopt.local.exporter.plotout import plot_estimated_vs_observed
@@ -52,7 +54,7 @@ def main():
                           predictions, result.fun, reg_map)
     plotter = Plotter(OUT_FILE, OUT_DIR)
     plotter.plot_alpha_distribution()
-    # plotter.plot_beta_barplots()
+    plotter.plot_beta_barplots()
     plotter.plot_heatmap_abs_residuals()
     plotter.plot_goodness_of_fit()
     plotter.plot_kld()
@@ -62,7 +64,7 @@ def main():
     plotter.plot_cdf_alpha()
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
-
+    shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')

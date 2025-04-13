@@ -98,8 +98,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / 'results'
 OUT_RESULTS_DIR = OUT_DIR / 'results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
-INPUT_EXCEL = DATA_DIR / 'results.xlsx'
+INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
 LOG_DIR = OUT_DIR / 'logs'
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 # Plotting Style Configuration
 #   A list of hexadecimal color codes generated from the 'tab20' colormap.
 #   Colors are sampled every 2 steps from the colormap (from 0 to 20) to ensure distinctness.

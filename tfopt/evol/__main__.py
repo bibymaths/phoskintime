@@ -1,5 +1,7 @@
+import shutil
+
 from kinopt.evol.config.helpers import location
-from tfopt.evol.config.constants import parse_args, OUT_DIR, OUT_FILE
+from tfopt.evol.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.evol.exporter import post_processing
 from tfopt.evol.objfn.minfn import TFOptimizationMultiObjectiveProblem
 from tfopt.evol.opt.optrun import run_optimization
@@ -91,7 +93,7 @@ def main():
 
     plotter = Plotter(OUT_FILE, OUT_DIR)
     plotter.plot_alpha_distribution()
-    # plotter.plot_beta_barplots()
+    plotter.plot_beta_barplots()
     plotter.plot_heatmap_abs_residuals()
     plotter.plot_goodness_of_fit()
     plotter.plot_kld()
@@ -101,7 +103,7 @@ def main():
     plotter.plot_cdf_alpha()
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
-
+    shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
