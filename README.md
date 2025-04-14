@@ -40,7 +40,7 @@ The package is designed with modularity in mind. It consists of several key comp
 To install PhosKinTime, clone the repository and install the required dependencies via pip:
 
 ```bash
-git clone https://github.com/yourusername/phoskintime.git
+git clone https://github.com/bibymaths/phoskintime.git
 cd phoskintime
 pip install -r requirements.txt
 ```
