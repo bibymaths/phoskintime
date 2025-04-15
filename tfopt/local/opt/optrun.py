@@ -8,11 +8,10 @@ def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protei
         fun=objective_wrapper,
         x0=x0,
         args=(expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices, num_psites, loss_type),
-        method="SLSQP",
+        method="trust-constr",
         bounds=bounds,
         constraints=lin_cons,
-        options={"disp": True, "maxiter": 100, "ftol": 1e-6}
-
+        options={"disp": True, "maxiter": 10000, "verbose": 3}
     )
 
     return result
