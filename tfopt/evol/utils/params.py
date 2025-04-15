@@ -75,7 +75,7 @@ def print_alpha_mapping(mRNA_ids, reg_map, TF_ids, final_alpha):
             logger.info(f"TF   {tf}: {final_alpha[i, j]:.4f}")
 
 def print_beta_mapping(TF_ids, final_beta, psite_labels_arr):
-    logger.info("Mapping of mRNAs to β parameters:")
+    logger.info("Mapping of TFs to β parameters:")
     for idx, tf in enumerate(TF_ids):
         beta_vec = final_beta[idx]
         logger.info(f"{tf}:")

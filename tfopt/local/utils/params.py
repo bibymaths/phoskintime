@@ -60,21 +60,32 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
         for tf, a_val in mapping.items():
             logger.info(f"TF   {tf}: {a_val:.4f}")
 
-    # Build and logger.info β mapping.
-    beta_mapping = {}
+    logger.info("Mapping of TFs to β parameters:")
     for idx, tf in enumerate(tf_ids):
-        beta_mapping[tf] = {}
         beta_vec = final_beta[idx]
         logger.info(f"{tf}:")
-        beta_mapping[tf][f"mRNA {tf}"] = beta_vec[0]
+        logger.info(f"   mRNA {tf}: {beta_vec[0]:.4f}")
         for q in range(1, len(beta_vec)):
-            label = psite_labels_arr[idx][q - 1]
+            label = psite_labels_arr[idx][q-1]
             if label == "":
                 label = f"PSite{q}"
-            beta_mapping[tf][label] = beta_vec[q]
-    logger.info("Mapping of phosphorylation sites to TFs (β parameters):")
-    for tf, mapping in beta_mapping.items():
-        logger.info(f"{tf}:")
-        for label, b_val in mapping.items():
-            logger.info(f"   {label}: {b_val:.4f}")
+            logger.info(f"   {label}: {beta_vec[q]:.4f}")
+
+    # Build and logger.info β mapping.
+    # beta_mapping = {}
+    # for idx, tf in enumerate(tf_ids):
+    #     beta_mapping[tf] = {}
+    #     beta_vec = final_beta[idx]
+    #     logger.info(f"{tf}:")
+    #     beta_mapping[tf][f"mRNA {tf}"] = beta_vec[0]
+    #     for q in range(1, len(beta_vec)):
+    #         label = psite_labels_arr[idx][q - 1]
+    #         if label == "":
+    #             label = f"PSite{q}"
+    #         beta_mapping[tf][label] = beta_vec[q]
+    # logger.info("Mapping of phosphorylation sites to TFs (β parameters):")
+    # for tf, mapping in beta_mapping.items():
+    #     logger.info(f"{tf}:")
+    #     for label, b_val in mapping.items():
+    #         logger.info(f"   {label}: {b_val:.4f}")
     return final_x, final_alpha, final_beta
