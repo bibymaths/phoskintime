@@ -132,7 +132,7 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
             P_i_t_matrix[i, :] = gene_psite_prediction
 
         # Calculate residuals and sum of squared errors
-        residuals = P_i_t_matrix - self.P_initial_array
+        residuals = self.P_initial_array - P_i_t_matrix
 
         # Select the loss function based on global loss_type
         if loss_type == "base":

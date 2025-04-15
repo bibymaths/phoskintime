@@ -412,7 +412,7 @@ function objective_function(params::Vector{Float64}, problem_data::Dict)
         time_cols
     )
     ## Simple
-    residuals = P_estimated - P_initial_array
+    residuals = P_initial_array - P_estimated
     return sum(residuals .^ 2) / n_pairs
 end
 

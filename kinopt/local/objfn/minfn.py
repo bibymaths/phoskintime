@@ -34,7 +34,7 @@ def _objective(params, P_init, t_max, n,
     total_weight = 0.0
     for i in range(n_gene):
         for t in range(t_max):
-            diff = pred[i, t] - P_init[i, t]
+            diff = P_init[i, t] - pred[i, t]
             if loss_flag == 0:
                 loss_val += diff * diff
             elif loss_flag == 1:
