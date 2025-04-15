@@ -1,6 +1,7 @@
 import numpy as np
 from numba import prange, njit
 
+
 # -------------------------------
 # Objective function for TFOpt
 # -------------------------------
@@ -77,6 +78,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
 
         return loss
 
+
 def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
                         num_psites):
     n_alpha = n_genes * n_reg
@@ -98,6 +100,7 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
             R_pred += a * tf_effect
         predictions[i, :] = R_pred
     return predictions
+
 
 def objective_wrapper(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                       beta_start_indices, num_psites, loss_type):

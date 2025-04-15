@@ -34,7 +34,7 @@ def parse_args():
     )
     parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound.")
     parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")
-    parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=2,
+    parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=6,
                         help="Loss function to use:  "
                              "0: MSE, 1: MAE, 2: soft L1, 3: Cauchy,"
                              "4: Arctan, 5: Elastic Net, 6: Tikhonov.")
