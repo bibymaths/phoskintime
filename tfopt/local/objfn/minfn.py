@@ -41,46 +41,41 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
             beta_start = beta_start_indices[tf_idx]
             length = 1 + num_psites[tf_idx]  # actual length of beta vector for TF
             beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
+
             tf_effect = beta_vec[0] * protein
             for k in range(num_psites[tf_idx]):
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
+
             R_pred += a * tf_effect
-        # For each time point, add loss according to loss_type.
-        for t in range(T_use):
-            e = R_meas[t] - R_pred[t]
+
+            # Compute residual (vectorized over time)
+            diff = R_meas - R_pred
             if loss_type == 0:  # MSE
-                total_loss += e * e
+                total_loss += np.dot(diff, diff)
             elif loss_type == 1:  # MAE
-                total_loss += abs(e)
+                total_loss += np.sum(np.abs(diff))
             elif loss_type == 2:  # Soft L1 (pseudo-Huber)
-                total_loss += 2.0 * (np.sqrt(1.0 + e * e) - 1.0)
+                total_loss += 2.0 * np.sum(np.sqrt(1.0 + diff * diff) - 1.0)
             elif loss_type == 3:  # Cauchy
-                total_loss += np.log(1.0 + e * e)
+                total_loss += np.sum(np.log(1.0 + diff * diff))
             elif loss_type == 4:  # Arctan
-                total_loss += np.arctan(e * e)
+                total_loss += np.sum(np.arctan(diff * diff))
             else:
-                total_loss += e * e
-    loss = total_loss / (n_genes * T_use)
+                total_loss += np.dot(diff, diff)
 
-    # For elastic net (loss_type 5), add L1 and L2 penalties on the beta portion.
-    if loss_type == 5:
-        l1 = 0.0
-        l2 = 0.0
-        for i in range(n_alpha, x.shape[0]):
-            v = x[i]
-            l1 += abs(v)
-            l2 += v * v
-        loss += lam1 * l1 + lam2 * l2
+        loss = total_loss / (n_genes * T_use)
 
-    # For Tikhonov (loss_type 6), add L2 penalty on the beta portion.
-    if loss_type == 6:
-        l2 = 0.0
-        for i in range(n_alpha, x.shape[0]):
-            v = x[i]
-            l2 += v * v
-        loss += lam1 * l2
+        # For elastic net penalty (loss_type 5) using vectorized operations.
+        if loss_type == 5:
+            beta = x[n_alpha:]
+            loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
 
-    return loss
+        # For Tikhonov regularization (loss_type 6).
+        if loss_type == 6:
+            beta = x[n_alpha:]
+            loss += lam1 * np.dot(beta, beta)
+
+        return loss
 
 def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
                         num_psites):

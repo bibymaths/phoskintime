@@ -11,7 +11,8 @@ def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protei
         method="SLSQP",
         bounds=bounds,
         constraints=lin_cons,
-        options={"disp": True, "maxiter": 100}
+        options={"disp": True, "maxiter": 100, "ftol": 1e-6}
+
     )
 
     return result
