@@ -54,11 +54,9 @@ def main():
 
     # Build the initial guess vector and define bounds.
     x0, n_alpha = create_initial_guess(n_mRNA, n_reg, n_TF, num_psites, no_psite_tf)
-
-    logger.info(f"Number of Parameters: {len(x0)}")
-
     xl, xu = create_bounds(n_alpha, n_beta_total, lb, ub)
     total_dim = len(x0)
+
     # Setup parallel runner.
     runner, pool = get_parallel_runner()
 

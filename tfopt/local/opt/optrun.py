@@ -3,7 +3,7 @@ from tfopt.local.objfn.minfn import objective_wrapper
 
 
 def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices, num_psites, loss_type):
-    m = "COBYQA" # or trust-constr or SLSQP
+    m = "SLSQP" # or trust-constr or SLSQP
     result = minimize(
         fun=objective_wrapper,
         x0=x0,
