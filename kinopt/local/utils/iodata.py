@@ -19,13 +19,13 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
     full_hgnc_df = apply_scaling(full_hgnc_df, time_series_cols, scaling_method, split_point, seg_points)
     interaction_df = pd.read_csv(INPUT2, header=0)
     if estimate_missing:
-        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"]).drop(columns=["max", "min"])
+        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"])
         interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
     else:
         interaction_df = interaction_df[interaction_df['Kinase'].apply(
             lambda k: all(kinase in set(full_hgnc_df['GeneID'][1:]) for kinase in k.strip('{}').split(',')))]
         interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
-        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"]).drop(columns=["max", "min"])
+        observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"])
     return full_hgnc_df, interaction_df, observed
 
 

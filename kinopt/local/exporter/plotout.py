@@ -3,6 +3,7 @@ import seaborn as sns
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+from matplotlib.lines import lineStyles
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 mpl.use("Agg")
@@ -19,13 +20,14 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints):
     plt.figure(figsize=(8, 8))
     for i, psite in enumerate(gene_data["psites"]):
         plt.plot(real_timepoints, gene_data["observed"][i],
-                 label=f"{psite}", marker='o', color=colors[i])
+                 label=f"{psite}", marker='s', linestyle='-' ,
+                 color=colors[i], alpha=0.8, markeredgecolor='black')
         plt.plot(real_timepoints, gene_data["estimated"][i],
-                 label=f"{psite} (optimized)", marker='s', linestyle='--', color=colors[i])
-    plt.title(f"Gene: {gene}")
+                  linestyle='-', color=colors[i], alpha = 0.5)
+    plt.title(f"{gene}")
     plt.xlabel("Time (hrs)")
     plt.ylabel("Phosphorylation Level (FC)")
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.legend(title="Psite")
     plt.tight_layout()
     filename = f"{OUT_DIR}/{gene}_fit_.png"
@@ -46,7 +48,7 @@ def plot_cumulative_residuals(gene, gene_data, real_timepoints):
     plt.title(f"{gene}")
     plt.xlabel("Time (hrs)")
     plt.ylabel("Cumulative Residuals")
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.legend(title="Residue_Position")
     plt.tight_layout()
     filename = f"{OUT_DIR}/{gene}_cumulative_residuals_.png"
@@ -59,7 +61,8 @@ def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     """
     plt.figure(figsize=(8, 8))
     for i, psite in enumerate(gene_data["psites"]):
-        plot_acf(gene_data["residuals"][i], lags=len(real_timepoints) - 1, alpha=0.05, ax=plt.gca())
+        plot_acf(gene_data["residuals"][i], lags=len(real_timepoints) - 1,
+                 alpha=0.03, ax=plt.gca(), label=f"{psite}",)
     plt.title(f"{gene}")
     plt.xlabel("Lags")
     plt.ylabel("Autocorrelation")
