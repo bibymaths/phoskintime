@@ -1,6 +1,7 @@
 # PhosKinTime
   
-<img src="static/images/logo_3.png" alt="Package Logo" width="200"/>
+<img src="static/images/logo_3.png" alt="Package Logo" width="200"/> 
+![NSGA-2 Optimization Run on Kinases](static/gif/optimization_run.gif)
 
 ![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)
 ![NumPy](https://img.shields.io/badge/Numpy-1.24.3-red.svg)
