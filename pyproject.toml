@@ -24,6 +24,7 @@ salib = '*'
 graphviz = '*'
 mygene = '*'
 python-dotenv = "*"
+cobyqa = '*'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

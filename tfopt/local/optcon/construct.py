@@ -92,7 +92,6 @@ def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_ps
                 cons.append(beta_vec[q])
     return np.array(cons)
 
-
 def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf):
     total_vars = n_alpha + sum(1 + num_psites[i] for i in range(n_TF))
 

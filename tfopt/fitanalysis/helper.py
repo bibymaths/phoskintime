@@ -73,6 +73,7 @@ class Plotter:
         )
         plt.title('Effect of Transcription Factors (TFs) on mRNA Expression')
         plt.ylabel('mRNA')
+        plt.yticks(fontsize=6, rotation=0)
         plt.xlabel('Alpha Value')
         plt.tight_layout()
         plt.savefig(f"{self.savepath}/mRNA_alpha_group.png", dpi=300, bbox_inches='tight')
@@ -129,7 +130,7 @@ class Plotter:
         plt.title('Absolute Residuals')
         plt.xlabel('Time Points')
         plt.ylabel('mRNA')
-        plt.yticks(fontsize=8, rotation=0)
+        plt.yticks(fontsize=6, rotation=0)
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Residual_Heatmap.png', dpi=300)
@@ -319,7 +320,7 @@ class Plotter:
         # Calculate a single mean absolute value across all time points for all mRNAs
         mean_residuals = self.df.abs().mean(axis=1)
         for i, mRNA in enumerate(self.df.index):
-            if any(self.df.iloc[i] > mean_residuals):
+            if any(self.df.iloc[i] > mean_residuals.iloc[i]):
                 # Assign a unique color for mRNAs with residuals > 0.5
                 color = unique_colors[i % len(unique_colors)]
                 linestyle = '-'

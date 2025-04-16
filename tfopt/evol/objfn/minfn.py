@@ -86,7 +86,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
 # The loss functions are implemented in the objective_ function.
 # The loss function is selected using the loss_type parameter.
 # The default is MSE (0).
-@njit(parallel=True)
+@njit(cache=False, fastmath=False, parallel=True, nogil=False)
 def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA,
                    beta_start_indices, num_psites, loss_type, lam1=1e-3, lam2=1e-3):
     """

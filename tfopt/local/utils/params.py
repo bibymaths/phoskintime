@@ -1,5 +1,5 @@
 import numpy as np
-from tfopt.local.optcon.construct import build_linear_constraints
+from tfopt.local.optcon.construct import build_linear_constraints, constraint_alpha_func, constraint_beta_func
 from tfopt.local.config.logconf import setup_logger 
   
 logger = setup_logger()
@@ -16,14 +16,28 @@ def get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_u
         beta_start_indices[i] = cum
         cum += 1 + num_psites[i]
     n_alpha = n_genes * n_reg
-    x0_alpha = np.full(n_alpha, 1.0 / n_reg)
+    # x0_alpha = np.full(n_alpha, 1.0 / n_reg)
+    # Initialize x0_alpha using uniform random numbers and normalize per gene.
+    x0_alpha = np.empty(n_alpha)
+    for i in range(n_genes):
+        # Sample n_reg values uniformly from [0,1)
+        a = np.random.rand(n_reg)
+        a /= a.sum()  # Normalize so that the regulators for gene i sum to 1.
+        x0_alpha[i * n_reg:(i + 1) * n_reg] = a
+    # Initialize x0_beta by sampling uniformly from [lb, ub] and normalizing per TF.
     x0_beta_list = []
     for i in range(n_TF):
+        length = 1 + num_psites[i]
         if no_psite_tf[i]:
+            # For TFs without any PSite, the beta vector has one element.
+            # The constraint forces that element to be 1.0, so we simply use 1.0.
             x0_beta_list.extend([1.0])
         else:
-            length = 1 + num_psites[i]
-            x0_beta_list.extend([1.0 / length] * length)
+            sample = np.random.uniform(lb, ub, size=length)
+            sample /= sample.sum()  # Normalize so that this beta vector sums to 1.
+            x0_beta_list.extend(sample.tolist())
+            # x0_beta_list.extend([1.0 / length] * length)
+
     x0_beta = np.array(x0_beta_list)
     x0 = np.concatenate([x0_alpha, x0_beta])
 
