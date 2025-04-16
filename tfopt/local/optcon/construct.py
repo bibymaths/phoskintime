@@ -37,8 +37,8 @@ def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite
     for tf, idx in tf_index.items():
         if tf_protein.get(tf) is not None:
             tf_protein_matrix[idx, :] = tf_protein[tf][:T]
-        # else:
-        #     tf_protein_matrix[idx, :] = np.zeros(T)
+        else:
+            tf_protein_matrix[idx, :] = np.zeros(T)
 
     # For each TF, record the actual number of PSites.
     num_psites = np.zeros(n_TF, dtype=np.int32)

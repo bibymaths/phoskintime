@@ -3,7 +3,7 @@ import shutil
 from config.helpers import location
 from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.local.config.logconf import setup_logger
-from tfopt.local.utils.iodata import organize_output_files, create_report
+from tfopt.local.utils.iodata import organize_output_files, create_report, summarize_stats
 from tfopt.local.exporter.plotout import plot_estimated_vs_observed
 from tfopt.local.exporter.sheetutils import save_results_to_excel
 from tfopt.local.objfn.minfn import compute_predictions
@@ -24,6 +24,7 @@ def main():
 
     # logger.info(f"tf_protein: {tf_protein}")
     # logger.info(f"tf_psite_data: {tf_psite_data}")
+    # summarize_stats()
 
     # STEP 2: Prepare data and build fixed arrays.
     fixed_arrays, T_use = prepare_data(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data,

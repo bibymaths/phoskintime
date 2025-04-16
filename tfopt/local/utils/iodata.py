@@ -1,16 +1,50 @@
 import os, re, shutil
 import pandas as pd
+import numpy as np
 from tfopt.local.config.constants import INPUT3, INPUT1, INPUT4
 
 # -------------------------------
 # Data Preprocessing Functions
 # -------------------------------
+def min_max_normalize(df, custom_max=None):
+    """
+    Row-wise (per-sample) min-max normalize time-series columns starting with 'x'.
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame with time-series columns (x1-xN).
+        custom_max (float, optional): If given, used as max for all rows.
+
+    Returns:
+        pd.DataFrame: Normalized DataFrame with same shape.
+    """
+    df = df.copy()
+    time_cols = [col for col in df.columns if col.startswith("x")]
+    other_cols = [col for col in df.columns if not col.startswith("x")]
+
+    data = df[time_cols].to_numpy(dtype=float)
+
+    row_min = np.min(data, axis=1, keepdims=True)
+    if custom_max is not None:
+        row_max = custom_max
+        denom = (custom_max - row_min)
+    else:
+        row_max = np.max(data, axis=1, keepdims=True)
+        denom = (row_max - row_min)
+
+    normalized = (data - row_min) / denom
+    df[time_cols] = normalized
+
+    return df
+
 def load_expression_data(filename=INPUT3):
     """
     Loads gene expression (mRNA) data.
     Expects a CSV with a 'GeneID' column and time-point columns.
     """
     df = pd.read_csv(filename)
+    # Normlaize for high unscaled variability
+    # Exists often
+    # df = min_max_normalize(df, 4)
     gene_ids = df["GeneID"].astype(str).tolist()
     time_cols = [col for col in df.columns if col != "GeneID"]
     expression_matrix = df[time_cols].to_numpy(dtype=float)
@@ -24,6 +58,9 @@ def load_tf_protein_data(filename=INPUT1):
     For rows without a valid PSite, the entire row is considered as the protein signal.
     """
     df = pd.read_csv(filename)
+    # Normlaize for high unscaled variability
+    # Exists often
+    # df = min_max_normalize(df, 4)
     tf_protein = {}
     tf_psite_data = {}
     tf_psite_labels = {}
@@ -38,7 +75,6 @@ def load_tf_protein_data(filename=INPUT1):
     for _, row in df.iterrows():
         tf = str(row["GeneID"]).strip()
         psite = str(row["Psite"]).strip()
-        # Read all original values then slice.
         vals = row[orig_time_cols].to_numpy(dtype=float)
         vals = vals[5:] if len(orig_time_cols) >= 14 else vals
         if tf not in tf_protein:
@@ -50,7 +86,6 @@ def load_tf_protein_data(filename=INPUT1):
             tf_psite_labels[tf].append(psite)
     tf_ids = list(tf_protein.keys())
     return tf_ids, tf_protein, tf_psite_data, tf_psite_labels, time_cols
-
 
 def load_regulation(filename=INPUT4):
     """
@@ -69,6 +104,60 @@ def load_regulation(filename=INPUT4):
         if tf not in reg_map[gene]:
             reg_map[gene].append(tf)
     return reg_map
+
+def summarize_stats(input3=INPUT3, input1=INPUT1, input4=INPUT4):
+    """
+    Shows global and time-wise min, max, std, and variance
+    for full input3 and input1, and for the subset defined by input4.
+    input4: CSV with 'Source' and 'Target' columns (mapping expression to TF protein).
+    """
+    # Load input3: expression data
+    expr_df = pd.read_csv(input3)
+    expr_data = expr_df.drop(columns=["GeneID"])
+
+    print("=== Expression Data (input3) — Full Dataset ===")
+    print(f"Global min: {expr_data.values.min():.4f}")
+    print(f"Global max: {expr_data.values.max():.4f}")
+    print(f"Global std: {expr_data.values.std():.4f}")
+    print(f"Global var: {expr_data.values.var():.4f}")
+    print("\nTime-wise stats:")
+    print(expr_data.agg(['min', 'max', 'std', 'var']).T)
+
+    # Load input1: TF protein data
+    prot_df = pd.read_csv(input1)
+    time_cols = [col for col in prot_df.columns if col not in ["GeneID", "Psite"]]
+    prot_data = prot_df[time_cols]
+
+    print("\n=== TF Protein Data (input1) — Full Dataset ===")
+    print(f"Global min: {prot_data.values.min():.4f}")
+    print(f"Global max: {prot_data.values.max():.4f}")
+    print(f"Global std: {prot_data.values.std():.4f}")
+    print(f"Global var: {prot_data.values.var():.4f}")
+    print("\nTime-wise stats:")
+    print(prot_data.agg(['min', 'max', 'std', 'var']).T)
+
+    # Load mapping from input4
+    map_df = pd.read_csv(input4)
+    expr_subset = expr_df[expr_df["GeneID"].isin(map_df["Source"])]
+    prot_subset = prot_df[prot_df["GeneID"].isin(map_df["Target"])]
+
+    print("\n=== Expression Data — Subset from input4 ===")
+    expr_data_sub = expr_subset.drop(columns=["GeneID"])
+    print(f"Global min: {expr_data_sub.values.min():.4f}")
+    print(f"Global max: {expr_data_sub.values.max():.4f}")
+    print(f"Global std: {expr_data_sub.values.std():.4f}")
+    print(f"Global var: {expr_data_sub.values.var():.4f}")
+    print("\nTime-wise stats:")
+    print(expr_data_sub.agg(['min', 'max', 'std', 'var']).T)
+
+    print("\n=== TF Protein Data — Subset from input4 ===")
+    prot_data_sub = prot_subset[time_cols]
+    print(f"Global min: {prot_data_sub.values.min():.4f}")
+    print(f"Global max: {prot_data_sub.values.max():.4f}")
+    print(f"Global std: {prot_data_sub.values.std():.4f}")
+    print(f"Global var: {prot_data_sub.values.var():.4f}")
+    print("\nTime-wise stats:")
+    print(prot_data_sub.agg(['min', 'max', 'std', 'var']).T)
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
