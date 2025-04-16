@@ -240,20 +240,13 @@ def move_processed_files():
     ]
 
     # Move each file for kinopt and tfopt to their respective directories
-    for f in kinopt_files:
-        if os.path.exists(f):
-            os.rename(f, os.path.join(kin_data_dir, f))
-            print(f"Moved {f} to {kin_data_dir}")
-        else:
-            print(f"{f} does not exist in the current directory.")
-
-    for f in tfopt_files:
-        if os.path.exists(f):
-            os.rename(f, os.path.join(tf_data_dir, f))
-            print(f"Moved {f} to {tf_data_dir}")
-        else:
-            print(f"{f} does not exist in the current directory.")
-
+    for file_list, target_dir in [(kinopt_files, kin_data_dir), (tfopt_files, tf_data_dir)]:
+        for f in file_list:
+            if os.path.exists(f):
+                os.rename(f, os.path.join(target_dir, f))
+                print(f"Moved {f} to {target_dir}")
+            else:
+                print(f"{f} does not exist in the current directory.")
 
 #########################
 # Run All Processing    #
