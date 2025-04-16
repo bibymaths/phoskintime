@@ -161,9 +161,8 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
             return np.mean(np.abs(residuals / (self.P_initial_array + 1e-12))) * 100 + np.sum(np.abs(params)) + np.sum(
                 (params) ** 2)
 
-        # Function to calculate the estimated series using optimized alpha and beta values
 
-
+# Function to calculate the estimated series using optimized alpha and beta values
 def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, beta_counts):
     """
     Calculates the estimated time series for each gene-psite based on the optimized parameters.

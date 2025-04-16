@@ -21,73 +21,44 @@ def plot_residuals_for_gene(gene, gene_data):
         gene_data (dict): Dictionary with keys 'psites', 'observed', 'estimated', and 'residuals' containing data for all psites.
         TIME_POINTS (np.ndarray or list): Time points corresponding to the series.
     """
-    cmap = plt.get_cmap("tab20")
+    # Get colors from Dark2 palette
+    cmap = mpl.cm.get_cmap("Dark2")
+    # cmap = mpl.cm.get_cmap("Set1")
+    # cmap = mpl.cm.get_cmap("Set2")
+
     colors = [cmap(i % 20) for i in range(len(gene_data["psites"]))]
 
-    # 1. Observed vs Estimated Plot with Error Bars
-    plt.figure(figsize=(8, 8))
+    fig, axs = plt.subplots(1, 2, figsize=(18, 8), sharey=True)
+
+    # Full timepoints plot
     for i, psite in enumerate(gene_data["psites"]):
-        observed = gene_data["observed"][i]
-        estimated = gene_data["estimated"][i]
+        axs[0].plot(TIME_POINTS, gene_data["observed"][i],
+                    label=f"{psite}", marker='s', linestyle='--',
+                    color=colors[i], alpha=0.5, markeredgecolor='black')
+        axs[0].plot(TIME_POINTS, gene_data["estimated"][i],
+                    linestyle='-', color=colors[i])
+    axs[0].set_title(f"{gene}")
+    axs[0].set_xlabel("Time (minutes)")
+    axs[0].set_ylabel("Phosphorylation Level (FC)")
+    axs[0].grid(True, alpha=0.2)
+    axs[0].set_xticks(TIME_POINTS[9:])
 
-        std_dev = np.std(observed, ddof=1)  # Bessel Correction for bias in variance
-        n = len(observed)
-        se = std_dev / np.sqrt(n)  # Standard error of the mean 
-
-        plt.errorbar(
-            TIME_POINTS[5:], observed[5:], yerr=se,
-            label=f"{psite}", fmt='o-', color=colors[i], alpha=0.8, markeredgecolor='black',
-            capsize=3, ecolor=colors[i], elinewidth=0.5
-        )
-        # Plot estimated series
-        plt.plot(
-            TIME_POINTS, estimated,
-            linestyle='--', marker='s', color=colors[i], alpha=0.6, markeredgecolor='black'
-        )
-    plt.title(f"{gene}")
-    plt.xlabel("Time (hrs)")
-    plt.ylabel("Phosphorylation Level (FC)")
-    plt.grid(True)
-    plt.legend(title="Residue_Position")
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/fit_errorbars_{gene}.png", format='png', dpi=300)
-    plt.close()
-
-    # Observed vs Estimated Plot with Fill
-    plt.figure(figsize=(8, 8))
+    # First 7 timepoints plot
+    short_timepoints = TIME_POINTS[:7]
     for i, psite in enumerate(gene_data["psites"]):
-        observed = gene_data["observed"][i]
-        estimated = gene_data["estimated"][i]
-
-        # Calculate standard deviation, standard error, and 95% CI
-        std_dev = np.std(observed, ddof=1)  # Bessel Correction for bias in variance
-        n = len(observed)
-        se = std_dev / np.sqrt(n)  # Standard error of the mean
-        ci_lower = observed - 1.96 * se
-        ci_upper = observed + 1.96 * se
-
-        # Plot observed and estimated series
-        plt.plot(
-            TIME_POINTS, observed,
-            label=f"{psite}", marker='o', linestyle='-', color=colors[i], alpha=0.8, markeredgecolor='black'
-        )
-        plt.plot(
-            TIME_POINTS, estimated,
-            marker='s', linestyle='--', color=colors[i], alpha=0.5, markeredgecolor='black'
-        )
-
-        # Add 95% CI fill
-        plt.fill_between(
-            TIME_POINTS, ci_lower, ci_upper,
-            color=colors[i], alpha=0.2, linewidth=0
-        )
-    plt.title(f"{gene}")
-    plt.xlabel("Time (hrs)")
-    plt.ylabel("Phosphorylation Level (FC)")
-    plt.grid(True)
-    plt.legend(title="Residue_Position")
+        axs[1].plot(short_timepoints, gene_data["observed"][i][:7],
+                    label=f"{psite}", marker='s', linestyle='--',
+                    color=colors[i], alpha=0.5, markeredgecolor='black')
+        axs[1].plot(short_timepoints, gene_data["estimated"][i][:7],
+                    linestyle='-', color=colors[i])
+    # axs[1].set_title(f"{gene}")
+    axs[1].set_xlabel("Time (minutes)")
+    axs[1].grid(True, alpha=0.2)
+    axs[1].set_xticks(short_timepoints)
+    axs[1].legend(title="Residue_Position", bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/fit_errorfill_{gene}.png", format='png', dpi=300)
+    filename = f"{OUT_DIR}/{gene}_fit_.png"
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close()
 
     # 2. Cumulative Sum of Residuals
@@ -98,7 +69,7 @@ def plot_residuals_for_gene(gene, gene_data):
             label=f"{psite}", marker='o', color=colors[i], alpha=0.8, markeredgecolor='black'
         )
     plt.title(f"{gene}")
-    plt.xlabel("Time (hrs)")
+    plt.xlabel("Time (minutes)")
     plt.ylabel("Cumulative Residuals")
     plt.grid(True)
     plt.legend(title="Residue_Position")

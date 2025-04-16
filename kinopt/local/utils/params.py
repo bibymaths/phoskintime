@@ -23,7 +23,7 @@ def compute_metrics(optimized_params, P_init_dense, t_max, gene_alpha_starts, ge
                                  gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
                                  total_alpha, kinase_beta_starts, kinase_beta_counts,
                                  K_data, K_indices, K_indptr)
-    residuals = P_est - P_init_dense
+    residuals = P_init_dense - P_est
     mse = np.sum(residuals**2) / P_init_dense.size
     rmse = np.sqrt(mse)
     mae = np.mean(np.abs(residuals))

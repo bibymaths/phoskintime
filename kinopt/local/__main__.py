@@ -26,8 +26,8 @@ def main():
     K_index, K_array, beta_counts = build_K_data(full_df, interact_df, estimate_missing)
     K_sparse, K_data, K_indices, K_indptr = convert_to_sparse(K_array)
     # Precompute mappings.
-    unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha, kinase_beta_counts, kinase_beta_starts = precompute_mappings(
-        P_initial, K_index)
+    (unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha,
+     kinase_beta_counts, kinase_beta_starts) = precompute_mappings(P_initial, K_index)
     # Initialize parameters.
     params_initial, bounds = init_parameters(total_alpha, lb, ub, kinase_beta_counts)
     # Compute time weights.

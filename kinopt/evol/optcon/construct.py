@@ -39,7 +39,7 @@ def _load_and_scale_data(
         observed = full_hgnc_df.merge(
             interaction_df.iloc[:, :2],
             on=["GeneID", "Psite"]
-        ).drop(columns=["max", "min"])
+        )
 
         # Convert string of kinases like "{K1,K2}" → ["K1","K2"]
         interaction_df['Kinase'] = (
@@ -64,7 +64,7 @@ def _load_and_scale_data(
         observed = full_hgnc_df.merge(
             interaction_df.iloc[:, :2],
             on=["GeneID", "Psite"]
-        ).drop(columns=["max", "min"])
+        )
 
     return full_hgnc_df, interaction_df, observed
 
@@ -126,6 +126,7 @@ def _build_k_array(
     beta_counts = {}
 
     synthetic_counter = 1
+    synthetic_rows = []
 
     # Unique kinases from the DataFrame's 'Kinase' column
     unique_kinases = interaction_df['Kinase'].explode().unique()
@@ -141,33 +142,33 @@ def _build_k_array(
             for _, row in kinase_psite_data.iterrows():
                 psite = row['Psite']
                 time_series = np.array(row[time].values, dtype=np.float64)
-
                 idx = len(K_array)
                 K_array.append(time_series)
-
-                if kinase not in K_index:
-                    K_index[kinase] = []
-                K_index[kinase].append((psite, time_series))
-
+                K_index.setdefault(kinase, []).append((psite, time_series))
                 beta_counts[idx] = 1
+
         elif estimate_missing_kinases:
+            synthetic_label = f"P{synthetic_counter}"
+            synthetic_counter += 1
+            # Create a synthetic time series for the kinase's missing data
+            # This is a placeholder; zeroes are used
+            synthetic_ts = np.zeros(len(time))
+            idx = len(K_array)
+            K_array.append(synthetic_ts)
+            K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))
+            beta_counts[idx] = 1
+            synthetic_rows.append(idx)
 
-            if kinase not in K_index:
-                K_index[kinase] = []
-
-            add_psites = kinase_to_psites.get(kinase, 1)
-            for _ in range(add_psites):
-                synthetic_label = f"P{synthetic_counter}"
-                synthetic_counter += 1
-
-                synthetic_time_series = np.ones(len(time), dtype=np.float64)  # or some default
-                K_array.append(synthetic_time_series)
-                K_index[kinase].append((synthetic_label, synthetic_time_series))
-                beta_counts[len(K_array) - 1] = 1
-
+    # Finalize K_array
     K_array = np.array(K_array)
 
-    return K_array, K_index, beta_counts
+    # Zero out synthetic rows (again, to be extra safe)
+    # This is a placeholder; zeroes are used
+    for idx in synthetic_rows:
+        # mutiply by zero to ensure no effect
+        K_array[idx] = 0.0
+
+    return K_index, K_array, beta_counts
 
 
 def pipeline(

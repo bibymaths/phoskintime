@@ -66,7 +66,7 @@ def run_optimization(
     )
     if METHOD == "DE":
         algorithm = DE(
-            pop_size=100,
+            pop_size=500,
             sampling=LHS(),
             variant="DE/rand/1/bin",
             CR=0.9,
@@ -74,42 +74,42 @@ def run_optimization(
             jitter=False
         )
         termination = DefaultSingleObjectiveTermination(
-            xtol=1e-12,
-            cvtol=1e-12,
-            ftol=1e-12,
-            period=20,
-            n_max_gen=1000,
-            n_max_evals=100000
+            # xtol=1e-8,
+            # cvtol=1e-6,
+            # ftol=1e-6,
+            # period=20,
+            # n_max_gen=1000,
+            # n_max_evals=100000
         )
     else:
         algorithm = NSGA2(
-            pop_size=100,
+            pop_size=500,
             crossover=TwoPointCrossover(),
             eliminate_duplicates=True
         )
         termination = DefaultMultiObjectiveTermination(
-            xtol=1e-8,
-            cvtol=1e-6,
-            ftol=0.0025,
-            n_max_gen=1000,
-            n_max_evals=100000
+            # xtol=1e-8,
+            # cvtol=1e-6,
+            # ftol=0.0025,
+            # n_max_gen=1000,
+            # n_max_evals=100000
         )
 
     # 5) Run the optimization
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        result = minimize(
-            problem,
-            algorithm,
-            termination=termination,
-            verbose=True,
-            save_history=True
-        )
+    # buf = io.StringIO()
+    # with contextlib.redirect_stdout(buf):
+    result = minimize(
+        problem,
+        algorithm,
+        termination=termination,
+        verbose=True,
+        save_history=True
+    )
 
-    # Log the captured pymoo progress
-    pymoo_progress = buf.getvalue()
-    if pymoo_progress.strip():  # only log if there's actual text
-        logger.info("--- Progress Output ---\n" + pymoo_progress)
+    # # Log the captured pymoo progress
+    # pymoo_progress = buf.getvalue()
+    # if pymoo_progress.strip():  # only log if there's actual text
+    #     logger.info("--- Progress Output ---\n" + pymoo_progress)
 
     # 6) Grab execution time and close the pool
     # Convert execution time to minutes and hours

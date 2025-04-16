@@ -24,6 +24,8 @@ def _build_K_data(full_df, interact_df, estimate_missing):
     K_list = []
     beta_counts = {}
     synthetic_counter = 1
+    synthetic_rows = []
+
     for kinase in interact_df['Kinase'].explode().unique():
         kinase_df = full_df[full_df['GeneID'] == kinase]
         if not kinase_df.empty:
@@ -35,16 +37,27 @@ def _build_K_data(full_df, interact_df, estimate_missing):
                 K_index.setdefault(kinase, []).append((psite, ts))
                 beta_counts[idx] = 1
         elif estimate_missing:
-            K_index.setdefault(kinase, [])
-            for _ in range(1):  # default one synthetic psite
-                synthetic_label = f"P{synthetic_counter}"
-                synthetic_counter += 1
-                synthetic_ts = np.empty(len(time))
-                K_list.append(synthetic_ts)
-                K_index[kinase].append((synthetic_label, synthetic_ts))
-                beta_counts[len(K_list) - 1] = 1
-    return K_index, np.array(K_list), beta_counts
+            synthetic_label = f"P{synthetic_counter}"
+            synthetic_counter += 1
+            # Create a synthetic time series for the kinase's missing data
+            # This is a placeholder; zeroes are used
+            synthetic_ts = np.zeros(len(time))
+            idx = len(K_list)
+            K_list.append(synthetic_ts)
+            K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))
+            beta_counts[idx] = 1
+            synthetic_rows.append(idx)
 
+    # Finalize K_array
+    K_array = np.array(K_list)
+
+    # Zero out synthetic rows (again, to be extra safe)
+    # This is a placeholder; zeroes are used
+    for idx in synthetic_rows:
+        # mutiply by zero to ensure no effect
+        K_array[idx] = 0.0
+
+    return K_index, K_array, beta_counts
 
 def _convert_to_sparse(K_array):
     K_sparse = csr_matrix(K_array)

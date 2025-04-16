@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")
     parser.add_argument("--loss_type", type=str,
                         choices=["base", "weighted", "softl1", "cauchy", "arctan"],
-                        default="base", help="Loss function to use.")
+                        default="weighted", help="Loss function to use.")
     parser.add_argument("--estimate_missing_kinases", type=str, choices=["yes", "no"], default="yes",
                         help="Estimate missing kinase-psite values?")
     parser.add_argument("--scaling_method", type=str,

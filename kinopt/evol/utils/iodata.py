@@ -166,7 +166,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Global Report</h1>"
+        "<h1>Kinase Optimization Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.

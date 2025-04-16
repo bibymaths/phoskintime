@@ -35,8 +35,8 @@ def _parse_arguments():
     parser = argparse.ArgumentParser(description="Optimization script for gene-phosphorylation site time-series data.")
 
     # Bounds
-    parser.add_argument("--lower_bound", type=float, default=-10.0, help="Lower Beta bound for optimization parameters.")
-    parser.add_argument("--upper_bound", type=float, default=10.0, help="Upper Beta bound for optimization parameters.")
+    parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound for optimization parameters.")
+    parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound for optimization parameters.")
 
     # Loss function
     parser.add_argument("--loss_type", type=str, choices=["base", "autocorrelation", "huber", "mape", "weighted"],
@@ -57,7 +57,7 @@ def _parse_arguments():
     # Segmented scaling points
     parser.add_argument("--segment_points", type=str, default="0,3,6,9,14",
                         help="Comma-separated segment points for segmented scaling.")
-    parser.add_argument("--method", type=str, default="DE",
+    parser.add_argument("--method", type=str, default="NSGA-II",
                         help="Method chosen for optimization: Differential Evolution (DE) or NSGA-II (Use DE or NSGA-II)).")
     args = parser.parse_args()
     # Convert arguments to proper types
