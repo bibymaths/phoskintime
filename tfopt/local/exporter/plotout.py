@@ -80,16 +80,16 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         fig.add_trace(go.Scatter(
             x=time_vals_expr,
             y=expression_matrix[i, :],
-            mode='lines+marker',
+            mode='lines+markers',
             name=f'{gene_ids[i]}',
             marker=dict(symbol='square'),
-            lines=dict(color=cmap(i))
+            line=dict(color=cmap(i))
         ))
         fig.add_trace(go.Scatter(
             x=time_vals_expr,
             y=predictions[i, :],
             mode='lines',
-            lines=dict(color=cmap(i))
+            line=dict(color=cmap(i))
         ))
         plotted_tfs = set()
         for r in regulators[i, :]:
