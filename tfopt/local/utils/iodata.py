@@ -42,13 +42,9 @@ def load_tf_protein_data(filename=INPUT1):
         vals = row[orig_time_cols].to_numpy(dtype=float)
         vals = vals[5:] if len(orig_time_cols) >= 14 else vals
         if tf not in tf_protein:
-            tf_protein[tf] = None
+            tf_protein[tf] = vals
             tf_psite_data[tf] = []
             tf_psite_labels[tf] = []
-            # Skip when the Psite is starting with 'A_' for Alanaine and 'M_' for Methionine
-            # to match with kinase optimization done with kinopt
-        if psite == "" or psite.lower() == "nan" or psite.startswith('A_') or psite.startswith('M_'):
-            tf_protein[tf] = vals
         else:
             tf_psite_data[tf].append(vals)
             tf_psite_labels[tf].append(psite)

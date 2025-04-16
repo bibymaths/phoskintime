@@ -125,6 +125,8 @@ function load_data(input1_path::String, input2_path::String, estimate_missing_ki
     """
     # Load the CSV files into DataFrames
     full_hgnc_df = CSV.read(input1_path, DataFrame)
+    filter!(row -> !(ismissing(row.Psite) || row.Psite == ""), full_hgnc_df)
+
     interaction_df = CSV.read(input2_path, DataFrame)
     if estimate_missing_kinases
         # Keep the `Kinase` column as-is

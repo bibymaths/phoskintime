@@ -65,7 +65,9 @@ def process_msgauss():
 
     # Load the MS_Gaussian_updated_09032023.csv file
     df = pd.read_csv(os.path.join(base_dir,"MS_Gaussian_updated_09032023.csv"))
+
     df['Psite'] = df['site'].fillna('').astype(str)
+    # df['Psite'] = df['site'].fillna('Concentration').astype(str)
 
     # Compute 2^(predict_mean)
     df['predict_trans'] = 2 ** df['predict_mean']
@@ -86,8 +88,9 @@ def process_msgauss():
     # Save the cleaned time series to input1.csv
     pivot_df.to_csv("input1.csv", index=False)
 
-    # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
-    kinopt_df = pivot_df[pivot_df['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+    # Filter to keep only rows where 'Psite' starts with Y_, S_, T_, or is empty
+    kinopt_df = pivot_df[
+        pivot_df['Psite'].str.startswith(('Y_', 'S_', 'T_')) | (pivot_df['Psite'] == '')]
 
     # Save the filtered time series to input1.csv
     kinopt_df.to_csv("input1.csv", index=False)
@@ -129,8 +132,8 @@ def process_msgauss_std():
     result = pd.merge(pivot_trans, pivot_std, on=['GeneID', 'Psite'])
     result['Psite'] = result['Psite'].apply(format_site)
 
-    # Filter the empty Psite values and keep only ones which start with Y_, S_, and T_
-    result = result[result['Psite'].str.startswith(('Y_', 'S_', 'T_'))]
+    # Filter to keep only rows where 'Psite' starts with Y_, S_, T_, or is empty
+    result = result[result['Psite'].str.startswith(('Y_', 'S_', 'T_')) | (result['Psite'] == '')]
 
     # Save to input1_wstd.csv
     result.to_csv("input1_wstd.csv", index=False)
@@ -239,14 +242,23 @@ def move_processed_files():
         "input4.csv"
     ]
 
-    # Move each file for kinopt and tfopt to their respective directories
+    # Track files already moved so we copy them next time
+    moved_files = set()
+
+    # Move or copy files to their respective directories
     for file_list, target_dir in [(kinopt_files, kin_data_dir), (tfopt_files, tf_data_dir)]:
         for f in file_list:
             if os.path.exists(f):
-                os.rename(f, os.path.join(target_dir, f))
-                print(f"Moved {f} to {target_dir}")
+                target_path = os.path.join(target_dir, f)
+                if f in moved_files:
+                    shutil.copy(target_path, os.path.join(target_dir, f))
+                    print(f"Copied {f} to {target_dir}")
+                else:
+                    shutil.move(f, target_path)
+                    moved_files.add(f)
+                    print(f"Moved {f} to {target_dir}")
             else:
-                print(f"{f} does not exist in the current directory.")
+                print(f"{f} does not exist in the current directory or has already been moved.")
 
 #########################
 # Run All Processing    #

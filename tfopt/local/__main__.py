@@ -21,6 +21,10 @@ def main():
     # STEP 1: Load and filter the data.
     gene_ids, expr_matrix, expr_time_cols, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, tf_time_cols, reg_map = \
         load_and_filter_data()
+
+    # logger.info(f"tf_protein: {tf_protein}")
+    # logger.info(f"tf_psite_data: {tf_psite_data}")
+
     # STEP 2: Prepare data and build fixed arrays.
     fixed_arrays, T_use = prepare_data(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data,
                                         tf_psite_labels, tf_time_cols, reg_map)
@@ -35,8 +39,6 @@ def main():
     x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use = \
         get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_use,
                                 psite_labels_arr, num_psites, lb, ub)
-
-    # logger.info(f"Number of Parameters: {len(x0)}")
 
     # STEP 4: Run the optimization.
     result = run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor,

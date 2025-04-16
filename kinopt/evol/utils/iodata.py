@@ -15,6 +15,7 @@ def format_duration(seconds):
 
 def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
     full_hgnc_df = pd.read_csv(INPUT1)
+    full_hgnc_df = full_hgnc_df[full_hgnc_df['Psite'].notna() & (full_hgnc_df['Psite'] != '')]
     time_series_cols = [f'x{i}' for i in range(1, 15)]
     full_hgnc_df = apply_scaling(full_hgnc_df, time_series_cols, scaling_method, split_point, seg_points)
     interaction_df = pd.read_csv(INPUT2, header=0)

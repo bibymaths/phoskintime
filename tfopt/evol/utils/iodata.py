@@ -23,13 +23,9 @@ def load_TF_data(filename=INPUT1):
         time_cols = [col for col in df.columns if col not in ["GeneID", "Psite"]]
         vals = row[time_cols].to_numpy(dtype=float)
         if tf not in protein_dict:
-            protein_dict[tf] = None
+            protein_dict[tf] = vals
             psite_dict[tf] = []
             psite_labels_dict[tf] = []
-            # Skip when the Psite is starting with 'A_' for Alanaine and 'M_' for Methionine
-            # to match with kinase optimization done with kinopt
-        if psite == "" or psite.lower() == "nan" or psite.startswith('A_') or psite.startswith('M_'):
-            protein_dict[tf] = vals
         else:
             psite_dict[tf].append(vals)
             psite_labels_dict[tf].append(psite)

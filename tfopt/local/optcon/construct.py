@@ -33,13 +33,12 @@ def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite
         for j, tf in enumerate(regs):
             regulators[i, j] = tf_index.get(tf, -1)
 
-    # Build tf_protein_matrix.
     tf_protein_matrix = np.zeros((n_TF, T), dtype=np.float64)
     for tf, idx in tf_index.items():
         if tf_protein.get(tf) is not None:
             tf_protein_matrix[idx, :] = tf_protein[tf][:T]
-        else:
-            tf_protein_matrix[idx, :] = np.zeros(T)
+        # else:
+        #     tf_protein_matrix[idx, :] = np.zeros(T)
 
     # For each TF, record the actual number of PSites.
     num_psites = np.zeros(n_TF, dtype=np.int32)
