@@ -5,9 +5,9 @@ from numba import prange, njit
 # -------------------------------
 # Objective function for TFOpt
 # -------------------------------
-@njit(cache=True, fastmath=False, parallel=False, nogil=False)
+@njit(cache=True, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
-               beta_start_indices, num_psites, loss_type, lam1=1e-3, lam2=1e-6):
+               beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
     """
     Computes a loss value using one of several loss functions.
 
@@ -30,6 +30,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
     """
     total_loss = 0.0
     n_alpha = n_genes * n_reg
+    nT = n_genes * T_use
     for i in prange(n_genes):
         R_meas = expression_matrix[i, :T_use]
         R_pred = np.zeros(T_use)
@@ -49,30 +50,56 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
 
             R_pred += a * tf_effect
 
-            # Compute residual (vectorized over time)
-            diff = R_meas - R_pred
-            if loss_type == 0:  # MSE
-                total_loss += np.dot(diff, diff)
-            elif loss_type == 1:  # MAE
-                total_loss += np.sum(np.abs(diff))
-            elif loss_type == 2:  # Soft L1 (pseudo-Huber)
-                total_loss += 2.0 * np.sum(np.sqrt(1.0 + diff * diff) - 1.0)
-            elif loss_type == 3:  # Cauchy
-                total_loss += np.sum(np.log(1.0 + diff * diff))
-            elif loss_type == 4:  # Arctan
-                total_loss += np.sum(np.arctan(diff * diff))
-            else:
-                total_loss += np.dot(diff, diff)
+            # VECTORIZED RESIDUAL - use when mRNAs are > 500
+        #     diff = R_meas - R_pred
+        #     if loss_type == 0:  # MSE
+        #         total_loss += np.dot(diff, diff)
+        #     elif loss_type == 1:  # MAE
+        #         total_loss += np.sum(np.abs(diff))
+        #     elif loss_type == 2:  # Soft L1 (pseudo-Huber)
+        #         total_loss += 2.0 * np.sum(np.sqrt(1.0 + diff * diff) - 1.0)
+        #     elif loss_type == 3:  # Cauchy
+        #         total_loss += np.sum(np.log(1.0 + diff * diff))
+        #     elif loss_type == 4:  # Arctan
+        #         total_loss += np.sum(np.arctan(diff * diff))
+        #     else:
+        #         total_loss += np.dot(diff, diff)
+        #
+        # loss = total_loss / nT
+        #
+        # # For elastic net penalty (loss_type 5) using vectorized operations.
+        # if loss_type == 5:
+        #     beta = x[n_alpha:]
+        #     loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
+        #
+        # # For Tikhonov regularization (loss_type 6).
+        # if loss_type == 6:
+        #     beta = x[n_alpha:]
+        #     loss += lam1 * np.dot(beta, beta)
 
-        loss = total_loss / (n_genes * T_use)
+            # Residuals computed timepoint-by-timepoint
+            for t in range(T_use):
+                diff = R_meas[t] - R_pred[t]
+                if loss_type == 0:  # MSE
+                    total_loss += diff * diff
+                elif loss_type == 1:  # MAE
+                    total_loss += np.abs(diff)
+                elif loss_type == 2:  # Soft L1
+                    total_loss += 2.0 * (np.sqrt(1.0 + diff * diff) - 1.0)
+                elif loss_type == 3:  # Cauchy
+                    total_loss += np.log(1.0 + diff * diff)
+                elif loss_type == 4:  # Arctan
+                    total_loss += np.arctan(diff * diff)
+                else:  # default to MSE
+                    total_loss += diff * diff
 
-        # For elastic net penalty (loss_type 5) using vectorized operations.
+        loss = total_loss / nT
+
+        # Regularization penalties
         if loss_type == 5:
             beta = x[n_alpha:]
             loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
-
-        # For Tikhonov regularization (loss_type 6).
-        if loss_type == 6:
+        elif loss_type == 6:
             beta = x[n_alpha:]
             loss += lam1 * np.dot(beta, beta)
 

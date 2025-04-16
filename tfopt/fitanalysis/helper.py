@@ -248,7 +248,7 @@ class Plotter:
         sns.scatterplot(data=pca_df, x='PC1', y='PC2', hue='Cluster', palette='Set1', alpha=0.5)
         for i, mRNA in enumerate(pca_df.index):
             plt.annotate(mRNA, (pca_df['PC1'].iloc[i], pca_df['PC2'].iloc[i]), fontsize=6,
-                         ha='right', va='bottom', annotation_clipped=True)
+                         ha='right', va='bottom', annotation_clip=True)
         plt.title('Principal Component Analysis')
         plt.xlabel('PC1')
         plt.ylabel('PC2')
