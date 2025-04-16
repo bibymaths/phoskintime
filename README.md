@@ -20,7 +20,7 @@
 
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers explore kinase-substrate interactions in a temporal context.
  
-<img src="static/gif/optimization_run.gif" alt="NSGA-2 Run" width="300"/> 
+<img src="static/gif/optimization_run.gif" alt="NSGA-2 Run" width="500"/> 
 
 ## Overview
 
@@ -137,6 +137,8 @@ Here’s a brief overview of the execution flow:
    - The `utils/display.py` and `utils/tables.py` modules save results and generate an HTML report summarizing the analysis.
 
 ## Modules
+ 
+<img src="static/images/dg1.svg" alt="Dependency Graph" width="200"/>  
 
 - **Config Module:**  
   - `config/constants.py`: Global constants (model settings, time points, directories, scoring weights, etc.).

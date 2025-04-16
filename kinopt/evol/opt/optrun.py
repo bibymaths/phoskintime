@@ -213,6 +213,11 @@ def post_optimization_nsga(
     # 4) Waterfall or 'pops' data (currently empty in snippet)
     pops = []
     # You could populate 'pops' with relevant info from each generation if desired
+    for i, individual in enumerate(result.pop):  # Displaying first 5 individuals for brevity
+        row = {"Individual": i + 1, "Objective Value (F)": individual.F[0]}  # Add individual info
+        row.update({f"α_{j}": x for j, x in enumerate(individual.X)})  # Add decision variables
+        pops.append(row)
+
 
     waterfall_df = pd.DataFrame(pops)
     waterfall_df.to_csv(f'{OUT_DIR}/parameter_scan.csv', index=False)
