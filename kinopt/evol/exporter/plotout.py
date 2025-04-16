@@ -265,7 +265,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.xlabel("Optimizer Runs", fontsize=8)
     plt.ylabel("f", fontsize=8, fontstyle='italic')
     plt.tight_layout()
-    plt.savefig('{OUT_DIR}/waterfall.png', dpi=300)
+    plt.savefig(f'{OUT_DIR}/waterfall.png', dpi=300)
     plt.close()
 
     # Generate a waterfall plot for the convergence data
@@ -305,7 +305,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.xlabel("Optimizer Runs", fontsize=8)
     plt.ylabel("f", fontsize=8, fontstyle='italic')
     plt.tight_layout()
-    plt.savefig('{OUT_DIR}/waterfall_2.png', dpi=300)
+    plt.savefig(f'{OUT_DIR}/waterfall_2.png', dpi=300)
     plt.close()
 
     # Covergence plot
