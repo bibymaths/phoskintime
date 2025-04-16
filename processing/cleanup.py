@@ -224,9 +224,8 @@ def move_processed_files():
     tf_data_dir = "../tfopt/data"
     kin_data_dir = "../kinopt/data"
 
-    if not os.path.isdir(tf_data_dir) and os.path.exists(tf_data_dir):
-        os.makedirs(tf_data_dir)
-        os.makedirs(kin_data_dir)
+    os.makedirs(tf_data_dir, exist_ok=True)
+    os.makedirs(kin_data_dir, exist_ok=True)
 
     # List of files to move
     kinopt_files = [
@@ -240,7 +239,7 @@ def move_processed_files():
         "input4.csv"
     ]
 
-    # Move each file for kinopt and tfopt to theire respective directories
+    # Move each file for kinopt and tfopt to their respective directories
     for f in kinopt_files:
         if os.path.exists(f):
             os.rename(f, os.path.join(kin_data_dir, f))
