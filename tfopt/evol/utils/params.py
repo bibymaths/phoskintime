@@ -199,7 +199,7 @@ def print_beta_mapping(TF_ids, final_beta, psite_labels_arr):
     for idx, tf in enumerate(TF_ids):
         beta_vec = final_beta[idx]
         logger.info(f"{tf}:")
-        logger.info(f"   mRNA {tf}: {beta_vec[0]:.4f}")
+        logger.info(f"   TF {tf}: {beta_vec[0]:.4f}")
         for q in range(1, len(beta_vec)):
             label = psite_labels_arr[idx][q-1]
             if label == "":

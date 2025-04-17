@@ -132,7 +132,7 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
     for idx, tf in enumerate(tf_ids):
         beta_vec = final_beta[idx]
         logger.info(f"{tf}:")
-        logger.info(f"   mRNA {tf}: {beta_vec[0]:.4f}")
+        logger.info(f"   TF {tf}: {beta_vec[0]:.4f}")
         for q in range(1, len(beta_vec)):
             label = psite_labels_arr[idx][q-1]
             if label == "":
