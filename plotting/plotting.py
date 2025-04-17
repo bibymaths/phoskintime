@@ -217,7 +217,9 @@ class Plotter:
 
     def plot_profiles(self, data: pd.DataFrame):
         """
+        Plots the profiles of estimated parameters over time.
 
+        :param data: DataFrame containing the estimated parameters and time points.
         """
         fig, ax = plt.subplots(figsize=(8, 8))
         for col in data.columns:
@@ -231,11 +233,19 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
-    # -----------------------------
-    # Model Fit Plot (Matplotlib & Plotly)
-    # -----------------------------
     def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
+        """
+        Plots the model fit for the given data.
+
+        :param model_fit: Estimated model fit values.
+        :param P_data: Observed data for phosphorylation levels.
+        :param sol: ODE solution for mRNA and protein levels.
+        :param num_psites: number of phosphorylation sites.
+        :param psite_labels: labels for the phosphorylation sites.
+        :param time_points: time points for the data.
+        :return:
+        """
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)')
         ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)')
@@ -290,10 +300,15 @@ class Plotter:
                                  width=900, height=900)
         fig_plotly.write_html(os.path.join(self.out_dir, f"{self.gene}_model_fit_.html"))
 
-    # -----------------------------
-    # A–S Scatter and Density Contour Plot
-    # -----------------------------
     def plot_A_S(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
+        """
+        Plots the scatter plot of A vs S and the density contour plot.
+
+        :param est_arr: Estimated parameters array.
+        :param num_psites: Number of phosphorylation sites.
+        :param time_vals: Time values for the data.
+        :return:
+        """
         est_arr = np.array(est_arr)
         A_vals = est_arr[:, 0]
         cmap = plt.get_cmap("viridis")
@@ -351,7 +366,19 @@ class Plotter:
                  time_points: np.ndarray, P_data: np.ndarray, seq_model_fit: np.ndarray,
                  psite_labels: list, perplexity: int = 5, components: int = 3, target_variance: float = 0.99):
         """
-        A single method that calls all plotting functions.
+        Function that calls parallel, t-SNE, PCA, and model fit plots.
+        If mode is sequential, it also calls parameter series and A-S plots.
+
+        :param solution: 2D numpy array of shape (samples, features) representing the data.
+        :param labels: List of labels for the solution.
+        :param estimated_params: List of estimated parameter values.
+        :param time_points: 1D numpy array of time points.
+        :param P_data: Observed data for phosphorylation levels.
+        :param seq_model_fit: Estimated model fit values.
+        :param psite_labels: Labels for the phosphorylation sites.
+        :param perplexity: Perplexity parameter for t-SNE.
+        :param components: Number of PCA components to plot.
+        :param target_variance: The target cumulative explained variance to determine the required number of components.
         """
         self.plot_parallel(solution, labels)
         self.plot_tsne(solution, perplexity=perplexity)
@@ -362,12 +389,13 @@ class Plotter:
             self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
             self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
-    # -----------------------------
-    # Protein Clusters Plot
-    # -----------------------------
     def plot_clusters(self, s_values_df: pd.DataFrame, cluster_labels):
         """
+        Plots the clusters of S values for the given gene.
         Expects s_values_df to have columns 'S_value', 'GeneID', and 'Psite'.
+
+        :param s_values_df: DataFrame containing S values and gene information.
+        :param cluster_labels: Cluster labels for each S value.
         """
         df = s_values_df.copy()
         df['Cluster'] = cluster_labels
@@ -381,9 +409,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_protein_clusters.png")
 
-    # -----------------------------
-    # Heatmap Plot of Protein Correlations
-    # -----------------------------
     def plot_heatmap(self, param_value_df: pd.DataFrame):
         """
         Expects param_value_df to have a 'Protein' column.
@@ -398,9 +423,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_heatmap_protein.png")
 
-    # -----------------------------
-    # Error Distribution Plot
-    # -----------------------------
     def plot_error_distribution(self, error_df: pd.DataFrame):
         """
         Expects error_df to have a 'MAE' column.
@@ -415,9 +437,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_model_error.png")
 
-    # -----------------------------
-    # Goodness of Fit: Time-Series (gof_1)
-    # -----------------------------
     def plot_gof_1(self, merged_data: pd.DataFrame):
         """
         Expects merged_data to contain 'GeneID', 'Psite', and columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est'.
@@ -470,9 +489,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"_gof_1.png")
 
-    # -----------------------------
-    # Goodness of Fit: Time-Series with Axis Expansion (gof_2)
-    # -----------------------------
     def plot_gof_2(self, merged_data: pd.DataFrame):
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
@@ -529,9 +545,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"_gof_2.png")
 
-    # -----------------------------
-    # Goodness of Fit: Time-Series with Outlier Text (gof_3)
-    # -----------------------------
     def plot_gof_3(self, merged_data: pd.DataFrame):
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
@@ -586,9 +599,6 @@ class Plotter:
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
         self._save_fig(fig, f"gof_3.png")
 
-    # -----------------------------
-    # Goodness of Fit: Time-Series with Outlier Text & Axis Expansion (gof_4)
-    # -----------------------------
     def plot_gof_4(self, merged_data: pd.DataFrame):
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
@@ -650,9 +660,6 @@ class Plotter:
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
         self._save_fig(fig, f"_gof_4.png")
 
-    # -----------------------------
-    # Goodness of Fit: Overall (gof_5)
-    # -----------------------------
     def plot_gof_5(self, merged_data: pd.DataFrame):
         """
         Uses the row means of observed (x1_obs:x14_obs) and estimated (x1_est:x14_est) values.
@@ -697,9 +704,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"_gof_5.png")
 
-    # -----------------------------
-    # Goodness of Fit: Overall with Sorting (gof_6)
-    # -----------------------------
     def plot_gof_6(self, merged_data: pd.DataFrame):
         df = merged_data.copy()
         if 'Observed_Mean' not in df.columns or 'Estimated_Mean' not in df.columns:
@@ -750,9 +754,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"_gof_6.png")
 
-    # -----------------------------
-    # Kullback-Liebler Divergence Plot
-    # -----------------------------
     def plot_kld(self, merged_data: pd.DataFrame):
         """
         Expects merged_data to have columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est',

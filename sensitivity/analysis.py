@@ -55,6 +55,23 @@ def define_sensitivity_problem_ds(ub, num_psites):
     return problem
 
 def sensitivity_analysis(time_points, num_psites, init_cond, gene):
+    """
+    Performs sensitivity analysis using the Morris method for a given ODE model.
+
+    This function defines the sensitivity problem based on the ODE model type,
+    generates parameter samples, evaluates the model for each sample, and computes
+    sensitivity indices. It also generates various plots to visualize the results.
+
+    Args:
+        time_points (list or np.ndarray): Time points for the ODE simulation.
+        num_psites (int): Number of phosphorylation sites in the model.
+        init_cond (list or np.ndarray): Initial conditions for the ODE model.
+        gene (str): Name of the gene or protein being analyzed.
+
+    Returns:
+        None: The function saves sensitivity analysis results and plots to the output directory.
+    """
+
     if ODE_MODEL == 'randmod':
         problem = define_sensitivity_problem_rand(num_psites=num_psites)
     else:
@@ -77,43 +94,12 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     print(f"\n\nSensitivity Analysis for Protein: {gene}\n")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95, scaled=True, print_to_console=True)
-    # The following code plots various sensitivity analysis results:
-    # 1. Bar plot of mu*
-    # 2. Bar plot of sigma
-    # 3. Scatter plot of mu* vs sigma
-    # 4. Radial plot (spider plot)
-    # 5. CDF of sensitivity indices
-    # 6. Pie chart of sensitivity contribution
-    # These plots help understand parameter importance and interactions. 
-    # Plot the results of the sensitivity analysis 
-    # Absolute Mean of Elementary Effects : represents the overall importance  
-    # of each parameter, reflecting its sensitivity 
-    ## Bar Plot of mu* ## 
-    # Standard Deviation of Elementary Effects: High standard deviation suggests  
-    # that the parameter has nonlinear effects or is involved in interactions  
-    # with other parameters.  
-    ## Bar Plot of sigma ##       
-    # Distinguish between parameters with purely linear effects (low sigma) and  
-    # those with nonlinear or interaction effects (high sigma).  
-    # **--- Parameters with high mu* and high sigma ---**
-    #           <particularly important to watch>
-    ## Scatter Plot of mu* vs sigma ##   
-    # A radial plot (also known as a spider or radar plot) can give a visual  
-    # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for  
-    # each parameter in a circular format. 
 
-    # Each parameter gets a spoke, and the distance from the center represents  
-    # the sensitivity for a given metric.
-    ## Radial Plot (Spider Plot) of Sensitivity Metrics ##  
-    # CDF can show how often the effects of certain parameters are strong or  
-    # weak across the model outputs. 
-    # Visualizing how many times a parameter has a strong effect across  
-    # different sample runs.
-    ## Cumulative Distribution Function (CDF) of Sensitivity Indices ##  
-    # Visualize the proportion of total sensitivity contributed by each  
-    # parameter using a pie chart, showing the relative importance of each  
-    # parameter's contribution to sensitivity. 
-    ## Pie Chart for Sensitivity Contribution ## 
+    # Absolute Mean of Elementary Effects : represents the overall importance
+    # of each parameter, reflecting its sensitivity
+    ## Bar Plot of mu* ##
+    # Standard Deviation of Elementary Effects: High standard deviation suggests
+    # that the parameter has nonlinear effects or is involved in interactions
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.bar(problem['names'], Si['mu_star'], yerr=Si['mu_star_conf'], color='skyblue')
     ax.set_title(f'{gene}')
@@ -130,6 +116,13 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/bar_plot_sigma_{gene}.png", format='png', dpi=300)
     plt.close()
+
+    ## Bar Plot of sigma ##
+    # Distinguish between parameters with purely linear effects (low sigma) and
+    # those with nonlinear or interaction effects (high sigma).
+    # **--- Parameters with high mu* and high sigma ---**
+    #           <particularly important to watch>
+    ## Scatter Plot of mu* vs sigma ##
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.scatter(Si['mu_star'], Si['sigma'], color='green', s=100)
     for i, param in enumerate(problem['names']):
@@ -141,6 +134,14 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/scatter_plot_musigma_{gene}.png", format='png', dpi=300)
     plt.close()
+
+    # A radial plot (also known as a spider or radar plot) can give a visual
+    # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for
+    # each parameter in a circular format.
+
+    # Each parameter gets a spoke, and the distance from the center represents
+    # the sensitivity for a given metric.
+    ## Radial Plot (Spider Plot) of Sensitivity Metrics ##
     categories = problem['names']
     N_cat = len(categories)
     mu_star = Si['mu_star']
@@ -159,6 +160,12 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
     plt.legend(loc='upper right')
     plt.savefig(f"{OUT_DIR}/radial_plot_{gene}.png", format='png', dpi=300)
     plt.close()
+
+    # CDF can show how often the effects of certain parameters are strong or
+    # weak across the model outputs.
+    # Visualizing how many times a parameter has a strong effect across
+    # different sample runs.
+    ## Cumulative Distribution Function (CDF) of Sensitivity Indices ##
     plt.figure(figsize=(8, 8))
     for i, param in enumerate(problem['names']):
         plt.plot(np.sort(Si['mu_star']), np.linspace(0, 1, len(Si['mu_star'])), label=param)
@@ -169,6 +176,11 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
     plt.grid(True)
     plt.savefig(f"{OUT_DIR}/cdf_plot_{gene}.png", format='png', dpi=300)
     plt.close()
+
+    # Visualize the proportion of total sensitivity contributed by each
+    # parameter using a pie chart, showing the relative importance of each
+    # parameter's contribution to sensitivity.
+    ## Pie Chart for Sensitivity Contribution ##
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.pie(Si['mu_star'], labels=problem['names'], autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors,
            textprops={'fontsize': 8})

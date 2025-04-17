@@ -1,8 +1,20 @@
 import pandas as pd
 
-# Function to read TF-mRNA optimization results file sheet 'Alpha Values'
-# and return mRNA for each TF where Values was not zero
 def map_optimization_results(file_path):
+    """
+    Reads the TF-mRNA optimization results from an Excel file and maps mRNA to each TF.
+
+    This function processes the 'Alpha Values' sheet of the provided Excel file to extract
+    non-zero optimization results, groups mRNA by TF, and merges the results with additional
+    data from a CSV file containing TF, Psite, and Kinase information. The final DataFrame
+    is cleaned and formatted for further analysis.
+
+    Args:
+        file_path (str): The path to the Excel file containing TF-mRNA optimization results.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the mapped TF, mRNA, Psite, and Kinase information.
+    """
     # Read the Excel file
     tfopt_file = pd.ExcelFile(file_path)
 

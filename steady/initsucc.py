@@ -5,11 +5,37 @@ from config.logconf import setup_logger
 logger = setup_logger()
 
 def initial_condition(num_psites: int) -> list:
+    """
+    Calculates the initial steady-state conditions for a given number of phosphorylation sites
+    for successive phosphorylation model.
+
+    This function defines a system of equations representing the steady-state conditions
+    of an ODE model and solves it using numerical optimization. The steady-state conditions
+    are used as initial conditions for further simulations.
+
+    Args:
+        num_psites (int): Number of phosphorylation sites in the model.
+
+    Returns:
+        list: A list of steady-state values for the variables [R, P, P_sites].
+
+    Raises:
+        ValueError: If the optimization fails to find a solution for the steady-state conditions.
+    """
     A, B, C, D = 1, 1, 1, 1
     S_rates = np.ones(num_psites)
     D_rates = np.ones(num_psites)
 
     def steady_state_equations(y):
+        """
+        Defines the system of equations for the steady-state conditions.
+
+        Args:
+            y (list or np.ndarray): Current values of the variables [R, P, P_sites].
+
+        Returns:
+            list: Residuals of the steady-state equations.
+        """
         R, P, *P_sites = y
         dR_dt = A - B * R
         dP_dt = C * R - (D + np.sum(S_rates)) * P + np.sum(P_sites)
