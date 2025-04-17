@@ -13,6 +13,26 @@ def save_results_to_excel(
         reg_map,
         filename=OUT_FILE
 ):
+    """
+    Save the optimization results to an Excel file.
+    This function creates multiple sheets in the Excel file to store different types of data,
+    including alpha values, beta values, residuals, observed values, estimated values,
+    and optimization results.
+    Each sheet is formatted with appropriate column names and data types.
+    The function also calculates various metrics (MSE, MAE, MAPE, R^2)
+    to evaluate the performance of the optimization.
+
+    :param gene_ids:
+    :param tf_ids:
+    :param final_alpha:
+    :param final_beta:
+    :param psite_labels_arr:
+    :param expression_matrix:
+    :param predictions:
+    :param objective_value:
+    :param reg_map:
+    :param filename:
+    """
     # --- Alpha Values ---
     alpha_rows = []
     n_genes, n_reg = final_alpha.shape

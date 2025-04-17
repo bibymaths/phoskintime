@@ -19,8 +19,30 @@ logger = setup_logger()
 # Main Routine
 # -------------------------------
 def main():
-    logger.info("[Global Optimization] started")
+    """
+    Main function to run the mRNA-TF optimization problem.
+
+    This function performs the following steps:
+    1. Parse command line arguments.
+    2. Load raw input data (mRNA, TF, and regulation maps).
+    3. Filter mRNA and TF data based on regulations.
+    4. Determine common time series length.
+    5. Build fixed shape arrays for optimization.
+    6. Create initial guess vector and define bounds.
+    7. Setup parallel runner for optimization.
+    8. Create multi-objective optimization problem instance.
+    9. Run the optimization using the specified optimizer.
+    10. Extract the best solution and display mappings.
+    11. Perform post-processing (prediction, plotting, and Excel output).
+    12. Generate plots and organize output files.
+    13. Create a report of the results.
+    14. Log the completion of the optimization process.
+    """
+    logger.info("[Global Optimization] mRNA-TF Optimization Problem started")
+
+    # Parse command line arguments.
     lb, ub, loss_type, optimizer = parse_args()
+
     # Load raw input data.
     (mRNA_ids, mRNA_mat, mRNA_time_cols,
      TF_ids, protein_dict, psite_dict, psite_labels_dict, TF_time_cols, reg_map) = load_raw_data()
@@ -43,6 +65,7 @@ def main():
 
     n_mRNA = mRNA_mat.shape[0]
     n_TF = protein_mat.shape[0]
+
     logger.info(f"Number of mRNAs: {n_mRNA}")
     logger.info(f"Number of TFs: {n_TF}")
 
@@ -52,8 +75,10 @@ def main():
     # Compute cumulative starting indices for beta parameters.
     beta_start_indices, n_beta_total = compute_beta_indices(num_psites, n_TF)
 
-    # Build the initial guess vector and define bounds.
+    # Build the initial guess vector for optimization.
     x0, n_alpha = create_initial_guess(n_mRNA, n_reg, n_TF, num_psites, no_psite_tf)
+
+    # Create bounds for the optimization variables.
     xl, xu = create_bounds(n_alpha, n_beta_total, lb, ub)
     total_dim = len(x0)
 
@@ -73,6 +98,7 @@ def main():
 
     # Run the optimization.
     res = run_optimization(problem, total_dim, optimizer)
+
     if res.X is None:
         logger.info("No feasible solution found by pymoo. Exiting.")
         pool.close()
@@ -82,16 +108,20 @@ def main():
     # Extract the best solution and display mappings.
     final_alpha, final_beta, best_objectives, final_x = extract_best_solution(
         res, n_alpha, n_mRNA, n_reg, n_TF, num_psites, beta_start_indices)
+
     logger.info("--- Best Solution ---")
     logger.info(f"Objective Values (F): {best_objectives}")
+
+    # Display the mappings of alpha and beta parameters.
     print_alpha_mapping(mRNA_ids, reg_map, TF_ids, final_alpha)
     print_beta_mapping(TF_ids, final_beta, psite_labels_arr)
 
-    # Perform post-processing (prediction, plotting, and Excel output).
+    # Perform post-processing.
     post_processing(final_x, regulators, protein_mat, psite_tensor, n_reg, n_mRNA, T_use, n_mRNA,
                     beta_start_indices, num_psites, mRNA_ids, mRNA_mat, mRNA_time_cols, TF_ids,
                     final_alpha, final_beta, psite_labels_arr, best_objectives, reg_map)
 
+    # Generate plots
     plotter = Plotter(OUT_FILE, OUT_DIR)
     plotter.plot_alpha_distribution()
     plotter.plot_beta_barplots()
@@ -104,9 +134,14 @@ def main():
     plotter.plot_cdf_alpha()
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
+
+    # Copy result file to ODE_DATA_DIR
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
+
+    # Organize output files and create a report.
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
+
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
 
 if __name__ == "__main__":

@@ -2,12 +2,35 @@ import os, re, shutil
 import pandas as pd
 
 def ensure_output_directory(directory):
+    """
+    Ensure the output directory exists. If it doesn't, create it.
+
+    :param directory: str
+    """
     os.makedirs(directory, exist_ok=True)
 
 def load_data(excel_file, sheet="Estimated Values"):
+    """
+    Load data from an Excel file. The default sheet is "Estimated Values".
+
+    :param excel_file: str
+    :param sheet: str
+    :return: DataFrame
+    :rtype: pd.DataFrame
+    """
     return pd.read_excel(excel_file, sheet_name=sheet)
 
 def format_duration(seconds):
+    """
+    Format a duration in seconds into a human-readable string.
+    The function converts seconds into a string representation in the format:
+    - "X sec" for seconds
+    - "X min" for minutes
+    - "X hr" for hours
+
+    :param seconds: float
+    :return: formatted string
+    """
     if seconds < 60:
         return f"{seconds:.2f} sec"
     elif seconds < 3600:
@@ -16,6 +39,17 @@ def format_duration(seconds):
         return f"{seconds / 3600:.2f} hr"
 
 def save_result(results, excel_filename):
+    """
+    Save the results to an Excel file with multiple sheets.
+    Each sheet corresponds to a different gene and contains:
+    - Sequential Parameter Estimates
+    - Profiled Estimates (if available)
+    - Errors summary
+    The sheet names are prefixed with the gene name, truncated to 25 characters.
+    Args:
+        results (list): List of dictionaries containing results for each gene.
+        excel_filename (str): Path to the output Excel file.
+    """
     with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
         for res in results:
             gene = res["gene"]
@@ -169,6 +203,15 @@ def create_report(results_dir: str, output_file: str = "report.html"):
 
 
 def organize_output_files(*directories):
+    """
+    Organize output files into protein-specific folders and a general folder.
+    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx}"
+    will be moved to a folder named after the protein.
+    Remaining files will be moved to a "General" folder within the same directory.
+
+    :param directories: List of directories to organize.
+    :type directories: list
+    """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
     for directory in directories:

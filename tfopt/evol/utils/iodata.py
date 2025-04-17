@@ -2,10 +2,22 @@ import os, re, shutil
 import pandas as pd
 from tfopt.evol.config.constants import INPUT3, INPUT1, INPUT4
 
-# -------------------------------
-# Data Preprocessing Functions
-# -------------------------------
 def load_mRNA_data(filename=INPUT3):
+    """
+    Load mRNA data from a CSV file.
+    The file is expected to have a "GeneID" column and time columns for expression data.
+    The function returns a list of mRNA gene identifiers, a matrix of expression data,
+    and the time columns.
+    The mRNA_ids are converted to strings, and the expression data is converted to a numpy array of floats.
+    The time columns are extracted from the DataFrame, excluding the "GeneID" column.
+    The function returns:
+        - mRNA_ids: List of mRNA gene identifiers (strings).
+        - mRNA_mat: Numpy array of expression data (floats).
+        - time_cols: List of time columns (excluding "GeneID").
+
+    :param filename: str
+    :return: mRNA_ids, mRNA_mat, time_cols
+    """
     df = pd.read_csv(filename)
     mRNA_ids = df["GeneID"].astype(str).tolist()
     time_cols = [col for col in df.columns if col != "GeneID"]
@@ -13,6 +25,25 @@ def load_mRNA_data(filename=INPUT3):
     return mRNA_ids, mRNA_mat, time_cols
 
 def load_TF_data(filename=INPUT1):
+    """
+    Load TF data from a CSV file.
+    The file is expected to have a "GeneID" column, a "Psite" column, and time columns for protein data.
+    The function returns a list of TF gene identifiers, a dictionary mapping TF_ids to their protein data,
+    a dictionary mapping TF_ids to their phosphorylation site data, a dictionary mapping TF_ids to their phosphorylation site labels,
+    and the time columns.
+    The TF_ids are converted to strings, and the protein data is stored in a dictionary with TF_ids as keys.
+    The phosphorylation site data is stored in a list for each TF_id, and the phosphorylation site labels are also stored in a list.
+    The time columns are extracted from the DataFrame, excluding the "GeneID" and "Psite" columns.
+    The function returns:
+        - TF_ids: List of TF gene identifiers (strings).
+        - protein_dict: Dictionary mapping TF_ids to their protein data (numpy arrays).
+        - psite_dict: Dictionary mapping TF_ids to their phosphorylation site data (lists of numpy arrays).
+        - psite_labels_dict: Dictionary mapping TF_ids to their phosphorylation site labels (lists of strings).
+        - time_cols: List of time columns (excluding "GeneID" and "Psite").
+
+    :param filename: str
+    :return: TF_ids, protein_dict, psite_dict, psite_labels_dict, time_cols
+    """
     df = pd.read_csv(filename)
     protein_dict = {}
     psite_dict = {}
@@ -34,10 +65,15 @@ def load_TF_data(filename=INPUT1):
 
 def load_regulation(filename=INPUT4):
     """
-    Assumes the regulation file is reversed:
-      - The 'Source' column holds mRNA identifiers.
-      - The 'Target' column holds TF identifiers.
-    Returns a mapping from mRNA (source) to a list of TFs (targets).
+    Load regulation data from a CSV file.
+    The file is expected to have "Source" and "Target" columns.
+    The function returns a dictionary mapping mRNA gene identifiers to their regulators (TFs).
+    The mRNA gene identifiers and TF identifiers are converted to strings and stripped of whitespace.
+    The function returns:
+        - reg_map: Dictionary mapping mRNA gene identifiers to their regulators (TFs).
+
+    :param filename: str
+    :return: reg_map
     """
     df = pd.read_csv(filename)
     reg_map = {}
@@ -117,7 +153,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Global Report</h1>"
+        "<h1>mRNA-TF Optimization Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.
@@ -160,6 +196,13 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         f.write("\n".join(html_parts))
 
 def organize_output_files(*directories):
+    """
+    Organizes output files from multiple directories into separate folders for each protein.
+    Files are moved into folders named after the protein identifier extracted from the filename.
+    Remaining files are moved to a "General" folder.
+    Args:
+        directories (str): List of directories to organize.
+    """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
     for directory in directories:
@@ -189,6 +232,15 @@ def organize_output_files(*directories):
                 shutil.move(file_path, destination_path)
 
 def format_duration(seconds):
+    """
+    Format a duration in seconds into a human-readable string.
+    The function converts the duration into hours, minutes, or seconds,
+    depending on the length of the duration.
+    Args:
+        seconds (float): Duration in seconds.
+    Returns:
+        str: Formatted duration string.
+    """
     if seconds < 60:
         return f"{seconds:.2f} sec"
     elif seconds < 3600:

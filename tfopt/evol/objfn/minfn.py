@@ -5,11 +5,58 @@ from pymoo.core.problem import Problem
 # Multi-Objective Problem Definition
 # -------------------------------
 class TFOptimizationMultiObjectiveProblem(Problem):
+    """
+    Multi-objective optimization problem for TF optimization.
+    This class defines a multi-objective optimization problem for the
+    transcription factor (TF) optimization problem. It inherits from the
+    `Problem` class in the pymoo library. The problem is defined with three
+    objectives: f1 (error), f2 (alpha violation), and f3 (beta violation).
+
+    The problem is initialized with the following parameters:
+    - n_var: Number of decision variables.
+    - n_mRNA: Number of mRNA genes.
+    - n_TF: Number of transcription factors.
+    - n_reg: Number of regulators.
+    - n_psite_max: Maximum number of phosphorylation sites.
+    - n_alpha: Number of alpha parameters.
+    - mRNA_mat: Matrix of measured mRNA values.
+    - regulators: Matrix of TF regulators for each mRNA.
+    - protein_mat: Matrix of TF protein time series.
+    - psite_tensor: Tensor of phosphorylation site signals.
+    - T_use: Number of time points used.
+    - beta_start_indices: Integer array giving the starting index (in the β–segment)
+                          for each TF.
+    - num_psites: Integer array with the actual number of phosphorylation sites for each TF.
+    - no_psite_tf: Boolean array indicating if the TF has no phosphorylation sites.
+    - xl: Lower bounds for the decision variables.
+    - xu: Upper bounds for the decision variables.
+    - kwargs: Additional keyword arguments.
+    """
     def __init__(self, n_var, n_mRNA, n_TF, n_reg, n_psite_max, n_alpha,
                  mRNA_mat, regulators, protein_mat, psite_tensor, T_use,
                  beta_start_indices, num_psites, no_psite_tf, xl=None, xu=None,
                  **kwargs):
-        # Three objectives: f1 (error), f2 (alpha violation), f3 (beta violation).
+        """
+        Initialize the multi-objective optimization problem.
+
+        :param n_var:
+        :param n_mRNA:
+        :param n_TF:
+        :param n_reg:
+        :param n_psite_max:
+        :param n_alpha:
+        :param mRNA_mat:
+        :param regulators:
+        :param protein_mat:
+        :param psite_tensor:
+        :param T_use:
+        :param beta_start_indices:
+        :param num_psites:
+        :param no_psite_tf:
+        :param xl:
+        :param xu:
+        :param kwargs:
+        """
         super().__init__(n_var=n_var, n_obj=3, n_constr=0, xl=xl, xu=xu)
         self.n_mRNA = n_mRNA
         self.n_TF = n_TF
@@ -27,6 +74,22 @@ class TFOptimizationMultiObjectiveProblem(Problem):
         self.loss_type = kwargs.get("loss_type", 0)
 
     def _evaluate(self, X, out, *args, **kwargs):
+        """
+        Evaluate the objectives for the given decision variables.
+        This function computes the objectives for each individual in the population.
+        The objectives are defined as follows:
+        - f1: Error (objective function value).
+        - f2: Alpha violation (sum of squares of alpha values).
+        - f3: Beta violation (sum of squares of beta values).
+
+        The function computes the objectives for each individual in the population
+        and stores the results in the output dictionary.
+        :param X: Decision variables (population).
+        :param out: Output dictionary to store the results.
+        :param args: Additional arguments.
+        :param kwargs: Additional keyword arguments.
+        :return: Final Objective values.
+        """
         n_pop = X.shape[0]
         F = np.empty((n_pop, 3))
         n_alpha = self.n_alpha
@@ -49,14 +112,15 @@ class TFOptimizationMultiObjectiveProblem(Problem):
                 if self.no_psite_tf[tf]:
                     for q in range(1, length):
                         f3 += beta_vec[q] ** 2
+            # Three objectives:
+            # f1 (error)
             F[i, 0] = f1
+            # f2 (alpha violation)
             F[i, 1] = f2
+            # f3 (beta violation)
             F[i, 2] = f3
         out["F"] = F
 
-# -------------------------------
-# Objective (f1)
-# -------------------------------
 """
 @njit(parallel=True)
 def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):

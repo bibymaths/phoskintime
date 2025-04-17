@@ -15,7 +15,7 @@ from tfopt.fitanalysis.helper import Plotter
 logger = setup_logger()
 
 def main():
-    logger.info("[Local Optimization] Started")
+    logger.info("[Local Optimization] mRNA-TF Optimization Problem Started")
 
     lb, ub, loss_type = parse_args()
     # STEP 1: Load and filter the data.

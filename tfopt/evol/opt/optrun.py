@@ -16,6 +16,16 @@ logger = setup_logger()
 # Optimization and Solution Extraction
 # -------------------------------
 def run_optimization(problem, total_dim, optimizer):
+    """
+    Run the optimization using the specified algorithm and problem.
+    This function sets up the algorithm parameters, initializes the optimizer,
+    and runs the optimization process.
+
+    :param problem:
+    :param total_dim:
+    :param optimizer:
+    :return: result
+    """
     # Define algorithm settings.
     global algo
     pop_size = 2000

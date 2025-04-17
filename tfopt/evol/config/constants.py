@@ -29,9 +29,41 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
 
 def parse_args():
+    """
+    Parse command line arguments for the PhosKinTime optimization problem.
+    This function uses argparse to handle input parameters for the optimization process.
+    The parameters include:
+    - lower_bound: Lower bound for the optimization variables (default: -2).
+    - upper_bound: Upper bound for the optimization variables (default: 2).
+    - loss_type: Type of loss function to use (default: 0).
+        Options:
+        0: MSE
+        1: MAE
+        2: soft L1
+        3: Cauchy
+        4: Arctan
+        5: Elastic Net
+        6: Tikhonov
+    - optimizer: Global Evolutionary Optimization method (default: 0).
+        Options:
+        0: NGSA2
+        1: SMSEMOA
+        2: AGEMOEA
+
+    :returns
+    - lower_bound: Lower bound for the optimization variables.
+    - upper_bound: Upper bound for the optimization variables.
+    - loss_type: Type of loss function to use.
+    - optimizer: Global Evolutionary Optimization method.
+    :rtype: tuple
+    :raises argparse.ArgumentError: If an invalid argument is provided.
+    :raises SystemExit: If the script is run with invalid arguments.
+    """
+
     parser = argparse.ArgumentParser(
-        description="PhosKinTime - Global Optimization Problem prior to ODE Modelling."
+        description="PhosKinTime - Global Optimization mRNA-TF Optimization Problem."
     )
+    # Adding command line arguments for lower and upper bounds, loss type, and optimizer
     parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound.")
     parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")
     parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=0,
