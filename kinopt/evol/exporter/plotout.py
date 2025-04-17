@@ -115,6 +115,32 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
                 hv, hist, val, hist_cv_avg, k, igd, best_objectives,
                 waterfall_df, convergence_df, alpha_values,
                 beta_values):
+    """
+    Generates and saves various plots related to optimization results.
+    This includes design space plots, objective space plots,
+    convergence plots, and parameter trend plots.
+
+    :param problem:
+    :param result:
+    :param F:
+    :param pairs:
+    :param approx_ideal:
+    :param approx_nadir:
+    :param asf_i:
+    :param pseudo_i:
+    :param n_evals:
+    :param hv:
+    :param hist:
+    :param val:
+    :param hist_cv_avg:
+    :param k:
+    :param igd:
+    :param best_objectives:
+    :param waterfall_df:
+    :param convergence_df:
+    :param alpha_values:
+    :param beta_values:
+    """
     xl, xu = problem.bounds()
     plt.figure(figsize=(8, 8))
     plt.scatter(result.X[:, 0], result.X[:, 1], s=30, facecolors='none', edgecolors='r')
@@ -234,6 +260,11 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection="3d")
     def update_frame(frame):
+        """
+        Update the frame for the animation.
+        Args:
+            frame (int): The current frame number.
+        """
         ax.clear()
         gen_data = hist[frame].opt.get("F")  # Extract objective values for the current generation
         ax.scatter(gen_data[:, 0], gen_data[:, 1], gen_data[:, 2], c='blue', alpha=0.6)
@@ -338,12 +369,12 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     # Combine alpha and beta labels with Greek symbols
     param_labels = []
 
-    # Add alpha (α) labels
+    # Add alpha labels
     for (gene, psite), kinases in alpha_values.items():
         for kinase in kinases.keys():
             param_labels.append(f"α_{gene}_{psite}_{kinase}")
 
-    # Add beta (β) labels
+    # Add beta labels
     for (kinase, psite), _ in beta_values.items():
         param_labels.append(f"β_{kinase}_{psite}")
 
@@ -421,6 +452,18 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
 
 def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
                    x_values, y_values, val):
+    """
+    Generates and saves various plots related to optimization results.
+    This includes waterfall plots, convergence plots, parameter trend plots,
+    and parameter scan plots.
+
+    :param long_df:
+    :param convergence_df:
+    :param ordered_optimizer_runs:
+    :param x_values:
+    :param y_values:
+    :param val:
+    """
     # Waterfall plot
     plt.figure(figsize=(8, 8))
     plt.scatter(

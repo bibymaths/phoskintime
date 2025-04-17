@@ -8,6 +8,34 @@ from kinopt.local.config.constants import OUT_FILE, OUT_DIR
 
 
 def optimization_performance():
+    """
+    Executes the optimization performance analysis pipeline.
+
+    This function reads input data from an Excel file, performs various analyses such as PCA, t-SNE,
+    and residual analysis, and generates visualizations and output files. It also creates a Sankey
+    diagram and extracts important connections for further analysis.
+
+    Steps performed:
+    1. Reads input data from the specified Excel file.
+    2. Computes goodness of fit between estimated and observed data.
+    3. Reshapes alpha and beta values for further analysis.
+    4. Performs PCA and t-SNE on the data and generates corresponding plots.
+    5. Generates additional plots for residuals and other metrics.
+    6. Processes alpha values to create a kinase-substrate relationship file.
+    7. Creates a Sankey diagram to visualize phosphorylation connections.
+    8. Extracts the top N important connections and saves them to a CSV file.
+
+    Outputs:
+    - PCA and t-SNE plots.
+    - Residual analysis plots.
+    - `kinase_substrate.csv` file containing kinase-substrate relationships.
+    - Sankey diagram saved as an HTML file.
+    - CSV file of top important connections.
+
+    :raises FileNotFoundError: If the input Excel file is not found.
+    :raises ValueError: If required columns are missing in the input data.
+    """
+
     file_path = OUT_FILE
     output_dir = OUT_DIR
     alpha_values = pd.read_excel(file_path, sheet_name='Alpha Values')
@@ -42,4 +70,3 @@ def optimization_performance():
     ks.to_csv(f'{OUT_DIR}/kinase_substrate.csv')
     create_sankey_from_network(output_dir, data, "Phosphorylation Connections")
     important_connections(output_dir, data)
-

@@ -6,6 +6,16 @@ from sklearn.preprocessing import MinMaxScaler
 from kinopt.evol.config.constants import INPUT1, INPUT2
 
 def format_duration(seconds):
+    """
+    Returns a formatted string representing the duration in seconds, minutes, or hours.
+    The format is:
+    - seconds: "xx.xx sec"
+    - minutes: "xx.xx min"
+    - hours: "xx.xx hr"
+
+    :param seconds:
+    :return:
+    """
     if seconds < 60:
         return f"{seconds:.2f} sec"
     elif seconds < 3600:
@@ -14,6 +24,21 @@ def format_duration(seconds):
         return f"{seconds / 3600:.2f} hr"
 
 def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
+    """
+    Loads the full HGNC data and kinase interaction data, applies scaling to the time-series columns,
+    and subsets/merges them. The first file is the full HGNC data, and the second file contains kinase interactions.
+    The function also handles the conversion of kinases from string format to list format.
+
+    :param estimate_missing:
+    :param scaling_method:
+    :param split_point:
+    :param seg_points:
+
+    :return:
+    full_hgnc_df (pd.DataFrame): The scaled data from input1
+    interaction_df (pd.DataFrame): The subset/merged DataFrame from input2
+    observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df
+    """
     full_hgnc_df = pd.read_csv(INPUT1)
     full_hgnc_df = full_hgnc_df[full_hgnc_df['Psite'].notna() & (full_hgnc_df['Psite'] != '')]
     time_series_cols = [f'x{i}' for i in range(1, 15)]
@@ -31,18 +56,15 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
 
 def apply_scaling(df, time_series_columns, method, split_point, segment_points):
     """
-    Applies a selected scaling method to the specified time series columns in a DataFrame.
-
-    Parameters:
-    df (pd.DataFrame): The DataFrame containing time series data.
-    time_series_columns (list of str): List of column names for time series data (e.g., ['x1', 'x2', ...]).
-    method (str): Scaling method to use ('min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative', 'piecewise').
-    split_point (int): Split point for temporal scaling. Defaults to 9 (first 9 points out of 14).
-    segment_points (list of int): List of index points to define segments for segmented or piecewise scaling.
-    window_size (int): Window size for rolling calculations in slope scaling.
-
-    Returns:
-    pd.DataFrame: DataFrame with scaled time series data.
+    Applies different scaling methods to the time-series columns of a DataFrame.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the time-series data.
+        time_series_columns (list): List of columns to be scaled.
+        method (str): The scaling method to apply ('min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative').
+        split_point (int): Column index for temporal scaling.
+        segment_points (list): List of column indices for segmented scaling.
+    :returns:
+        pd.DataFrame: The DataFrame with scaled time-series columns.
     """
 
     if method == 'min_max':
@@ -210,6 +232,13 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         f.write("\n".join(html_parts))
 
 def organize_output_files(*directories):
+    """
+    Organizes output files from the optimization process into separate folders based on protein names.
+    Each protein's files are moved into a folder named after the protein.
+    Any remaining files that do not match the protein pattern are moved to a "General" folder.
+
+    :param directories: List of directories to organize.
+    """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
     for directory in directories:

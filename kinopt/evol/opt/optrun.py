@@ -65,6 +65,8 @@ def run_optimization(
         elementwise_runner=runner
     )
     if METHOD == "DE":
+        # 4) Set up the algorithm and termination criteria
+        # for single-objective optimization
         algorithm = DE(
             pop_size=500,
             sampling=LHS(),
@@ -82,6 +84,8 @@ def run_optimization(
             # n_max_evals=100000
         )
     else:
+        # 4) Set up the algorithm and termination criteria
+        # for multi-objective optimization
         algorithm = NSGA2(
             pop_size=500,
             crossover=TwoPointCrossover(),

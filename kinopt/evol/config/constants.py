@@ -31,6 +31,16 @@ def _parse_arguments():
     """
     Parses command-line arguments for setting bounds, loss type,
     missing kinase-psite estimation, scaling method.
+    Returns:
+        - method: Optimization method (e.g., DE, NSGA-II).
+        - lower_bound: Lower bound for optimization parameters.
+        - upper_bound: Upper bound for optimization parameters.
+        - loss_type: Type of loss function to use.
+        - include_regularization: Whether to include regularization.
+        - estimate_missing_kinases: Whether to estimate missing kinase-psite values.
+        - scaling_method: Method for scaling time-series data.
+        - split_point: Split point for temporal scaling.
+        - segment_points: Segment points for segmented scaling.
     """
     parser = argparse.ArgumentParser(description="Optimization script for gene-phosphorylation site time-series data.")
 

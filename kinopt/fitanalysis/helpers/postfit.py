@@ -17,6 +17,14 @@ from kinopt.evol.config.constants import OUT_DIR
 
 
 def goodnessoffit(estimated, observed):
+    """
+    Function to plot the goodness of fit for estimated and observed values.
+    It creates scatter plots with confidence intervals and labels for genes outside the 95% CI.
+    The function also calculates KL divergence and generates a heatmap for optimization progression.
+
+    :param estimated:
+    :param observed:
+    """
     merged_data = estimated.rename(columns={"Gene": "GeneID"}).merge(observed, on=['GeneID', 'Psite'],
                                                                      suffixes=('_est', '_obs'))
     merged_data['Observed_Mean'] = merged_data.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
@@ -450,6 +458,16 @@ def goodnessoffit(estimated, observed):
 
 # Function to reshape alpha and beta values
 def reshape_alpha_beta(alpha_values, beta_values):
+    """
+    Function to reshape alpha and beta values for plotting.
+    It renames columns and creates a new 'Parameter' column for each type of value.
+
+    :param alpha_values:
+    :param beta_values:
+
+    :returns:
+    - pd.DataFrame: Reshaped DataFrame containing 'GeneID', 'Value', and 'Parameter' columns.
+    """
     alpha_values['Gene'] = alpha_values['Gene'].astype(str)
     alpha_values['Psite'] = alpha_values['Psite'].astype(str)
     alpha_values['Kinase'] = alpha_values['Kinase'].astype(str)
@@ -471,6 +489,14 @@ def reshape_alpha_beta(alpha_values, beta_values):
 
 # Function to perform PCA analysis
 def perform_pca(df):
+    """
+    Perform PCA analysis on the given DataFrame.
+    The DataFrame should contain a 'Value' column for PCA analysis.
+    The function returns a DataFrame with PCA results and additional columns for type and gene/psite information.
+
+    :param df: DataFrame containing the data for PCA analysis.
+    :return: DataFrame with PCA results and additional columns.
+    """
     numeric_df = df[['Value']].copy()
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(numeric_df)
@@ -489,6 +515,16 @@ def perform_pca(df):
 
 # Function to plot PCA or t-SNE results
 def plot_pca(result_df_sorted, y_axis_column):
+    """
+    Plot PCA or t-SNE results for each gene/psite.
+    The function creates scatter plots with different markers for alpha and beta parameters,
+    and adds labels for each point.
+    The function also adjusts text labels to avoid overlap using the adjustText library.
+
+    :param result_df_sorted: DataFrame containing PCA or t-SNE results.
+    :param y_axis_column: Column name for the y-axis values in the plot.
+    """
+
     for gene_psite, group in result_df_sorted.groupby('Gene_Psite'):
         plt.figure(figsize=(8, 8))
         alpha_marker = '^'
@@ -521,6 +557,16 @@ def plot_pca(result_df_sorted, y_axis_column):
 
 # Function to perform t-SNE analysis
 def perform_tsne(scaled_data, df):
+    """
+    Perform t-SNE analysis on the given scaled data.
+    The function returns a DataFrame with t-SNE results and additional columns for type and gene/psite information.
+
+    :param scaled_data:
+    :param df:
+
+    :return:
+    - pd.DataFrame: DataFrame with t-SNE results and additional columns.
+    """
     tsne = TSNE(n_components=1, perplexity=30, max_iter=1000, random_state=42)
     tsne_result = tsne.fit_transform(scaled_data)
 
@@ -535,6 +581,15 @@ def perform_tsne(scaled_data, df):
 
 # Function to plot CDF, KDE, Boxplot, and Hierarchical Clustering
 def additional_plots(df, scaled_data, alpha_values, beta_values, residuals_df):
+    """
+    Function to create additional plots including CDF, KDE, Boxplot, and Hierarchical Clustering.
+
+    :param df:
+    :param scaled_data:
+    :param alpha_values:
+    :param beta_values:
+    :param residuals_df:
+    """
     alpha_df = df[df['Parameter'].str.startswith('α')]
     beta_df = df[df['Parameter'].str.startswith('β')]
 
@@ -715,6 +770,32 @@ def additional_plots(df, scaled_data, alpha_values, beta_values, residuals_df):
 
 # Create a Sankey diagram from the data and functions
 def create_sankey_from_network(output_dir, data, title):
+    """
+    Creates a Sankey diagram from the given data and saves it as an HTML file.
+
+    This function processes the input data to generate nodes and links for a Sankey diagram.
+    It assigns colors to nodes and links based on their attributes and values, and uses Plotly
+    to render the diagram. The resulting diagram is saved as an HTML file in the specified output directory.
+
+    :param output_dir: str
+        The directory where the Sankey diagram HTML file will be saved.
+    :param data: pd.DataFrame
+        A DataFrame containing the data for the Sankey diagram. It must include the following columns:
+        - 'Source': The source node of the link.
+        - 'Target': The target node of the link.
+        - 'Value': The value of the link, which determines the flow size.
+    :param title: str
+        The title of the Sankey diagram.
+
+    The function performs the following steps:
+    1. Initializes nodes and links for the Sankey diagram.
+    2. Maps node labels to indices and assigns colors to nodes.
+    3. Processes the data to create links between nodes, assigning colors based on link values.
+    4. Builds the Sankey diagram using Plotly.
+    5. Adds a color bar to explain the flow gradient.
+    6. Saves the Sankey diagram as an HTML file in the specified output directory.
+    """
+
     # Initialize nodes and links for Sankey diagram
     nodes = []
     links = []
@@ -797,6 +878,22 @@ def create_sankey_from_network(output_dir, data, title):
 
 # Function to extract important connections and save them to a CSV file
 def important_connections(output_dir, data, top_n=20):
+    """
+    Extracts the top N most important connections based on their absolute values
+    and saves them to a CSV file.
+
+    :param output_dir: str
+        The directory where the CSV file will be saved.
+    :param data: pd.DataFrame
+        A DataFrame containing the connections with columns 'Source', 'Target', and 'Value'.
+    :param top_n: int, optional
+        The number of top connections to extract (default is 20).
+
+    The function sorts the connections by their absolute values in descending order,
+    selects the top N connections, and saves them to a CSV file named 'top_connections.csv'
+    in the specified output directory.
+    """
+
     sorted_edges = data.sort_values(by="Value", key=abs, ascending=False).head(top_n)
     important_connections = sorted_edges[["Source", "Target", "Value"]]
     important_connections.to_csv(f"{output_dir}/top_connections.csv", index=False)

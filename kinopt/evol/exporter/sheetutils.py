@@ -6,6 +6,23 @@ logger = setup_logger()
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, timepoints, OUT_FILE):
+    """
+    This function is responsible for exporting the results of the optimization process to an Excel file.
+    It creates multiple sheets in the Excel file, each containing different types of data related to the optimization results.
+    The function also generates plots for the residuals of each gene.
+    The data is organized in a structured manner, making it easy to analyze and interpret the results.
+    The function takes the following parameters:
+
+    :param P_initial:
+    :param P_init_dense:
+    :param P_estimated:
+    :param residuals:
+    :param alpha_values:
+    :param beta_values:
+    :param result:
+    :param timepoints:
+    :param OUT_FILE:
+    """
 
     # Build a genes_data dictionary from computed metrics.
     genes_data = build_genes_data(P_initial, P_init_dense, P_estimated, residuals)

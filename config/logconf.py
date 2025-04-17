@@ -19,12 +19,32 @@ LOG_COLORS = {
 }
 
 class ColoredFormatter(logging.Formatter):
+    """
+    Custom formatter to add colors to log messages and elapsed time.
+    This formatter uses ANSI escape codes to colorize the log messages based on their severity level.
+    It also includes a right-aligned clock that shows the elapsed time since the logger was initialized.
+    The elapsed time is displayed in a human-readable format (e.g., "1h 23m 45s").
+    The formatter is designed to be used with a logger that has a console handler.
+    The elapsed time is calculated from the time the logger was initialized and is displayed in a right-aligned format.
+    The formatter also ensures that the log messages are padded to a specified width, which can be adjusted using the `width` parameter.
+    The `remove_ansi` method is used to strip ANSI escape codes from the log message for accurate padding calculation.
+    The `format` method is overridden to customize the log message format, including the timestamp, logger name, log level, and message.
+    The `setup_logger` function is used to configure the logger with a file handler and a stream handler.
+    The file handler writes log messages to a specified log file, while the stream handler outputs log messages to the console.
+    The logger is set to the specified logging level, and the log file is created in the specified directory.
+    The log file is rotated based on size, and old log files are backed up.
+    """
     def __init__(self, fmt=None, datefmt=None, width=120):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
         self.width = width
 
     def format(self, record):
+        """
+        Format the log record with colors and elapsed time.
+        This method overrides the default format method to customize the log message format.
+        It includes the timestamp, logger name, log level, and message.
+        """
         elapsed = (datetime.now() - self.start_time).total_seconds()
         elapsed_str = f"{LOG_COLORS['ELAPSED']}⏱ {format_duration(elapsed)}{LOG_COLORS['ENDC']}"
 
@@ -42,6 +62,9 @@ class ColoredFormatter(logging.Formatter):
 
     @staticmethod
     def remove_ansi(s):
+        """
+        Remove ANSI escape codes from a string.
+        """
         ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', s)
 
@@ -54,6 +77,18 @@ def setup_logger(
     max_bytes=2 * 1024 * 1024,
     backup_count=5
 ):
+    """
+    Setup a logger with colored output and file logging.
+    This function creates a logger with colored output for console messages
+    :param name:
+    :param log_file:
+    :param level:
+    :param log_dir:
+    :param rotate:
+    :param max_bytes:
+    :param backup_count:
+    :return: logger
+    """
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 

@@ -114,6 +114,9 @@ available_markers = [
     if isinstance(m, str) and m not in {".", ",", " "}
 ]
 
+#  Functions to get parameter names and generate labels based on the ODE model
+#  being used. These functions are imported from the helper module.
+#  The choice of function is determined by the value of ODE_MODEL.
 if ODE_MODEL == 'randmod':
     get_param_names = get_param_names_rand
     generate_labels = generate_labels_rand
