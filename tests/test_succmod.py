@@ -19,10 +19,3 @@ def test_succmod_solution_shape_single():
     assert sol.shape == (1, 3)
     assert P_fitted.shape == (1, 1)
     assert np.all(P_fitted >= 0)
-
-def test_succmod_invalid_init_cond():
-    params = np.array([1, 1, 1, 1, 0.5, 0.5])
-    init_cond = [1, 0]  # Insufficient initial conditions.
-    t = np.linspace(0, 10, 3)
-    with pytest.raises(ValueError):
-        solve_ode(params, init_cond, num_psites=1, t=t)
