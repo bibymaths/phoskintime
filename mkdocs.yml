@@ -1,0 +1,16 @@
+site_name: PhosKinTime
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: ["."]
+
+nav:
+  - Home: index.md
+  - Reference: reference.md
+
