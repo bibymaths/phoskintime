@@ -103,12 +103,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,3")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,3")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,3")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,3")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,3")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,3")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
 
     parser.add_argument("--fix-A", type=float, default=None)
     parser.add_argument("--fix-B", type=float, default=None)
@@ -208,8 +208,8 @@ def extract_config(args):
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
         # Adjust as needed for parallel processing
-        # 'max_workers': os.cpu_count(),  # Use all CPU cores
-        'max_workers': 1,
+        'max_workers': os.cpu_count(),  # Use all CPU cores
+        # 'max_workers': 1,
     }
     return config
 
