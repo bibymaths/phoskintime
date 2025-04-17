@@ -1,11 +1,4 @@
-"""
-This script creates three types of diagrams (random, distributive, and successive)
-for a protein that can be phosphorylation at multiple sites. Each diagram now uses
-enhanced styling (custom fonts, colors, node shapes, clusters, and titles) for a more
-fancy and readable presentation.
 
-@author: abhinav
-"""
 from graphviz import Digraph
 from itertools import combinations
 from config.constants import OUT_DIR
@@ -36,7 +29,7 @@ def state_label(state):
 
 def create_random_diagram(x, num_sites, output_filename):
     """
-    Create a random phosphorylation diagram with enhanced styling.
+    Create a random phosphorylation diagram.
     The diagram displays mRNA production/degradation, protein production,
     phosphorylation transitions (addition) and dephosphorylation transitions,
     as well as degradation edges for each state.
@@ -111,7 +104,7 @@ def create_random_diagram(x, num_sites, output_filename):
 
 def create_distributive_diagram(x, num_sites, output_filename):
     """
-    Create a distributive phosphorylation diagram with enhanced styling.
+    Create a distributive phosphorylation diagram.
     This model shows single-step phosphorylation and dephosphorylation transitions
     for each site, along with production/degradation edges.
     """
@@ -152,7 +145,7 @@ def create_distributive_diagram(x, num_sites, output_filename):
 
 def create_successive_model(x, num_sites, output_filename):
     """
-    Create a successive phosphorylation diagram with enhanced styling.
+    Create a successive phosphorylation diagram.
     In this model, phosphorylation occurs in a sequential order from P to P1 to P2, etc.,
     with corresponding dephosphorylation and degradation transitions.
     """

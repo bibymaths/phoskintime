@@ -4,6 +4,11 @@ from kinopt.evol.config.logconf import setup_logger
 logger = setup_logger(name="phoskintime")
 
 def run_powell():
+    """
+    Run the Powell optimization algorithm using Julia.
+    It sets the number of threads to half of the available threads
+    and logs the output in real time.
+    """
     # Run the command to get the number of threads (as a string)
     result = subprocess.run("lscpu -p | grep -v '^#' | wc -l", shell=True, capture_output=True, text=True)
     num_threads_str = result.stdout.strip()

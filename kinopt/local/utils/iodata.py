@@ -6,6 +6,15 @@ from sklearn.preprocessing import MinMaxScaler
 from kinopt.local.config.constants import INPUT1, INPUT2
 
 def format_duration(seconds):
+    """
+    Formats a duration in seconds into a human-readable string.
+    - If less than 60 seconds, returns in seconds.
+    - If less than 3600 seconds, returns in minutes.
+    - If more than 3600 seconds, returns in hours.
+
+    :param seconds:
+    :return: Formatted string
+    """
     if seconds < 60:
         return f"{seconds:.2f} sec"
     elif seconds < 3600:
@@ -14,6 +23,15 @@ def format_duration(seconds):
         return f"{seconds / 3600:.2f} hr"
 
 def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
+    """
+    Load and scale the data from the specified input files.
+
+    :param estimate_missing:
+    :param scaling_method:
+    :param split_point:
+    :param seg_points:
+    :return: Time series data, interaction data, observed data
+    """
     full_hgnc_df = pd.read_csv(INPUT1)
     full_hgnc_df = full_hgnc_df[full_hgnc_df['Psite'].notna() & (full_hgnc_df['Psite'] != '')]
     time_series_cols = [f'x{i}' for i in range(1, 15)]
@@ -31,6 +49,23 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
 
 
 def apply_scaling(df, cols, method, split_point, seg_points):
+    """
+    Apply scaling to the specified columns of a DataFrame based on the given method.
+    The scaling methods include:
+    - 'min_max': Min-Max scaling
+    - 'log': Logarithmic scaling
+    - 'temporal': Temporal scaling (two segments)
+    - 'segmented': Segmented scaling (multiple segments)
+    - 'slope': Slope scaling
+    - 'cumulative': Cumulative scaling
+
+    :param df:
+    :param cols:
+    :param method:
+    :param split_point:
+    :param seg_points:
+    :return: df
+    """
     if method == 'min_max':
         scaler = MinMaxScaler()
         df[cols] = pd.DataFrame(df[cols].apply(lambda r: scaler.fit_transform(r.values.reshape(-1, 1)).flatten(), axis=1).tolist(), index=df.index)
@@ -162,6 +197,14 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         f.write("\n".join(html_parts))
 
 def organize_output_files(*directories):
+    """
+    Function to organize output files into protein-specific folders.
+    It moves files matching the pattern 'protein_name_*.{json,svg,png,html,csv,xlsx}'
+    into a folder named after the protein (e.g., 'ABL2') and moves all other files
+    into a 'General' folder within the same directory.
+
+    :param directories:
+    """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
     for directory in directories:

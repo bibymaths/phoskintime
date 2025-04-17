@@ -12,8 +12,16 @@ from kinopt.local.config.constants import OUT_DIR
 
 def plot_fits_for_gene(gene, gene_data, real_timepoints):
     """
-    Plots the observed and estimated time-series for a gene (with multiple psites)
-    using real timepoints for the x-axis. Two subplots: full timepoints and first 7 only.
+    Function to plot the observed and estimated phosphorylation levels for a gene.
+    It generates two plots:
+    1. A full timepoints plot showing all timepoints.
+    2. A short timepoints plot showing only the first 7 timepoints.
+    The plots are saved as PNG files in the specified output directory.
+
+    Parameters:
+    gene (str): The name of the gene.
+    gene_data (dict): A dictionary containing the observed and estimated phosphorylation levels for the gene.
+    real_timepoints (list): A list of timepoints corresponding to the observed and estimated data.
     """
     # Get colors from Dark2 palette
     cmap = mpl.cm.get_cmap("Dark2")
@@ -58,7 +66,14 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints):
 
 def plot_cumulative_residuals(gene, gene_data, real_timepoints):
     """
-    Plots the cumulative sum of residuals for each psite of a gene.
+    Function to plot the cumulative residuals for each psite of a gene.
+    It generates a plot showing the cumulative residuals over time.
+    The plot is saved as a PNG file in the specified output directory.
+
+    Parameters:
+    gene (str): The name of the gene.
+    gene_data (dict): A dictionary containing the residuals for each psite of the gene.
+    real_timepoints (list): A list of timepoints corresponding to the observed and estimated data.
     """
     cmap = plt.get_cmap("tab20")
     colors = [cmap(i % 20) for i in range(len(gene_data["psites"]))]
@@ -79,7 +94,14 @@ def plot_cumulative_residuals(gene, gene_data, real_timepoints):
 
 def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     """
-    Plots the autocorrelation of residuals for each psite of a gene.
+    Function to plot the autocorrelation of residuals for each psite of a gene.
+    It generates a plot showing the autocorrelation values over time.
+    The plot is saved as a PNG file in the specified output directory.
+
+    Parameters:
+    gene (str): The name of the gene.
+    gene_data (dict): A dictionary containing the residuals for each psite of the gene.
+    real_timepoints (list): A list of timepoints corresponding to the observed and estimated data.
     """
     plt.figure(figsize=(8, 8))
     for i, psite in enumerate(gene_data["psites"]):
@@ -95,7 +117,14 @@ def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
 
 def plot_histogram_residuals(gene, gene_data, real_timepoints):
     """
-    Plots a histogram with KDE for the residuals of each psite of a gene.
+    Function to plot histograms of residuals for each psite of a gene.
+    It generates a histogram showing the distribution of residuals.
+    The plot is saved as a PNG file in the specified output directory.
+
+    Parameters:
+    gene (str): The name of the gene.
+    gene_data (dict): A dictionary containing the residuals for each psite of the gene.
+    real_timepoints (list): A list of timepoints corresponding to the observed and estimated data.
     """
     cmap = plt.get_cmap("tab20")
     colors = [cmap(i % 20) for i in range(len(gene_data["psites"]))]
@@ -115,7 +144,14 @@ def plot_histogram_residuals(gene, gene_data, real_timepoints):
     
 def plot_qqplot_residuals(gene, gene_data, real_timepoints):
     """
-    Creates QQ plots of the residuals for each psite of a gene.
+    Function to plot QQ plots of residuals for each psite of a gene.
+    It generates a QQ plot showing the quantiles of the residuals against the quantiles of a normal distribution.
+    The plot is saved as a PNG file in the specified output directory.
+
+    Parameters:
+    gene (str): The name of the gene.
+    gene_data (dict): A dictionary containing the residuals for each psite of the gene.
+    real_timepoints (list): A list of timepoints corresponding to the observed and estimated data.
     """
     plt.figure(figsize=(8, 8))
     for i, psite in enumerate(gene_data["psites"]):

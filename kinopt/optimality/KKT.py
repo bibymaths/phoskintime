@@ -13,7 +13,13 @@ logger = setup_logger()
 # -----------------------------
 def generate_latex_table(summary_dict, table_caption, table=None):
     """
-    Generates a LaTeX table string from a summary dictionary.
+    Function to generate a LaTeX table from a summary dictionary.
+    The table is formatted for use in a LaTeX document.
+
+    :param summary_dict: Dictionary containing summary data.
+    :param table_caption: Caption for the LaTeX table.
+    :param table: Optional table object to format.
+    :return: LaTeX table as a string.
     """
     latex_table = "\n\\begin{table}[H]\n\\centering\n\\begin{tabular}{|l|c|}\\hline\n"
     latex_table += "Metric & Value \\\\ \\hline\n"
@@ -59,12 +65,16 @@ def print_sensitivity_and_active_constraints(sensitivity_summary, active_constra
         logger_obj.info(f"{key}: {value}")
 
 
-# -----------------------------
-# Plotting Functions
-# -----------------------------
 def plot_constraint_violations(alpha_violations, beta_violations, out_dir):
     """
-    Creates and saves a bar plot for constraint violations.
+    Function to plot constraint violations for alpha and beta values.
+    It creates a stacked bar plot showing the violations for each protein.
+    The top 5 proteins with the highest violations are highlighted in red.
+
+    Args:
+        alpha_violations (pd.Series): Series containing alpha constraint violations.
+        beta_violations (pd.Series): Series containing beta constraint violations.
+        out_dir (str): Directory to save the plot.
     """
     # Group and combine violations
     alpha_violations_abs = alpha_violations.abs().groupby('Gene').sum()
@@ -101,7 +111,12 @@ def plot_constraint_violations(alpha_violations, beta_violations, out_dir):
 
 def plot_sensitivity_analysis(sensitivity_analysis, out_dir):
     """
-    Creates and saves a horizontal bar plot for sensitivity analysis.
+    Function to plot sensitivity analysis results.
+    It creates a horizontal bar plot showing the mean, max, and min sensitivity for each protein.
+
+    Args:
+        sensitivity_analysis (pd.DataFrame): DataFrame containing sensitivity analysis results.
+        out_dir (str): Directory to save the plot.
     """
     summary = sensitivity_analysis.groupby("GeneID")[["Sensitivity Mean", "Max Sensitivity", "Min Sensitivity"]].mean()
     summary = summary.sort_values(by="Sensitivity Mean", ascending=True)
@@ -120,16 +135,21 @@ def plot_sensitivity_analysis(sensitivity_analysis, out_dir):
     plt.savefig(str(Path(out_dir) / "sensitivity.png"), dpi=300)
     plt.close()
 
-
-# -----------------------------
-# Data Processing Function
-# -----------------------------
 def process_excel_results(file_path=OUT_FILE):
     """
-    Loads optimization result sheets from an Excel file, validates constraints,
-    computes residuals, gradients, and summarizes sensitivity.
+    Function to process the Excel results file.
+    It reads the alpha and beta values, estimated and observed values,
+    validates normalization constraints, computes residuals and gradients,
+    and generates LaTeX tables for the residuals and sensitivity summaries.
+    It also performs sensitivity analysis and identifies high sensitivity sites.
+    The results are returned as a dictionary.
 
-    Returns a dictionary with processed data.
+    Args:
+        file_path (str): Path to the Excel file containing results.
+    Returns:
+        dict: Dictionary containing the processed results, including alpha and beta values,
+              estimated and observed values, constraint violations, residuals summary,
+              sensitivity summary, and high sensitivity sites.
     """
     alpha_values = pd.read_excel(file_path, sheet_name='Alpha Values')
     beta_values = pd.read_excel(file_path, sheet_name='Beta Values')
@@ -174,6 +194,7 @@ def process_excel_results(file_path=OUT_FILE):
         "Min Sensitivity": np.min(observed_matrix, axis=1)
     })
 
+    # Threshold for high sensitivity sites
     high_thresh = 0.75
     high_sites_idx = np.where(observed_matrix >= high_thresh)[0]
     high_sites = [
@@ -198,14 +219,16 @@ def process_excel_results(file_path=OUT_FILE):
 
 def post_optimization_results():
     """
-    Runs the full post-optimization processing:
-      - Loads and processes the Excel file.
-      - Generates and logs LaTeX tables.
-      - Plots constraint violations and sensitivity analysis.
-      - Calls print functions to log feasibility and sensitivity.
+    Function to process and visualize the results of the optimization.
+    It reads the results from an Excel file, processes the data,
+    and generates plots for constraint violations and sensitivity analysis.
+    It also prints the primal feasibility results and sensitivity summaries.
+    The results are returned as a dictionary.
 
     Returns:
-        dict: The dictionary returned by process_excel_results.
+        dict: Dictionary containing the processed results, including alpha and beta values,
+              estimated and observed values, constraint violations, residuals summary,
+              sensitivity summary, and high sensitivity sites.
     """
     results = process_excel_results()
     # Plot violation and sensitivity figures

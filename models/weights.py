@@ -5,6 +5,18 @@ from scipy.ndimage import uniform_filter1d
 
 @njit
 def early_emphasis(p_data, time_points, num_psites):
+    """
+    Function that calculates custom weights for early time points in a dataset.
+    The weights are based on the data values and the time differences between points.
+
+    The weights are calculated in a way that emphasizes early time points,
+    while also considering the data values and time intervals.
+
+    :param p_data:
+    :param time_points:
+    :param num_psites:
+    :return: flattened array of custom weights
+    """
     if p_data.ndim == 1:
         p_data = p_data.reshape(1, p_data.size)
 
@@ -13,22 +25,61 @@ def early_emphasis(p_data, time_points, num_psites):
 
     time_diffs = np.empty(n_times)
     time_diffs[0] = 0.0
+
+    # Calculate time differences
     for j in range(1, n_times):
+        # Subtract the previous time point from the current one
         time_diffs[j] = time_points[j] - time_points[j - 1]
 
     for i in range(num_psites):
+        # Emphasize early time points - first five
         limit = min(5, n_times)
+        # Compute weights for early time points
         for j in range(1, limit):
+            # Calculate the data-based and time-based weights
             data_based_weight = 1.0 / (abs(p_data[i, j]) + 1e-5)
             time_based_weight = 1.0 / (time_diffs[j] + 1e-5)
+            # Combine the weights
             custom_weights[i, j] = data_based_weight * time_based_weight
-
         for j in range(5, n_times):
+            # For later time points, use a fixed weight
             custom_weights[i, j] = 1.0
 
     return custom_weights.ravel()
 
 def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights):
+    """
+    Function to calculate weights for parameter estimation based on the target data and time points.
+    The weights are designed to emphasize early time points and account for noise in the data.
+    The function also includes options for regularization and custom early point emphasis.
+
+    The following are the weighting schemes:
+    - Inverse data: 1 / abs(target)
+    - Exponential decay: exp(-0.5 * target)
+    - Log scale: 1 / log(1 + abs(target))
+    - Time difference: 1 / abs(time_diff)
+    - Moving average: 1 / abs(target - moving_avg)
+    - Sigmoid time decay: 1 / (1 + exp(time_indices - 5))
+    - Exponential early emphasis: exp(-0.5 * time_indices)
+    - Polynomial decay: 1 / (1 + 0.5 * time_indices)
+    - MS SNR model: 1 / sqrt(signal)
+    - MS inverse variance: 1 / (abs(target) ** 0.7)
+    - Flat region penalty: 1 / abs(grad)
+    - Steady state decay: exp(-0.1 * time_indices)
+    - Combined data time: 1 / (abs(target) * (1 + 0.5 * time_indices))
+    - Inverse sqrt data: 1 / sqrt(abs(target))
+    - Early emphasis moderate: ones
+    - Early emphasis steep decay: ones
+    - Custom early points emphasis: early_weights
+
+    :param target:
+    :param t_target:
+    :param num_psites:
+    :param use_regularization:
+    :param reg_len:
+    :param early_weights:
+    :return: dictionary of weights for parameter estimation
+    """
     time_indices = np.tile(np.arange(1, len(t_target) + 1), num_psites)
     log_scale = np.log1p(np.abs(target))
     sqrt_signal = np.sqrt(np.maximum(np.abs(target), 1e-5))

@@ -7,6 +7,33 @@ logger = setup_logger()
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, mse, rmse, mae, mape, r_squared):
+    """
+    Function to output the results of the optimization process.
+    It logs the optimized alpha and beta values, optimization summary,
+    error metrics, and generates plots for each gene.
+    It also writes the results to an Excel file with multiple sheets.
+
+    The sheets include:
+    - Alpha Values: Optimized alpha values for each gene and psite.
+    - Beta Values: Optimized beta values for each kinase and psite.
+    - Summary: Summary of the optimization process.
+    - Observed: Observed time-series data for each gene and psite.
+    - Estimated: Estimated time-series data for each gene and psite.
+    - Residuals: Residuals for each gene and psite.
+
+    :param P_initial:
+    :param P_init_dense:
+    :param P_estimated:
+    :param residuals:
+    :param alpha_values:
+    :param beta_values:
+    :param result:
+    :param mse:
+    :param rmse:
+    :param mae:
+    :param mape:
+    :param r_squared:
+    """
     logger.info("Optimized Alpha values:")
     for (gene, psite), kinases in alpha_values.items():
         logger.info(f"Protein {gene}, Psite {psite}:")

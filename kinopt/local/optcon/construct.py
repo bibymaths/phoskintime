@@ -5,38 +5,77 @@ from typing import Tuple
 from numpy.typing import NDArray
 
 def _build_P_initial(full_df, interact_df):
+    """
+    Build the initial protein-kinase mapping and time series data.
+
+    :param full_df:
+    :param interact_df:
+    :return: Protein - Kinase mapping, time series data
+    """
+    # Extract time series columns
     time = [f'x{i}' for i in range(1, 15)]
+    # Initialize the dictionary to hold time series data
     P_initial = {}
     P_list = []
+    # Iterate through the interaction dataframe
     for _, row in interact_df.iterrows():
+        # Extract gene, phosphorylation site, and kinases
         gene, psite, kinases = row['GeneID'], row['Psite'], row['Kinase']
+        # If the gene is not in the full dataframe, skip it
         kinases = [k.strip() for k in kinases]
+        # Grab the time series data for the gene and phosphorylation site
         ts = full_df[(full_df['GeneID'] == gene) & (full_df['Psite'] == psite)][time].values.flatten()
+        # If the time series data is empty, create a default time series
         if ts.size == 0:
             ts = np.ones(len(time))
+        # Append the time series data to the list
         P_list.append(ts)
+        # Store the gene, phosphorylation site, and kinases in the dictionary
         P_initial[(gene, psite)] = {'Kinases': kinases, 'TimeSeries': ts}
     return P_initial, np.array(P_list)
 
 def _build_K_data(full_df, interact_df, estimate_missing):
+    """
+    Build the kinase data for optimization.
+
+    :param full_df: DataFrame containing full data
+    :param interact_df: DataFrame containing interactions
+    :param estimate_missing: Boolean flag to estimate missing data
+    :return: Kinase index, kinase data array, beta counts
+    """
+    # Extract time series columns
     time = [f'x{i}' for i in range(1, 15)]
+
+    # Initialize the dictionary to hold kinase data
     K_index = {}
     K_list = []
+    # Initialize the list to hold beta counts
     beta_counts = {}
+
     synthetic_counter = 1
     synthetic_rows = []
 
+    # Iterate through the interaction dataframe
     for kinase in interact_df['Kinase'].explode().unique():
+        # Extract the gene and phosphorylation site for the current kinase
         kinase_df = full_df[full_df['GeneID'] == kinase]
+        # If the kinase is not in the full dataframe, skip it
         if not kinase_df.empty:
+            # Extract the time series data for the kinase
             for _, row in kinase_df.iterrows():
+                # Extract the gene, phosphorylation site, and time series data
                 psite = row['Psite']
                 ts = np.array(row[time].values, dtype=np.float64)
+                # Store index and time series data in the dictionary
                 idx = len(K_list)
                 K_list.append(ts)
+                # Store the kinase, phosphorylation site, and time series data
                 K_index.setdefault(kinase, []).append((psite, ts))
+                # Update the beta counts
                 beta_counts[idx] = 1
+        # If the kinase is not in the full dataframe and we are estimating missing data
         elif estimate_missing:
+            # Create a synthetic label for the kinase
             synthetic_label = f"P{synthetic_counter}"
             synthetic_counter += 1
             # Create a synthetic time series for the kinase's missing data
@@ -60,39 +99,83 @@ def _build_K_data(full_df, interact_df, estimate_missing):
     return K_index, K_array, beta_counts
 
 def _convert_to_sparse(K_array):
+    """
+    Function to convert a dense array to sparse format.
+
+    :param K_array: Kinase data array
+    :return: Sparse matrix, data, indices, indptr
+    """
     K_sparse = csr_matrix(K_array)
     return K_sparse, K_sparse.data, K_sparse.indices, K_sparse.indptr
 
 
 def _precompute_mappings(P_initial, K_index):
-    # Unique kinases from P_initial
+    """
+    Function to precompute mappings for optimization.
+
+    :param P_initial: Initial protein-kinase mapping
+    :param K_index: Kinase index
+    :return: Unique kinases, gene-kinase counts, alpha starts, kinase indices, total alpha, beta counts, beta starts
+    :rtype: tuple
+
+    :note: This function precomputes the mappings for optimization.
+    :note: It extracts unique kinases, gene-kinase counts, and initializes alpha and beta parameters.
+    :note: The function also computes the total number of alpha parameters and the beta counts.
+    :note: The function is used to prepare the data for optimization.
+    """
+
+    # Extract unique kinases and their indices
     unique_kinases = sorted(list({k for key in P_initial for k in P_initial[key]['Kinases']}))
+    # Create a mapping from kinase to index
     kinase_to_idx = {k: i for i, k in enumerate(unique_kinases)}
+    # Number of protein groups
     n_gene = len(P_initial)
+    # Initialize arrays for gene-kinase counts and alpha starts
     gene_kinase_counts = np.empty(n_gene, dtype=np.int32)
+    # Initialize arrays for gene-kinase indices and total alpha
     gene_alpha_starts = np.empty(n_gene, dtype=np.int32)
+    # Initialize a list to hold gene-kinase indices
     gene_kinase_idx_list = []
+    # Initialize a variable to hold the cumulative count of kinases
     cum = 0
+    # Iterate through the initial protein-kinase mapping
     for i, key in enumerate(P_initial.keys()):
+        # Extract the kinases for the current protein
         kinases = P_initial[key]['Kinases']
+        # Map the kinases to their indices
         count = len(kinases)
+        # Store the count of kinases for the current protein
         gene_kinase_counts[i] = count
+        # Store the cumulative count of kinases for the current protein
         gene_alpha_starts[i] = cum
+        # Store the indices of the kinases for the current protein
         for k in kinases:
             gene_kinase_idx_list.append(kinase_to_idx[k])
+        # Update the cumulative count of kinases
         cum += count
+    # Convert the list of gene-kinase indices to a numpy array
     gene_kinase_idx = np.array(gene_kinase_idx_list, dtype=np.int32)
+    # Store the total number of alpha parameters
     total_alpha = cum
 
+    # Initialize arrays for kinase beta counts and starts
     n_kinase = len(unique_kinases)
+    # Initialize arrays for kinase beta counts and starts
     kinase_beta_counts = np.empty(n_kinase, dtype=np.int32)
     kinase_beta_starts = np.empty(n_kinase, dtype=np.int32)
+    # Cumulative count of kinases - phosphorylation sites
     cum = 0
+    # Iterate through the unique kinases
     for i, k in enumerate(unique_kinases):
+        # Count the number of phosphorylation sites for the current kinase
         cnt = len(K_index[k]) if k in K_index else 0
+        # Store the count of phosphorylation sites for the current kinase
         kinase_beta_counts[i] = cnt
+        # Store the cumulative count of phosphorylation sites for the current kinase
         kinase_beta_starts[i] = cum
+        # Store the indices of the phosphorylation sites for the current kinase
         cum += cnt
+
     return unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha, kinase_beta_counts, kinase_beta_starts
 
 def _init_parameters(
@@ -102,7 +185,15 @@ def _init_parameters(
     kinase_beta_counts: list[int]
 ) -> Tuple[NDArray[np.float64], list[tuple[float, float]]]:
     """
-    ...
+    Function to initialize parameters for optimization.
+
+    :param total_alpha: Total number of alpha parameters
+    :param lb: Lower bound for beta parameters
+    :param ub: Upper bound for beta parameters
+    :param kinase_beta_counts: List of kinase beta counts
+    :return: Initial parameters and bounds
+    :rtype: tuple
+    :note: This function initializes the parameters for optimization.
     """
     n_beta = int(sum(kinase_beta_counts))
     bounds = [(0.0, 1.0)] * total_alpha + [(lb, ub)] * n_beta
@@ -116,6 +207,13 @@ def _init_parameters(
 
 
 def _compute_time_weights(P_array, loss_type):
+    """
+    Function to compute time weights for optimization.
+
+    :param P_array:
+    :param loss_type:
+    :return: t_max, P_dense, time_weights
+    """
     t_max = P_array.shape[1]
     P_dense = P_array.astype(np.float64)
     if loss_type == "weighted":
@@ -128,11 +226,35 @@ def _compute_time_weights(P_array, loss_type):
     return t_max, P_dense, time_weights
 
 def _eq_constraint(s, c):
+    """
+    Function to create an equality constraint for optimization.
+
+    :param s:
+    :param c:
+    :return: linear constraint sum
+    """
     def f(p):
+        """
+        Function to compute the equality constraint for optimization.
+
+        :param p:
+        :return: Sum of parameters in the range [s, s+c] minus 1
+        """
         return np.sum(p[s : s + c]) - 1
     return f
 
 def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alpha, kinase_beta_counts, n_params):
+    """
+    Function to build constraints for optimization.
+
+    :param opt_method:
+    :param gene_kinase_counts:
+    :param unique_kinases:
+    :param total_alpha:
+    :param kinase_beta_counts:
+    :param n_params:
+    :return: Constraints for optimization
+    """
     if opt_method == "trust-constr":
         n_alpha = len(gene_kinase_counts)
         n_beta = len(unique_kinases)

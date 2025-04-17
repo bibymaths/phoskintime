@@ -80,7 +80,7 @@ def main():
     - kinopt.evol.config.logconf: For logging configuration.
     - kinopt.evol.config.helpers: For helper functions.
     """
-    logger.info('[Global Optimization] Started')
+    logger.info('[Global Optimization] Started - Kinase Phosphorylation Time-Series')
 
     # Initialize the optimization problem.
     problem, result = run_optimization(
