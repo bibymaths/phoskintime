@@ -5,6 +5,11 @@ from numba import prange, njit
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
     """
+    Originally implemented by Julius Normann.
+
+    This version has been modified and optimized
+    for consistency & speed in submodules by Abhinav Mishra.
+
     Computes a loss value using one of several loss functions.
 
     Parameters:

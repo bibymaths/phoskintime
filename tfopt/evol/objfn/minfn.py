@@ -6,6 +6,11 @@ from pymoo.core.problem import Problem
 # -------------------------------
 class TFOptimizationMultiObjectiveProblem(Problem):
     """
+    Originally implemented by Julius Normann.
+
+    This version has been modified and optimized
+    for consistency & speed in submodules by Abhinav Mishra.
+
     Multi-objective optimization problem for TF optimization.
     This class defines a multi-objective optimization problem for the
     transcription factor (TF) optimization problem. It inherits from the

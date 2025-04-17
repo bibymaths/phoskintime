@@ -1,10 +1,20 @@
+# Example Dockerfile
 FROM python:3.10-slim
 
+# Install poetry
+RUN pip install poetry
+
+# Set work directory
 WORKDIR /app
+
+# Copy only dependency files first for caching
+COPY pyproject.toml poetry.lock* /app/
+
+# Install dependencies
+RUN poetry install --no-root
+
+# Copy the rest of the application
 COPY . /app
 
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
-
-CMD ["poetry", "run", "pytest", "tests/"]
+# Command to run your app (adjust as needed)
+CMD ["poetry", "run", "phoskintime"]

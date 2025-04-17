@@ -12,9 +12,7 @@ from tfopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
-# -------------------------------
-# Optimization and Solution Extraction
-# -------------------------------
+
 def run_optimization(problem, total_dim, optimizer):
     """
     Run the optimization using the specified algorithm and problem.

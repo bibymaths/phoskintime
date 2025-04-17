@@ -1,5 +1,8 @@
+`Originally implemented by Julius Normann.` 
 
-### Model Equation
+`This version has been modified and optimized for consistency & speed in submodules by Abhinav Mishra.`
+
+## Model Equation
 
 For each mRNA (indexed by *i*), the measured time series is represented by
 
@@ -29,7 +32,7 @@ where \(\mathcal{J}_i\) is the set of TFs (extracted from the interaction file, 
 
 ---
 
-### Objective Function
+# Objective Function
 
 The goal is to have the predicted mRNA time series $(\hat{R}_i(t))$ match the measured data $(R_i(t))$ as closely as possible. This can be achieved by minimizing the sum of squared differences over all mRNAs and time points:
 
@@ -41,7 +44,7 @@ In this formulation, there is no explicit use of error vectors; the optimization
 
 ---
 
-### Constraints
+# Constraints
 
 The parameters are subject to the following constraints:
 

@@ -3,16 +3,25 @@
 <img src="static/images/logo_3.png" alt="Package Logo" width="200"/> 
 
 
-![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)
-![NumPy](https://img.shields.io/badge/Numpy-1.24.3-red.svg)
-![SciPy](https://img.shields.io/badge/SciPy-1.10.1-orange.svg)
-![Pandas](https://img.shields.io/badge/Pandas-1.5.3-yellowgreen.svg)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0.2-lightgrey.svg)
-![Matplotlib](https://img.shields.io/badge/Matplotlib-3.7.1-blueviolet.svg)
-![Seaborn](https://img.shields.io/badge/Seaborn-0.12.2-orange.svg)
-![Plotly](https://img.shields.io/badge/Plotly-5.15.0-brightgreen.svg)
-![SALib](https://img.shields.io/badge/SALib-1.4.5-lightgrey.svg)
-![Numba](https://img.shields.io/badge/Numba-0.56.4-yellowgreen.svg)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
+![NumPy](https://img.shields.io/badge/NumPy-*-red.svg)
+![Pandas](https://img.shields.io/badge/Pandas-*-yellowgreen.svg)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-*-blueviolet.svg)
+![SciPy](https://img.shields.io/badge/SciPy-*-orange.svg)
+![Plotly](https://img.shields.io/badge/Plotly-*-brightgreen.svg)
+![Openpyxl](https://img.shields.io/badge/Openpyxl-*-lightgrey.svg)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-*-lightgrey.svg)
+![tqdm](https://img.shields.io/badge/tqdm-*-informational.svg)
+![Numba](https://img.shields.io/badge/Numba-*-yellowgreen.svg)
+![XlsxWriter](https://img.shields.io/badge/XlsxWriter-*-success.svg)
+![statsmodels](https://img.shields.io/badge/statsmodels-*-blue.svg)
+![pymoo](https://img.shields.io/badge/pymoo-*-orange.svg)
+![adjustText](https://img.shields.io/badge/adjustText-*-yellow.svg)
+![SALib](https://img.shields.io/badge/SALib-*-lightgrey.svg)
+![Graphviz](https://img.shields.io/badge/Graphviz-*-purple.svg)
+![mygene](https://img.shields.io/badge/mygene-*-green.svg)
+![python-dotenv](https://img.shields.io/badge/python--dotenv-*-blue.svg)
+![cobyqa](https://img.shields.io/badge/cobyqa-*-orange.svg)
 
 [![CI/CD](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml/badge.svg)](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml)   
 
@@ -21,6 +30,16 @@
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers explore kinase-substrate interactions in a temporal context.
  
 <img src="static/gif/optimization_run.gif" alt="NSGA-2 Run" width="500"/> 
+ 
+## Acknowledgments
+
+This project originated as part of my master's thesis work at Theoretical Biophysics group (now, [Klipp-Linding Lab](https://www.klipp-linding.science/tbp/index.php/en/)), at Humboldt Universität zu Berlin.
+
+- **Conceptual framework and mathematical modeling** were developed under the supervision of **[Prof. Dr. Dr. H.C. Edda Klipp](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/52-klipp)**.
+- **Experimental datasets** were provided by the **[(Retd. Prof.) Dr. Rune Linding](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/278-rune-linding)**.
+- The subpackage `tfopt` is an optimized and efficient derivative of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my colleague **[Julius Normann](https://github.com/Normann-BPh)**, adapted with permission.
+
+I am especially grateful to [Ivo Maintz](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/54-people/6-staff/60-maintz) for his generous technical support, enabling seamless experimentation with packages and server setups.
 
 ## Overview
 
@@ -188,7 +207,12 @@ You can customize the package by:
 PhosKinTime is a flexible and powerful package for modeling phosphorylation kinetics. Its modular design allows researchers to simulate different mechanistic models, estimate kinetic parameters, analyze parameter sensitivity, and generate comprehensive visual and tabular reports. Whether you are exploring basic kinetic hypotheses or conducting in-depth sensitivity analysis, PhosKinTime offers the necessary tools for robust model-based analysis.
 
 For more information, please refer to the individual module documentation and source code.
+ 
+## License
+
+This package is distributed under the BSD 3-Clause License.  
+See the [LICENSE](./LICENSE) file for full details.
 
 --- 
 
-![Goal](static/images/goal_2.png)
+[//]: # (![Goal]&#40;static/images/goal_2.png&#41;)
