@@ -14,6 +14,23 @@ logger = setup_logger()
 
 def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
                        use_regularization=True, lambda_reg=1e-3):
+    """
+    Prepare the model function for sequential parameter estimation.
+
+    This function builds the model function based on the specified
+    ODE model type and the number of phosphorylation sites. It also
+    sets up the bounds for the free parameters and handles fixed
+    parameters. The model function is used for curve fitting to
+    estimate the parameters of the ODE model.
+
+    :param num_psites:
+    :param init_cond:
+    :param bounds:
+    :param fixed_params:
+    :param use_regularization:
+    :param lambda_reg:
+    :return: model_func, free_indices, free_bounds, fixed_values, num_total_params
+    """
     if ODE_MODEL == 'randmod':
         # Build lower and upper bounds from config.
         lower_bounds_full = [
@@ -76,6 +93,22 @@ def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
 def fit_parameters(time_points, p_data, model_func, p0_free,
                    bounds, weight_options,
                    use_regularization=True):
+    """
+    Fit the parameters of the model using curve fitting with different
+    weighting options. This function iterates over the provided
+    weight options, performs the curve fitting, and evaluates the
+    goodness of fit using a scoring function. The best fitting
+    parameters and their corresponding score are returned.
+
+    :param time_points:
+    :param p_data:
+    :param model_func:
+    :param p0_free:
+    :param bounds:
+    :param weight_options:
+    :param use_regularization:
+    :return: best_fit_params, best_weight_key, scores
+    """
     scores, popts = {}, {}
     target = p_data.flatten()
 
@@ -108,6 +141,24 @@ def fit_parameters(time_points, p_data, model_func, p0_free,
 def sequential_estimation(p_data, time_points, init_cond, bounds,
                           fixed_params, num_psites, gene,
                           use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
+    """
+    Perform sequential parameter estimation for a given gene using
+    the specified model function. This function iteratively fits the
+    model to the data at each time point, updating the initial guess
+    for the parameters based on the previous fit. The estimated
+    parameters, model fits, and error values are returned.
+
+    :param p_data:
+    :param time_points:
+    :param init_cond:
+    :param bounds:
+    :param fixed_params:
+    :param num_psites:
+    :param gene:
+    :param use_regularization:
+    :param lambda_reg:
+    :return:
+    """
     est_params, model_fits, error_vals = [], [], []
 
     model_func, free_indices, free_bounds, fixed_values, num_total_params = (
@@ -128,6 +179,7 @@ def sequential_estimation(p_data, time_points, init_cond, bounds,
             target_fit = y_flat
 
         try:
+            # Attempt to get a good initial estimate using curve_fit.
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, t_now, target_fit,
                           p0=p0_free, bounds=free_bounds,
@@ -137,21 +189,31 @@ def sequential_estimation(p_data, time_points, init_cond, bounds,
             logger.warning(f"Initial fit failed at time index {i} for gene {gene}: {e}")
             popt_init = p0_free
 
+        # Get weights for the model fitting.
         early_emphasis_weights = early_emphasis(y_now, t_now, num_psites)
         weights = get_weight_options(y_flat, t_now, num_psites,
                                      use_regularization, len(p0_free), early_emphasis_weights)
 
+        # Perform the fit with the best weights.
         best_fit, weight_key, _ = fit_parameters(t_now, y_now, model_func, popt_init,
                                                  free_bounds, weights,
                                                  use_regularization)
         p_full = np.zeros(num_total_params)
+        # Fill in the fixed parameters and free parameters.
         free_iter = iter(best_fit)
+        # Iterate over the total parameters and assign values.
         for j in range(num_total_params):
+            # If the parameter is fixed, use the fixed value.
             p_full[j] = fixed_values[j] if j in fixed_values else next(free_iter)
+        # Append the estimated parameters and model fit.
         est_params.append(p_full)
+        # Solve the ODE with the estimated parameters.
         sol, p_fit = solve_ode(p_full, init_cond, num_psites, t_now)
+        # Flatten the model fit for error calculation.
         model_fits.append((sol, p_fit))
+        # Calculate the mean square error value.
         error_vals.append(np.sum(np.abs(y_flat - p_fit.flatten()) ** 2))
+        # Update the initial guess for the next iteration.
         p0_free = best_fit
 
         logger.info(f"[{gene}] Time Index {i} Best Weight = {weight_key}")

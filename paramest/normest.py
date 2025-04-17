@@ -71,6 +71,13 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         )
 
     def model_func(tpts, *params):
+        """
+        Define the model function for curve fitting.
+
+        :param tpts:
+        :param params:
+        :return: model predictions
+        """
         if ODE_MODEL == 'randmod':
             param_vec = np.exp(np.array(params))
         else:
@@ -94,6 +101,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
     try:
+        # Attempt to get a good initial estimate using curve_fit.
         result = cast(Tuple[np.ndarray, np.ndarray],
                       curve_fit(model_func, time_points, target_fit, x_scale='jac',
                       p0=p0, bounds=free_bounds, sigma=default_sigma,
@@ -103,6 +111,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
         popt_init = p0
 
+    # Get weights for the model fitting.
     early_weights = early_emphasis(p_data, time_points, num_psites)
     weight_options = get_weight_options(target, time_points, num_psites,
                                         use_regularization, len(p0), early_weights)
@@ -110,6 +119,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     scores, popts, pcovs = {}, {}, {}
     for wname, sigma in weight_options.items():
         try:
+            # Attempt to fit the model using the specified weights.
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, time_points, target_fit, p0=popt_init,
                           bounds=free_bounds, sigma=sigma, x_scale='jac',
@@ -122,15 +132,19 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         popts[wname] = popt
         pcovs[wname] = pcov
         pred = model_func(time_points, *popt)
+        # Calculate the score for the fit.
         scores[wname] = score_fit(target_fit, pred, popt)
 
+    # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
     best_score = scores[best_weight]
+    # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
 
     logger.info(f"[{gene}] Best weight: {best_weight} with score: {best_score:.4f}")
 
+    # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
         np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
         pcov_best,
@@ -147,6 +161,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             noise = np.random.normal(0, 0.05, size=target_fit.shape)
             noisy_target = target_fit * (1 + noise)
             try:
+                # Attempt to fit the model using the noisy target.
                 result = cast(Tuple[np.ndarray, np.ndarray],
                               curve_fit(model_func, time_points, noisy_target,
                                         p0=popt_best, bounds=free_bounds, sigma=default_sigma,
@@ -158,6 +173,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
                 pcov_bs = None
             boot_estimates.append(popt_bs)
             boot_covariances.append(pcov_bs)
+
         # Convert boot_estimates to an array and compute the mean parameter estimates.
         popt_best = np.mean(boot_estimates, axis=0)
 

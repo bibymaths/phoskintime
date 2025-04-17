@@ -40,10 +40,13 @@ class Plotter:
         fig.savefig(path, dpi=dpi)
         plt.close(fig)
 
-    # -----------------------------
-    # Parallel Coordinates Plot
-    # -----------------------------
     def plot_parallel(self, solution: np.ndarray, labels: list):
+        """
+        Plots a parallel coordinates plot for the given solution.
+
+        :param solution: 2D numpy array of shape (sampels, features)
+        :param labels: list of labels
+        """
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
         fig, ax = plt.subplots(figsize=(8, 8))
@@ -54,10 +57,15 @@ class Plotter:
         ax.legend(title="Time Points", loc="upper right", labels=df['Time'].astype(str).tolist())
         self._save_fig(fig, f"{self.gene}_parallel_coordinates_.png")
 
-    # -----------------------------
-    # PCA Components / Scree Plot
-    # -----------------------------
     def pca_components(self, solution: np.ndarray, target_variance: float = 0.99):
+        """
+        Plots a scree plot showing the explained variance ratio for PCA components.
+
+        :param solution: 2D numpy array of shape (samples, features) representing the data.
+        :param target_variance: The target cumulative explained variance to determine the required number of components.
+        :return: A tuple containing the number of required components and the explained variance ratio.
+        """
+
         pca = PCA(n_components=min(solution.shape))
         pca.fit(solution)
         explained_variance = pca.explained_variance_ratio_
@@ -79,10 +87,13 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_scree_plot_.png")
         return required_components, explained_variance
 
-    # -----------------------------
-    # 3D PCA Plot
-    # -----------------------------
     def plot_pca(self, solution: np.ndarray, components: int = 3):
+        """
+        Plots the PCA results for the given solution.
+
+        :param solution: 2D numpy array of shape (samples, features) representing the data.
+        :param components: Number of PCA components to plot. Defaults to 3.
+        """
         pca = PCA(n_components=components)
         pca_result = pca.fit_transform(solution)
         ev = pca.explained_variance_ratio_ * 100
@@ -108,10 +119,13 @@ class Plotter:
             # Optionally handle non-3D cases here
             pass
 
-    # -----------------------------
-    # t-SNE Plot
-    # -----------------------------
     def plot_tsne(self, solution: np.ndarray, perplexity: int = 30):
+        """
+        Plots a t-SNE visualization of the given solution.
+
+        :param solution: 2D numpy array of shape (samples, features) representing the data.
+        :param perplexity: Perplexity parameter for t-SNE. Defaults to 30.
+        """
         perplexity = min(perplexity, len(solution) - 1)
         tsne_result = TSNE(n_components=2, perplexity=perplexity, random_state=42).fit_transform(solution)
         x, y = tsne_result[:, 0], tsne_result[:, 1]
@@ -131,6 +145,16 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
 
     def plot_param_bar(self, params_df: pd.DataFrame, s_df: pd.DataFrame):
+        """
+        Plots a bar chart of parameter values for the given gene.
+
+        This method visualizes the estimated parameter values for a specific gene
+        and its phosphorylation sites. It uses color coding to distinguish between
+        different phosphorylation sites and other parameters.
+
+        :param params_df: DataFrame containing parameter values.
+        :param s_df: DataFrame containing phosphorylation site information.
+        """
         fig, ax = plt.subplots(figsize=(8, 8))
         unique_psites = s_df.loc[s_df['GeneID'] == self.gene, 'Psite'].tolist()
         color_map = {psite: plt.cm.tab20(i / len(unique_psites)) for i, psite in enumerate(unique_psites)}
@@ -165,10 +189,19 @@ class Plotter:
         ax.legend(title="Residue_Position", loc='upper right', ncol=2)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_bar_.png")
-    # -----------------------------
-    # Parameter Series Plot
-    # -----------------------------
+
+
     def plot_param_series(self, estimated_params: list, param_names: list, time_points: np.ndarray):
+        """
+        Plots the time series of estimated parameters over the given time points.
+
+        This method visualizes the evolution of kinetic rates or parameters
+        over time for a specific gene.
+
+        :param estimated_params: List of estimated parameter values at each time point.
+        :param param_names: List of parameter names corresponding to the estimated parameters.
+        :param time_points: 1D numpy array of time points.
+        """
         arr = np.array(estimated_params)
         fig, ax = plt.subplots(figsize=(8, 8))
         for i in range(arr.shape[1]):
@@ -181,10 +214,11 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_series_.png")
 
-    # -----------------------------
-    # Profile Plot
-    # -----------------------------
+
     def plot_profiles(self, data: pd.DataFrame):
+        """
+
+        """
         fig, ax = plt.subplots(figsize=(8, 8))
         for col in data.columns:
             if col != "Time":

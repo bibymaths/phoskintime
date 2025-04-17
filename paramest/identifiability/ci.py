@@ -13,7 +13,6 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
       - pcov: Square covariance matrix (numpy array) corresponding to popt.
       - target: 1D numpy array of observed data (used to compute degrees of freedom).
       - alpha_val: Significance level (default 0.05 for a 95% confidence interval).
-      - logger: Optional logger object; if provided, messages are logged. Otherwise, prints to stdout.
 
     Returns:
       A dictionary with the following keys:
@@ -46,12 +45,12 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
     upr_ci = beta_hat + qt_lin * se_lin
 
     # Log the summary.
-    header = "---- Parameter\tEstimate\tStd. Error\tPr(>|t|)\t\t95% CI"
+    header = "Parameter\tEstimate\tStd. Error\tPr(>|t|)\t\t95% CI"
     logger.info("Confidence Intervals:")
     logger.info("")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
-        logger.info(f"Param {i}:\t {b:.4f}\t\t {se:.4f}\t\t {p:.1e}\t\t ({lwr:.4f} - {upr:.4f})")
+        logger.info(f"Param {i}:\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
 
     results = {
         'beta_hat': beta_hat,

@@ -41,10 +41,6 @@ def early_emphasis(P_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
-# ----------------------------------
-# Process Protein
-# ----------------------------------
-
 def process_gene(
     gene,
     measurement_data,
@@ -56,6 +52,34 @@ def process_gene(
     bootstraps=0,
     out_dir=OUT_DIR
 ):
+    """
+    Process a single gene by estimating its parameters and generating plots.
+    This function extracts gene-specific data, estimates parameters using the
+    specified estimation mode, and generates plots for the estimated parameters
+    and the model fits. It also calculates error metrics and saves the results
+    to Excel files.
+
+    :param gene:
+    :param measurement_data:
+    :param time_points:
+    :param bounds:
+    :param fixed_params:
+    :param desired_times:
+    :param time_fixed:
+    :param bootstraps:
+    :param out_dir:
+    :return:
+        - gene: The gene being processed.
+        - estimated_params: Estimated parameters for the gene.
+        - model_fits: Model fits for the gene.
+        - seq_model_fit: Sequential model fit for the gene.
+        - errors: Error metrics (MSE, MAE).
+        - final_params: Final estimated parameters.
+        - profiles: Adaptive profile estimates (if applicable).
+        - profiles_df: DataFrame of adaptive profile estimates (if applicable).
+        - param_df: DataFrame of estimated parameters.
+        - gene_psite_data: Dictionary of gene-specific data.
+    """
     # 1. Extract Gene-specific Data
     gene_data = measurement_data[measurement_data['Gene'] == gene]
     num_psites = gene_data.shape[0]
@@ -132,6 +156,23 @@ def process_gene(
 
 def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,
                          desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):
+    """
+    Wrapper function to process a gene. This function is a placeholder for
+    any additional processing or modifications needed before calling the
+    main processing function.
+
+    :param gene:
+    :param measurement_data:
+    :param time_points:
+    :param bounds:
+    :param fixed_params:
+    :param desired_times:
+    :param time_fixed:
+    :param bootstraps:
+    :param out_dir:
+    :return:
+        - result: Dictionary containing the results of the gene processing.
+    """
     return process_gene(
         gene=gene,
         measurement_data=measurement_data,
