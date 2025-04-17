@@ -33,7 +33,7 @@
  
 ## Acknowledgments
 
-This project originated as part of my master's thesis work at Theoretical Biophysics group (now, [Klipp-Linding Lab](https://www.klipp-linding.science/tbp/index.php/en/)), at Humboldt Universität zu Berlin.
+This project originated as part of my master's thesis work at Theoretical Biophysics group (now, [Klipp-Linding Lab](https://www.klipp-linding.science/tbp/index.php/en/)), Humboldt Universität zu Berlin.
 
 - **Conceptual framework and mathematical modeling** were developed under the supervision of **[Prof. Dr. Dr. H.C. Edda Klipp](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/52-klipp)**.
 - **Experimental datasets** were provided by the **[(Retd. Prof.) Dr. Rune Linding](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/278-rune-linding)**.
@@ -59,13 +59,101 @@ The package is designed with modularity in mind. It consists of several key comp
 
 ## Installation
 
-To install PhosKinTime, clone the repository and install the required dependencies via pip:
+This guide provides clean setup instructions for running the `phoskintime` package on a new machine. Choose the scenario that best fits your environment and preferences.
 
+---
+
+## Scenario 1: pip + virtualenv (Debian/Ubuntu/Fedora)
+
+### For **Debian/Ubuntu**
 ```bash
-git clone https://github.com/bibymaths/phoskintime.git
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
+```
+
+### For **Fedora**
+```bash
+sudo dnf install -y python3 python3-pip python3-virtualenv git
+```
+
+### Setup
+```bash
+git clone git@github.com:bibymaths/phoskintime.git
 cd phoskintime
+
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+---
+
+## Scenario 2: Poetry + `pyproject.toml`
+
+### Install Poetry (all platforms)
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+# Or: pip install poetry
+```
+
+### Setup
+```bash
+git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Install dependencies
+poetry install
+
+# Optional: activate shell within poetry env
+poetry shell
+```
+
+---
+
+## Scenario 3: Using [`uv`](https://github.com/astral-sh/uv) (fast, isolated pip alternative)
+
+### Install `uv`
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Setup
+```bash
+git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Create virtual environment and install deps fast
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+```
+
+---
+
+## Scenario 4: Conda or Mamba (Anaconda/Miniconda users)
+
+### Setup
+```bash
+git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Create and activate conda environment
+conda create -n phoskintime python=3.10 -y
+conda activate phoskintime
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+Or if using `pyproject.toml`, add:
+```bash
+pip install poetry
+poetry install
+```
+
 For making illustration diagrams, you need to install Graphviz. You can do this via conda or apt-get:
  
 ```bash 
