@@ -29,8 +29,26 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
 
 def parse_args():
+    """
+    Parse command line arguments for the PhosKinTime optimization problem.
+    This function uses argparse to handle input parameters for the optimization process.
+    The parameters include:
+    - lower_bound: Lower bound for the optimization variables (default: -2).
+    - upper_bound: Upper bound for the optimization variables (default: 2).
+    - loss_type: Type of loss function to use (default: 0).
+        Options:
+        0: MSE
+        1: MAE
+        2: soft L1
+        3: Cauchy
+        4: Arctan
+        5: Elastic Net
+        6: Tikhonov
+
+    :return: lower_bound, upper_bound, loss_type
+    """
     parser = argparse.ArgumentParser(
-        description="PhosKinTime - SLSQP Optimization Problem prior to ODE Modelling."
+        description="PhosKinTime - SLSQP mRNA-TF Optimization Problem."
     )
     parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound.")
     parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")

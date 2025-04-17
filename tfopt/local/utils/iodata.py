@@ -3,9 +3,7 @@ import pandas as pd
 import numpy as np
 from tfopt.local.config.constants import INPUT3, INPUT1, INPUT4
 
-# -------------------------------
-# Data Preprocessing Functions
-# -------------------------------
+
 def min_max_normalize(df, custom_max=None):
     """
     Row-wise (per-sample) min-max normalize time-series columns starting with 'x'.
@@ -107,9 +105,18 @@ def load_regulation(filename=INPUT4):
 
 def summarize_stats(input3=INPUT3, input1=INPUT1, input4=INPUT4):
     """
-    Shows global and time-wise min, max, std, and variance
-    for full input3 and input1, and for the subset defined by input4.
-    input4: CSV with 'Source' and 'Target' columns (mapping expression to TF protein).
+    Summarizes statistics for the expression data (input3) and TF protein data (input1).
+    It also summarizes the data after filtering based on the mapping file (input4).
+
+    The function prints the following statistics:
+        - Global min, max, std, var for the full dataset.
+        - Time-wise min, max, std, var for each time point.
+        - Global min, max, std, var for the subset data (filtered by input4).
+        - Time-wise min, max, std, var for the subset data.
+    Args:
+        input3 (str): Path to the expression data CSV file.
+        input1 (str): Path to the TF protein data CSV file.
+        input4 (str): Path to the mapping file CSV.
     """
     # Load input3: expression data
     expr_df = pd.read_csv(input3)

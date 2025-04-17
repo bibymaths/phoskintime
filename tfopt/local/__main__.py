@@ -15,9 +15,20 @@ from tfopt.fitanalysis.helper import Plotter
 logger = setup_logger()
 
 def main():
+    """
+    Main function to run the mRNA-TF optimization problem.
+    This function orchestrates the loading of data, preparation of fixed arrays,
+    setting up optimization parameters, running the optimization, and post-processing
+    the results. It also handles the visualization and saving of results.
+    The function starts by parsing command line arguments, loading and filtering
+    data, preparing the data and fixed arrays, setting up optimization parameters,
+    running the optimization, and finally post-processing the results.
+    """
     logger.info("[Local Optimization] mRNA-TF Optimization Problem Started")
 
+    # STEP 0: Parse command line arguments.
     lb, ub, loss_type = parse_args()
+
     # STEP 1: Load and filter the data.
     gene_ids, expr_matrix, expr_time_cols, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, tf_time_cols, reg_map = \
         load_and_filter_data()
@@ -51,12 +62,18 @@ def main():
     # STEP 5: Post-process results and output.
     final_x, final_alpha, final_beta = postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices,
                                                            num_psites, reg_map, gene_ids, tf_ids, psite_labels_arr)
+
+    # Compute predictions and plot results.
     predictions = compute_predictions(final_x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                                       beta_start_indices, num_psites)
     plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, expr_time_cols, regulators,
                                tf_protein_matrix, tf_ids, num_targets=n_genes)
+
+    # Save results to Excel.
     save_results_to_excel(gene_ids, tf_ids, final_alpha, final_beta, psite_labels_arr, expression_matrix,
                           predictions, result.fun, reg_map)
+
+    # Generate plots.
     plotter = Plotter(OUT_FILE, OUT_DIR)
     plotter.plot_alpha_distribution()
     plotter.plot_beta_barplots()
@@ -69,9 +86,14 @@ def main():
     plotter.plot_cdf_alpha()
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
+
+    # Copy output file to the ODE_DATA_DIR.
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
+
+    # Organize output files and create a report.
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
+
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
 
 if __name__ == "__main__":

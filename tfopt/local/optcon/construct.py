@@ -63,12 +63,9 @@ def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite
 
     return expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites
 
-# -------------------------------
-# Constraint Functions
-# -------------------------------
 def constraint_alpha_func(x, n_genes, n_reg):
     """
-    For each gene, the sum of its α parameters must equal 1.
+    For each gene, the sum of its alpha parameters must equal 1.
     """
     cons = []
     for i in range(n_genes):
@@ -80,6 +77,9 @@ def constraint_alpha_func(x, n_genes, n_reg):
 
 
 def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf):
+    """
+    For each TF, the sum of its beta parameters must equal 1.
+    """
     cons = []
     for tf in range(n_TF):
         length = 1 + num_psites[tf]  # Total beta parameters for TF tf.
@@ -92,6 +92,13 @@ def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_ps
     return np.array(cons)
 
 def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf):
+    """
+    Build linear constraints for the optimization problem.
+
+    The constraints are:
+    1. For each mRNA, the sum of its alpha parameters must equal 1.
+    2. For each TF, the sum of its beta parameters must equal 1.
+    """
     total_vars = n_alpha + sum(1 + num_psites[i] for i in range(n_TF))
 
     # --- Alpha constraints ---
