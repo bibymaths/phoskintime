@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 
 def map_optimization_results(file_path):
@@ -70,8 +71,12 @@ def map_optimization_results(file_path):
 
 if __name__ == "__main__":
     file_path = '../data/tfopt_results.xlsx'  # Replace with your file path
+    # Call the function to map optimization results
     mapped_df = map_optimization_results(file_path)
+    # Save the mapped DataFrame to a CSV file
     mapped_df.to_csv('mapped_TF_mRNA_phospho.csv', index=False)
+    # Move the file to the data folder
+    os.rename('mapped_TF_mRNA_phospho.csv', '../data/mapping.csv')
 
 """ 
 PAK2 doesn't exist in CollectTRI (so also not in input4.csv) but it is  

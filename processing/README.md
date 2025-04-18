@@ -1,6 +1,8 @@
 # Data Cleanup and Processing Workflow
 
-This project standardizes raw data files for downstream analysis in kinase and TF-mRNA optimization pipelines. The processing script (`cleanup.py`) performs data cleanup, transformation, and then moves the processed files into designated directories.
+This project standardizes raw data files for downstream analysis in kinase and TF-mRNA optimization pipelines.  
+The processing script (`cleanup.py`) performs data cleanup, transformation, and then moves the processed files  
+into designated directories.
 
 ## Directory Structure
 

@@ -88,7 +88,9 @@ def sensitivity_analysis(time_points, num_psites, init_cond, gene):
         try:
             sol, _ = solve_ode(params, init_cond, num_psites, time_points)
             # Sum last time point P1, P2, ..., Pn
-            Y[i] = np.sum(sol[-1, list(range(2, 2 + num_psites))]) if ODE_MODEL == 'randmod' else np.sum(sol[-1, 2:2 + num_psites])
+            Y[i] = np.sum(sol[-1, list(range(2, 2 + num_psites))])  \
+                if ODE_MODEL == 'randmod'  \
+                else np.sum(sol[-1, 2:2 + num_psites])
         except Exception:
             Y[i] = np.nan
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
