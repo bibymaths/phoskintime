@@ -69,14 +69,86 @@ def map_optimization_results(file_path):
 
     return merged_df
 
+def create_cytoscape_table(mapping_csv_path):
+    """
+    Creates a Cytoscape-compatible edge table from a mapping file.
+
+    Parameters:
+        mapping_csv_path (str): Path to the input CSV file with columns: TF, mRNA, Psite, Kinase
+
+    Returns:
+        pd.DataFrame: Edge table with columns [Source, Target, Interaction]
+    """
+    df = pd.read_csv(mapping_csv_path)
+
+    kinase_tf_edges = []
+    tf_mrna_edges = []
+
+    for _, row in df.iterrows():
+        tf = row["TF"]
+
+        # Add Kinase -> TF edges
+        if pd.notna(row["Kinase"]):
+            for kinase in str(row["Kinase"]).split(","):
+                kinase_tf_edges.append((kinase.strip(), tf.strip(), "phosphorylates"))
+
+        # Add TF -> mRNA edges
+        if pd.notna(row["mRNA"]):
+            for gene in str(row["mRNA"]).split(","):
+                tf_mrna_edges.append((tf.strip(), gene.strip(), "regulates"))
+
+    edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges,
+                           columns=["Source", "Target", "Interaction"])
+    return edge_df
+
+def generate_nodes(edge_df):
+    """
+    Infers node types for Cytoscape visualization:
+    - All nodes default to 'Kinase'
+    - Nodes that are only targets of 'regulates' are labeled 'mRNA'
+
+    Parameters:
+        edge_df (pd.DataFrame): Must have columns ['Source', 'Target', 'Interaction']
+
+    Returns:
+        pd.DataFrame: DataFrame with columns ['Node', 'Type']
+    """
+    node_roles = {}
+
+    for _, row in edge_df.iterrows():
+        src, tgt, interaction = row["Source"], row["Target"], row["Interaction"]
+
+        if interaction == "regulates":
+            node_roles[tgt] = "mRNA"  # explicitly mRNA
+            node_roles[src] = node_roles.get(src, "Kinase")  # TFs are still Kinases here
+        else:
+            node_roles[src] = "Kinase"
+            if tgt not in node_roles:
+                node_roles[tgt] = "Kinase"
+
+    return pd.DataFrame([
+        {"Node": node, "Type": node_type}
+        for node, node_type in node_roles.items()
+    ])
+
 if __name__ == "__main__":
     file_path = '../data/tfopt_results.xlsx'  # Replace with your file path
     # Call the function to map optimization results
     mapped_df = map_optimization_results(file_path)
     # Save the mapped DataFrame to a CSV file
     mapped_df.to_csv('mapped_TF_mRNA_phospho.csv', index=False)
-    # Move the file to the data folder
+    # Create a Cytoscape-compatible edge table
+    edge_table = create_cytoscape_table('mapped_TF_mRNA_phospho.csv')
+    # Save the edge table to a CSV file
+    edge_table.to_csv('mapping_table.csv', index=False)
+    # Generate nodes for Cytoscape
+    nodes_df = generate_nodes(edge_table)
+    # Save the nodes DataFrame to a CSV file
+    nodes_df.to_csv('nodes.csv', index=False)
+    # Move the files to the data folder
+    os.rename('nodes.csv', '../data/nodes.csv')
     os.rename('mapped_TF_mRNA_phospho.csv', '../data/mapping.csv')
+    os.rename('mapping_table.csv', '../data/mapping_.csv')
 
 """ 
 PAK2 doesn't exist in CollectTRI (so also not in input4.csv) but it is  
