@@ -1,6 +1,6 @@
 # PhosKinTime Documentation
  
-<img src="../static/images/logo_3.png" alt="Package Logo" width="200"/>    
+<img src="../images/logo_3.png" alt="Package Logo" width="200"/>    
 
 Welcome to the official documentation for **PhosKinTime**, an ODE-based modeling toolkit for phosphorylation kinetics and transcriptional time-series analysis. This index page provides an overview of each package and submodule in the project.
 
