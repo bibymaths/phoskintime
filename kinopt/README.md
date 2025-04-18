@@ -1,13 +1,13 @@
-# abopt: A Comprehensive Optimization Framework for PhosKinTime
+# kinopt: A Comprehensive Optimization Framework for PhosKinTime
 
-**abopt** is a modular framework designed for the analysis and optimization of gene–phosphorylation time-series data. It integrates several specialized submodules that cater to different optimization strategies and post-processing analyses. Whether you need a global evolutionary approach, a local constrained optimization, or a Julia-based Powell optimization routine, **abopt** offers the tools to process your experimental data and generate in-depth reports on model performance.
+**kinopt** is a modular framework designed for the analysis and optimization of gene–phosphorylation time-series data. It integrates several specialized submodules that cater to different optimization strategies and post-processing analyses. Whether you need a global evolutionary approach, a local constrained optimization, or a Julia-based Powell optimization routine, **kinopt** offers the tools to process your experimental data and generate in-depth reports on model performance.
 
 ---
 
 ## Directory Structure
 
 ```
-abopt/
+kinopt/
 ├── data
 │   ├── input1.csv             # Primary input data file with gene-phosphorylation data.
 │   └── input2.csv             # Interaction data file containing kinase information.
@@ -61,7 +61,7 @@ abopt/
 
 ## Overview
 
-**abopt** provides an end-to-end solution for:
+**kinopt** provides an end-to-end solution for:
 
 - **Data Preparation:**  
   Preprocess and scale input CSV files containing time-series data and kinase interactions.
@@ -168,8 +168,8 @@ After any optimization run, the **optimality** module is invoked (either directl
 
 Contributions are welcome! Please refer to the main repository documentation for guidelines on contributing, reporting issues, and feature requests.
 
-**abopt** is distributed under the Apache 2.0 license. See the LICENSE file in the repository for more details.
+**kinopt** is distributed under the Apache 2.0 license. See the LICENSE file in the repository for more details.
 
 ---
 
-This README provides an overview of the **abopt** framework, outlining its structure, features, and usage instructions. For detailed documentation on each submodule, please refer to the individual README.md files within the respective directories.
+This README provides an overview of the **kinopt** framework, outlining its structure, features, and usage instructions. For detailed documentation on each submodule, please refer to the individual README.md files within the respective directories.
