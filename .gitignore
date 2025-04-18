@@ -9,3 +9,4 @@ logs/
 /processing/raw/
 /processing/*.csv
 __pycache__/
+/network/
