@@ -35,7 +35,6 @@ classifiers  = [
 
 # Only these directories will be packaged
 packages = [
-  { include = "background" },
   { include = "bin" },
   { include = "config" },
   { include = "kinopt" },
@@ -55,7 +54,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python         = ">=3.10,<3.13"
+python = ">=3.10,<3.14"
 numpy          = "*"
 pandas         = "*"
 seaborn        = "*"

@@ -33,3 +33,9 @@ __pycache__/
 
 # Ignore network definitions or outputs
 /network/
+
+#Igore any lock files
+*.lock
+
+# Ignore any dist files - wheels
+/dist/
