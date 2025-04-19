@@ -50,9 +50,8 @@ packages = [
 
 # Extra non‑code files to include
 include = [
-  { path = "README.md", format = "text/markdown" },
-  { path = "LICENSE",   format = "text/plain" },
-  { path = "mkdocs.yml", format = "text/plain" },
+  "README.md",
+  "LICENSE",
 ]
 
 [tool.poetry.dependencies]
