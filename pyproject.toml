@@ -74,6 +74,7 @@ graphviz       = "*"
 mygene         = "*"
 python-dotenv  = "*"
 cobyqa         = "*"
+typer          = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest     = "*"

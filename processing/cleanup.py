@@ -1,12 +1,14 @@
 import shutil
-
 import pandas as pd
 import numpy as np
 import mygene, os, concurrent.futures
 from tqdm import tqdm
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
+BASE = Path(__file__).parent                      # …/processing
 
 # Directory where the raw data files should be located
-base_dir = "raw"
+base_dir = BASE / "raw"
 
 def process_collecttri():
     """
@@ -326,8 +328,8 @@ def move_processed_files():
     """
 
     # Create a new directory if it doesn't exist
-    tf_data_dir = "../tfopt/data"
-    kin_data_dir = "../kinopt/data"
+    tf_data_dir = ROOT / "tfopt" / "data"
+    kin_data_dir = ROOT / "kinopt" / "data"
 
     os.makedirs(tf_data_dir, exist_ok=True)
     os.makedirs(kin_data_dir, exist_ok=True)
@@ -339,7 +341,6 @@ def move_processed_files():
     ]
     tfopt_files = [
         "input1.csv",
-        # "input1_wstd.csv",
         "input3.csv",
         "input4.csv"
     ]
@@ -397,5 +398,9 @@ if __name__ == "__main__":
 """ 
 These IDs, cannot be converted to Symbols in MS Gaussian:
 
-4 input query terms found no hit:	['55747', '283331', '729269', '100133171'] 
+4 input query terms found no hit:	['55747', '283331', '729269', '100133171']   
+ 
+Latest:
+
+6 input query terms found no hit:       ['55747', '283331', '377711', '649055', '729269', '100133171']
 """

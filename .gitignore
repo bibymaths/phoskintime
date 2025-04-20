@@ -1,8 +1,9 @@
 # Ignore all Python files in the project root
 /*.py
 
-# But keep the root __init__.py so the package remains valid
+# But keep the root __init__.py and __main__.py so the package remains valid
 !/__init__.py
+!/__main__.py
 
 # Ignore runtime logs
 logs/
