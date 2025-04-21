@@ -1,7 +1,3 @@
-Here’s a complete `README.md` for the `local/` subpackage of your PhosKinTime project:
-
----
-
 # local — Local Constrained Optimization Framework
 
 The `local` subpackage provides a constrained optimization backend for fitting transcriptional regulatory models to gene expression time-series data using local solvers like `SLSQP`. It is designed for precision optimization when global heuristics (e.g., genetic algorithms) are not necessary or for refinement after global search.

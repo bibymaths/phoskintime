@@ -29,27 +29,40 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
     Returns:
       The computed loss (a scalar).
     """
+    # Initialize loss
     total_loss = 0.0
+    # Initialize the number of genes and time points
     n_alpha = n_genes * n_reg
     nT = n_genes * T_use
+    # Initialize the number of regulators
     for i in prange(n_genes):
+        # Compute the predicted expression for each gene
         R_meas = expression_matrix[i, :T_use]
+        # Initialize the predicted expression
         R_pred = np.zeros(T_use)
+        # Loop over the regulators for each gene
         for r in range(n_reg):
+            # Get the index of the transcription factor (TF) for this regulator
             tf_idx = regulators[i, r]
             if tf_idx == -1:  # No valid TF for this regulator
                 continue
+            # Get the TF protein time series
             a = x[i * n_reg + r]
             protein = tf_protein_matrix[tf_idx, :T_use]
+            # Get the starting index for the beta vector for this TF
             beta_start = beta_start_indices[tf_idx]
             length = 1 + num_psites[tf_idx]  # actual length of beta vector for TF
+            # Extract the beta vector for this TF
             beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
-
+            # Compute the effect on the TF from the missing phosphorylation sites
             tf_effect = beta_vec[0] * protein
             for k in range(num_psites[tf_idx]):
+                # Compute the effect of each post-translational modification
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
-
+            # Compute the predicted expression
             R_pred += a * tf_effect
+            # Ensure non-negative predictions
+            np.clip(R_pred, 0.0, None)
 
             # VECTORIZED RESIDUAL - use when mRNAs are > 500
         #     diff = R_meas - R_pred

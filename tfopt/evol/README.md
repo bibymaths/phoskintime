@@ -4,7 +4,7 @@ The `evol` subpackage within **PhosKinTime** provides a modular and extensible f
 
 ---
 
-## 📁 Module Structure
+## Module Structure
 
 ```
 evol/

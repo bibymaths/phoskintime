@@ -180,24 +180,36 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
     Returns:
       The computed loss (a scalar).
     """
+    # Initialize loss to zero.
     total_loss = 0.0
+    # Compute the loss for each mRNA.
     n_alpha = n_mRNA * n_reg
     for i in prange(n_mRNA):
+        # Get the measured mRNA values and initialize the predicted mRNA values.
         R_meas = mRNA_mat[i, :T_use]
         R_pred = np.zeros(T_use)
+        # For each regulator, compute the predicted mRNA values.
         for r in range(n_reg):
+            # Get the index of the TF for this regulator.
             tf_idx = regulators[i, r]
             if tf_idx == -1: # No valid TF for this regulator
                 continue
+            # Get the TF activity, protein levels, and beta vector.
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
             beta_start = beta_start_indices[tf_idx]
+            # Get the length of the beta vector for this TF.
             length = 1 + num_psites[tf_idx]  # actual length of beta vector for TF
             beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
+            # Compute the predicted mRNA values.
             tf_effect = beta_vec[0] * protein
             for k in range(num_psites[tf_idx]):
+                # Add the effect of each phosphorylation site.
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
+            # Compute the predicted mRNA values.
             R_pred += a * tf_effect
+            # Ensure R_pred is non-negative
+            np.clip(R_pred, 0.0, None, out=R_pred)
         # For each time point, add loss according to loss_type.
         for t in range(T_use):
             e = R_meas[t] - R_pred[t]
@@ -222,17 +234,23 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
         l2 = 0.0
         # Compute over beta parameters only.
         for i in range(n_alpha, x.shape[0]):
+            # Get the beta vector for this TF.
             v = x[i]
+            # Add L1 and L2 penalties.
             l1 += abs(v)
             l2 += v * v
+        # Compute the penalties.
         loss += lam1 * l1 + lam2 * l2
 
     # For Tikhonov (loss_type 6), add L2 penalty on the beta portion.
     if loss_type == 6:
         l2 = 0.0
+        # Compute over beta parameters only.
         for i in range(n_alpha, x.shape[0]):
             v = x[i]
+            # Add L2 penalty.
             l2 += v * v
+        # Compute the penalty.
         loss += lam1 * l2
 
     return loss

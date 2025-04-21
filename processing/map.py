@@ -1,5 +1,9 @@
 import os
 import pandas as pd
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
+BASE = Path(__file__).parent                      # …/processing
 
 def map_optimization_results(file_path):
     """
@@ -46,7 +50,7 @@ def map_optimization_results(file_path):
     # result['mRNA_Count'] = result['mRNA'].apply(lambda x: len(x.split(',')))
 
     # Read another csv file which has TF aka GeneID and Psites and Kinases to merge with the result
-    kinopt_file = pd.read_csv('raw/input2.csv')
+    kinopt_file = pd.read_csv(BASE/ "raw" / "input2.csv")
     df2 = kinopt_file.rename(columns={'GeneID': 'TF'})
     merged_df = pd.merge(result, df2, on='TF', how='left')
 
@@ -132,7 +136,8 @@ def generate_nodes(edge_df):
     ])
 
 if __name__ == "__main__":
-    file_path = '../data/tfopt_results.xlsx'  # Replace with your file path
+    # Path to the Excel file of mRNA-TF optimization results
+    file_path = ROOT / "data" / "tfopt_results.xlsx"
     # Call the function to map optimization results
     mapped_df = map_optimization_results(file_path)
     # Save the mapped DataFrame to a CSV file
@@ -146,9 +151,13 @@ if __name__ == "__main__":
     # Save the nodes DataFrame to a CSV file
     nodes_df.to_csv('nodes.csv', index=False)
     # Move the files to the data folder
-    os.rename('nodes.csv', '../data/nodes.csv')
-    os.rename('mapped_TF_mRNA_phospho.csv', '../data/mapping.csv')
-    os.rename('mapping_table.csv', '../data/mapping_.csv')
+    os.rename('nodes.csv', ROOT / "data" / 'nodes.csv')
+    os.rename('mapped_TF_mRNA_phospho.csv', ROOT / "data" / 'mapping.csv')
+    os.rename('mapping_table.csv',  ROOT / "data" / 'mapping_.csv')
+
+
+# Note: The following comment is an example of how to handle missing data
+# PAK2 is not included in the mapping file because it doesn't exist in the input4.csv file.
 
 """ 
 PAK2 doesn't exist in CollectTRI (so also not in input4.csv) but it is  
