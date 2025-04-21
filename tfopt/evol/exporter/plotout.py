@@ -64,8 +64,8 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         ax.set_title(f"mRNA: {gene_ids[i]}")
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("Fold Changes")
-        ax.set_xticks(combined_ticks)
-        ax.set_xticklabels(combined_ticks, rotation=45)
+        ax.set_xticks(combined_ticks[4:])
+        ax.set_xticklabels(combined_ticks[4:])
         ax.grid(True, alpha=0.3)
 
         # --- First 5 time points plot ---
@@ -83,60 +83,12 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
                 plotted_tfs.add(tf_name)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_vals_expr[:5])
-        ax.set_xticklabels(time_vals_expr[:5], rotation=45)
+        ax.set_xticklabels(time_vals_expr[:5])
         ax.legend(title="TFs")
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(f"{save_path}/{gene_ids[i]}_model_fit_.png", dpi=300)
         plt.close()
-
-        # This block is for saving two plots for one TF
-        # One for full time series and one for first 5 time points
-        # To see clearly the dynamics early on
-
-        # plt.figure(figsize=(8, 8))
-        # plt.plot(time_vals_expr, expression_matrix[i, :], 's-', label='Observed')
-        # plt.plot(time_vals_expr, predictions[i, :], '-', label='Estimated')
-        # # Plot protein time series for each regulator of mRNA i (only unique TFs)
-        # plotted_tfs = set()
-        # for r in regulators[i, :]:
-        #     if r == -1:  # Skip invalid TF
-        #         continue
-        #     tf_name = tf_ids[r]
-        #     if tf_name not in plotted_tfs:
-        #         protein_signal = tf_protein_matrix[r, :T]
-        #         plt.plot(time_vals_tf, protein_signal, ':', label=f"mRNA: {tf_name}")
-        #         plotted_tfs.add(tf_name)
-        # plt.title(f"mRNA: {gene_ids[i]}")
-        # plt.xlabel("Time (minutes)")
-        # plt.ylabel("Fold Changes")
-        # plt.xticks(combined_ticks, combined_ticks, rotation=45)
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.grid(True, alpha=0.3)
-        # plt.show()
-        #
-        # plt.figure(figsize=(8, 8))
-        # plt.plot(time_vals_expr[:5], expression_matrix[i, :5], 's-', label='Observed')
-        # plt.plot(time_vals_expr[:5], predictions[i, :5], '-', label='Estimated')
-        # # Plot protein time series for each regulator of mRNA i (only unique TFs)
-        # plotted_tfs = set()
-        # for r in regulators[i, :]:
-        #     if r == -1:  # Skip invalid TF
-        #         continue
-        #     tf_name = tf_ids[r]
-        #     if tf_name not in plotted_tfs:
-        #         protein_signal = tf_protein_matrix[r, :5]
-        #         plt.plot(time_vals_tf[:5], protein_signal, ':', label=f"mRNA: {tf_name}")
-        #         plotted_tfs.add(tf_name)
-        # plt.title(f"mRNA: {gene_ids[i]}")
-        # plt.xlabel("Time (minutes)")
-        # plt.ylabel("Fold Changes")
-        # plt.xticks(time_vals_expr[:5], time_vals_expr[:5], rotation=45)
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.grid(True, alpha=0.3)
-        # plt.show()
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(

@@ -9,6 +9,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -124,9 +125,9 @@ class Plotter:
                 edgecolor='black',
                 linewidth=0.5
             )
-            plt.xlabel("Phosphorylation - Residue Position")
-            plt.ylabel("Transcription Factor")
-            plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity")
+            plt.xlabel("Phosphorylation - Residue Position", fontsize = 7)
+            plt.ylabel("β", fontsize = 7)
+            plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity", fontsize=7)
             plt.grid(True, alpha=0.2)
             plt.tight_layout()
             plt.savefig(f'{self.savepath}/TF_{tf}_beta_group.png', dpi=300)
@@ -160,58 +161,118 @@ class Plotter:
         fits a linear regression model, plots the 95% confidence interval,
         and labels points outside the confidence interval.
         """
-        plt.figure(figsize=(12, 12))
-        plt.scatter(self.df_obs, self.df_est, alpha=0.5)
+        # plt.figure(figsize=(12, 12))
+        # plt.scatter(self.df_obs, self.df_est, alpha=0.5)
+        #
+        # mRNAs = self.df.index
+        # for i, mRNA in enumerate(mRNAs):
+        #     plt.scatter(
+        #         self.df_obs.iloc[i],
+        #         self.df_est.iloc[i],
+        #         label=mRNA,
+        #         alpha=0.5,
+        #         s=100,
+        #         edgecolor='black'
+        #     )
+        #
+        # # Linear Regression and Confidence Interval Calculation
+        # X = self.df_obs.values.reshape(-1, 1)
+        # y = self.df_est.values.reshape(-1, 1)
+        # model = LinearRegression()
+        # model.fit(X, y)
+        # y_pred = model.predict(X)
+        # mse = mean_squared_error(y, y_pred)
+        # std_error = np.sqrt(mse)
+        #
+        # # Flatten arrays for plotting
+        # obs_flat = self.df_obs.values.flatten()
+        # est_flat = self.df_est.values.flatten()
+        #
+        # plt.fill_between(
+        #     obs_flat,
+        #     y_pred.flatten() - 1.96 * std_error,
+        #     y_pred.flatten() + 1.96 * std_error,
+        #     color='gray', alpha=0.3, label='95% CI'
+        # )
+        #
+        # # Label any points that lie outside the 95% confidence interval
+        # for i, (x_val, y_val) in enumerate(zip(obs_flat, est_flat)):
+        #     if i < len(mRNAs):
+        #         if y_val < y_pred.flatten()[i] - 1.96 * std_error or y_val > y_pred.flatten()[i] + 1.96 * std_error:
+        #             plt.text(
+        #                 x_val, y_val, mRNAs[i],
+        #                 fontsize=8, ha='right', va='bottom',
+        #                 fontweight='light', fontstyle='normal'
+        #             )
+        #
+        # plt.plot(obs_flat, y_pred, color='red', linestyle='--', label='Estimated Values', linewidth=0.5)
+        # plt.xlabel('Observed Values')
+        # plt.ylabel('Estimated Values')
+        # plt.title('Goodness of Fit')
+        # plt.grid(True, alpha=0.1)
+        # plt.tight_layout()
+        # plt.savefig(f'{self.savepath}/Goodness_of_Fit.png', dpi=300)
+        # plt.close()
+        fig, ax = plt.subplots(figsize=(10, 10))
 
-        mRNAs = self.df.index
-        for i, mRNA in enumerate(mRNAs):
-            plt.scatter(
-                self.df_obs.iloc[i],
-                self.df_est.iloc[i],
-                label=mRNA,
-                alpha=0.5,
-                s=100,
-                edgecolor='black'
-            )
-
-        # Linear Regression and Confidence Interval Calculation
-        X = self.df_obs.values.reshape(-1, 1)
-        y = self.df_est.values.reshape(-1, 1)
-        model = LinearRegression()
-        model.fit(X, y)
-        y_pred = model.predict(X)
-        mse = mean_squared_error(y, y_pred)
-        std_error = np.sqrt(mse)
-
-        # Flatten arrays for plotting
+        # Flatten arrays
         obs_flat = self.df_obs.values.flatten()
         est_flat = self.df_est.values.flatten()
+        mRNAs    = self.df.index
 
-        plt.fill_between(
-            obs_flat,
-            y_pred.flatten() - 1.96 * std_error,
-            y_pred.flatten() + 1.96 * std_error,
-            color='gray', alpha=0.3, label='95% CI'
-        )
+        # scatter all points
+        ax.scatter(obs_flat, est_flat, alpha=0.5)
 
-        # Label any points that lie outside the 95% confidence interval
-        for i, (x_val, y_val) in enumerate(zip(obs_flat, est_flat)):
-            if i < len(mRNAs):
-                if y_val < y_pred.flatten()[i] - 1.96 * std_error or y_val > y_pred.flatten()[i] + 1.96 * std_error:
-                    plt.text(
-                        x_val, y_val, mRNAs[i],
-                        fontsize=8, ha='right', va='bottom',
-                        fontweight='light', fontstyle='normal'
-                    )
+        # optional: label individually
+        for i, mRNA in enumerate(mRNAs):
+            ax.scatter(
+                obs_flat[i], est_flat[i],
+                label=mRNA, alpha=0.5, s=100, edgecolor='black'
+            )
 
-        plt.plot(obs_flat, y_pred, color='red', linestyle='--', label='Estimated Values', linewidth=0.5)
-        plt.xlabel('Observed Values')
-        plt.ylabel('Estimated Values')
-        plt.title('Goodness of Fit')
-        plt.grid(True, alpha=0.1)
+        # compute residuals’ std and CI offsets
+        diffs       = est_flat - obs_flat
+        std_diff    = np.std(diffs, ddof=1)
+        ci_offset_95 = 1.96 * std_diff
+        ci_offset_99 = 2.576 * std_diff
+
+        # define plotting range
+        min_val = min(obs_flat.min(), est_flat.min())
+        max_val = max(obs_flat.max(), est_flat.max())
+
+        # 45° diagonal
+        ax.plot([min_val, max_val], [min_val, max_val],
+                color='gray', linestyle='-', linewidth=1.5, label='y = x')
+
+        # ±95% band
+        ax.plot([min_val, max_val],
+                [min_val + ci_offset_95, max_val + ci_offset_95],
+                color='red', linestyle='--', linewidth=1, label='±95%')
+        ax.plot([min_val, max_val],
+                [min_val - ci_offset_95, max_val - ci_offset_95],
+                color='red', linestyle='--', linewidth=1)
+
+        # ±99% band
+        ax.plot([min_val, max_val],
+                [min_val + ci_offset_99, max_val + ci_offset_99],
+                color='gray', linestyle='--', linewidth=1, label='±99%')
+        ax.plot([min_val, max_val],
+                [min_val - ci_offset_99, max_val - ci_offset_99],
+                color='gray', linestyle='--', linewidth=1)
+
+        # label points outside the 95% band
+        for x_val, y_val, mRNA in zip(obs_flat, est_flat, mRNAs):
+            if abs(y_val - x_val) > ci_offset_95:
+                ax.text(x_val, y_val, mRNA,
+                        fontsize=8, ha='right', va='bottom', fontweight='light', fontstyle='normal')
+
+        ax.set_xlabel('Observed Values')
+        ax.set_ylabel('Estimated Values')
+        ax.set_title('Goodness of Fit')
+        ax.grid(True, alpha=0.1)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Goodness_of_Fit.png', dpi=300)
-        plt.close()
+        plt.close(fig)
 
     def plot_kld(self):
         """
@@ -354,7 +415,7 @@ class Plotter:
         plt.ylabel('Residuals', fontsize=7)
         plt.yticks(fontsize=8)
         plt.xticks(fontsize=8)
-        plt.legend(loc='best', fontsize=8, frameon=True)
+        # plt.legend(loc='best', fontsize=8, frameon=True)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Time_Wise_Residuals.png', dpi=300)
         plt.close()

@@ -1,6 +1,10 @@
 import numpy as np
 from numba import njit, prange
 from pymoo.core.problem import Problem
+
+from tfopt.evol.config.constants import VECTORIZED_LOSS_FUNCTION
+
+
 # -------------------------------
 # Multi-Objective Problem Definition
 # -------------------------------
@@ -184,6 +188,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
     total_loss = 0.0
     # Compute the loss for each mRNA.
     n_alpha = n_mRNA * n_reg
+    nT = n_mRNA * T_use
     for i in prange(n_mRNA):
         # Get the measured mRNA values and initialize the predicted mRNA values.
         R_meas = mRNA_mat[i, :T_use]
@@ -210,6 +215,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
             R_pred += a * tf_effect
         # Ensure R_pred is non-negative
         np.clip(R_pred, 0.0, None, out=R_pred)
+
         # For each time point, add loss according to loss_type.
         for t in range(T_use):
             e = R_meas[t] - R_pred[t]
@@ -226,7 +232,8 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
             else:
                 # Default to MSE if unknown.
                 total_loss += e * e
-    loss = total_loss / (n_mRNA * T_use)
+
+    loss = total_loss / nT
 
     # For elastic net (loss_type 5), add L1 and L2 penalties on the beta portion.
     if loss_type == 5:

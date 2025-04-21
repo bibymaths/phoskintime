@@ -1,6 +1,9 @@
 import numpy as np
 from numba import prange, njit
 
+from tfopt.local.config.constants import VECTORIZED_LOSS_FUNCTION
+
+
 @njit(cache=False, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
@@ -62,34 +65,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
             # Compute the predicted expression
             R_pred += a * tf_effect
         # Ensure non-negative predictions
-        # np.clip(R_pred, 0.0, None)
-
-            # VECTORIZED RESIDUAL - use when mRNAs are > 500
-        #     diff = R_meas - R_pred
-        #     if loss_type == 0:  # MSE
-        #         total_loss += np.dot(diff, diff)
-        #     elif loss_type == 1:  # MAE
-        #         total_loss += np.sum(np.abs(diff))
-        #     elif loss_type == 2:  # Soft L1 (pseudo-Huber)
-        #         total_loss += 2.0 * np.sum(np.sqrt(1.0 + diff * diff) - 1.0)
-        #     elif loss_type == 3:  # Cauchy
-        #         total_loss += np.sum(np.log(1.0 + diff * diff))
-        #     elif loss_type == 4:  # Arctan
-        #         total_loss += np.sum(np.arctan(diff * diff))
-        #     else:
-        #         total_loss += np.dot(diff, diff)
-        #
-        # loss = total_loss / nT
-        #
-        # # For elastic net penalty (loss_type 5) using vectorized operations.
-        # if loss_type == 5:
-        #     beta = x[n_alpha:]
-        #     loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
-        #
-        # # For Tikhonov regularization (loss_type 6).
-        # if loss_type == 6:
-        #     beta = x[n_alpha:]
-        #     loss += lam1 * np.dot(beta, beta)
+        np.clip(R_pred, 0.0, None, out=R_pred)
 
         # Residuals computed timepoint-by-timepoint
         for t in range(T_use):
@@ -157,7 +133,6 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
             R_pred += a * tf_effect
         predictions[i, :] = R_pred
     return predictions
-
 
 def objective_wrapper(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                       beta_start_indices, num_psites, loss_type):
