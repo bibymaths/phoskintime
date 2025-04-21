@@ -3,6 +3,7 @@ from kinopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DAT
 from kinopt.local.config.helpers import location
 from kinopt.local.exporter.sheetutils import output_results
 from kinopt.local.opt.optrun import run_optimization
+from kinopt.local.optcon.construct import check_kinases
 from kinopt.local.utils.iodata import load_and_scale_data, organize_output_files, create_report
 from kinopt.local.objfn import objective_wrapper
 from kinopt.local.optcon import (build_K_data, build_constraints, build_P_initial, init_parameters,
@@ -42,6 +43,10 @@ def main():
     """
     # Set up logging.
     logger.info('[Local Optimization] Started - Kinase Phosphorylation Time Series')
+
+    # Check for the missing kinases in the input files.
+    # From the input2.csv file, it checks if the kinases are present in the input1.csv file.
+    check_kinases()
 
     # Parse arguments.
     lb, ub, loss_type, estimate_missing, scaling_method, split_point, seg_points, opt_method = parse_args()

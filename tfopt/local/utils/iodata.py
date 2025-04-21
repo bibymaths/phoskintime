@@ -17,13 +17,10 @@ def min_max_normalize(df, custom_max=None):
     """
     df = df.copy()
     time_cols = [col for col in df.columns if col.startswith("x")]
-    other_cols = [col for col in df.columns if not col.startswith("x")]
-
     data = df[time_cols].to_numpy(dtype=float)
 
     row_min = np.min(data, axis=1, keepdims=True)
     if custom_max is not None:
-        row_max = custom_max
         denom = (custom_max - row_min)
     else:
         row_max = np.max(data, axis=1, keepdims=True)
@@ -40,9 +37,9 @@ def load_expression_data(filename=INPUT3):
     Expects a CSV with a 'GeneID' column and time-point columns.
     """
     df = pd.read_csv(filename)
-    # Normlaize for high unscaled variability
+    # Normalize for high unscaled variability
     # Exists often
-    # df = min_max_normalize(df, 4)
+    # df = min_max_normalize(df)
     gene_ids = df["GeneID"].astype(str).tolist()
     time_cols = [col for col in df.columns if col != "GeneID"]
     expression_matrix = df[time_cols].to_numpy(dtype=float)
@@ -58,7 +55,7 @@ def load_tf_protein_data(filename=INPUT1):
     df = pd.read_csv(filename)
     # Normlaize for high unscaled variability
     # Exists often
-    # df = min_max_normalize(df, 4)
+    # df = min_max_normalize(df)
     tf_protein = {}
     tf_psite_data = {}
     tf_psite_labels = {}

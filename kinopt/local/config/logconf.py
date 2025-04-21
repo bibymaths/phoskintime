@@ -19,7 +19,7 @@ LOG_COLORS = {
 }
 
 class ColoredFormatter(logging.Formatter):
-    def __init__(self, fmt=None, datefmt=None, width=150):
+    def __init__(self, fmt=None, datefmt=None, width=200):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
         self.width = width

@@ -61,8 +61,8 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
             # Compute the predicted expression
             R_pred += a * tf_effect
-            # Ensure non-negative predictions
-            np.clip(R_pred, 0.0, None)
+        # Ensure non-negative predictions
+        np.clip(R_pred, 0.0, None)
 
             # VECTORIZED RESIDUAL - use when mRNAs are > 500
         #     diff = R_meas - R_pred
@@ -91,33 +91,33 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
         #     beta = x[n_alpha:]
         #     loss += lam1 * np.dot(beta, beta)
 
-            # Residuals computed timepoint-by-timepoint
-            for t in range(T_use):
-                diff = R_meas[t] - R_pred[t]
-                if loss_type == 0:  # MSE
-                    total_loss += diff * diff
-                elif loss_type == 1:  # MAE
-                    total_loss += np.abs(diff)
-                elif loss_type == 2:  # Soft L1
-                    total_loss += 2.0 * (np.sqrt(1.0 + diff * diff) - 1.0)
-                elif loss_type == 3:  # Cauchy
-                    total_loss += np.log(1.0 + diff * diff)
-                elif loss_type == 4:  # Arctan
-                    total_loss += np.arctan(diff * diff)
-                else:  # default to MSE
-                    total_loss += diff * diff
+        # Residuals computed timepoint-by-timepoint
+        for t in range(T_use):
+            diff = R_meas[t] - R_pred[t]
+            if loss_type == 0:  # MSE
+                total_loss += diff * diff
+            elif loss_type == 1:  # MAE
+                total_loss += np.abs(diff)
+            elif loss_type == 2:  # Soft L1
+                total_loss += 2.0 * (np.sqrt(1.0 + diff * diff) - 1.0)
+            elif loss_type == 3:  # Cauchy
+                total_loss += np.log(1.0 + diff * diff)
+            elif loss_type == 4:  # Arctan
+                total_loss += np.arctan(diff * diff)
+            else:  # default to MSE
+                total_loss += diff * diff
 
-        loss = total_loss / nT
+    loss = total_loss / nT
 
-        # Regularization penalties
-        if loss_type == 5:
-            beta = x[n_alpha:]
-            loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
-        elif loss_type == 6:
-            beta = x[n_alpha:]
-            loss += lam1 * np.dot(beta, beta)
+    # Regularization penalties
+    if loss_type == 5:
+        beta = x[n_alpha:]
+        loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
+    elif loss_type == 6:
+        beta = x[n_alpha:]
+        loss += lam1 * np.dot(beta, beta)
 
-        return loss
+    return loss
 
 def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
                         num_psites):

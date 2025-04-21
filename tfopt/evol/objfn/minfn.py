@@ -208,8 +208,8 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
             # Compute the predicted mRNA values.
             R_pred += a * tf_effect
-            # Ensure R_pred is non-negative
-            np.clip(R_pred, 0.0, None, out=R_pred)
+        # Ensure R_pred is non-negative
+        np.clip(R_pred, 0.0, None, out=R_pred)
         # For each time point, add loss according to loss_type.
         for t in range(T_use):
             e = R_meas[t] - R_pred[t]

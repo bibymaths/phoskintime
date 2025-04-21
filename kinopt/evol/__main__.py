@@ -5,6 +5,7 @@ from kinopt.evol.config.constants import OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from kinopt.evol.config.helpers import location
 from kinopt.evol.exporter.sheetutils import output_results
 from kinopt.evol.objfn import estimated_series, residuals
+from kinopt.evol.optcon.construct import check_kinases
 from kinopt.fitanalysis import optimization_performance
 
 if METHOD == "DE":
@@ -81,6 +82,10 @@ def main():
     - kinopt.evol.config.helpers: For helper functions.
     """
     logger.info('[Global Optimization] Started - Kinase Phosphorylation Optimization Problem')
+
+    # Check for the missing kinases in the input files.
+    # From the input2.csv file, it checks if the kinases are present in the input1.csv file.
+    check_kinases()
 
     # Initialize the optimization problem.
     problem, result = run_optimization(

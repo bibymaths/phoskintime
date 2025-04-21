@@ -1,8 +1,17 @@
+import csv
+from collections import defaultdict
+
 import numpy as np
 from scipy.optimize import LinearConstraint
 from scipy.sparse import csr_matrix
 from typing import Tuple
 from numpy.typing import NDArray
+
+from kinopt.local.config.constants import INPUT2, INPUT1 
+ 
+from kinopt.local.config.logconf import setup_logger
+logger = setup_logger()
+
 
 def _build_P_initial(full_df, interact_df):
     """
@@ -291,4 +300,50 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
             })
             beta_start += bc
 
-        return cons
+        return cons 
+     
+def load_geneid_to_psites(input1_path=INPUT1):
+    geneid_psite_map = defaultdict(set)
+    with open(input1_path, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            geneid = row['GeneID'].strip()
+            psite = row['Psite'].strip()
+            if geneid and psite:
+                geneid_psite_map[geneid].add(psite)
+    return geneid_psite_map
+
+def get_unique_kinases(input2_path=INPUT2):
+    kinases = set()
+    with open(input2_path, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            kinase_raw = row['Kinase'].strip()
+            # Remove surrounding curly braces if present
+            if kinase_raw.startswith("{") and kinase_raw.endswith("}"):
+                kinase_raw = kinase_raw[1:-1]
+            # Split if it's a list like {KIN1,KIN2}
+            for k in kinase_raw.split(","):
+                k = k.strip()
+                if k:
+                    kinases.add(k)
+    return kinases
+
+def check_kinases():
+    geneid_to_psites = load_geneid_to_psites()
+    kinases = get_unique_kinases()
+
+    logger.info("--- Kinase Check in input1.csv ---")
+    for kinase in sorted(kinases):
+        if kinase in geneid_to_psites:
+            psites = sorted(geneid_to_psites[kinase])
+            logger.info(f"{kinase}: Found, Psites in input1 -> {psites}")
+        else:
+            logger.info(f"{kinase}: Missing")
+
+    logger.info("--- Summary ---")
+    found = sum(1 for k in kinases if k in geneid_to_psites)
+    missing = len(kinases) - found
+    logger.info(f"Total unique kinases: {len(kinases)}")
+    logger.info(f"Found: {found}")
+    logger.info(f"Missing: {missing}")
