@@ -70,6 +70,8 @@ def load_tf_protein_data(filename=INPUT1):
     for _, row in df.iterrows():
         tf = str(row["GeneID"]).strip()
         psite = str(row["Psite"]).strip()
+        if not psite.startswith(("S_", "Y_", "T_")):
+            continue  # Skip psite values that don't start with S_, Y_, or T_
         vals = row[orig_time_cols].to_numpy(dtype=float)
         vals = vals[5:] if len(orig_time_cols) >= 14 else vals
         if tf not in tf_protein:

@@ -51,6 +51,8 @@ def load_TF_data(filename=INPUT1):
     for _, row in df.iterrows():
         tf = str(row["GeneID"]).strip()
         psite = str(row["Psite"]).strip()
+        if not psite.startswith(("S_", "Y_", "T_")):
+            continue  # Skip psite values that don't start with S_, Y_, or T_
         time_cols = [col for col in df.columns if col not in ["GeneID", "Psite"]]
         vals = row[time_cols].to_numpy(dtype=float)
         if tf not in protein_dict:
