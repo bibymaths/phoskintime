@@ -154,6 +154,11 @@ if __name__ == "__main__":
     os.rename('nodes.csv', ROOT / "data" / 'nodes.csv')
     os.rename('mapped_TF_mRNA_phospho.csv', ROOT / "data" / 'mapping.csv')
     os.rename('mapping_table.csv',  ROOT / "data" / 'mapping_.csv')
+    # Show clickable hyperlinks for the generated files
+    for fpath in [ROOT / "data" / 'nodes.csv',
+                  ROOT / "data" / 'mapping.csv',
+                  ROOT / "data" / 'mapping_.csv']:
+        print(f"{fpath.as_uri()}")
 
 
 # Note: The following comment is an example of how to handle missing data

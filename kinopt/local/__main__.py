@@ -108,5 +108,9 @@ def main():
 
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
 
+    # Click to open the report in a web browser.
+    for fpath in [OUT_DIR / 'report.html']:
+        print(f"{fpath.as_uri()}")
+
 if __name__ == "__main__":
     main()

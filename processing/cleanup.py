@@ -395,6 +395,21 @@ if __name__ == "__main__":
     # You need to manually put input2.csv in ./kinopt/data/ (if not already there)
     move_processed_files()
 
+    # 7. Print clickable hyperlinks for key output files
+    output_files = [
+        ROOT / "kinopt" / "data" / "input1.csv",
+        ROOT / "kinopt" / "data" / "input2.csv",
+        ROOT / "tfopt" / "data" / "input3.csv",
+        ROOT / "tfopt" / "data" / "input4.csv",
+        ROOT / "tfopt" / "data" / "input1.csv",  # reused in TFopt
+        ROOT / "tfopt" / "data" / "input1_wstd.csv"
+    ]
+
+    for fpath in output_files:
+        if fpath.exists():
+            print(f"{fpath.as_uri()}")
+
+
 """ 
 These IDs, cannot be converted to Symbols in MS Gaussian:
 
