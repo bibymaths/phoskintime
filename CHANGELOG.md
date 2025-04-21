@@ -1,0 +1,22 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2025-04-19
+### Added
+- Initial release of **PhosKinTime**, a Python toolkit for ODE-based modeling of phosphorylation kinetics and transcriptional time-series.
+- Features include:
+  - Parameter estimation.
+  - Sensitivity analysis.
+  - Steady-state computation.
+  - Interactive visualization.
+- Support for Python 3.10, 3.11, and 3.12.
+- Dependencies include `numpy`, `pandas`, `seaborn`, `matplotlib`, `scipy`, and more.
+- CLI entry point `phoskintime` via `bin.main:main`.
+- Packaged directories: `bin`, `config`, `kinopt`, `models`, `paramest`, `plotting`, `sensitivity`, `steady`, `tfopt`, and `utils`.
+- Documentation and homepage available at [https://bibymaths.github.io/phoskintime/](https://bibymaths.github.io/phoskintime/). 
+   
+## [Unreleased] 
+### Added
