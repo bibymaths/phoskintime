@@ -62,7 +62,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
             # Compute the predicted expression
             R_pred += a * tf_effect
         # Ensure non-negative predictions
-        np.clip(R_pred, 0.0, None)
+        # np.clip(R_pred, 0.0, None)
 
             # VECTORIZED RESIDUAL - use when mRNAs are > 500
         #     diff = R_meas - R_pred
