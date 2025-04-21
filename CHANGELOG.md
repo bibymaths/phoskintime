@@ -18,5 +18,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Packaged directories: `bin`, `config`, `kinopt`, `models`, `paramest`, `plotting`, `sensitivity`, `steady`, `tfopt`, and `utils`.
 - Documentation and homepage available at [https://bibymaths.github.io/phoskintime/](https://bibymaths.github.io/phoskintime/). 
    
-## [Unreleased] 
+## [Unreleased]
 ### Added
+- Added light grid in plotting of model.
+- Added `CHANGELOG.md`.
+- Added direct link to open file from CLI.
+- Added CLI wrappers for entry point.
+- Added deployment configuration file.
+- Added support for network via Cytoscape.
+
+### Fixed
+- Fixed display of missing kinases in output before optimization in `kinopt`.
+
+### Removed
+- Removed clipping of predicted expression.
