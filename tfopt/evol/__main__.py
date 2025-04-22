@@ -54,6 +54,14 @@ def main():
                                                                     psite_dict, psite_labels_dict,
                                                                     relevant_TFs)
 
+    # logger.info(f"Names of mRNAs: {mRNA_ids}")
+    # logger.info(f"Names of TFs: {TF_ids}")
+    # logger.info(f"Names of TFProtein: {protein_dict}")
+    # logger.info(f"Names of TFPsiteData: {psite_dict}")
+    # logger.info(f"Names of TFPsiteLabels: {psite_labels_dict}")
+    # logger.info(f"Names of TFTimeCols: {TF_time_cols}")
+    # logger.info(f"Names of RegMap: {reg_map}")
+
     # Determine the common time series length.
     T_use = determine_T_use(mRNA_mat, TF_time_cols)
     mRNA_mat = mRNA_mat[:, :T_use]
@@ -66,8 +74,8 @@ def main():
     n_mRNA = mRNA_mat.shape[0]
     n_TF = protein_mat.shape[0]
 
-    logger.info(f"Number of mRNAs: {n_mRNA}")
-    logger.info(f"Number of TFs: {n_TF}")
+    # logger.info(f"Number of mRNAs: {n_mRNA}")
+    # logger.info(f"Number of TFs: {n_TF}")
 
     # Create an array marking TFs with no PSite data.
     no_psite_tf = create_no_psite_array(n_TF, num_psites, psite_labels_arr)
@@ -142,7 +150,7 @@ def main():
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
 
-    logger.info(f'Report & Results {location(str(OUT_DIR))}')
+    logger.info(f'[Global] Report & Results {location(str(OUT_DIR))}')
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:

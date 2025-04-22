@@ -33,7 +33,7 @@ def load_TF_data(filename=INPUT1):
     and the time columns.
     The TF_ids are converted to strings, and the protein data is stored in a dictionary with TF_ids as keys.
     The phosphorylation site data is stored in a list for each TF_id, and the phosphorylation site labels are also stored in a list.
-    The time columns are extracted from the DataFrame, excluding the "GeneID" and "Psite" columns.
+    The time columns are being extracted from the DataFrame, excluding the "GeneID" and "Psite" columns.
     The function returns:
         - TF_ids: List of TF gene identifiers (strings).
         - protein_dict: Dictionary mapping TF_ids to their protein data (numpy arrays).
@@ -44,6 +44,7 @@ def load_TF_data(filename=INPUT1):
     :param filename: str
     :return: TF_ids, protein_dict, psite_dict, psite_labels_dict, time_cols
     """
+    expr_gene_ids, expression_matrix, expr_time_cols = load_mRNA_data()
     df = pd.read_csv(filename)
     protein_dict = {}
     psite_dict = {}
@@ -62,6 +63,14 @@ def load_TF_data(filename=INPUT1):
         else:
             psite_dict[tf].append(vals)
             psite_labels_dict[tf].append(psite)
+
+    # Add expression data to tf_protein (only if not already present)
+    for gene_id, expr_vals in zip(expr_gene_ids, expression_matrix):
+        if gene_id not in protein_dict:
+            protein_dict[gene_id] = expr_vals
+            psite_dict[gene_id] = []
+            psite_labels_dict[gene_id] = []
+
     TF_ids = list(protein_dict.keys())
     return TF_ids, protein_dict, psite_dict, psite_labels_dict, time_cols
 
@@ -80,8 +89,8 @@ def load_regulation(filename=INPUT4):
     df = pd.read_csv(filename)
     reg_map = {}
     for _, row in df.iterrows():
-        mrna = str(row["Source"]).strip()
-        tf = str(row["Target"]).strip()
+        tf = str(row["Source"]).strip()
+        mrna = str(row["Target"]).strip()
         if mrna not in reg_map:
             reg_map[mrna] = []
         if tf not in reg_map[mrna]:
@@ -155,7 +164,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>mRNA-TF Optimization Report</h1>"
+        "<h1>[Global] mRNA-TF Optimization Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.

@@ -33,19 +33,26 @@ def main():
     gene_ids, expr_matrix, expr_time_cols, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, tf_time_cols, reg_map = \
         load_and_filter_data()
 
-    # logger.info(f"tf_protein: {tf_protein}")
-    # logger.info(f"tf_psite_data: {tf_psite_data}")
+    # logger.info(f"Names of mRNAs: {gene_ids}")
+    # logger.info(f"Names of TFs: {tf_ids}")
+    # logger.info(f"Names of TFProtein: {tf_protein}")
+    # logger.info(f"Names of TFPsiteData: {tf_psite_data}")
+    # logger.info(f"Names of TFPsiteLabels: {tf_psite_labels}")
+    # logger.info(f"Names of TFTimeCols: {tf_time_cols}")
+    # logger.info(f"Names of RegMap: {reg_map}")
+
     # summarize_stats()
 
     # STEP 2: Prepare data and build fixed arrays.
     fixed_arrays, T_use = prepare_data(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data,
                                         tf_psite_labels, tf_time_cols, reg_map)
     expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites = fixed_arrays
-    n_genes = expression_matrix.shape[0]
-    n_TF = tf_protein_matrix.shape[0]
 
-    logger.info(f"Number of messenger RNAs: {n_genes}")
-    logger.info(f"Number of Transcription Factors: {n_TF}")
+    # n_genes = expression_matrix.shape[0]
+    # n_TF = tf_protein_matrix.shape[0]
+
+    # logger.info(f"Number of messenger RNAs: {n_genes}")
+    # logger.info(f"Number of Transcription Factors: {n_TF}")
 
     # STEP 3: Set up optimization parameters.
     x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use = \
@@ -94,7 +101,7 @@ def main():
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
 
-    logger.info(f'Report & Results {location(str(OUT_DIR))}')
+    logger.info(f'[Local] Report & Results {location(str(OUT_DIR))}')
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:

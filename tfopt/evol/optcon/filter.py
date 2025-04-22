@@ -34,7 +34,7 @@ def filter_mrna(mRNA_ids, mRNA_mat, reg_map):
     :param reg_map: Regulation map, mapping mRNA genes to their regulators.
     :return: filtered_mRNA_ids, filtered_mRNA_mat
     """
-    filtered_indices = [i for i, gene in enumerate(mRNA_ids) if gene in reg_map and len(reg_map[gene]) > 0]
+    filtered_indices = [i for i, gene in enumerate(mRNA_ids) if gene in reg_map]
     if not filtered_indices:
         raise ValueError("No mRNA with regulators found.")
     return [mRNA_ids[i] for i in filtered_indices], mRNA_mat[filtered_indices, :]
@@ -52,9 +52,8 @@ def update_regulations(mRNA_ids, reg_map, TF_ids):
     relevant_TFs = set()
     for gene in mRNA_ids:
         regs = reg_map.get(gene, [])
-        regs_filtered = [tf for tf in regs if tf in TF_ids]
-        reg_map[gene] = regs_filtered
-        relevant_TFs.update(regs_filtered)
+        reg_map[gene] = regs
+        relevant_TFs.update(regs)
     return relevant_TFs
 
 def filter_TF(TF_ids, protein_dict, psite_dict, psite_labels_dict, relevant_TFs):
