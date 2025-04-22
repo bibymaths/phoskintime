@@ -10,7 +10,7 @@ from config.helpers import *
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
@@ -62,7 +62,7 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - USE_REGULARIZATION: Enables (True) or disables (False) Tikhonov (L2) regularization during model fitting.
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
-USE_REGULARIZATION = True
+USE_REGULARIZATION = False
 LAMBDA_REG = 1e-4
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
