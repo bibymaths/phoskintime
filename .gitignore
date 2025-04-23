@@ -40,3 +40,6 @@ __pycache__/
 
 # Ignore any dist files - wheels
 /dist/
+
+# Ignore any documentation files
+/docs/
