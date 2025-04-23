@@ -26,7 +26,7 @@ def run_optimization(problem, total_dim, optimizer):
     """
     # Define algorithm settings.
     global algo
-    pop_size = 200
+    pop_size = total_dim*2
     crossover = TwoPointCrossover(prob=0.9)
     mutation = PolynomialMutation(prob=1.0 / total_dim, eta=20)
     eliminate_duplicates = True

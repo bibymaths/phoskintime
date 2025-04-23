@@ -29,30 +29,15 @@ def map_optimization_results(file_path):
     # Filter the DataFrame for non-zero values
     non_zero_df = df[df['Value'] != 0]
 
-    # Filter for positive values
-    # non_zero_df = df[df['Value'] > 0]
-
-    # Take all values without filtering
-    # non_zero_df = df
-
-    # Filter very small values out
-    # non_zero_df = non_zero_df[non_zero_df['Value'] > 0.0001]
-
     # Extract the mRNA for each TF where Values was not zero
-    result = non_zero_df[['TF', 'mRNA']]
+    result = non_zero_df[['mRNA', 'TF']]
 
-    # Display value along with TF and mRNA
-    # result['Value'] = str(non_zero_df['Value'])
-
-    result = result.groupby('TF').agg(lambda x: ', '.join(x)).reset_index()
-
-    # List number of mRNA for each TF
-    # result['mRNA_Count'] = result['mRNA'].apply(lambda x: len(x.split(',')))
+    result = result.groupby('mRNA').agg(lambda x: ', '.join(x)).reset_index()
 
     # Read another csv file which has TF aka GeneID and Psites and Kinases to merge with the result
     kinopt_file = pd.read_csv(BASE/ "raw" / "input2.csv")
-    df2 = kinopt_file.rename(columns={'GeneID': 'TF'})
-    merged_df = pd.merge(result, df2, on='TF', how='left')
+    df2 = kinopt_file.rename(columns={'GeneID': 'mRNA'})
+    merged_df = pd.merge(result, df2, on='mRNA', how='left')
 
     # Remove {} from the Kinases column with format {kinase1, kinase2, kinase3}
     merged_df['Kinase'] = merged_df['Kinase'].astype(str)
@@ -66,7 +51,7 @@ def map_optimization_results(file_path):
     merged_df = merged_df[merged_df['Psite'].isin(df2['Psite'])]
 
     # Empty cells in mRNA column if they are repeateed in the next row
-    merged_df['mRNA'] = merged_df['mRNA'].where(merged_df['mRNA'] != merged_df['mRNA'].shift(), '')
+    merged_df['TF'] = merged_df['TF'].where(merged_df['TF'] != merged_df['TF'].shift(), '')
 
     merged_df = merged_df.drop_duplicates()
     merged_df = merged_df.reset_index(drop=True)
@@ -89,17 +74,17 @@ def create_cytoscape_table(mapping_csv_path):
     tf_mrna_edges = []
 
     for _, row in df.iterrows():
-        tf = row["TF"]
+        mRNA = row["mRNA"]
 
-        # Add Kinase -> TF edges
+        # Add Kinase -> mRNA edges
         if pd.notna(row["Kinase"]):
             for kinase in str(row["Kinase"]).split(","):
-                kinase_tf_edges.append((kinase.strip(), tf.strip(), "phosphorylates"))
+                kinase_tf_edges.append((kinase.strip(), mRNA.strip(), "phosphorylates"))
 
         # Add TF -> mRNA edges
-        if pd.notna(row["mRNA"]):
-            for gene in str(row["mRNA"]).split(","):
-                tf_mrna_edges.append((tf.strip(), gene.strip(), "regulates"))
+        if pd.notna(row["TF"]):
+            for tf in str(row["TF"]).split(","):
+                tf_mrna_edges.append((tf.strip(), mRNA.strip(), "regulates"))
 
     edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges,
                            columns=["Source", "Target", "Interaction"])
@@ -123,12 +108,11 @@ def generate_nodes(edge_df):
         src, tgt, interaction = row["Source"], row["Target"], row["Interaction"]
 
         if interaction == "regulates":
-            node_roles[tgt] = "mRNA"  # explicitly mRNA
-            node_roles[src] = node_roles.get(src, "Kinase")  # TFs are still Kinases here
+            node_roles[src] = "TF"
+            node_roles[tgt] = "Kinase" if src not in node_roles else node_roles[tgt]
         else:
             node_roles[src] = "Kinase"
-            if tgt not in node_roles:
-                node_roles[tgt] = "Kinase"
+            node_roles[tgt] = "Kinase"
 
     return pd.DataFrame([
         {"Node": node, "Type": node_type}

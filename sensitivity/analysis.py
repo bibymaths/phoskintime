@@ -33,6 +33,7 @@ def define_sensitivity_problem_ds(ub, num_psites):
 
     Args:
         num_psites (int): Number of phosphorylation sites.
+        ub (float): Upper bound for the parameters.
 
     Returns:
         dict: Problem definition for sensitivity analysis.
