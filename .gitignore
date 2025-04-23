@@ -8,9 +8,6 @@
 # Ignore runtime logs
 logs/
 
-# Ignore GitHub workflow/config files
-.github/
-
 # Ignore tfopt and kinopt generated data
 /tfopt/data/
 /kinopt/data/
