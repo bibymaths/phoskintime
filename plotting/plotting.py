@@ -113,7 +113,7 @@ class Plotter:
             si = np.linspace(0, len(solution) - 1, 1000)
             fig = plt.figure(figsize=(8, 8))
             ax = fig.add_subplot(111, projection='3d')
-            sc = ax.scatter(x, y, z, c=indices, cmap='tab20', marker='o', markeredgecolor='black', alpha=0.7)
+            sc = ax.scatter(x, y, z, c=indices, cmap='tab20', marker='o', edgecolor='black', alpha=0.7)
             fig.colorbar(sc, label="Time Index")
             ax.plot(cs_x(si), cs_y(si), cs_z(si), color='red', alpha=0.3, label='Temporal Path')
             for i, (xi, yi, zi) in enumerate(zip(x, y, z)):

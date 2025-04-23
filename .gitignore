@@ -1,6 +1,9 @@
 # Ignore all Python files in the project root
 /*.py
 
+# Ignore all bash scripts in the project root
+/*.sh
+
 # But keep the root __init__.py and __main__.py so the package remains valid
 !/__init__.py
 !/__main__.py
@@ -32,8 +35,11 @@ __pycache__/
 # Ignore network definitions or outputs
 /network/
 
-#Igore any lock files
+# Ignore any lock files
 *.lock
+
+# Ignore any environment files
+*.env
 
 # Ignore any dist files - wheels
 /dist/
