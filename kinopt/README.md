@@ -9,8 +9,8 @@
 ```
 kinopt/
 ├── data
-│   ├── input1.csv             # Primary input data file with gene-phosphorylation data.
-│   └── input2.csv             # Interaction data file containing kinase information.
+│   ├── input1.csv             # Primary input data file with phosphorylation time series data.
+│   └── input2.csv             # Interaction data file containing protein-phosphorylation-kinase information.
 ├── evol
 │   ├── config                 # Configuration files (constants, logging, etc.) for the evolutionary approach.
 │   ├── exporter               # Plotting and Excel sheet export functions.
@@ -19,15 +19,12 @@ kinopt/
 │   ├── objfn                  # Objective function implementations (single- and multi-objective).
 │   ├── opt                    # Optimization routines (integration with pymoo).
 │   ├── optcon                 # Functions to construct input data, constraints, and precomputed mappings.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the evol module.
 │   └── utils                  # Utility functions for data I/O and parameter extraction.
 ├── fitanalysis
 │   ├── helpers                # Auxiliary scripts for additional performance evaluation.
 │   ├── __init__.py
 │   ├── __main__.py            # Entry point for fit analysis.
-│   └── __pycache__
-├── __init__.py
 ├── local
 │   ├── config                 # Configuration files specific to local optimization.
 │   ├── exporter               # Functions for exporting local optimization results and diagnostic plots.
@@ -36,25 +33,19 @@ kinopt/
 │   ├── objfn                  # Local objective function implementations with Numba acceleration.
 │   ├── opt                    # Local optimization routines using SciPy.
 │   ├── optcon                 # Construction of local constraints and precomputation of mappings.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the local module.
 │   └── utils                  # Utilities for data scaling, file organization, and report generation.
 ├── optimality
 │   ├── __init__.py
 │   ├── KKT.py                 # Post-optimization analysis: feasibility, sensitivity, and reporting.
-│   ├── __pycache__
 │   └── README.md              # Detailed readme for the optimality module.
 ├── powell
 │   ├── __init__.py
 │   ├── __main__.py            # Entry point for Julia-based Powell optimization.
 │   ├── powell.jl              # Julia script implementing Powell’s method.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the powell module.
-│   └── runpowell.py           # Python script to run the Powell optimization and log output.
-├── __pycache__
-│   ├── __init__.cpython-313.pyc
-│   └── __main__.cpython-313.pyc
-└── README.md                  # This file.
+│   └── runpowell.py           # Python script to run the Powell optimization and log output. 
+├── __init__.py
 ```
 
 ---

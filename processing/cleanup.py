@@ -39,7 +39,7 @@ def process_collecttri():
     df_genes = df_genes[df_genes['Target'].str.strip() != '']
     df_genes = df_genes.drop_duplicates()
 
-    # Keep only interactions where Target (TFs) is present in input2.csv
+    # Keep only interactions where Target (mRNAs) is present in input2.csv
     df_readable = df_readable[df_readable['Target'].isin(df_genes['Target'])]
 
     # Save the cleaned mRNA - TFs interactions to input4.csv
@@ -95,7 +95,7 @@ def process_msgauss():
     Raises:
         FileNotFoundError: If the input file is not found in the specified directory.
     """
-    # Load the MS_Gaussian_updated_09032023.csv file
+    # Load the MS_Gaussian file
     df = pd.read_csv(os.path.join(base_dir, "MS_Gaussian_updated_09032023.csv"))
 
     df['Psite'] = df['site'].fillna('').astype(str)

@@ -1,4 +1,4 @@
-# Sensitivity Module
+# Sensitivity Analysis
 
 The Sensitivity module provides functionality for performing sensitivity analysis on the ODE-based phosphorylation models in the PhosKinTime package. Using the Morris method from SALib, this module evaluates the influence of each model parameter on the output of the system, thereby helping to identify the most critical parameters and potential nonlinear interactions.
 
@@ -33,14 +33,6 @@ This module (primarily implemented in `analysis.py`) defines functions that:
   - A radial (spider) plot summarizing sensitivity metrics.
   - Cumulative Distribution Function (CDF) plot of sensitivity indices.
   - Pie chart showing the proportional sensitivity contribution of each parameter.
-
-## Dependencies
-
-- **SALib:** For Morris sampling (`morris.sample`) and sensitivity analysis (`morris.analyze`).
-- **Matplotlib:** For generating various plots.
-- **NumPy:** For numerical operations.
-- **PhosKinTime Package Modules:**  
-  Uses configuration settings (from `config/constants.py`) and the ODE solver (from the `models` module).
 
 ## Usage
 

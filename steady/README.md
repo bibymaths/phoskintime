@@ -1,66 +1,101 @@
-# Steady Module 
 
-The **steady** module provides functions to compute the steady‐state initial conditions required for simulating the ODE-based phosphorylation models within the PhosKinTime package. These functions solve the steady-state equations—where all derivatives are zero—using optimization routines. The steady-state conditions are critical for ensuring that the model simulations start from biologically meaningful states.
+# Steady-State Initializers for Phosphorylation Models
 
-## Overview
+These scripts compute **biologically meaningful steady-state initial values** for different phosphorylation models, which are required as **starting points for ODE simulations**.
 
-The module includes several implementations tailored to different modeling approaches:
+Instead of guessing or using arbitrary initial values, we solve a **nonlinear system of equations** that ensures:
 
-- **`initdist.py` (Distributive Model):**  
-  Calculates the steady-state initial conditions for models where phosphorylation occurs in a distributive manner. This function assumes that phosphorylation events are independent and solves for the states of the system by minimizing a dummy objective function subject to the steady-state constraints.
+> **All time derivatives are zero at $t = 0$**  
+> → i.e., the system is at equilibrium
 
-- **`initrand.py` (Random Model):**  
-  Provides an implementation for the random model. It accounts for all possible combinations of phosphorylation states by using binary representations and generates the corresponding steady-state conditions using a constraint-based optimization approach.
+---
 
-- **`initsucc.py` (Successive Model):**  
-  Computes steady-state initial conditions for models with a successive phosphorylation mechanism, where phosphorylation occurs sequentially. It uses a similar optimization approach to solve the steady-state equations.
+## What Is Being Computed?
 
-Each of these files defines an `initial_condition(num_psites: int) -> list` function that:
-- Sets up the steady-state equations based on fixed parameter values (e.g., A, B, C, D, S_rates, and D_rates).
-- Provides a reasonable initial guess.
-- Uses `scipy.optimize.minimize` (with the SLSQP method) to find a solution where all time derivatives are zero.
-- Returns the computed steady-state values as a list.
+For each model, we're solving:
 
-## Key Features
+$$
+\text{Find } \mathbf{y}_0 \text{ such that } \frac{d\mathbf{y}}{dt}\bigg|_{t=0} = \mathbf{0}
+$$
 
-- **Model-Specific Steady-State Calculation:**  
-  Each function is tailored to the specifics of the underlying model (distributive, random, or successive), ensuring that the appropriate steady-state conditions are determined.
+where $\mathbf{y} = [R, P, \dots]$ are all species in the system.
 
-- **Constraint-Based Optimization:**  
-  The steady-state is calculated by solving a set of equality constraints (i.e., setting the derivatives to zero) using the SLSQP algorithm, ensuring that the returned initial conditions satisfy the model dynamics.
+This is done using **constrained numerical optimization** (`scipy.optimize.minimize`) to solve a system of equations $f(\mathbf{y}) = 0$.
 
-- **Logging:**  
-  Logging is integrated via the package’s logging configuration (`config/logconf.py`), allowing users to monitor the progress and success of the steady-state calculation.
+---
 
-## Usage
+## Model-Specific Logic
 
-To obtain the steady-state initial conditions for a given number of phosphorylation sites, simply import and call the appropriate function based on your model type. For example:
+### 1. **Distributive Model**
+
+- Each site $i$ is phosphorylated independently
+- Steady-state means:
+  - mRNA synthesis balances degradation
+  - Protein synthesis balances degradation and phosphorylation
+  - Each phosphorylated state $P_i$ is in flux balance
+
+You solve a nonlinear system:
+
+$$
+\begin{aligned}
+A - B R &= 0 \\
+C R - (D + \sum S_i) P + \sum P_i &= 0 \\
+S_i P - (1 + D_i) P_i &= 0 \quad \forall i
+\end{aligned}
+$$
+
+---
+
+### 2. **Successive Model**
+
+- Sites are phosphorylated in sequence
+- Initial condition requires that **flow through the chain** is at equilibrium:
+  - $P \rightarrow P_0 \rightarrow P_1 \rightarrow \dots \rightarrow P_n$
+
+Steady-state means each conversion step:
+- Has equal incoming and outgoing rates
+- Balances intermediate accumulations
+
+You solve:
+
+$$
+\text{Same logic, but with additional internal terms involving adjacent states}
+$$
+
+---
+
+### 3. **Random Model**
+
+- All possible phosphorylated combinations are treated as distinct states
+- Total number of states = $2^n - 1$ (excluding unphosphorylated state)
+
+You construct a system:
+
+- One equation for $R$ and $P$
+- One for each state $X_j$ (each subset of phosphorylated sites)
+- For each state, compute net phosphorylation in/out, and degradation
+
+Mathematically:
+
+$$
+\text{Each state } X_j: \quad \text{gain from P or other } X_k \quad - \quad \text{loss by phosphorylation, degradation, etc.} = 0
+$$
+
+This is a **sparse, coupled nonlinear system** where each subset has dynamic transitions with others.
+
+---
+
+## Output
+
+Each function:
 
 ```python
-# For the distributive model:
-from steady.initdist import initial_condition
-
-num_psites = 3  # Example: 3 phosphorylation sites
-init_cond = initial_condition(num_psites)
-print("Steady-state initial conditions (distributive):", init_cond)
-
-# For the random model:
-from steady.initrand import initial_condition
-
-init_cond_rand = initial_condition(num_psites)
-print("Steady-state initial conditions (random):", init_cond_rand)
-
-# For the successive model:
-from steady.initsucc import initial_condition
-
-init_cond_succ = initial_condition(num_psites)
-print("Steady-state initial conditions (successive):", init_cond_succ)
+initial_condition(num_psites: int) -> List[float]
 ```
 
-These initial conditions are then used as input for ODE solvers within the package to simulate the phosphorylation dynamics.
+Returns steady-state concentrations:
 
-## Conclusion
+- $[R, P, P_1, ..., P_n]$ (for `distributive` and `successive`)
+- $[R, P, X_1, ..., X_k]$ (for `random`, where $X_k$ are the subset states)
 
-The **steady** module is a fundamental part of the PhosKinTime package, ensuring that simulations begin from a biologically realistic and mathematically consistent state. By providing tailored steady-state solvers for various kinetic models, it supports robust and accurate ODE simulations for phosphorylation dynamics.
-
-For more details or customization, refer to the source code in `initdist.py`, `initrand.py`, and `initsucc.py`.
+---

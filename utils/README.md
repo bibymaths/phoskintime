@@ -1,6 +1,4 @@
-
-
-# Utils Module 
+# Utils
 
 The **utils** module provides a collection of helper functions that streamline data handling, output formatting, file management, and report/table generation throughout the PhosKinTime package. These utilities ensure that results from parameter estimation, sensitivity analysis, and other computations are organized, saved, and displayed consistently.
 
@@ -42,45 +40,3 @@ This submodule provides functions for generating and saving data tables:
 
 - **Master Table Creation:**  
   - `save_master_table(folder="latex", output_file="latex/all_tables.tex")`: Generates a master LaTeX file that includes all the individual table files from a specified folder.
-
-## Usage Example
-
-Below is a sample code snippet that demonstrates how to use the utilities:
-
-```python
-from utils.display import ensure_output_directory, load_data, format_duration, save_result, create_report, organize_output_files
-from utils.tables import generate_tables, save_tables, save_master_table
-
-# Create the output directory if it doesn't exist
-output_dir = "./results"
-ensure_output_directory(output_dir)
-
-# Load experimental data from an Excel file
-data = load_data("data/optimization_results.xlsx")
-
-# Format a duration (e.g., 125 seconds becomes "2.08 min")
-print(format_duration(125))
-
-# Save a list of result dictionaries to an Excel file
-results = [
-    {"gene": "GeneX", "param_df": ...},  # Replace "..." with your DataFrame
-    {"gene": "GeneY", "param_df": ...}
-]
-save_result(results, "results/combined_results.xlsx")
-
-# Generate a global HTML report from the results directory
-create_report(output_dir, "report.html")
-
-# Organize output files into gene-specific folders
-organize_output_files(output_dir)
-
-# Generate and save hierarchical tables from an Excel file
-tables = generate_tables("data/optimization_results.xlsx")
-save_tables(tables, output_dir)
-save_master_table("latex", "latex/all_tables.tex")
-```
-
-## Conclusion
-
-The **utils** module is a critical component of the PhosKinTime package. It provides robust functions for ensuring directories exist, loading and formatting data, saving results, generating comprehensive HTML reports, and producing publication-ready tables. These utilities facilitate a seamless workflow from data analysis to the presentation of results, making the package easier to use and customize.
-
