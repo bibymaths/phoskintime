@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Interactive visualization.
 - Support for Python 3.10, 3.11, and 3.12.
 - Dependencies include `numpy`, `pandas`, `seaborn`, `matplotlib`, `scipy`, and more.
-- CLI entry point `phoskintime` via `bin.main:main`.
+- CLI entry point `phoskintime` via `bin.main:main` in root.
 - Packaged directories: `bin`, `config`, `kinopt`, `models`, `paramest`, `plotting`, `sensitivity`, `steady`, `tfopt`, and `utils`.
 - Documentation and homepage available at [https://bibymaths.github.io/phoskintime/](https://bibymaths.github.io/phoskintime/). 
    

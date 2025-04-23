@@ -13,15 +13,15 @@ plugins:
 nav:
   - Home: index.md
   - Reference: reference.md
-  - Changelog: ../CHANGELOG.md
+  - Changelog: Documentation/CHANGELOG.md
   - Documentation:
-      - Main: ../bin/README.md
-      - Configuration: ../config/README.md
-      - Kinase Optimization: ../kinopt/README.md
-      - ODE Models: ../models/README.md
-      - Parameter Estimation: ../paramest/README.md
-      - Plotting: ../plotting/README.md
-      - Sensitivity Analysis: ../sensitivity/README.md
-      - Steady State Calculation: ../steady/README.md
-      - Transcription Factor Optimization: ../tfopt/README.md
-      - Utils: ../utils/README.md
+      - Main: Documentation/bin/README.md
+      - Configuration: Documentation/config/README.md
+      - Kinase Optimization: Documentation/kinopt/README.md
+      - ODE Models: Documentation/models/README.md
+      - Parameter Estimation: Documentation/paramest/README.md
+      - Plotting: Documentation/plotting/README.md
+      - Sensitivity Analysis: Documentation/sensitivity/README.md
+      - Steady State Calculation: Documentation/steady/README.md
+      - Transcription Factor Optimization: Documentation/tfopt/README.md
+      - Utils: Documentation/utils/README.md
