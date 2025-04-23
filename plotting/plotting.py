@@ -8,7 +8,6 @@ import pandas as pd
 from adjustText import adjust_text
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
-from pymoo.indicators.hv.monte_carlo import alpha
 from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
@@ -51,11 +50,20 @@ class Plotter:
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
         fig, ax = plt.subplots(figsize=(8, 8))
-        parallel_coordinates(df, class_column='Time', colormap=plt.get_cmap("tab20"), ax=ax)
+        parallel_coordinates(df, class_column='Time',
+                             colormap=plt.get_cmap("tab20"),
+                             ax=ax)
         ax.set_title(self.gene)
         ax.set_xlabel("States")
         ax.set_ylabel("Values")
-        ax.legend(title="Time Points", loc="upper right", labels=df['Time'].astype(str).tolist())
+        ax.minorticks_on()
+        ax.grid(which='major', linestyle='--', linewidth=0.8,
+                color='gray', alpha=0.5)
+        ax.grid(which='minor', linestyle=':', linewidth=0.5,
+                color='gray', alpha=0.2)
+        ax.legend(title="Time Points",
+                  loc="upper right",
+                  labels=df['Time'].astype(str).tolist())
         self._save_fig(fig, f"{self.gene}_parallel_coordinates_.png")
 
     def pca_components(self, solution: np.ndarray, target_variance: float = 0.99):
@@ -105,9 +113,9 @@ class Plotter:
             si = np.linspace(0, len(solution) - 1, 1000)
             fig = plt.figure(figsize=(8, 8))
             ax = fig.add_subplot(111, projection='3d')
-            sc = ax.scatter(x, y, z, c=indices, cmap='tab20')
+            sc = ax.scatter(x, y, z, c=indices, cmap='tab20', marker='o', edgecolor='black', alpha=0.7)
             fig.colorbar(sc, label="Time Index")
-            ax.plot(cs_x(si), cs_y(si), cs_z(si), color='blue', alpha=0.7, label='Temporal Path')
+            ax.plot(cs_x(si), cs_y(si), cs_z(si), color='red', alpha=0.3, label='Temporal Path')
             for i, (xi, yi, zi) in enumerate(zip(x, y, z)):
                 ax.text(xi, yi, zi, str(i + 1), fontsize=10, color="black")
             ax.set_xlabel(f"PC1 ({ev[0]:.1f}%)")
@@ -115,6 +123,7 @@ class Plotter:
             ax.set_zlabel(f"PC3 ({ev[2]:.1f}%)")
             ax.set_title(self.gene)
             ax.legend()
+            ax.grid(True, alpha=0.2)
             self._save_fig(fig, f"{self.gene}_pca_plot_.png")
         else:
             # Optionally handle non-3D cases here

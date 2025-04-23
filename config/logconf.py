@@ -34,7 +34,7 @@ class ColoredFormatter(logging.Formatter):
     The logger is set to the specified logging level, and the log file is created in the specified directory.
     The log file is rotated based on size, and old log files are backed up.
     """
-    def __init__(self, fmt=None, datefmt=None, width=120):
+    def __init__(self, fmt=None, datefmt=None, width=200):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
         self.width = width
