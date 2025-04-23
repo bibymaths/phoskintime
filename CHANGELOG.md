@@ -26,9 +26,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added CLI wrappers for entry point.
 - Added deployment configuration file.
 - Added support for network via Cytoscape.
+- Added configuration file for PhosKinTime settings.
+- Enhanced analysis and plotting functions: added upper bound parameter, updated loss type defaults, and improved legend formatting.
+
+### Changed
+- Updated parameter bounds and model settings in configuration files.
+- Refactored logging statements and improved data filtering in main processing files.
 
 ### Fixed
 - Fixed display of missing kinases in output before optimization in `kinopt`.
 
 ### Removed
 - Removed clipping of predicted expression.
+- Deleted `abopt` directory.
