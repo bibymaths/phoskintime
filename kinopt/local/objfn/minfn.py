@@ -1,7 +1,8 @@
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
-@njit
+
+@njit(parallel=True)
 def _objective(params, P_init, t_max, n,
               gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
               total_alpha, kinase_beta_starts, kinase_beta_counts,
@@ -42,7 +43,7 @@ def _objective(params, P_init, t_max, n,
 
     # Initialize M matrix - kinase x time
     M = np.zeros((n_kinase, t_max))
-    for k in range(n_kinase):
+    for k in prange(n_kinase):
         # For each kinase, get the starting index and count
         start = kinase_beta_starts[k]
         count = kinase_beta_counts[k]
@@ -102,7 +103,7 @@ def _objective(params, P_init, t_max, n,
         # Normalize the loss value by the number of genes
         return loss_val / n
 
-@njit
+@njit(parallel=True)
 def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
                          total_alpha, kinase_beta_starts, kinase_beta_counts,
                          K_data, K_indices, K_indptr):
@@ -134,7 +135,7 @@ def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, g
     # Initialize M matrix - kinase x time
     M = np.zeros((n_kinase, t_max))
     # Loop through each kinase and update the M matrix based on the beta values
-    for k in range(n_kinase):
+    for k in prange(n_kinase):
         # For each kinase, get the starting index and count
         start = kinase_beta_starts[k]
         count = kinase_beta_counts[k]

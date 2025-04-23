@@ -67,7 +67,7 @@ def _parse_arguments():
     # Segmented scaling points
     parser.add_argument("--segment_points", type=str, default="0,3,6,9,14",
                         help="Comma-separated segment points for segmented scaling.")
-    parser.add_argument("--method", type=str, default="NSGA-II",
+    parser.add_argument("--method", type=str, default="DE",
                         help="Method chosen for optimization: Differential Evolution (DE) or NSGA-II (Use DE or NSGA-II)).")
     args = parser.parse_args()
     # Convert arguments to proper types

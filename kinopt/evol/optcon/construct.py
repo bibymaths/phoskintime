@@ -98,6 +98,7 @@ def _build_p_initial(
     """
     P_initial = {}
     P_initial_array = []
+    time = [f'x{i}' for i in range(1, 15)]
     num_time_points = len(time_series_cols)
 
     for _, row in interaction_df.iterrows():
@@ -110,10 +111,11 @@ def _build_p_initial(
             (full_hgnc_df['GeneID'] == gene) &
             (full_hgnc_df['Psite'] == psite)
         ]
-        if not observed_data.empty:
-            time_series = observed_data[time_series_cols].values.flatten()
-        else:
-            time_series = np.ones(num_time_points)
+        # Grab the time series data for the gene and phosphorylation site
+        # Check in observed_data if that (gene, psite) combination exists and get time series
+        match = observed_data[(observed_data['GeneID'] == gene) & (observed_data['Psite'] == psite)]
+        if not match.empty:
+            time_series = match.iloc[0][time].values.astype(np.float64)
 
         P_initial_array.append(time_series)
 
@@ -172,9 +174,10 @@ def _build_k_array(
         elif estimate_missing_kinases:
             synthetic_label = f"P{synthetic_counter}"
             synthetic_counter += 1
-            # Create a synthetic time series for the kinase's missing data
-            # This is a placeholder; zeroes are used
-            synthetic_ts = np.zeros(len(time))
+            # Get protein time series for this kinase where 'Psite' is empty or NaN
+            protein_level_df = full_hgnc_df[(full_hgnc_df['GeneID'] == kinase) & (full_hgnc_df['Psite'].isna())]
+            if not protein_level_df.empty:
+                synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
             idx = len(K_array)
             K_array.append(synthetic_ts)
             K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))

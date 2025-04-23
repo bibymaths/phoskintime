@@ -20,16 +20,18 @@ from pymoo.termination.default import DefaultSingleObjectiveTermination
 from kinopt.evol.config import METHOD
 from kinopt.evol.config.constants import OUT_DIR
 from kinopt.evol.config.logconf import setup_logger
+
 logger = setup_logger()
 
+
 def run_optimization(
-    P_initial,
-    P_initial_array,
-    K_index,
-    K_array,
-    gene_psite_counts,
-    beta_counts,
-    PhosphorylationOptimizationProblem
+        P_initial,
+        P_initial_array,
+        K_index,
+        K_array,
+        gene_psite_counts,
+        beta_counts,
+        PhosphorylationOptimizationProblem
 ):
     """
     Sets up and runs the multi-objective optimization problem for phosphorylation
@@ -68,21 +70,14 @@ def run_optimization(
         # 4) Set up the algorithm and termination criteria
         # for single-objective optimization
         algorithm = DE(
-            pop_size=500,
+            pop_size=100,
             sampling=LHS(),
             variant="DE/rand/1/bin",
             CR=0.9,
             dither="vector",
             jitter=False
         )
-        termination = DefaultSingleObjectiveTermination(
-            # xtol=1e-8,
-            # cvtol=1e-6,
-            # ftol=1e-6,
-            # period=20,
-            # n_max_gen=1000,
-            # n_max_evals=100000
-        )
+        termination = DefaultSingleObjectiveTermination()
     else:
         # 4) Set up the algorithm and termination criteria
         # for multi-objective optimization
@@ -91,13 +86,7 @@ def run_optimization(
             crossover=TwoPointCrossover(),
             eliminate_duplicates=True
         )
-        termination = DefaultMultiObjectiveTermination(
-            # xtol=1e-8,
-            # cvtol=1e-6,
-            # ftol=0.0025,
-            # n_max_gen=1000,
-            # n_max_evals=100000
-        )
+        termination = DefaultMultiObjectiveTermination()
 
     # 5) Run the optimization
     # buf = io.StringIO()
@@ -127,10 +116,11 @@ def run_optimization(
 
     return problem, result
 
+
 def post_optimization_nsga(
-    result,
-    weights=np.array([1.0, 1.0, 1.0]),
-    ref_point=np.array([3, 1, 1])):
+        result,
+        weights=np.array([1.0, 1.0, 1.0]),
+        ref_point=np.array([3, 1, 1])):
     """
     Post-processes the result of a multi-objective optimization run.
     1) Extracts the Pareto front and computes a weighted score to pick a 'best' solution.
@@ -158,7 +148,7 @@ def post_optimization_nsga(
     pareto_front = np.array([ind.F for ind in result.pop])
 
     # Weighted scoring for picking a single 'best' solution from Pareto
-    scores = pareto_front[:, 0] + weights[1]*np.abs(pareto_front[:, 1]) + weights[2]*np.abs(pareto_front[:, 2])
+    scores = pareto_front[:, 0] + weights[1] * np.abs(pareto_front[:, 1]) + weights[2] * np.abs(pareto_front[:, 2])
     best_index = np.argmin(scores)
     best_solution = result.pop[best_index]
     best_objectives = pareto_front[best_index]
@@ -166,13 +156,13 @@ def post_optimization_nsga(
 
     # Additional references from the result
     F = result.F  # The entire final objective set
-    pairs = [(0,1),(0,2),(1,2)]
+    pairs = [(0, 1), (0, 2), (1, 2)]
     approx_ideal = F.min(axis=0)
     approx_nadir = F.max(axis=0)
 
     # Decomposition objects
     decomp = ASF()
-    asf_i = decomp.do(F, 1/weights).argmin()
+    asf_i = decomp.do(F, 1 / weights).argmin()
 
     hist = result.history  # the full history of the optimization
 
@@ -222,7 +212,6 @@ def post_optimization_nsga(
         row.update({f"α_{j}": x for j, x in enumerate(individual.X)})  # Add decision variables
         pops.append(row)
 
-
     waterfall_df = pd.DataFrame(pops)
     waterfall_df.to_csv(f'{OUT_DIR}/parameter_scan.csv', index=False)
 
@@ -270,10 +259,11 @@ def post_optimization_nsga(
         val
     )
 
+
 def post_optimization_de(
-    result,
-    alpha_values,
-    beta_values):
+        result,
+        alpha_values,
+        beta_values):
     """
     Post-processes the result of a multi-objective optimization run.
     1) Extracts the Pareto front and computes a weighted score to pick a 'best' solution.

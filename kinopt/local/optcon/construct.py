@@ -33,10 +33,10 @@ def _build_P_initial(full_df, interact_df):
         # If the gene is not in the full dataframe, skip it
         kinases = [k.strip() for k in kinases]
         # Grab the time series data for the gene and phosphorylation site
-        ts = full_df[(full_df['GeneID'] == gene) & (full_df['Psite'] == psite)][time].values.flatten()
-        # If the time series data is empty, create a default time series
-        if ts.size == 0:
-            ts = np.ones(len(time))
+        # Check in full_df if that (gene, psite) combination exists and get time series
+        match = full_df[(full_df['GeneID'] == gene) & (full_df['Psite'] == psite)]
+        if not match.empty:
+            ts = match.iloc[0][time].values.astype(np.float64)
         # Append the time series data to the list
         P_list.append(ts)
         # Store the gene, phosphorylation site, and kinases in the dictionary
@@ -87,9 +87,10 @@ def _build_K_data(full_df, interact_df, estimate_missing):
             # Create a synthetic label for the kinase
             synthetic_label = f"P{synthetic_counter}"
             synthetic_counter += 1
-            # Create a synthetic time series for the kinase's missing data
-            # This is a placeholder; zeroes are used
-            synthetic_ts = np.zeros(len(time))
+            # Get protein time series for this kinase where 'Psite' is empty or NaN
+            protein_level_df = full_df[(full_df['GeneID'] == kinase) & (full_df['Psite'].isna())]
+            if not protein_level_df.empty:
+                synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
             idx = len(K_list)
             K_list.append(synthetic_ts)
             K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))
@@ -98,12 +99,6 @@ def _build_K_data(full_df, interact_df, estimate_missing):
 
     # Finalize K_array
     K_array = np.array(K_list)
-
-    # Zero out synthetic rows (again, to be extra safe)
-    # This is a placeholder; zeroes are used
-    for idx in synthetic_rows:
-        # mutiply by zero to ensure no effect
-        K_array[idx] = 0.0
 
     return K_index, K_array, beta_counts
 
