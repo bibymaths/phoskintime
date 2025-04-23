@@ -1,6 +1,9 @@
 import numpy as np
 from numba import prange, njit
 
+from tfopt.local.config.constants import VECTORIZED_LOSS_FUNCTION
+
+
 @njit(cache=False, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
@@ -29,82 +32,68 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
     Returns:
       The computed loss (a scalar).
     """
+    # Initialize loss
     total_loss = 0.0
+    # Initialize the number of genes and time points
     n_alpha = n_genes * n_reg
     nT = n_genes * T_use
+    # Initialize the number of regulators
     for i in prange(n_genes):
+        # Compute the predicted expression for each gene
         R_meas = expression_matrix[i, :T_use]
+        # Initialize the predicted expression
         R_pred = np.zeros(T_use)
+        # Loop over the regulators for each gene
         for r in range(n_reg):
+            # Get the index of the transcription factor (TF) for this regulator
             tf_idx = regulators[i, r]
             if tf_idx == -1:  # No valid TF for this regulator
                 continue
+            # Get the TF protein time series
             a = x[i * n_reg + r]
             protein = tf_protein_matrix[tf_idx, :T_use]
+            # Get the starting index for the beta vector for this TF
             beta_start = beta_start_indices[tf_idx]
             length = 1 + num_psites[tf_idx]  # actual length of beta vector for TF
+            # Extract the beta vector for this TF
             beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
-
+            # Compute the effect on the TF from the missing phosphorylation sites
             tf_effect = beta_vec[0] * protein
             for k in range(num_psites[tf_idx]):
+                # Compute the effect of each post-translational modification
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
-
+            # Compute the predicted expression
             R_pred += a * tf_effect
+        # Ensure non-negative predictions
+        np.clip(R_pred, 0.0, None, out=R_pred)
 
-            # VECTORIZED RESIDUAL - use when mRNAs are > 500
-        #     diff = R_meas - R_pred
-        #     if loss_type == 0:  # MSE
-        #         total_loss += np.dot(diff, diff)
-        #     elif loss_type == 1:  # MAE
-        #         total_loss += np.sum(np.abs(diff))
-        #     elif loss_type == 2:  # Soft L1 (pseudo-Huber)
-        #         total_loss += 2.0 * np.sum(np.sqrt(1.0 + diff * diff) - 1.0)
-        #     elif loss_type == 3:  # Cauchy
-        #         total_loss += np.sum(np.log(1.0 + diff * diff))
-        #     elif loss_type == 4:  # Arctan
-        #         total_loss += np.sum(np.arctan(diff * diff))
-        #     else:
-        #         total_loss += np.dot(diff, diff)
-        #
-        # loss = total_loss / nT
-        #
-        # # For elastic net penalty (loss_type 5) using vectorized operations.
-        # if loss_type == 5:
-        #     beta = x[n_alpha:]
-        #     loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
-        #
-        # # For Tikhonov regularization (loss_type 6).
-        # if loss_type == 6:
-        #     beta = x[n_alpha:]
-        #     loss += lam1 * np.dot(beta, beta)
+        # Residuals computed timepoint-by-timepoint
+        for t in range(T_use):
+            diff = R_meas[t] - R_pred[t]
+            if loss_type == 0:  # MSE
+                total_loss += diff * diff
+            elif loss_type == 1:  # MAE
+                total_loss += np.abs(diff)
+            elif loss_type == 2:  # Soft L1
+                total_loss += 2.0 * (np.sqrt(1.0 + diff * diff) - 1.0)
+            elif loss_type == 3:  # Cauchy
+                total_loss += np.log(1.0 + diff * diff)
+            elif loss_type == 4:  # Arctan
+                total_loss += np.arctan(diff * diff)
+            else:  # default to MSE
+                total_loss += diff * diff
 
-            # Residuals computed timepoint-by-timepoint
-            for t in range(T_use):
-                diff = R_meas[t] - R_pred[t]
-                if loss_type == 0:  # MSE
-                    total_loss += diff * diff
-                elif loss_type == 1:  # MAE
-                    total_loss += np.abs(diff)
-                elif loss_type == 2:  # Soft L1
-                    total_loss += 2.0 * (np.sqrt(1.0 + diff * diff) - 1.0)
-                elif loss_type == 3:  # Cauchy
-                    total_loss += np.log(1.0 + diff * diff)
-                elif loss_type == 4:  # Arctan
-                    total_loss += np.arctan(diff * diff)
-                else:  # default to MSE
-                    total_loss += diff * diff
+    loss = total_loss / nT
 
-        loss = total_loss / nT
+    # Regularization penalties
+    if loss_type == 5:
+        beta = x[n_alpha:]
+        loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
+    elif loss_type == 6:
+        beta = x[n_alpha:]
+        loss += lam1 * np.dot(beta, beta)
 
-        # Regularization penalties
-        if loss_type == 5:
-            beta = x[n_alpha:]
-            loss += lam1 * np.sum(np.abs(beta)) + lam2 * np.dot(beta, beta)
-        elif loss_type == 6:
-            beta = x[n_alpha:]
-            loss += lam1 * np.dot(beta, beta)
-
-        return loss
+    return loss
 
 def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
                         num_psites):
@@ -144,7 +133,6 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
             R_pred += a * tf_effect
         predictions[i, :] = R_pred
     return predictions
-
 
 def objective_wrapper(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                       beta_start_indices, num_psites, loss_type):

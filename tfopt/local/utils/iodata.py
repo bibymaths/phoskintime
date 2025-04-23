@@ -17,13 +17,10 @@ def min_max_normalize(df, custom_max=None):
     """
     df = df.copy()
     time_cols = [col for col in df.columns if col.startswith("x")]
-    other_cols = [col for col in df.columns if not col.startswith("x")]
-
     data = df[time_cols].to_numpy(dtype=float)
 
     row_min = np.min(data, axis=1, keepdims=True)
     if custom_max is not None:
-        row_max = custom_max
         denom = (custom_max - row_min)
     else:
         row_max = np.max(data, axis=1, keepdims=True)
@@ -40,9 +37,9 @@ def load_expression_data(filename=INPUT3):
     Expects a CSV with a 'GeneID' column and time-point columns.
     """
     df = pd.read_csv(filename)
-    # Normlaize for high unscaled variability
+    # Normalize for high unscaled variability
     # Exists often
-    # df = min_max_normalize(df, 4)
+    # df = min_max_normalize(df)
     gene_ids = df["GeneID"].astype(str).tolist()
     time_cols = [col for col in df.columns if col != "GeneID"]
     expression_matrix = df[time_cols].to_numpy(dtype=float)
@@ -55,10 +52,11 @@ def load_tf_protein_data(filename=INPUT1):
     Expects a CSV with 'GeneID' and 'Psite' columns.
     For rows without a valid PSite, the entire row is considered as the protein signal.
     """
+    expr_gene_ids, expression_matrix, expr_time_cols = load_expression_data()
     df = pd.read_csv(filename)
-    # Normlaize for high unscaled variability
+    # Normalize for high unscaled variability
     # Exists often
-    # df = min_max_normalize(df, 4)
+    # df = min_max_normalize(df)
     tf_protein = {}
     tf_psite_data = {}
     tf_psite_labels = {}
@@ -73,6 +71,8 @@ def load_tf_protein_data(filename=INPUT1):
     for _, row in df.iterrows():
         tf = str(row["GeneID"]).strip()
         psite = str(row["Psite"]).strip()
+        if not psite.startswith(("S_", "Y_", "T_")):
+            continue  # Skip psite values that don't start with S_, Y_, or T_
         vals = row[orig_time_cols].to_numpy(dtype=float)
         vals = vals[5:] if len(orig_time_cols) >= 14 else vals
         if tf not in tf_protein:
@@ -82,7 +82,16 @@ def load_tf_protein_data(filename=INPUT1):
         else:
             tf_psite_data[tf].append(vals)
             tf_psite_labels[tf].append(psite)
+
+    # Add expression data to tf_protein (only if not already present)
+    for gene_id, expr_vals in zip(expr_gene_ids, expression_matrix):
+        if gene_id not in tf_protein:
+            tf_protein[gene_id] = expr_vals
+            tf_psite_data[gene_id] = []
+            tf_psite_labels[gene_id] = []
+
     tf_ids = list(tf_protein.keys())
+
     return tf_ids, tf_protein, tf_psite_data, tf_psite_labels, time_cols
 
 def load_regulation(filename=INPUT4):
@@ -95,8 +104,8 @@ def load_regulation(filename=INPUT4):
     df = pd.read_csv(filename)
     reg_map = {}
     for _, row in df.iterrows():
-        gene = str(row["Source"]).strip()
-        tf = str(row["Target"]).strip()
+        tf = str(row["Source"]).strip()
+        gene = str(row["Target"]).strip()
         if gene not in reg_map:
             reg_map[gene] = []
         if tf not in reg_map[gene]:
@@ -233,7 +242,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Global Report</h1>"
+        "<h1>[Local] mRNA-TF Optimization Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.

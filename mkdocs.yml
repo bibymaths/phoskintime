@@ -1,0 +1,73 @@
+site_name: phoskintime
+site_url: https://bibymaths.github.io/phoskintime
+site_description: Parameter estimation and optimization for phosphorylation models.
+site_author: Abhinav Mishra
+
+repo_url: https://github.com/bibymaths/phoskintime
+
+theme:
+  name: material
+  palette:
+    scheme: auto
+  features:
+    - navigation.instant
+    - navigation.sections
+    - content.code.annotate
+  language: en
+
+nav:
+  - Home: index.md
+  - Reference: reference.md
+  - Changelog: Documentation/CHANGELOG.md
+  - Documentation:
+      - Main: Documentation/bin/README.md
+      - Configuration: Documentation/config/README.md
+      - Kinase Optimization: Documentation/kinopt/README.md
+      - ODE Models: Documentation/models/README.md
+      - Parameter Estimation: Documentation/paramest/README.md
+      - Plotting: Documentation/plotting/README.md
+      - Sensitivity Analysis: Documentation/sensitivity/README.md
+      - Steady State Calculation: Documentation/steady/README.md
+      - Transcription Factor Optimization: Documentation/tfopt/README.md
+      - Utils: Documentation/utils/README.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      inline_syntax: ['$', '$']
+      block_syntax: ['$$', '$$']
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.extra
+  - attr_list
+  - def_list
+  - tables
+
+extra_css:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js
+  - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js
+  - js/katex-setup.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            members_order: source
+  - autorefs
+
+watch:
+  - docs
+
+copyright: >
+  Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.

@@ -1,12 +1,14 @@
 import shutil
-
 import pandas as pd
 import numpy as np
 import mygene, os, concurrent.futures
 from tqdm import tqdm
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
+BASE = Path(__file__).parent                      # …/processing
 
 # Directory where the raw data files should be located
-base_dir = "raw"
+base_dir = BASE / "raw"
 
 def process_collecttri():
     """
@@ -37,7 +39,7 @@ def process_collecttri():
     df_genes = df_genes[df_genes['Target'].str.strip() != '']
     df_genes = df_genes.drop_duplicates()
 
-    # Keep only interactions where Target (TFs) is present in input2.csv
+    # Keep only interactions where Target (mRNAs) is present in input2.csv
     df_readable = df_readable[df_readable['Target'].isin(df_genes['Target'])]
 
     # Save the cleaned mRNA - TFs interactions to input4.csv
@@ -93,7 +95,7 @@ def process_msgauss():
     Raises:
         FileNotFoundError: If the input file is not found in the specified directory.
     """
-    # Load the MS_Gaussian_updated_09032023.csv file
+    # Load the MS_Gaussian file
     df = pd.read_csv(os.path.join(base_dir, "MS_Gaussian_updated_09032023.csv"))
 
     df['Psite'] = df['site'].fillna('').astype(str)
@@ -326,8 +328,8 @@ def move_processed_files():
     """
 
     # Create a new directory if it doesn't exist
-    tf_data_dir = "../tfopt/data"
-    kin_data_dir = "../kinopt/data"
+    tf_data_dir = ROOT / "tfopt" / "data"
+    kin_data_dir = ROOT / "kinopt" / "data"
 
     os.makedirs(tf_data_dir, exist_ok=True)
     os.makedirs(kin_data_dir, exist_ok=True)
@@ -339,7 +341,6 @@ def move_processed_files():
     ]
     tfopt_files = [
         "input1.csv",
-        # "input1_wstd.csv",
         "input3.csv",
         "input4.csv"
     ]
@@ -394,8 +395,27 @@ if __name__ == "__main__":
     # You need to manually put input2.csv in ./kinopt/data/ (if not already there)
     move_processed_files()
 
+    # 7. Print clickable hyperlinks for key output files
+    output_files = [
+        ROOT / "kinopt" / "data" / "input1.csv",
+        ROOT / "kinopt" / "data" / "input2.csv",
+        ROOT / "tfopt" / "data" / "input3.csv",
+        ROOT / "tfopt" / "data" / "input4.csv",
+        ROOT / "tfopt" / "data" / "input1.csv",  # reused in TFopt
+        ROOT / "tfopt" / "data" / "input1_wstd.csv"
+    ]
+
+    for fpath in output_files:
+        if fpath.exists():
+            print(f"{fpath.as_uri()}")
+
+
 """ 
 These IDs, cannot be converted to Symbols in MS Gaussian:
 
-4 input query terms found no hit:	['55747', '283331', '729269', '100133171'] 
+4 input query terms found no hit:	['55747', '283331', '729269', '100133171']   
+ 
+Latest:
+
+6 input query terms found no hit:       ['55747', '283331', '377711', '649055', '729269', '100133171']
 """

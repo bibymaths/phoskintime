@@ -29,6 +29,10 @@ def goodnessoffit(estimated, observed):
                                                                      suffixes=('_est', '_obs'))
     merged_data['Observed_Mean'] = merged_data.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
     merged_data['Estimated_Mean'] = merged_data.loc[:, 'x1_est':'x14_est'].mean(axis=1)
+    min_val = min(merged_data.loc[:, 'x1_obs':'x14_obs'].values.min(),
+                  merged_data.loc[:, 'x1_est':'x14_est'].values.min())
+    max_val = max(merged_data.loc[:, 'x1_obs':'x14_obs'].values.max(),
+                  merged_data.loc[:, 'x1_est':'x14_est'].values.max())
     colors = cm.tab20(range(len(merged_data)))
 
     ci_color_95 = 'red'
@@ -51,141 +55,7 @@ def goodnessoffit(estimated, observed):
     ci_offset_95 = 1.96 * overall_std
     ci_offset_99 = 2.576 * overall_std
 
-    # Goodness of Fit: Time-Series
-    plt.figure(figsize=(8, 8))
-
-    # Plot Observed vs. Estimated for x1 to x14 values
-    gene_handles = []
-    # Plot Observed vs. Estimated for x1 to x14 values
-    for i, (gene, psite, obs_vals, est_vals) in enumerate(zip(merged_data['GeneID'],
-                                                              merged_data['Psite'],
-                                                              merged_data.loc[:, 'x1_obs':'x14_obs'].values,
-                                                              merged_data.loc[:, 'x1_est':'x14_est'].values)):
-        # Sort values for plotting
-        sorted_indices = np.argsort(obs_vals)
-        obs_vals_sorted = obs_vals[sorted_indices]
-        est_vals_sorted = est_vals[sorted_indices]
-
-        # Plot observed and estimated values
-        plt.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene], edgecolor='black', s=50)
-
-        # Add label for each gene once, matching the point color
-        if gene not in [handle.get_label() for handle in gene_handles]:
-            handle = plt.Line2D([], [], color=gene_color_map[gene], marker='o', linestyle='', markersize=8, label=gene)
-            gene_handles.append(handle)
-
-    # Add diagonal line through the origin
-    min_val = min(merged_data.loc[:, 'x1_obs':'x14_obs'].values.min(),
-                  merged_data.loc[:, 'x1_est':'x14_est'].values.min())
-    max_val = max(merged_data.loc[:, 'x1_obs':'x14_obs'].values.max(),
-                  merged_data.loc[:, 'x1_est':'x14_est'].values.max())
-    plt.plot([min_val, max_val], [min_val, max_val], color=diagonal_color, linestyle='-', linewidth=1.5)
-
-    # Add lines parallel to the diagonal for 95% and 99% CI
-    plt.plot([min_val, max_val], [min_val + ci_offset_95, max_val + ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1, label='95% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_95, max_val - ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1)
-    plt.plot([min_val, max_val], [min_val + ci_offset_99, max_val + ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1, label='99% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_99, max_val - ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1)
-
-    # Expand the axes limits slightly to include all points without clipping
-    x_min = merged_data.loc[:, 'x1_obs':'x14_obs'].values.min() - 0.1 * (
-                merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
-                                                                      'x1_obs':'x14_obs'].values.min())
-    x_max = merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() + 0.1 * (
-                merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
-                                                                      'x1_obs':'x14_obs'].values.min())
-    y_min = merged_data.loc[:, 'x1_est':'x14_est'].values.min() - 0.1 * (
-                merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
-                                                                      'x1_est':'x14_est'].values.min())
-    y_max = merged_data.loc[:, 'x1_est':'x14_est'].values.max() + 0.1 * (
-                merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
-                                                                      'x1_est':'x14_est'].values.min())
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-
-    # Add labels and legends
-    plt.xlabel("Observed")
-    plt.ylabel("Fitted")
-    plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-
-    # Add first legend for CI lines and diagonal
-    ci_legend = plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.gca().add_artist(ci_legend)
-
-    # Add second legend for gene labels
-    gene_legend = plt.legend(handles=gene_handles, loc='best', fontsize='small', ncol=3, title="Proteins")
-    plt.gca().add_artist(gene_legend)
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_1.png", dpi=300)
-    plt.close()
-
-    # Goodness of Fit: Time-Series
-    plt.figure(figsize=(8, 8))
-
-    # Plot Observed vs. Estimated for x1 to x14 values
-    gene_handles = []
-    # Plot Observed vs. Estimated for x1 to x14 values
-    for i, (gene, psite, obs_vals, est_vals) in enumerate(zip(merged_data['GeneID'],
-                                                              merged_data['Psite'],
-                                                              merged_data.loc[:, 'x1_obs':'x14_obs'].values,
-                                                              merged_data.loc[:, 'x1_est':'x14_est'].values)):
-        # Sort values for plotting
-        sorted_indices = np.argsort(obs_vals)
-        obs_vals_sorted = obs_vals[sorted_indices]
-        est_vals_sorted = est_vals[sorted_indices]
-
-        # Plot observed and estimated values
-        plt.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene], edgecolor='black', s=50)
-
-        # Add label for each gene once, matching the point color
-        if gene not in [handle.get_label() for handle in gene_handles]:
-            handle = plt.Line2D([], [], color=gene_color_map[gene], marker='o', linestyle='', markersize=8, label=gene)
-            gene_handles.append(handle)
-
-    # Add diagonal line through the origin
-    min_val = min(merged_data.loc[:, 'x1_obs':'x14_obs'].values.min(),
-                  merged_data.loc[:, 'x1_est':'x14_est'].values.min())
-    max_val = max(merged_data.loc[:, 'x1_obs':'x14_obs'].values.max(),
-                  merged_data.loc[:, 'x1_est':'x14_est'].values.max())
-    plt.plot([min_val, max_val], [min_val, max_val], color=diagonal_color, linestyle='-', linewidth=1.5)
-
-    # Add lines parallel to the diagonal for 95% and 99% CI
-    plt.plot([min_val, max_val], [min_val + ci_offset_95, max_val + ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1, label='95% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_95, max_val - ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1)
-    plt.plot([min_val, max_val], [min_val + ci_offset_99, max_val + ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1, label='99% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_99, max_val - ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1)
-
-    # Add labels and legends
-    plt.xlabel("Observed")
-    plt.ylabel("Fitted")
-    plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-
-    # Add first legend for CI lines and diagonal
-    ci_legend = plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.gca().add_artist(ci_legend)
-
-    # Add second legend for gene labels
-    gene_legend = plt.legend(handles=gene_handles, loc='best', fontsize='small', ncol=3, title="Proteins")
-    plt.gca().add_artist(gene_legend)
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_2.png", dpi=300)
-    plt.close()
-
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(10, 10))
 
     # Plot Observed vs. Estimated for x1 to x14 values
     plotted_genes = set()
@@ -200,63 +70,12 @@ def goodnessoffit(estimated, observed):
         est_vals_sorted = est_vals[sorted_indices]
 
         # Plot observed and estimated values
-        plt.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene], edgecolor='black', s=50, marker='o')
+        plt.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene], alpha=0.5, s=100, edgecolor='black')
 
         # Add label only for genes outside the 95% CI
         for obs, est in zip(obs_vals_sorted, est_vals_sorted):
             if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                plt.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
-                         fontweight='bold', ha='center', va='center',
-                         bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                plotted_genes.add(gene)
-
-    # Adjust text positions to avoid overlap
-    adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-
-    # Add diagonal line through the origin
-    plt.plot([min_val, max_val], [min_val, max_val], color=diagonal_color, linestyle='-', linewidth=1.5)
-
-    # Add lines parallel to the diagonal for 95% and 99% CI
-    plt.plot([min_val, max_val], [min_val + ci_offset_95, max_val + ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1, label='95% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_95, max_val - ci_offset_95], color=ci_color_95, linestyle='--',
-             linewidth=1)
-    plt.plot([min_val, max_val], [min_val + ci_offset_99, max_val + ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1, label='99% CI')
-    plt.plot([min_val, max_val], [min_val - ci_offset_99, max_val - ci_offset_99], color=ci_color_99, linestyle='--',
-             linewidth=1)
-
-    # Add labels and grid
-    plt.xlabel("Observed")
-    plt.ylabel("Fitted")
-    plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_3.png", dpi=300)
-    plt.close()
-
-    plt.figure(figsize=(8, 8))
-
-    # Plot Observed vs. Estimated for x1 to x14 values
-    plotted_genes = set()
-    text_annotations = []  # Collect text objects for adjustment
-    for i, (gene, psite, obs_vals, est_vals) in enumerate(zip(merged_data['GeneID'],
-                                                              merged_data['Psite'],
-                                                              merged_data.loc[:, 'x1_obs':'x14_obs'].values,
-                                                              merged_data.loc[:, 'x1_est':'x14_est'].values)):
-        # Sort values for plotting
-        sorted_indices = np.argsort(obs_vals)
-        obs_vals_sorted = obs_vals[sorted_indices]
-        est_vals_sorted = est_vals[sorted_indices]
-
-        # Plot observed and estimated values
-        plt.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene], edgecolor='black', s=50, marker='o')
-
-        # Add label only for genes outside the 95% CI
-        for obs, est in zip(obs_vals_sorted, est_vals_sorted):
-            if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                plt.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
+                plt.text(obs, est, gene, fontsize=8, color=gene_color_map[gene],
                          fontweight='bold', ha='center', va='center',
                          bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
                 plotted_genes.add(gene)
@@ -297,134 +116,10 @@ def goodnessoffit(estimated, observed):
     plt.xlabel("Observed")
     plt.ylabel("Fitted")
     plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.grid(True)
+    # plt.legend(loc='best', fontsize='small', ncol=2)
+    plt.grid(True, alpha=0.1)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_4.png", dpi=300)
-    plt.close()
-
-    # Goodness of Fit: Overall
-    plt.figure(figsize=(8, 8))
-
-    # Define the color palette for distinct colors
-    palette = sns.color_palette("tab20", len(merged_data))
-    colors = {gene: palette[i] for i, gene in enumerate(merged_data['GeneID'].unique())}
-
-    # Calculate 95% and 99% CI bounds
-    ci_offset_95 = 1.96 * merged_data['Observed_Mean'].std()
-    ci_offset_99 = 2.576 * merged_data['Observed_Mean'].std()
-
-    lower_bound_95 = lambda x: x - ci_offset_95
-    upper_bound_95 = lambda x: x + ci_offset_95
-    lower_bound_99 = lambda x: x - ci_offset_99
-    upper_bound_99 = lambda x: x + ci_offset_99
-
-    # Plot points
-    plotted_genes = set()
-    for obs, est, gene, psite in zip(merged_data['Observed_Mean'],
-                                     merged_data['Estimated_Mean'],
-                                     merged_data['GeneID'],
-                                     merged_data['Psite']):
-        color = colors[gene]
-        plt.scatter(obs, est, color=color, edgecolor='black', s=100, marker='o')
-
-        # Add labels only for points outside the 95% CI, ensuring each gene is labeled once
-        if gene not in plotted_genes and (est > upper_bound_95(obs) or est < lower_bound_95(obs)):
-            label = f"{gene}"
-            plt.text(obs, est, label, fontsize=10, color=color, fontweight='bold',
-                     ha='center', va='center', bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-            plotted_genes.add(gene)
-
-    # Add straight grey line through origin diagonal
-    x_vals = [min(merged_data['Observed_Mean'].min(), merged_data['Estimated_Mean'].min()),
-              max(merged_data['Observed_Mean'].max(), merged_data['Estimated_Mean'].max())]
-    plt.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-
-    # Add dashed 95% CI lines in red parallel to the diagonal
-    plt.plot(x_vals, [upper_bound_95(x) for x in x_vals], color='red', linestyle='--', linewidth=1, label='95% CI')
-    plt.plot(x_vals, [lower_bound_95(x) for x in x_vals], color='red', linestyle='--', linewidth=1)
-
-    # Add dashed 99% CI lines in grey parallel to the diagonal
-    plt.plot(x_vals, [upper_bound_99(x) for x in x_vals], color='gray', linestyle='--', linewidth=1, label='99% CI')
-    plt.plot(x_vals, [lower_bound_99(x) for x in x_vals], color='gray', linestyle='--', linewidth=1)
-
-    # Add labels and grid
-    plt.xlabel("Observed")
-    plt.ylabel("Fitted")
-    plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_5.png", dpi=300)
-    plt.close()
-
-    # Goodness of Fit: Overall with sorting by values directly in the loop
-    plt.figure(figsize=(8, 8))
-
-    # Define the color palette for distinct colors
-    palette = sns.color_palette("tab20", len(merged_data))
-    colors = {gene: palette[i] for i, gene in enumerate(merged_data['GeneID'].unique())}
-
-    # Calculate 95% and 99% CI bounds
-    ci_offset_95 = 1.96 * merged_data['Observed_Mean'].std()
-    ci_offset_99 = 2.576 * merged_data['Observed_Mean'].std()
-
-    lower_bound_95 = lambda x: x - ci_offset_95
-    upper_bound_95 = lambda x: x + ci_offset_95
-    lower_bound_99 = lambda x: x - ci_offset_99
-    upper_bound_99 = lambda x: x + ci_offset_99
-
-    # Sort observed and estimated values while iterating
-    plotted_genes = set()
-    sorted_indices = np.argsort(merged_data['Observed_Mean'].values)
-    for idx in sorted_indices:
-        obs = merged_data['Observed_Mean'].iloc[idx]
-        est = merged_data['Estimated_Mean'].iloc[idx]
-        gene = merged_data['GeneID'].iloc[idx]
-        # psite = merged_data['Psite'].iloc[idx]
-
-        color = colors[gene]
-        plt.scatter(obs, est, color=color, edgecolor='black', s=100, marker='o')
-
-        # Add labels only for points outside the 95% CI, ensuring each gene is labeled once
-        if gene not in plotted_genes and (est > upper_bound_95(obs) or est < lower_bound_95(obs)):
-            label = f"{gene}"
-            plt.text(obs, est, label, fontsize=10, color=color, fontweight='bold',
-                     ha='center', va='center', bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-            plotted_genes.add(gene)
-
-    # Add straight grey line through origin diagonal
-    x_vals = [merged_data['Observed_Mean'].min(), merged_data['Observed_Mean'].max()]
-    plt.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-
-    # Add dashed 95% CI lines in red parallel to the diagonal
-    plt.plot(x_vals, [upper_bound_95(x) for x in x_vals], color='red', linestyle='--', linewidth=1, label='95% CI')
-    plt.plot(x_vals, [lower_bound_95(x) for x in x_vals], color='red', linestyle='--', linewidth=1)
-
-    # Add dashed 99% CI lines in grey parallel to the diagonal
-    plt.plot(x_vals, [upper_bound_99(x) for x in x_vals], color='gray', linestyle='--', linewidth=1, label='99% CI')
-    plt.plot(x_vals, [lower_bound_99(x) for x in x_vals], color='gray', linestyle='--', linewidth=1)
-
-    # Expand the axes limits slightly to include all points without clipping
-    x_min = merged_data['Observed_Mean'].min() - 0.1 * (
-                merged_data['Observed_Mean'].max() - merged_data['Observed_Mean'].min())
-    x_max = merged_data['Observed_Mean'].max() + 0.1 * (
-                merged_data['Observed_Mean'].max() - merged_data['Observed_Mean'].min())
-    y_min = merged_data['Estimated_Mean'].min() - 0.1 * (
-                merged_data['Estimated_Mean'].max() - merged_data['Estimated_Mean'].min())
-    y_max = merged_data['Estimated_Mean'].max() + 0.1 * (
-                merged_data['Estimated_Mean'].max() - merged_data['Estimated_Mean'].min())
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-
-    # Add labels and grid
-    plt.xlabel("Observed")
-    plt.ylabel("Fitted")
-    plt.title("")
-    plt.legend(loc='best', fontsize='small', ncol=2)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/gof_6.png", dpi=300)
+    plt.savefig(f"{OUT_DIR}/Goodness_of_Fit.png", dpi=300)
     plt.close()
 
     # KL Divergence
@@ -450,7 +145,6 @@ def goodnessoffit(estimated, observed):
     plt.ylabel("Entropy")
     plt.title('')
     plt.legend()
-    plt.grid(True)
     plt.tight_layout()
     plt.savefig(f'{OUT_DIR}/kld.png', dpi=300)
     plt.close()

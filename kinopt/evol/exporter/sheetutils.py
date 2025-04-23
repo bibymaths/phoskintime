@@ -75,6 +75,6 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
             estimated_row.update({time: P_estimated[i, t] for t, time in enumerate(timepoints)})
             estimated_data.append(estimated_row)
         estimated_df = pd.DataFrame(estimated_data)
-        estimated_df.to_excel(writer, sheet_name="Estimated Values", index=False)
+        estimated_df.to_excel(writer, sheet_name="Estimated", index=False)
 
     logger.info(f"Optimization results saved for ODE modelling.")

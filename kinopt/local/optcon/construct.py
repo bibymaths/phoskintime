@@ -1,8 +1,17 @@
+import csv
+from collections import defaultdict
+
 import numpy as np
 from scipy.optimize import LinearConstraint
 from scipy.sparse import csr_matrix
 from typing import Tuple
 from numpy.typing import NDArray
+
+from kinopt.local.config.constants import INPUT2, INPUT1 
+ 
+from kinopt.local.config.logconf import setup_logger
+logger = setup_logger()
+
 
 def _build_P_initial(full_df, interact_df):
     """
@@ -24,10 +33,10 @@ def _build_P_initial(full_df, interact_df):
         # If the gene is not in the full dataframe, skip it
         kinases = [k.strip() for k in kinases]
         # Grab the time series data for the gene and phosphorylation site
-        ts = full_df[(full_df['GeneID'] == gene) & (full_df['Psite'] == psite)][time].values.flatten()
-        # If the time series data is empty, create a default time series
-        if ts.size == 0:
-            ts = np.ones(len(time))
+        # Check in full_df if that (gene, psite) combination exists and get time series
+        match = full_df[(full_df['GeneID'] == gene) & (full_df['Psite'] == psite)]
+        if not match.empty:
+            ts = match.iloc[0][time].values.astype(np.float64)
         # Append the time series data to the list
         P_list.append(ts)
         # Store the gene, phosphorylation site, and kinases in the dictionary
@@ -78,9 +87,10 @@ def _build_K_data(full_df, interact_df, estimate_missing):
             # Create a synthetic label for the kinase
             synthetic_label = f"P{synthetic_counter}"
             synthetic_counter += 1
-            # Create a synthetic time series for the kinase's missing data
-            # This is a placeholder; zeroes are used
-            synthetic_ts = np.zeros(len(time))
+            # Get protein time series for this kinase where 'Psite' is empty or NaN
+            protein_level_df = full_df[(full_df['GeneID'] == kinase) & (full_df['Psite'].isna())]
+            if not protein_level_df.empty:
+                synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
             idx = len(K_list)
             K_list.append(synthetic_ts)
             K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))
@@ -89,12 +99,6 @@ def _build_K_data(full_df, interact_df, estimate_missing):
 
     # Finalize K_array
     K_array = np.array(K_list)
-
-    # Zero out synthetic rows (again, to be extra safe)
-    # This is a placeholder; zeroes are used
-    for idx in synthetic_rows:
-        # mutiply by zero to ensure no effect
-        K_array[idx] = 0.0
 
     return K_index, K_array, beta_counts
 
@@ -291,4 +295,50 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
             })
             beta_start += bc
 
-        return cons
+        return cons 
+     
+def load_geneid_to_psites(input1_path=INPUT1):
+    geneid_psite_map = defaultdict(set)
+    with open(input1_path, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            geneid = row['GeneID'].strip()
+            psite = row['Psite'].strip()
+            if geneid and psite:
+                geneid_psite_map[geneid].add(psite)
+    return geneid_psite_map
+
+def get_unique_kinases(input2_path=INPUT2):
+    kinases = set()
+    with open(input2_path, newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            kinase_raw = row['Kinase'].strip()
+            # Remove surrounding curly braces if present
+            if kinase_raw.startswith("{") and kinase_raw.endswith("}"):
+                kinase_raw = kinase_raw[1:-1]
+            # Split if it's a list like {KIN1,KIN2}
+            for k in kinase_raw.split(","):
+                k = k.strip()
+                if k:
+                    kinases.add(k)
+    return kinases
+
+def check_kinases():
+    geneid_to_psites = load_geneid_to_psites()
+    kinases = get_unique_kinases()
+
+    logger.info("--- Kinase Check in input1.csv ---")
+    for kinase in sorted(kinases):
+        if kinase in geneid_to_psites:
+            psites = sorted(geneid_to_psites[kinase])
+            logger.info(f"{kinase}: Found, Psites in input1 -> {psites}")
+        else:
+            logger.info(f"{kinase}: Missing")
+
+    logger.info("--- Summary ---")
+    found = sum(1 for k in kinases if k in geneid_to_psites)
+    missing = len(kinases) - found
+    logger.info(f"Total unique kinases: {len(kinases)}")
+    logger.info(f"Found: {found}")
+    logger.info(f"Missing: {missing}")

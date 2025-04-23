@@ -1,4 +1,4 @@
-# Parameter Estimation Module
+# Parameter Estimation
 
 This module provides the tools needed to estimate parameters for ODE‐based models of phosphorylation dynamics. It implements several estimation approaches and supports bootstrapping, adaptive profile estimation, and toggling between different estimation modes.
 
@@ -30,57 +30,6 @@ The module is organized into several submodules:
 - **Integration with Plotting:**  
   After estimation, the module calls plotting functions (via the `Plotter` class) to visualize the ODE solution, parameter profiles, and goodness-of-fit metrics.
 
-### **Tikhonov Regularization in ODE Parameter Estimation**
-
-This project applies **Tikhonov regularization** (λ = 1e-3) to stabilize parameter estimates and improve identifiability in ODE-based model fitting.
-
-#### What It Does
-- Computes **unregularized estimates** and their **covariance matrix**.
-- Applies Tikhonov regularization post hoc:
-- **Regularized estimates**:  
-  $$
-  \theta_{\text{reg}} = \theta_{\text{fit}} - \lambda C \Gamma \theta_{\text{fit}}
-  $$
-
-- **Regularized covariance**:  
-  $$
-  C_{\text{reg}} = \left(C^{-1} + \lambda \Gamma \right)^{-1}
-  $$
-- Typically, `Γ` is the identity matrix.
-
-#### Interpretation
-- **Estimates are shrunk** toward zero (or prior).
-- **Uncertainty (covariance)** is reduced, reflecting added prior information.
-- Regularization improves **numerical stability** and reduces **overfitting**.
-
-#### Post-Regularization Checks
-- Compare `θ_fit` vs `θ_reg` and `C` vs `C_reg`.
-- Assess model fit with regularized parameters.
-- Examine parameter correlations and identifiability.
-- Optionally test sensitivity to different `λ` values.
-
-#### Note
-This approach assumes the likelihood is locally quadratic—valid for most ODE-based models near optimum. 
-
-## Dependencies
-
-The module relies on several external packages:
-
-- **Numerical and Scientific Libraries:**  
-  `numpy`, `pandas`, `scipy`
-
-- **Optimization and Integration:**  
-  `scipy.optimize.curve_fit`, `scipy.integrate.odeint`
-
-- **Performance:**  
-  `numba` for Just-In-Time compilation (e.g., for early weighting computations)
-
-- **Machine Learning:**  
-  `sklearn` (for PCA and t-SNE)
-
-- **Plotting:**  
-  `matplotlib`, `seaborn`, `plotly`, and `adjustText`
-
 ## Usage
 
 ### Estimation Mode Toggle
@@ -104,35 +53,3 @@ The main script (`core.py`) extracts gene-specific data, sets up initial conditi
 - Bootstrapping iteration count
 
 After estimation, the final parameter set is used to solve the full ODE system, and various plots (e.g., model fit, PCA, t-SNE, profiles) are generated and saved.
-
-### Example
-
-```python
-from paramest.toggle import estimate_parameters
-
-# For a given gene, with data, initial conditions, etc.
-mode = "normal"  # or "sequential"
-model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
-    mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
-)
-
-# seq_model_fit will have the same shape as P_data: (num_psites, len(time_points))
-```
-
-## Customization
-
-- **Parameter Bounds & Fixed Parameters:**  
-  Bounds and fixed parameter settings are defined in your configuration files. These can be tuned based on the biological context.
-
-- **Regularization:**  
-  Tikhonov regularization is applied by concatenating a penalty term to the target vector; the regularization strength (`lambda_reg`) is configurable.
-
-- **Bootstrapping:**  
-  To assess uncertainty in the estimates, set the number of bootstrapping iterations as needed.
-
-- **Model Type:**  
-  The behavior for different ODE model types is controlled by the `ODE_MODEL` configuration constant. For example, for `"randmod"`, the parameters are estimated in log-space for `"normal"`estimation only.
-
-## Conclusion
-
-This parameter estimation module provides a flexible framework to fit ODE-based models to phosphorylation data. By offering multiple estimation approaches, adaptive profile generation, and robust error metrics, it is designed to support in-depth model analysis and validation. Combined with its integrated plotting utilities, the module facilitates both diagnostic assessment and presentation of results.

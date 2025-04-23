@@ -78,7 +78,7 @@ def prepare_vectorized_arrays(num_sites):
 
     return binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET
 
-@njit
+@njit(parallel=True)
 def ode_system(y, t, A, B, C, D, num_sites, binary_states, PHOSPHO_TARGET, DEPHOSPHO_TARGET, *params):
     """
     The ODE system for the random phosphorylation model. This function computes the derivatives of the

@@ -28,6 +28,14 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # to account for rapid changes and broader intervals later up to 960.0 minutes.
 TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
 
+# VECTORIZED_LOSS_FUNCTION:
+# A boolean flag indicating whether to use a vectorized loss function.
+# If set to True, the loss function will be optimized for performance using vectorized operations.
+# If set to False, the loss function will use standard Python loops.
+# This can significantly affect the speed and efficiency of the optimization process if you have
+# mRNAs and TFs in the order of 1000s.
+VECTORIZED_LOSS_FUNCTION = True
+
 def parse_args():
     """
     Parse command line arguments for the PhosKinTime optimization problem.

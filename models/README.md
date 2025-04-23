@@ -1,6 +1,172 @@
-# Models Module
+# Models
 
 The **models** module provides the implementation of various ODE-based kinetic models used in the PhosKinTime package for phosphorylation dynamics. It is designed to support multiple model types, each corresponding to a different mechanistic hypothesis about how phosphorylation occurs.
+
+---
+
+### **1. Distributive Model**
+
+- $R$: mRNA concentration  
+- $P$: protein concentration  
+- $P_i$: phosphorylated site $i$  
+- $A, B, C, D$: rate constants  
+- $S_i$: phosphorylation rate for site $i$  
+- $D_i$: dephosphorylation rate for site $i$  
+
+Equations:
+
+- $ \frac{dR}{dt} = A - B R $
+- $ \frac{dP}{dt} = C R - (D + \sum_i S_i) P + \sum_i P_i $
+- $ \frac{dP_i}{dt} = S_i P - (1 + D_i) P_i \quad \forall i $
+
+---
+
+### **2. Successive Model**
+
+- $R, P, P_i$ as above  
+- Phosphorylation proceeds in sequence  
+
+Equations:
+
+- $ \frac{dR}{dt} = A - B R $
+- $ \frac{dP}{dt} = C R - D P - S_0 P + P_0 $
+
+Phosphorylation sites:
+
+- First site ($i = 0$):  
+  $ \frac{dP_0}{dt} = S_0 P - (1 + S_1 + D_0) P_0 + P_1 $
+
+- Intermediate sites ($0 < i < n-1$):  
+  $ \frac{dP_i}{dt} = S_i P_{i-1} - (1 + S_{i+1} + D_i) P_i + P_{i+1} $
+
+- Last site ($i = n - 1$):  
+  $ \frac{dP_{n-1}}{dt} = S_{n-1} P_{n-2} - (1 + D_{n-1}) P_{n-1} $
+
+---
+
+### **3. Random Model**
+
+- $X_j$: phosphorylated state $j$, total $2^n - 1$ states  
+- $S_i$: phosphorylation rates for each site  
+- $D_j$: degradation rate for state $j$  
+- Binary transitions determine phosphorylation and dephosphorylation  
+
+Equations:
+
+- $ \frac{dR}{dt} = A - B R $
+- $ \frac{dP}{dt} = C R - D P - (\sum_i S_i) P + \sum_{j \in \text{1-site}} X_j + \sum_{j \in \text{dephospho exit}} S_i X_j $
+
+Each state $X_j$:
+
+- $ \frac{dX_j}{dt} = \sum_{\text{phospho from}} S_i X_{src} - (\sum_i S_i + D_j) X_j + \sum_{\text{dephospho to}} S_i X_{src} $
+
+--- 
+  
+## Weights 
+
+### **Without Regularization**
+
+Let:
+- $x_i$: the data point at time $i$
+- $t_i$: the time point index ($i = 1, 2, \dots$)
+- $T$: total number of time points
+- $w_i$: weight at time $i$
+
+Basic schemes:
+
+- **Inverse Data**:  
+  $w_i = \frac{1}{|x_i| + \epsilon}$
+
+- **Exponential Decay**:  
+  $w_i = \exp(-0.5 \cdot x_i)$
+
+- **Log Scale**:  
+  $w_i = \frac{1}{\log(1 + |x_i|)}$
+
+- **Time Difference**:  
+  $w_i = \frac{1}{|x_i - x_{i-1}| + \epsilon}$
+
+- **Moving Average Deviation**:  
+  $w_i = \frac{1}{|x_i - \text{MA}_i| + \epsilon}$  
+  where $\text{MA}_i$ is a moving average (e.g., over 3 points)
+
+- **Sigmoid Time Decay**:  
+  $w_i = \frac{1}{1 + \exp(t_i - 5)}$
+
+- **Exponential Early Emphasis**:  
+  $w_i = \exp(-0.5 \cdot t_i)$
+
+- **Polynomial Decay**:  
+  $w_i = \frac{1}{1 + 0.5 \cdot t_i}$
+
+- **MS SNR Model (Signal-Noise Ratio)**:  
+  $w_i = \frac{1}{\sqrt{|x_i| + \epsilon}}$
+
+- **MS Inverse Variance Model**:  
+  $w_i = \frac{1}{|x_i|^{0.7} + \epsilon}$
+
+- **Flat Region Penalty**:  
+  $w_i = \frac{1}{|\nabla x_i| + \epsilon}$
+
+- **Steady State Decay**:  
+  $w_i = \exp(-0.1 \cdot t_i)$
+
+- **Combined Data and Time**:  
+  $w_i = \frac{1}{|x_i| \cdot (1 + 0.5 \cdot t_i)}$
+
+- **Inverse Sqrt Data**:  
+  $w_i = \frac{1}{\sqrt{|x_i| + \epsilon}}$
+
+- **Early Emphasis (moderate or steep decay)**:  
+  $w_i = 1$ (or pre-defined stepwise decay vector)
+
+- **Custom Early Emphasis**:  
+  Based on:  
+  $w_i = \frac{1}{(|x_i| + \epsilon)(\Delta t_i + \epsilon)}$ for early $t_i$, else $w_i = 1$
+
+### **With Regularization**
+
+Let $w_i$ be any of the above weights and $R$ be the number of regularization parameters:
+
+- **Extended Weight Vector**:  
+  $w = [w_1, w_2, \dots, w_T, 1, 1, \dots, 1]$  
+  where the last $R$ entries are `1` (flat regularization penalty weights)
+
+This simply appends a vector of ones of length equal to the number of regularization parameters to each weight vector. 
+ 
+#### **Tikhonov Regularization in ODE Parameter Estimation**
+
+This project applies **Tikhonov regularization** (λ = 1e-3) to stabilize parameter estimates and improve identifiability in ODE-based model fitting.
+
+- Computes **unregularized estimates** and their **covariance matrix**.
+- Applies Tikhonov regularization post hoc:
+- **Regularized estimates**:  
+  $$
+  \theta_{\text{reg}} = \theta_{\text{fit}} - \lambda C \Gamma \theta_{\text{fit}}
+  $$
+
+- **Regularized covariance**:  
+  $$
+  C_{\text{reg}} = \left(C^{-1} + \lambda \Gamma \right)^{-1}
+  $$
+- Typically, `Γ` is the identity matrix.
+
+#### Interpretation
+- **Estimates are shrunk** toward zero (or prior).
+- **Uncertainty (covariance)** is reduced, reflecting added prior information.
+- Regularization improves **numerical stability** and reduces **overfitting**.
+
+#### Post-Regularization Checks
+- Compare `θ_fit` vs `θ_reg` and `C` vs `C_reg`.
+- Assess model fit with regularized parameters.
+- Examine parameter correlations and identifiability.
+- Optionally test sensitivity to different `λ` values.
+
+#### Note 
+
+This approach assumes the likelihood is locally quadratic—valid for most ODE-based models near optimum. 
+ 
+--- 
 
 ## Overview
 
@@ -45,22 +211,6 @@ The package’s `__init__.py` file in the models module automatically imports th
 - **Numba:** To accelerate performance-critical functions via just-in-time (JIT) compilation.
 - **Other Dependencies:** The module works within the PhosKinTime package, leveraging configuration and logging utilities defined elsewhere in the package.
 
-## Usage
-
-Once configured (by setting `ODE_MODEL` appropriately in your configuration files), the package automatically imports the correct model:
-  
-```python
-# In models/__init__.py
-import importlib
-from config.constants import ODE_MODEL
-
-try:
-    model_module = importlib.import_module(f'models.{ODE_MODEL}')
-except ModuleNotFoundError as e:
-    raise ImportError(f"Cannot import model module 'models.{ODE_MODEL}'") from e
-
-solve_ode = model_module.solve_ode
-```
 ---
 
 ### Units in the ODE Model

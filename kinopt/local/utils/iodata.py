@@ -2,7 +2,6 @@ import os, re, shutil
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-
 from kinopt.local.config.constants import INPUT1, INPUT2
 
 def format_duration(seconds):
@@ -33,7 +32,6 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
     :return: Time series data, interaction data, observed data
     """
     full_hgnc_df = pd.read_csv(INPUT1)
-    full_hgnc_df = full_hgnc_df[full_hgnc_df['Psite'].notna() & (full_hgnc_df['Psite'] != '')]
     time_series_cols = [f'x{i}' for i in range(1, 15)]
     full_hgnc_df = apply_scaling(full_hgnc_df, time_series_cols, scaling_method, split_point, seg_points)
     interaction_df = pd.read_csv(INPUT2, header=0)
@@ -46,7 +44,6 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
         interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
         observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"])
     return full_hgnc_df, interaction_df, observed
-
 
 def apply_scaling(df, cols, method, split_point, seg_points):
     """

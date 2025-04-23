@@ -1,11 +1,42 @@
+# Ignore all Python files in the project root
+/*.py
+
+# But keep the root __init__.py and __main__.py so the package remains valid
+!/__init__.py
+!/__main__.py
+
+# Ignore runtime logs
 logs/
-/.github/
+
+# Ignore tfopt and kinopt generated data
 /tfopt/data/
 /kinopt/data/
+
+# Ignore tfopt and kinopt result outputs
 /tfopt/results/
 /kinopt/results/
+
+# Ignore general results directory
 /results/
+
+# Ignore any raw data directory
 /data/
+
+# Ignore raw processing inputs and any CSV outputs under processing
 /processing/raw/
 /processing/*.csv
+
+# Ignore Python bytecode caches
 __pycache__/
+
+# Ignore network definitions or outputs
+/network/
+
+#Igore any lock files
+*.lock
+
+# Ignore any dist files - wheels
+/dist/
+
+# Ignore any documentation files
+/docs/

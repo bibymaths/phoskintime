@@ -1,16 +1,16 @@
-# abopt: A Comprehensive Optimization Framework for PhosKinTime
+# kinopt: A Comprehensive Optimization Framework for PhosKinTime
 
-**abopt** is a modular framework designed for the analysis and optimization of gene–phosphorylation time-series data. It integrates several specialized submodules that cater to different optimization strategies and post-processing analyses. Whether you need a global evolutionary approach, a local constrained optimization, or a Julia-based Powell optimization routine, **abopt** offers the tools to process your experimental data and generate in-depth reports on model performance.
+**kinopt** is a modular framework designed for the analysis and optimization of gene–phosphorylation time-series data. It integrates several specialized submodules that cater to different optimization strategies and post-processing analyses. Whether you need a global evolutionary approach, a local constrained optimization, or a Julia-based Powell optimization routine, **kinopt** offers the tools to process your experimental data and generate in-depth reports on model performance.
 
 ---
 
 ## Directory Structure
 
 ```
-abopt/
+kinopt/
 ├── data
-│   ├── input1.csv             # Primary input data file with gene-phosphorylation data.
-│   └── input2.csv             # Interaction data file containing kinase information.
+│   ├── input1.csv             # Primary input data file with phosphorylation time series data.
+│   └── input2.csv             # Interaction data file containing protein-phosphorylation-kinase information.
 ├── evol
 │   ├── config                 # Configuration files (constants, logging, etc.) for the evolutionary approach.
 │   ├── exporter               # Plotting and Excel sheet export functions.
@@ -19,15 +19,12 @@ abopt/
 │   ├── objfn                  # Objective function implementations (single- and multi-objective).
 │   ├── opt                    # Optimization routines (integration with pymoo).
 │   ├── optcon                 # Functions to construct input data, constraints, and precomputed mappings.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the evol module.
 │   └── utils                  # Utility functions for data I/O and parameter extraction.
 ├── fitanalysis
 │   ├── helpers                # Auxiliary scripts for additional performance evaluation.
 │   ├── __init__.py
 │   ├── __main__.py            # Entry point for fit analysis.
-│   └── __pycache__
-├── __init__.py
 ├── local
 │   ├── config                 # Configuration files specific to local optimization.
 │   ├── exporter               # Functions for exporting local optimization results and diagnostic plots.
@@ -36,32 +33,26 @@ abopt/
 │   ├── objfn                  # Local objective function implementations with Numba acceleration.
 │   ├── opt                    # Local optimization routines using SciPy.
 │   ├── optcon                 # Construction of local constraints and precomputation of mappings.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the local module.
 │   └── utils                  # Utilities for data scaling, file organization, and report generation.
 ├── optimality
 │   ├── __init__.py
 │   ├── KKT.py                 # Post-optimization analysis: feasibility, sensitivity, and reporting.
-│   ├── __pycache__
 │   └── README.md              # Detailed readme for the optimality module.
 ├── powell
 │   ├── __init__.py
 │   ├── __main__.py            # Entry point for Julia-based Powell optimization.
 │   ├── powell.jl              # Julia script implementing Powell’s method.
-│   ├── __pycache__
 │   ├── README.md              # Detailed readme for the powell module.
-│   └── runpowell.py           # Python script to run the Powell optimization and log output.
-├── __pycache__
-│   ├── __init__.cpython-313.pyc
-│   └── __main__.cpython-313.pyc
-└── README.md                  # This file.
+│   └── runpowell.py           # Python script to run the Powell optimization and log output. 
+├── __init__.py
 ```
 
 ---
 
 ## Overview
 
-**abopt** provides an end-to-end solution for:
+**kinopt** provides an end-to-end solution for:
 
 - **Data Preparation:**  
   Preprocess and scale input CSV files containing time-series data and kinase interactions.
@@ -122,41 +113,33 @@ Ensure that Julia is installed and accessible via the command line.
 
 ---
 
-## Usage
+## Usage 
+ 
+Go to the one top level up in the terminal from root and run:
 
 ### Running Global Optimization (evol)
 
-Navigate to the `evol` directory and run:
-
 ```bash
-python -m evol
+python -m phoskintime kinopt --mode evol
 ```
 
 ### Running Local Optimization (local)
 
-Navigate to the `local` directory and run:
-
 ```bash
-python -m local
+python -m phoskintime kinopt --mode local
 ```
 
-### Running Powell Optimization (powell)
+### Running Powell Optimization (powell)  
+ 
+Uses Julia for optimization. Ensure Julia is installed and accessible in your PATH.
 
-To execute the Powell module, run:
+To execute the Powell module, go to kinopt directory run:
 
 ```bash
 python -m kinopt.powell
 ```
 
 This will automatically run the Julia script, process the results, and generate the necessary reports.
-
-### Fit Analysis
-
-For additional model fit evaluation, navigate to the `fitanalysis` directory and run:
-
-```bash
-python -m fitanalysis
-```
 
 ### Post-Optimization Processing
 
@@ -168,8 +151,8 @@ After any optimization run, the **optimality** module is invoked (either directl
 
 Contributions are welcome! Please refer to the main repository documentation for guidelines on contributing, reporting issues, and feature requests.
 
-**abopt** is distributed under the Apache 2.0 license. See the LICENSE file in the repository for more details.
+**kinopt** is distributed under the BSD Clause 3 license. See the LICENSE file in the repository for more details.
 
 ---
 
-This README provides an overview of the **abopt** framework, outlining its structure, features, and usage instructions. For detailed documentation on each submodule, please refer to the individual README.md files within the respective directories.
+This README provides an overview of the **kinopt** framework, outlining its structure, features, and usage instructions. For detailed documentation on each submodule, please refer to the individual README.md files within the respective directories.

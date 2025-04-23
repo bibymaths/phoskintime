@@ -1,82 +1,92 @@
-# Data Cleanup and Processing Workflow
 
-This project standardizes raw data files for downstream analysis in kinase and TF-mRNA optimization pipelines. The processing script (`cleanup.py`) performs data cleanup, transformation, and then moves the processed files into designated directories.
+# PhosKinTime Data Preprocessing & Mapping
 
-## Directory Structure
+This workflow prepares and maps time-series data for kinase and transcription factor optimization models from raw proteomics and transcriptomics datasets.
 
-The raw files should be stored under the `raw/` directory with the following structure:
+---
+
+## Structure
 
 ```
-raw
-├── CollecTRI.csv
-├── HitGenes.xlsx
-├── input2.csv
-├── MS_Gaussian_updated_09032023.csv
-└── Rout_LimmaTable.csv
+phoskintime/
+├── processing/
+│   ├── cleanup.py     # Data cleaning and preparation
+│   └── map.py         # Optimization result mapping and network table generation
+├── raw/               # Input CSVs (CollecTRI, MS Gaussian, Rout Limma)
+├── kinopt/data/       # Kinase model inputs
+├── tfopt/data/        # TF model inputs
+└── data/              # Network export for Cytoscape
 ```
 
-*Note:* The file `HitGenes.xlsx` is currently not processed by the script as it irrelevant in the pipeline.  
-It is just there as a placeholder if one wants to use velocity data in some scenario.   
+---
 
+## Scripts Overview
 
-## Processing Steps
+### `cleanup.py`
 
-The `cleanup.py` script performs the following:
+Performs the following steps:
 
-1. **Processing CollecTRI.csv**
-   - Reads and filters out rows where the `source` column starts with "COMPLEX".
-   - Keeps only the `source_genesymbol` and `target_genesymbol` columns (renamed to "Source" and "Target").
-   - Removes rows with missing or blank entries and duplicates.
-   - Retains interactions only if the target gene appears in `input2.csv`.
-   - Saves the cleaned TF-mRNA interactions as `input4.csv` and copies `input2.csv` for further use.
+1. **TF-mRNA Interaction Cleanup**
+   - Filters complex interactions in CollecTRI
+   - Keeps only TFs matching phospho-interactions in `input2.csv`
 
-2. **Processing MS_Gaussian_updated_09032023.csv**
-   - Transforms the `predict_mean` column by computing `2^(predict_mean)`.
-   - Pivots the data so each `(GeneID, Psite)` pair has a time series (columns `x1` to `x14`).
-   - Formats the phosphorylation site (Psite) values and filters to keep only rows starting with `Y_`, `S_`, or `T_`.
-   - Saves the resulting time series data as `input1.csv`.
+2. **Proteomics Data Transformation**
+   - Transforms MS Gaussian predictions with `2^mean`
+   - Formats phosphorylation sites, saves to `input1.csv`
 
-3. **Processing Standard Deviation Data for MS Gaussian**
-   - Computes the standard deviation transformation using the error propagation formula as we are comverting logFC to FC in `predict_mean` column so the `predict_std` column needs to be transformed as well:
-     
-     ```
-     sigma_trans = 2^(predict_mean) * ln(2) * predict_std
-     ```
-     
-   - Pivots and merges the mean and standard deviation data.
-   - Filters and saves the processed data as `input1_wstd.csv`.
+3. **Error Propagation**
+   - Computes std propagation:  
+     `σ_y = 2^x * ln(2) * σ_x`
+   - Saves to `input1_wstd.csv`
 
-4. **Processing Rout_LimmaTable.csv**
-   - Extracts specific condition columns and renames them to `x1` to `x9`.
-   - Converts the values using the transformation `2^(value)`.
-   - Saves the time series data as `input3.csv`.
+4. **Transcriptomics Cleanup**
+   - Transforms Rout Limma values with `2^x`
+   - Saves to `input3.csv`
 
-5. **Updating Gene Symbols**
-   - Uses the `mygene` package to update the gene IDs to standard gene symbols across key processed files (`input1.csv`, `input1_wstd.csv`, and `input3.csv`).
+5. **Gene Symbol Mapping**
+   - Replaces Ensembl/Entrez IDs with gene symbols (using MyGeneInfo)
 
-6. **Moving Processed Files**
-   - **Kinase-Phosphrylation Optimization (kinopt):**
-     - Moves `input1.csv` and `input2.csv` to `../kinopt/data`.
-   - **TF-mRNA Optimization (tfopt):**
-     - Moves `input1.csv`, `input3.csv`, and `input4.csv` to `../tfopt/data`.
+6. **File Management**
+   - Moves cleaned files to `kinopt/data/` and `tfopt/data/`
 
-*Note:* The file `input1.csv` is used by both pipelines. Addtionally, the following IDs, cannot be converted to Symbols in MS Gaussian:
- 
-```
-4 input query terms found no hit:	['55747', '283331', '729269', '100133171'] 
-``` 
+### `map.py`
 
-## Setup and Running the Pipeline
+Maps TF-mRNA optimization results and produces:
 
-1. **Directory Setup:**
-   - Create a directory named `raw` in your project root.
-   - Place the raw files (`CollecTRI.csv`, `HitGenes.xlsx`, `input2.csv`, `MS_Gaussian_updated_09032023.csv`, `Rout_LimmaTable.csv`) into the `raw` folder.
+- `mapping.csv`: TF → mRNA links with Psite & Kinase
+- `mapping_.csv`: Cytoscape edge table
+- `nodes.csv`: Node roles (TF, Kinase)
 
-2. **Install Dependencies:**
-   - Ensure the project is set up in a Python environment.
+---
 
-3. **Execution:**
-   - Run the cleanup script from your project root:
-     ```bash
-     python cleanup.py
-     ```
+## Inputs
+
+Place the following raw data in `processing/raw/`:
+
+- `CollecTRI.csv`
+- `MS_Gaussian_updated_09032023.csv`
+- `Rout_LimmaTable.csv`
+- `input2.csv` (phospho interactions)
+
+---
+
+## Outputs
+
+| File                  | Description                             |
+|-----------------------|-----------------------------------------|
+| `input1.csv`          | Phospho time series (KinOpt, TFOpt)     |
+| `input1_wstd.csv`     | Same as above + standard deviation      |
+| `input2.csv`          | Phospho kinase-interaction metadata     |
+| `input3.csv`          | mRNA time series (TFOpt)                |
+| `input4.csv`          | Clean TF-mRNA interactions              |
+| `mapping.csv`         | Mapped TF → mRNA with Kinase + Psite    |
+| `mapping_.csv`        | Cytoscape-compatible edge list          |
+| `nodes.csv`           | Cytoscape node roles                    |
+
+---
+
+## 🧠 Notes
+
+- Complex TF interactions (e.g. `COMPLEX:TF1/TF2`) are excluded.
+- Kinase-only proteins not appearing in CollecTRI (e.g. `PAK2`) are excluded from TF mapping.
+- Unmappable GeneIDs are printed at runtime.

@@ -39,7 +39,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
         # --- Full time series plot ---
-        ax = axes[0]
+        ax = axes[1]
         ax.plot(time_vals_expr, expression_matrix[i, :], 's-', label='Observed', color='black')
         ax.plot(time_vals_expr, predictions[i, :], '-', label='Estimated', color='red')
         plotted_tfs = set()
@@ -49,7 +49,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
             tf_name = tf_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = tf_protein_matrix[r, :T]
-                ax.plot(time_vals_tf, protein_signal, ':', label=f"{tf_name}")
+                ax.plot(time_vals_tf, protein_signal, ':', label=f"{tf_name}", alpha=0.3)
                 plotted_tfs.add(tf_name)
         ax.set_title(f"mRNA: {gene_ids[i]}")
         ax.set_xlabel("Time (minutes)")
@@ -59,7 +59,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         ax.grid(True, alpha=0.3)
 
         # --- First 5 time points plot ---
-        ax = axes[1]
+        ax = axes[0]
         ax.plot(time_vals_expr[:5], expression_matrix[i, :5], 's-', label='Observed', color='black')
         ax.plot(time_vals_expr[:5], predictions[i, :5], '-', label='Estimated', color='red')
         plotted_tfs = set()
@@ -69,12 +69,20 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
             tf_name = tf_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = tf_protein_matrix[r, :5]
-                ax.plot(time_vals_tf[:5], protein_signal, ':', label=f"{tf_name}")
+                ax.plot(time_vals_tf[:5], protein_signal, ':', label=f"{tf_name}", alpha = 0.3)
                 plotted_tfs.add(tf_name)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_vals_expr[:5])
         ax.set_xticklabels(time_vals_expr[:5])
-        ax.legend(title="TFs")
+        ax.legend(
+            title="TFs",
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.25),
+            ncol=10,
+            frameon=True,
+            fontsize=8,
+            title_fontsize=9
+        )
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig(f"{save_path}/{gene_ids[i]}_model_fit_.png", dpi=300)

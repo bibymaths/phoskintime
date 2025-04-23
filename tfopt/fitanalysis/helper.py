@@ -1,14 +1,14 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+import matplotlib.markers as mmarkers
 import pandas as pd
 import numpy as np
 from scipy.stats import entropy
-from sklearn.metrics import mean_squared_error
-from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -54,48 +54,55 @@ class Plotter:
         Plots the distribution of alpha parameter values grouped by transcription factors (TFs)
         using a strip plot.
         """
-        plt.figure(figsize=(10, 10))
-        all_markers = ['^', 'v', '<', '>', 's', 'p', '*', 'h', 'H', 'D', 'd', 'X', '+', 'x']
-        unique_tfs = self.df_alpha.index.get_level_values(1).unique()
-        marker_map = {tf: all_markers[i % len(all_markers)] for i, tf in enumerate(unique_tfs)}
+        unique_mrnas = self.df_alpha.index.get_level_values(0).unique()
+        all_markers = [m for m in mmarkers.MarkerStyle.markers
+                       if isinstance(m, str) and len(m) == 1 and m not in {' ', ''}]
 
-        for tf, marker in marker_map.items():
-            mask = self.df_alpha.index.get_level_values(1) == tf
-            sns.stripplot(
-                y=self.df_alpha.index.get_level_values(0)[mask],     # mRNA names
-                x=self.df_alpha.iloc[:, 0][mask],                     # Alpha values
-                hue=self.df_alpha.index.get_level_values(0)[mask],    # mRNA used for hue
-                label=tf,
-                palette='Dark2',
-                dodge=True,
-                size=12,
-                jitter=True,
-                marker=marker,
-                edgecolor='black'
+        for mrna in unique_mrnas:
+            plt.figure(figsize=(8, 8))
+
+            # Get alpha values for this mRNA
+            df_subset = self.df_alpha.loc[mrna].copy()
+            df_subset.columns = ['Value']
+            df_subset = df_subset.sort_values(by='Value')  # sort TFs by alpha
+
+            tf_list = df_subset.index.tolist()
+            alpha_values = df_subset['Value'].values
+
+            marker_map = {tf: all_markers[i % len(all_markers)] for i, tf in enumerate(tf_list)}
+
+            # Plot each TF individually
+            for i, (tf, alpha) in enumerate(zip(tf_list, alpha_values)):
+                plt.scatter(
+                    alpha, 0,  # constant y for strip plot effect
+                    label=tf,
+                    marker=marker_map[tf],
+                    edgecolor='black',
+                    s=80  # marker size
+                )
+
+            # Create custom legend
+            legend_handles = [
+                mlines.Line2D([], [], color='black', marker=marker_map[tf],
+                              linestyle='None', markersize=7, label=tf)
+                for tf in tf_list
+            ]
+            plt.legend(
+                handles=legend_handles,
+                title='TFs',
+                fontsize='7',
+                title_fontsize='9',
+                bbox_to_anchor=(1.05, 1),
+                loc='upper left',
+                frameon=True
             )
 
-        # Create a custom legend for each TF
-        legend_handles = [
-            mlines.Line2D([], [], color='black', marker=marker_map[tf],
-                          linestyle='None', markersize=7, label=tf)
-            for tf in unique_tfs
-        ]
-        plt.legend(
-            handles=legend_handles,
-            title='TFs',
-            frameon=True,
-            loc='upper left',
-            bbox_to_anchor=(1, 1),
-            title_fontsize='10',
-            fontsize='7'
-        )
-        plt.title('Effect of Transcription Factors (TFs) on mRNA Expression')
-        plt.ylabel('mRNA')
-        plt.yticks(fontsize=6, rotation=0)
-        plt.xlabel('Alpha Value')
-        plt.tight_layout()
-        plt.savefig(f"{self.savepath}/mRNA_alpha_group.png", dpi=300, bbox_inches='tight')
-        plt.close()
+            plt.title(f'mRNA: {mrna}')
+            plt.xlabel('Alpha Value')
+            plt.yticks([])  # remove y-axis ticks
+            plt.tight_layout()
+            plt.savefig(f"{self.savepath}/alpha_distribution_{mrna}.png", dpi=300, bbox_inches='tight')
+            plt.close()
 
     def plot_beta_barplots(self):
         """
@@ -124,9 +131,9 @@ class Plotter:
                 edgecolor='black',
                 linewidth=0.5
             )
-            plt.xlabel("Phosphorylation - Residue Position")
-            plt.ylabel("Transcription Factor")
-            plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity")
+            plt.xlabel("Phosphorylation - Residue Position", fontsize = 7)
+            plt.ylabel("β", fontsize = 7)
+            plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity", fontsize=7)
             plt.grid(True, alpha=0.2)
             plt.tight_layout()
             plt.savefig(f'{self.savepath}/TF_{tf}_beta_group.png', dpi=300)
@@ -160,12 +167,17 @@ class Plotter:
         fits a linear regression model, plots the 95% confidence interval,
         and labels points outside the confidence interval.
         """
-        plt.figure(figsize=(12, 12))
-        plt.scatter(self.df_obs, self.df_est, alpha=0.5)
+        fig, ax = plt.subplots(figsize=(10, 10))
 
-        mRNAs = self.df.index
+        # Flatten arrays
+        obs_flat = self.df_obs.values.flatten()
+        est_flat = self.df_est.values.flatten()
+        mRNAs    = self.df.index
+
+        ax.scatter(self.df_obs, self.df_est, alpha=0.5)
+
         for i, mRNA in enumerate(mRNAs):
-            plt.scatter(
+            ax.scatter(
                 self.df_obs.iloc[i],
                 self.df_est.iloc[i],
                 label=mRNA,
@@ -174,44 +186,50 @@ class Plotter:
                 edgecolor='black'
             )
 
-        # Linear Regression and Confidence Interval Calculation
-        X = self.df_obs.values.reshape(-1, 1)
-        y = self.df_est.values.reshape(-1, 1)
-        model = LinearRegression()
-        model.fit(X, y)
-        y_pred = model.predict(X)
-        mse = mean_squared_error(y, y_pred)
-        std_error = np.sqrt(mse)
+        # compute residuals’ std and CI offsets
+        diffs       = est_flat - obs_flat
+        std_diff    = np.std(diffs, ddof=1)
+        ci_offset_95 = 1.96 * std_diff
+        ci_offset_99 = 2.576 * std_diff
 
-        # Flatten arrays for plotting
-        obs_flat = self.df_obs.values.flatten()
-        est_flat = self.df_est.values.flatten()
+        # define plotting range
+        min_val = min(obs_flat.min(), est_flat.min())
+        max_val = max(obs_flat.max(), est_flat.max())
 
-        plt.fill_between(
-            obs_flat,
-            y_pred.flatten() - 1.96 * std_error,
-            y_pred.flatten() + 1.96 * std_error,
-            color='gray', alpha=0.3, label='95% CI'
-        )
+        # 45° diagonal
+        ax.plot([min_val, max_val], [min_val, max_val],
+                color='gray', linestyle='-', linewidth=1.5, label='y = x')
 
-        # Label any points that lie outside the 95% confidence interval
-        for i, (x_val, y_val) in enumerate(zip(obs_flat, est_flat)):
-            if i < len(mRNAs):
-                if y_val < y_pred.flatten()[i] - 1.96 * std_error or y_val > y_pred.flatten()[i] + 1.96 * std_error:
-                    plt.text(
-                        x_val, y_val, mRNAs[i],
-                        fontsize=8, ha='right', va='bottom',
-                        fontweight='light', fontstyle='normal'
-                    )
+        # ±95% band
+        ax.plot([min_val, max_val],
+                [min_val + ci_offset_95, max_val + ci_offset_95],
+                color='red', linestyle='--', linewidth=1, label='±95%')
+        ax.plot([min_val, max_val],
+                [min_val - ci_offset_95, max_val - ci_offset_95],
+                color='red', linestyle='--', linewidth=1)
 
-        plt.plot(obs_flat, y_pred, color='red', linestyle='--', label='Estimated Values', linewidth=0.5)
-        plt.xlabel('Observed Values')
-        plt.ylabel('Estimated Values')
-        plt.title('Goodness of Fit')
-        plt.grid(True, alpha=0.1)
+        # ±99% band
+        ax.plot([min_val, max_val],
+                [min_val + ci_offset_99, max_val + ci_offset_99],
+                color='gray', linestyle='--', linewidth=1, label='±99%')
+        ax.plot([min_val, max_val],
+                [min_val - ci_offset_99, max_val - ci_offset_99],
+                color='gray', linestyle='--', linewidth=1)
+
+        # label points outside the 95% band
+        for x_val, y_val, mRNA in zip(obs_flat, est_flat, mRNAs):
+            if abs(y_val - x_val) > ci_offset_95:
+                ax.text(x_val, y_val, mRNA,
+                        fontsize=8, ha='right', va='bottom', fontweight='semibold', fontstyle='normal')
+
+        ax.set_xlabel('Observed Values')
+        ax.set_ylabel('Estimated Values')
+        ax.set_title('Goodness of Fit')
+        ax.grid(True, alpha=0.1)
+        ax.legend(loc='best', fontsize=8, frameon=True)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Goodness_of_Fit.png', dpi=300)
-        plt.close()
+        plt.close(fig)
 
     def plot_kld(self):
         """
@@ -354,7 +372,7 @@ class Plotter:
         plt.ylabel('Residuals', fontsize=7)
         plt.yticks(fontsize=8)
         plt.xticks(fontsize=8)
-        plt.legend(loc='best', fontsize=8, frameon=True)
+        # plt.legend(loc='best', fontsize=8, frameon=True)
         plt.tight_layout()
         plt.savefig(f'{self.savepath}/Time_Wise_Residuals.png', dpi=300)
         plt.close()

@@ -30,7 +30,7 @@ def load_and_filter_data():
     reg_map = load_regulation()
 
     # Filter genes: only keep those with at least one regulator.
-    filtered_indices = [i for i, gene in enumerate(gene_ids) if gene in reg_map and len(reg_map[gene]) > 0]
+    filtered_indices = [i for i, gene in enumerate(gene_ids) if gene in reg_map]
     if len(filtered_indices) == 0:
         raise ValueError("No genes with regulators found. Exiting.")
     gene_ids = [gene_ids[i] for i in filtered_indices]
@@ -40,9 +40,8 @@ def load_and_filter_data():
     relevant_tfs = set()
     for gene in gene_ids:
         regs = reg_map.get(gene, [])
-        regs_filtered = [tf for tf in regs if tf in tf_ids]
-        reg_map[gene] = regs_filtered
-        relevant_tfs.update(regs_filtered)
+        reg_map[gene] = regs
+        relevant_tfs.update(regs)
 
     # Filter TFs.
     tf_ids_filtered = [tf for tf in tf_ids if tf in relevant_tfs]

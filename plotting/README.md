@@ -1,4 +1,4 @@
-# Plotting Module 
+# Plotting 
 
 This module provides the `Plotter` class, which encapsulates a comprehensive suite of plotting functions designed to help visualize and analyze the results of ODE-based phosphorylation modeling. It supports a wide range of diagnostic, exploratory, and presentation plots to aid in understanding model dynamics, sensitivity, and fit quality.
 
@@ -37,43 +37,10 @@ This module provides the `Plotter` class, which encapsulates a comprehensive sui
 
 - **Protein Clusters and Heatmap Plots**  
   Additional plots for exploring clustering of sensitivity values and correlations among estimated parameters.
+ 
+--- 
 
-## Dependencies
-
-The module requires the following packages:
-
-- **matplotlib** and **seaborn** for static plotting and advanced visualization.
-- **plotly** for interactive plotting.
-- **numpy** and **pandas** for numerical and data handling operations.
-- **scipy** for ODE integration (via `odeint`), interpolation (via `CubicSpline`), and statistical functions (e.g., `gaussian_kde`).
-- **sklearn** for PCA and t-SNE.
-- **adjustText** for optimizing text placement on figures.
-- **Numba** to accelerate performance-critical functions (e.g., early emphasis calculation).
-
-## Usage
-
-Instantiate the `Plotter` class by providing a gene (or experiment) name and an output directory. Then, call the desired plotting methods using the relevant data (such as the ODE solution, estimated parameters, and time points).
-
-Example:
-
-```python
-from plotting import Plotter
-
-# Initialize a Plotter instance for a given gene
-plotter = Plotter(gene="GeneX", out_dir="./results")
-
-# Example: Create a parallel coordinates plot
-solution = ...  # ODE solution as a NumPy array (e.g., shape (time_points, states))
-labels = ["R", "P", "P1", "P2"]
-plotter.plot_parallel(solution, labels)
-
-# Example: Create a 3D PCA plot
-plotter.plot_pca(solution, components=3)
-```
-
-All generated figures are saved automatically to the output directory specified during initialization.
-
-## Code Structure
+## Structure
 
 - **Private Helper:**  
   `_save_fig(fig, filename, dpi=300)` saves a matplotlib figure and then closes it.
@@ -91,19 +58,3 @@ All generated figures are saved automatically to the output directory specified 
   - Multiple `plot_gof_*` methods: Generate different goodness-of-fit plots.
   - `plot_kld`: Generates a Kullback-Leibler divergence plot.
   - `plot_clusters` and `plot_heatmap`: For visualizing protein clustering and parameter correlation.
-
-## Customization
-
-- **Constants:**  
-  The module uses several configuration constants (such as `COLOR_PALETTE`, `OUT_DIR`, `CONTOUR_LEVELS`, and `model_type`) imported from the configuration files, ensuring consistency throughout the package.
-
-- **Styling and Layout:**  
-  Figure sizes, color maps, and axis labels can be customized by modifying the source code. The module is designed to work seamlessly with both static (matplotlib) and interactive (Plotly) visualizations.
-
-## Conclusion
-
-This plotting module is an essential part of the PhosKinTime package, offering a wide range of tools to visually interpret ODE model outputs, parameter estimates, and sensitivity analysis. Whether you need detailed diagnostic plots or publication-quality figures, the `Plotter` class provides a robust framework for your visualization needs.
-
----
-
-This README provides an overview of the module, its functionalities, dependencies, and usage examples, making it easier for users to understand and work with the plotting utilities in your package.

@@ -19,3 +19,5 @@ salib
 graphviz
 mygene
 cobyqa
+typer
+py2cytoscape

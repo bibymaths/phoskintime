@@ -25,7 +25,6 @@ def get_param_names_ds(num_psites: int) -> list:
     """
     return ['A', 'B', 'C', 'D'] + [f'S{i + 1}' for i in range(num_psites)] + [f'D{i + 1}' for i in range(num_psites)]
 
-# Label Generators
 def generate_labels_rand(num_psites: int) -> list:
     """
     Generates labels for the states based on the number of phosphorylation sites for the random model.

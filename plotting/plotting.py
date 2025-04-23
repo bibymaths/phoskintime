@@ -8,6 +8,7 @@ import pandas as pd
 from adjustText import adjust_text
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
+from pymoo.indicators.hv.monte_carlo import alpha
 from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
@@ -83,7 +84,7 @@ class Plotter:
         ax.set_xlabel('Principal Component')
         ax.set_ylabel('Explained Variance (%)')
         ax.legend()
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         self._save_fig(fig, f"{self.gene}_scree_plot_.png")
         return required_components, explained_variance
 
@@ -140,7 +141,7 @@ class Plotter:
         ax.set_xlabel("t-SNE 1")
         ax.set_ylabel("t-SNE 2")
         ax.set_title(self.gene)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         ax.legend()
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
 
@@ -209,7 +210,7 @@ class Plotter:
         ax.set_title(self.gene)
         ax.set_xlabel("Time")
         ax.set_ylabel("Kinetic Rates")
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         ax.legend(loc="best")
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_series_.png")
@@ -229,7 +230,7 @@ class Plotter:
         ax.set_ylabel("Kinetic Rates")
         ax.set_title(self.gene)
         ax.legend()
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
@@ -257,7 +258,7 @@ class Plotter:
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("Phosphorylation level (FC)")
         ax.set_title(self.gene)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         ax.legend()
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_model_fit_.png")
@@ -336,7 +337,7 @@ class Plotter:
         ax.set_title(self.gene)
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label("Time (min)")
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         ax.legend(handles=legend_handles)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_scatter_A_S_.png")
@@ -485,7 +486,7 @@ class Plotter:
         ax.set_ylabel("Fitted")
         ax.set_title(f"{model_type} model")
         ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"_gof_1.png")
 
@@ -541,7 +542,7 @@ class Plotter:
         ax.set_ylabel("Fitted")
         ax.set_title(f"{model_type} model")
         ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"_gof_2.png")
 
@@ -594,7 +595,7 @@ class Plotter:
         ax.set_ylabel("Fitted")
         ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
         self._save_fig(fig, f"gof_3.png")
@@ -655,7 +656,7 @@ class Plotter:
         ax.set_ylabel("Fitted")
         ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
         self._save_fig(fig, f"_gof_4.png")
@@ -750,7 +751,7 @@ class Plotter:
         ax.set_ylabel("Fitted")
         ax.set_title(f"{model_type} model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
+        ax.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"_gof_6.png")
 

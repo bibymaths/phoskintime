@@ -1,35 +1,90 @@
 [tool.poetry]
-name = "phoskintime"
-version = "0.1.0"
-description = "ODE-based modeling of phosphorylation and transcriptional time dynamics"
-authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
-packages = [{ include = "bin" }, { include = "config" }, { include = "paramest" }, { include = "models" }, { include = "plotting" }, { include = "utils" }, { include = "steady" }]
+name         = "phoskintime"
+version      = "0.1.0"
+description  = "PhosKinTime is a Python toolkit for ODE‑based modeling of phosphorylation kinetics and transcriptional time‑series, featuring parameter estimation, sensitivity analysis, steady‑state computation, and interactive visualization."
+readme       = "README.md"
+authors      = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
+license      = "BSD-3-Clause"
+homepage     = "https://bibymaths.github.io/phoskintime/"
+repository   = "https://github.com/bibymaths/phoskintime"
+documentation = "https://bibymaths.github.io/phoskintime/"
+keywords     = [
+  "phosphorylation",
+  "ODE",
+  "time-series",
+  "kinetics",
+  "parameter-estimation",
+  "sensitivity-analysis",
+  "systems-biology",
+  "LC-MS",
+  "modeling",
+  "python"
+]
+classifiers  = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent"
+]
+
+# Only these directories will be packaged
+packages = [
+  { include = "bin" },
+  { include = "config" },
+  { include = "kinopt" },
+  { include = "models" },
+  { include = "paramest" },
+  { include = "plotting" },
+  { include = "sensitivity" },
+  { include = "steady" },
+  { include = "tfopt" },
+  { include = "utils" },
+]
+
+# Extra non‑code files to include
+include = [
+  "README.md",
+  "LICENSE",
+  "static"
+]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-numpy = "*"
-pandas = "*"
-seaborn = "*"
-matplotlib = "*"
-scipy = "*"
-plotly = "*"
-openpyxl = "*"
-scikit-learn = "*"
-tqdm = "*"
-numba = "*"
-XlsxWriter = "*"
-statsmodels = "*"
-pymoo = '*'
-adjusttext = '*'
-salib = '*'
-graphviz = '*'
-mygene = '*'
-python-dotenv = "*"
-cobyqa = '*'
+python = ">=3.10,<3.14"
+numpy          = "*"
+pandas         = "*"
+seaborn        = "*"
+matplotlib     = "*"
+scipy          = "*"
+plotly         = "*"
+openpyxl       = "*"
+scikit-learn   = "*"
+tqdm           = "*"
+numba          = "*"
+XlsxWriter     = "*"
+statsmodels    = "*"
+pymoo          = "*"
+adjusttext     = "*"
+salib          = "*"
+graphviz       = "*"
+mygene         = "*"
+python-dotenv  = "*"
+cobyqa         = "*"
+typer          = "*"
+py2cytoscape   = "*"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "*"
+pytest     = "*"
 pytest-cov = "*"
 
 [tool.poetry.scripts]
 phoskintime = "bin.main:main"
+
+[build-system]
+requires      = ["poetry-core>=1.1.0"]
+build-backend = "poetry.core.masonry.api"
