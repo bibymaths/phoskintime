@@ -113,41 +113,33 @@ Ensure that Julia is installed and accessible via the command line.
 
 ---
 
-## Usage
+## Usage 
+ 
+Go to the one top level up in the terminal from root and run:
 
 ### Running Global Optimization (evol)
 
-Navigate to the `evol` directory and run:
-
 ```bash
-python -m evol
+python -m phoskintime kinopt --mode evol
 ```
 
 ### Running Local Optimization (local)
 
-Navigate to the `local` directory and run:
-
 ```bash
-python -m local
+python -m phoskintime kinopt --mode local
 ```
 
-### Running Powell Optimization (powell)
+### Running Powell Optimization (powell)  
+ 
+Uses Julia for optimization. Ensure Julia is installed and accessible in your PATH.
 
-To execute the Powell module, run:
+To execute the Powell module, go to kinopt directory run:
 
 ```bash
 python -m kinopt.powell
 ```
 
 This will automatically run the Julia script, process the results, and generate the necessary reports.
-
-### Fit Analysis
-
-For additional model fit evaluation, navigate to the `fitanalysis` directory and run:
-
-```bash
-python -m fitanalysis
-```
 
 ### Post-Optimization Processing
 
@@ -159,7 +151,7 @@ After any optimization run, the **optimality** module is invoked (either directl
 
 Contributions are welcome! Please refer to the main repository documentation for guidelines on contributing, reporting issues, and feature requests.
 
-**kinopt** is distributed under the Apache 2.0 license. See the LICENSE file in the repository for more details.
+**kinopt** is distributed under the BSD Clause 3 license. See the LICENSE file in the repository for more details.
 
 ---
 

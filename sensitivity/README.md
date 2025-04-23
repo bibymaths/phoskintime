@@ -15,6 +15,8 @@ This module (primarily implemented in `analysis.py`) defines functions that:
   - Computes a response metric (e.g., the sum of the phosphorylated states at the final time point).
   - Analyzes the sensitivity indices using SALib's `analyze` function.
   - Generates a suite of plots (bar plots, scatter, radial, CDF, and pie charts) to visually summarize the sensitivity of each parameter.
+ 
+--- 
 
 ## Features
 
@@ -33,6 +35,8 @@ This module (primarily implemented in `analysis.py`) defines functions that:
   - A radial (spider) plot summarizing sensitivity metrics.
   - Cumulative Distribution Function (CDF) plot of sensitivity indices.
   - Pie chart showing the proportional sensitivity contribution of each parameter.
+ 
+--- 
 
 ## Usage
 
@@ -42,17 +46,3 @@ The main function in this module is `sensitivity_analysis`, which can be called 
 - `num_psites`: Number of phosphorylation sites.
 - `init_cond`: The initial conditions for the ODE simulation.
 - `gene`: The gene (or protein) identifier for which sensitivity is analyzed.
-
-Example usage:
-
-```python
-from analysis import sensitivity_analysis
-import numpy as np
-
-# Define time points, number of phosphorylation sites, and initial conditions.
-time_points = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
-num_psites = 3
-init_cond = [1.0, 0.5, 0.2, 0.2]  # Example initial conditions (modify as needed)
-
-# Run sensitivity analysis for a given gene (e.g., "GeneX")
-sensitivity_analysis(time_points, num_psites, init_cond, gene="GeneX")

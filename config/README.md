@@ -42,21 +42,9 @@ The config module is composed of several submodules:
 
 ---
 
-## Usage
-
 ### Global Configuration
 
 The constants defined in `constants.py` control major aspects of the modeling and estimation processes. For example, to switch between different kinetic models, update the `ODE_MODEL` value. Similarly, change `ESTIMATION_MODE` to "sequential" or "normal" depending on whether you want time-point-by-time-point estimation or a global fit over all time points.
-
-### Command-Line Arguments
-
-Run the package with various command-line arguments to override defaults. For example:
-
-```bash
-python main.py --A-bound "0,100" --B-bound "0,100" --fix-A 0.85 --bootstraps 10 --input-excel "data/results.xlsx"
-```
-
-The arguments are parsed by `parse_args` in `config.py`, and the resulting configuration is extracted by `extract_config`. This configuration is then used throughout the package to control data input, parameter bounds, logging, and more.
 
 ### Logging
 
@@ -80,16 +68,3 @@ The logger configured in `logconf.py` is used to log progress, warnings, and err
 
 - **Scoring Function:**  
   The composite scoring function in `config.py` can be tuned by modifying the weights (`ALPHA_WEIGHT`, `BETA_WEIGHT`, etc.) to reflect the priorities of your analysis.
-
----
-
-## Conclusion
-
-The config module is a central piece of the PhosKinTime package. It consolidates all global settings, paths, and logging configurations, ensuring consistency and ease of modification. By managing command-line arguments, logging, and constant definitions in one place, it simplifies the deployment and customization of the entire package.
-
-For further details or modifications, refer to the source code files in the config module:
-- `constants.py`
-- `config.py`
-- `logconf.py`
-
-This modular approach allows users to quickly adapt the package to different datasets, modeling scenarios, or computational environments.

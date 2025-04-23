@@ -49,40 +49,21 @@ evol/
 
 ---
 
-## Installation & Dependencies
-
-Ensure you have Python 3 installed along with the following packages:
-- numpy
-- pandas
-- matplotlib
-- pymoo
-- seaborn
-- statsmodels
-- openpyxl
-
-Install dependencies via pip:
-```
-pip install numpy pandas matplotlib pymoo seaborn statsmodels openpyxl
-```
-
----
-
 ## Usage
 
 1. **Prepare Input Data:**  
    Place your experimental data CSV files (e.g., `input1.csv` and `input2.csv`) in the designated data directory as defined in `config/constants.py`.
 
 2. **Configure Parameters:**  
-   Adjust settings such as bounds, loss function, regularization, and scaling method by either editing `constants.py` or passing command-line arguments. For example:
-   ```
-   python -m evol --loss_type huber --regularization yes --scaling_method min_max
-   ```
+   Adjust settings such as bounds, loss function, regularization, and scaling method by either editing `constants.py` or passing command-line arguments.
 
 3. **Run Optimization:**  
-   Execute the module:
-   ```
-   python -m evol
-   ```
+   Execute the module from one top level up in the terminal from root:
+
+   ```bash
+   python -m phoskintime kinopt --mode evol 
+   ``` 
+   
    This will:
    - Load and scale the input data.
    - Build the optimization problem.

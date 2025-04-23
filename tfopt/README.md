@@ -107,16 +107,16 @@ subject to the constraints above. This enables estimation of regulatory influenc
 
 ## Usage
 
-From project root:
+From one level top of project root:
 
 ```bash
-python -m tfopt.evol
+python -m phoskintime tfopt --mode evol
 ```
 
 or
 
 ```bash
-python -m tfopt.local
+python -m phoskintime tfopt --mode local
 ```
 
 Output will be saved in structured folders, including Excel files, plots, and an aggregated HTML report.

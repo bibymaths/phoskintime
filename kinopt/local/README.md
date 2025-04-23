@@ -57,45 +57,22 @@ local/
 
 ---
 
-## Installation & Dependencies
-
-Ensure you have Python 3 installed along with the following packages:
-
-- numpy
-- scipy
-- pandas
-- scikit-learn
-- matplotlib
-- seaborn
-- statsmodels
-- numba
-- openpyxl
-
-Install the required dependencies via pip:
-
-```bash
-pip install numpy scipy pandas scikit-learn matplotlib seaborn statsmodels numba openpyxl
-```
-
----
-
 ## Usage
 
 1. **Prepare Input Data:**  
    Place your experimental CSV files (e.g., `input1.csv` and `input2.csv`) in the designated data directory as defined in `config/constants.py`. These files should contain the gene-phosphorylation time-series data and kinase interactions.
 
 2. **Configure Parameters:**  
-   Adjust settings such as lower and upper bounds, loss function, estimation of missing kinases, and scaling method through command-line arguments. For example:
-   ```bash
-   python -m local --loss_type weighted --estimate_missing_kinases yes --scaling_method min_max --method trust-constr
-   ```
-   The command-line parsing is handled in `constants.py`. citeturn1file0
+   Adjust settings such as lower and upper bounds, loss function, estimation of missing kinases, and scaling method through command-line arguments.
+   The command-line parsing is handled in `constants.py`. 
 
 3. **Run the Optimization:**  
-   Execute the module with:
+   Execute the module from top level in the terminal from the root directory: 
+
    ```bash
-   python -m local
-   ```
+   python -m phoskintime kinopt --mode local
+   ``` 
+   
    This will:
    - Load and scale the input data.
    - Build the necessary matrices and constraint structures.

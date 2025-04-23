@@ -37,29 +37,8 @@ This module provides the `Plotter` class, which encapsulates a comprehensive sui
 
 - **Protein Clusters and Heatmap Plots**  
   Additional plots for exploring clustering of sensitivity values and correlations among estimated parameters.
-
-## Usage
-
-Instantiate the `Plotter` class by providing a gene (or experiment) name and an output directory. Then, call the desired plotting methods using the relevant data (such as the ODE solution, estimated parameters, and time points).
-
-Example:
-
-```python
-from plotting import Plotter
-
-# Initialize a Plotter instance for a given gene
-plotter = Plotter(gene="GeneX", out_dir="./results")
-
-# Example: Create a parallel coordinates plot
-solution = ...  # ODE solution as a NumPy array (e.g., shape (time_points, states))
-labels = ["R", "P", "P1", "P2"]
-plotter.plot_parallel(solution, labels)
-
-# Example: Create a 3D PCA plot
-plotter.plot_pca(solution, components=3)
-```
-
-All generated figures are saved automatically to the output directory specified during initialization.
+ 
+--- 
 
 ## Structure
 

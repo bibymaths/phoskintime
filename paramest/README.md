@@ -53,17 +53,3 @@ The main script (`core.py`) extracts gene-specific data, sets up initial conditi
 - Bootstrapping iteration count
 
 After estimation, the final parameter set is used to solve the full ODE system, and various plots (e.g., model fit, PCA, t-SNE, profiles) are generated and saved.
-
-### Example
-
-```python
-from paramest.toggle import estimate_parameters
-
-# For a given gene, with data, initial conditions, etc.
-mode = "normal"  # or "sequential"
-model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
-    mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
-)
-
-# seq_model_fit will have the same shape as P_data: (num_psites, len(time_points))
-```

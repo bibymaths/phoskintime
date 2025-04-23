@@ -96,21 +96,11 @@ Orchestrates the full optimization pipeline:
 
 ## Usage
 
-You can run the global optimization by executing:
+You can run the global optimization by executing from one top level up in the terminal from root:
 
 ```bash
-python -m tfopt.evol
+python -m phoskintime tfopt --mode evol
 ```
-
-Or directly call the main:
-
-```bash
-python tfopt/evol/__main__.py --loss_type 0 --optimizer 0
-```
-
-With options:
-- `--loss_type`: 0 (MSE), 1 (MAE), ..., 6 (Tikhonov)
-- `--optimizer`: 0 (NSGA2), 1 (SMSEMOA), 2 (AGEMOEA)
 
 ---
 
@@ -120,18 +110,6 @@ With options:
 - `*.png`, `*.html`: Static + interactive visualizations of mRNA-TF dynamics
 - `report.html`: Auto-generated report of all plots and tables
 - Subfolder structure: One folder per mRNA or TF
-
----
-
-## Dependencies
-
-- `pymoo`
-- `scikit-learn`
-- `matplotlib`
-- `plotly`
-- `numba`
-- `pandas`
-- `openpyxl` / `xlsxwriter`
 
 ---
 

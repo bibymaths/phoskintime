@@ -87,13 +87,7 @@ This is a **sparse, coupled nonlinear system** where each subset has dynamic tra
 
 ## Output
 
-Each function:
-
-```python
-initial_condition(num_psites: int) -> List[float]
-```
-
-Returns steady-state concentrations:
+Each function returns steady-state concentrations:
 
 - $[R, P, P_1, ..., P_n]$ (for `distributive` and `successive`)
 - $[R, P, X_1, ..., X_k]$ (for `random`, where $X_k$ are the subset states)

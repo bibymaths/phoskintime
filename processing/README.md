@@ -70,15 +70,6 @@ Place the following raw data in `processing/raw/`:
 
 ---
 
-## How to Run
-
-```bash
-python cleanup.py      # Generates cleaned input1/2/3/4 files
-python map.py          # Maps TF-mRNA results to generate network CSVs
-```
-
----
-
 ## Outputs
 
 | File                  | Description                             |

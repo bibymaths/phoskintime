@@ -63,17 +63,11 @@ The orchestrator script that:
 - Saves results
 - Generates visualizations and report
 
-Run directly via:
+Run directly from one top level of the root directory via:
 
 ```bash
-python -m tfopt.local
-``` 
-
-Or directly call the main:
-
-```bash
-python tfopt/local/__main__.py --loss_type 0 --optimizer 0
-``` 
+python -m phoskintime tfopt --mode local
+```
 
 ### `config/`
 
@@ -122,19 +116,6 @@ python tfopt/local/__main__.py --loss_type 0 --optimizer 0
   - Residual plots
   - Intermediate CSV/XLSX files
 - Global HTML report aggregating all outputs
-
----
-
-## Dependencies
-
-- `scipy`
-- `numpy`
-- `pandas`
-- `matplotlib`
-- `plotly`
-- `openpyxl` or `xlsxwriter`
-- `sklearn`
-- `numba`
 
 ---
 
