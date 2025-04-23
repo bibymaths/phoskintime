@@ -1,7 +1,7 @@
 # tfopt — Transcription Factor Optimization Framework
 
-**Originally implemented by Julius Normann.**  
-**This version has been modified and optimized for consistency & speed in submodules by Abhinav Mishra.**
+- **Originally implemented by Julius Normann.**  
+- **This version has been modified and optimized for consistency & speed in submodules by Abhinav Mishra.**
 
 `tfopt` provides a flexible architecture for estimating transcriptional regulatory influence using mRNA time series data, TF protein dynamics, and phosphorylation site signals.
 

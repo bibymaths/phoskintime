@@ -39,7 +39,7 @@ markdown_extensions:
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js
   - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js
-  - js/katex-setup.js  # You’ll create this file below
+  - js/katex-setup.js
 
 extra_css:
   - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css

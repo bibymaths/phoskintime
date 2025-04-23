@@ -15,7 +15,7 @@ Instead of guessing or using arbitrary initial values, we solve a **nonlinear sy
 For each model, we're solving:
 
 $$
-\text{Find } \mathbf{y}_0 \text{ such that } \frac{d\mathbf{y}}{dt}\bigg|_{t=0} = \mathbf{0}
+\text{Find } y_0 \text{ such that } \frac{dy}{dt}\bigg|_{t=0} = 0
 $$
 
 where $\mathbf{y} = [R, P, \dots]$ are all species in the system.
