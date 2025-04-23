@@ -4,7 +4,7 @@ from numba import njit, prange
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
 
-@njit(nopython=True)
+@njit(parallel=True)
 def ode_system(y, t,
                A, B, C, D,
                num_sites,

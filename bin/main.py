@@ -70,7 +70,7 @@ def main():
         return
 
     # Load protein groups
-    genes = data["Gene"].unique().tolist() # For testing, only process the first gene
+    genes = data["Gene"].unique().tolist()[:1] # For testing, only process the first gene
 
     # Check if the genes are empty
     if not genes:
