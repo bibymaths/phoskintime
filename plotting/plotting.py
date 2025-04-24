@@ -312,65 +312,71 @@ class Plotter:
 
     def plot_A_S(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
         """
-        Plots the scatter plot of A vs S and the density contour plot.
+        Plots scatter and density plots for (A, S), (B, S), (C, S), (D, S).
 
         :param est_arr: Estimated parameters array.
         :param num_psites: Number of phosphorylation sites.
         :param time_vals: Time values for the data.
-        :return:
         """
         est_arr = np.array(est_arr)
-        A_vals = est_arr[:, 0]
         cmap = plt.get_cmap("viridis")
         norm = mcolors.Normalize(vmin=min(time_vals), vmax=max(time_vals))
-        fig, ax = plt.subplots(figsize=(8, 8))
-        legend_handles = []
-        for i in range(num_psites):
-            S_vals = est_arr[:, 4 + i]
-            sc = ax.scatter(A_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
-                            s=50, alpha=0.8, marker=available_markers[i])
-            slope, intercept = np.polyfit(A_vals, S_vals, 1)
-            x_fit = np.linspace(A_vals.min(), A_vals.max(), 100)
-            y_fit = slope * x_fit + intercept
-            line_color = f"C{i}"
-            ax.plot(x_fit, y_fit, color=line_color, lw=1)
-            legend_handles.append(Line2D([0], [0],
-                                         marker=available_markers[i],
-                                         color='w',
-                                         markerfacecolor=line_color,
-                                         markeredgecolor='k',
-                                         markersize=8,
-                                         label=f"S{i + 1}"))
-        ax.set_xlabel("A (mRNA production rate)")
-        ax.set_ylabel("S (Phosphorylation rate)")
-        ax.set_title(self.gene)
-        cbar = plt.colorbar(sc, ax=ax)
-        cbar.set_label("Time (min)")
-        ax.grid(True, alpha=0.2)
-        ax.legend(handles=legend_handles)
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_scatter_A_S_.png")
 
-        # Density contour plot for A and S.
-        all_points = np.vstack([np.column_stack((A_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
-        kde = gaussian_kde(all_points.T)
-        A_lin = np.linspace(A_vals.min(), A_vals.max(), 100)
-        all_S = all_points[:, 1]
-        S_lin = np.linspace(all_S.min(), all_S.max(), 100)
-        A_grid, S_grid = np.meshgrid(A_lin, S_lin)
-        grid_coords = np.vstack([A_grid.ravel(), S_grid.ravel()])
-        density = kde(grid_coords).reshape(A_grid.shape)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
-        contourf = ax.contourf(A_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
-        ax.contour(A_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
-        ax.set_xlabel("A")
-        ax.set_ylabel("S")
-        ax.set_title(self.gene)
-        cbar = plt.colorbar(contourf, ax=ax)
-        cbar.set_label("Density")
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_density_A_S_.png")
+        param_labels = ["A", "B", "C", "D"]
+
+        for idx, label in enumerate(param_labels):
+            param_vals = est_arr[:, idx]
+
+            # Scatter plot
+            fig, ax = plt.subplots(figsize=(8, 8))
+            legend_handles = []
+            for i in range(num_psites):
+                S_vals = est_arr[:, 4 + i]
+                sc = ax.scatter(param_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
+                                s=50, alpha=0.8, marker=available_markers[i])
+                slope, intercept = np.polyfit(param_vals, S_vals, 1)
+                x_fit = np.linspace(param_vals.min(), param_vals.max(), 100)
+                y_fit = slope * x_fit + intercept
+                line_color = f"C{i}"
+                ax.plot(x_fit, y_fit, color=line_color, lw=1)
+                legend_handles.append(Line2D([0], [0],
+                                             marker=available_markers[i],
+                                             color='w',
+                                             markerfacecolor=line_color,
+                                             markeredgecolor='k',
+                                             markersize=8,
+                                             label=f"S{i + 1}"))
+            ax.set_xlabel(f"{label} (rate)")
+            ax.set_ylabel("S (Phosphorylation rate)")
+            ax.set_title(self.gene)
+            cbar = plt.colorbar(sc, ax=ax)
+            cbar.set_label("Time (min)")
+            ax.grid(True, alpha=0.2)
+            ax.legend(handles=legend_handles)
+            plt.tight_layout()
+            self._save_fig(fig, f"{self.gene}_scatter_{label}_S_.png")
+
+            # Density contour plot
+            all_points = np.vstack([np.column_stack((param_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
+            kde = gaussian_kde(all_points.T)
+            param_lin = np.linspace(param_vals.min(), param_vals.max(), 100)
+            all_S = all_points[:, 1]
+            S_lin = np.linspace(all_S.min(), all_S.max(), 100)
+            param_grid, S_grid = np.meshgrid(param_lin, S_lin)
+            grid_coords = np.vstack([param_grid.ravel(), S_grid.ravel()])
+            density = kde(grid_coords).reshape(param_grid.shape)
+
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
+            contourf = ax.contourf(param_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
+            ax.contour(param_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
+            ax.set_xlabel(f"{label}")
+            ax.set_ylabel("S")
+            ax.set_title(self.gene)
+            cbar = plt.colorbar(contourf, ax=ax)
+            cbar.set_label("Density")
+            plt.tight_layout()
+            self._save_fig(fig, f"{self.gene}_density_{label}_S_.png")
 
     def plot_all(self, solution: np.ndarray, labels: list, estimated_params: list,
                  time_points: np.ndarray, P_data: np.ndarray, seq_model_fit: np.ndarray,
