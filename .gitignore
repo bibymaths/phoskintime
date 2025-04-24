@@ -18,6 +18,7 @@ logs/
 # Ignore tfopt and kinopt result outputs
 /tfopt/results/
 /kinopt/results/
+/kinopt/julia_results/
 
 # Ignore general results directory
 /results/
