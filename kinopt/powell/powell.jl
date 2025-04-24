@@ -3,6 +3,7 @@ Pkg.activate(joinpath(@__DIR__, "..", ".."))  # Goes from powell/ -> kinopt/ -> 
 Pkg.instantiate()
 Pkg.precompile()
 println("Environment ready.")
+JULIA_NUM_THREADS = 50
 
 using DataFrames
 using CSV
@@ -19,6 +20,7 @@ using Statistics
 using LinearAlgebra
 using SparseArrays
 using ColorSchemes
+using Base.Threads
 
 function parse_command_line_args()
     s = ArgParseSettings()
@@ -38,7 +40,7 @@ function parse_command_line_args()
         "--constraint_type"
             help = "Constraint type: linear or nonlinear"
             arg_type = String
-            default = "linear"
+            default = "nonlinear"
         "--verbosity"
             help = "Verbosity level for optimizer output (0: NONE, 1: EXIT, 2: RHO, 3: FEVL)"
             arg_type = Int
@@ -180,7 +182,7 @@ function prepare_kinase_data(
     # Initialize outputs
     K_index = Dict{String, Vector{Tuple{String, Vector{Float64}}}}()
     K_list = Vector{Vector{Float64}}()
-    beta_counts = Dict{Int, Int}()
+    beta_counts = Dict{String, Int}()
 
     synthetic_counter = 1
 
@@ -206,7 +208,9 @@ function prepare_kinase_data(
                 idx = length(K_list) + 1
                 push!(K_list, ts)
                 get!(K_index, kinase, Vector{Tuple{String, Vector{Float64}}}())
-                push!(K_index[kinase], (psite, ts))
+                if !ismissing(psite)
+                    push!(K_index[kinase], (psite, ts))
+                end
                 key = "$(kinase)|$(psite)"
                 beta_counts[key] = 1
             end
@@ -233,6 +237,79 @@ function prepare_kinase_data(
     K_array = isempty(K_list) ? Array{Float64}(undef, 0, length(time_cols)) : reduce(vcat, [ts' for ts in K_list])
 
     return K_index, K_array, beta_counts
+end
+
+"""
+Calculates the estimated phosphorylation series based on the provided parameters,
+initial P data, and kinase index.
+
+# Arguments
+- `params::Vector{Float64}`: Vector of parameters containing alpha and beta values.
+- `P_initial::Dict{Tuple{String, String}, Dict{String, Any}}`: Initial P data mapping
+  genes and psites to kinases and time series.
+- `K_index::Dict{String, Vector{Float64}}`: Index mapping kinase-psite pairs to
+  their time series vectors.
+- `gene_psite_counts::Vector{Int}`: Vector indicating the number of kinases per
+  gene-psite pair.
+- `beta_counts::Dict{String, Int}`: Dictionary tracking beta counts for each
+  kinase-psite pair.
+- `time_cols::Vector{String}`: Vector of column names representing time points.
+
+# Returns
+- `P_estimated::Matrix{Float64}`: Matrix of estimated phosphorylation levels for
+  each gene-psite pair across time points.
+"""
+function calculate_estimated_series(
+    params::Vector{Float64},
+    P_initial::Dict,
+    K_index::Dict,
+    gene_psite_counts::Vector{Int},
+    beta_counts::Dict{String,Int},
+    time_cols::Vector{String}
+)
+    # Reconstruct alpha and beta
+    alpha = Dict{Tuple{Any, Any}, Vector{Float64}}()
+    beta = Dict{String, Float64}()
+
+    alpha_start = 1
+    for ((gene, psite), count) in zip(keys(P_initial), gene_psite_counts)
+        alpha[(gene, psite)] = params[alpha_start:alpha_start+count-1]
+        alpha_start += count
+    end
+
+    beta_start = sum(gene_psite_counts) + 1
+    for (kpair, count) in beta_counts
+        beta[kpair] = params[beta_start]
+        beta_start += 1
+    end
+
+    t_max = length(time_cols)
+    n_pairs = length(P_initial)
+    P_estimated = zeros(n_pairs, t_max)
+
+    @threads for i in 1:n_pairs
+        gene, psite = collect(keys(P_initial))[i]
+        kinases = P_initial[(gene, psite)]["Kinases"]
+        prediction = zeros(t_max)
+
+        for (j, kinase) in enumerate(kinases)
+            alpha_j = alpha[(gene, psite)][j]
+
+            # Construct combined keys and check
+            for combined_key in keys(K_index)
+                if startswith(combined_key, "$kinase|")
+                    _, psiteK = split(combined_key, "|", limit=2)
+                    if haskey(beta, combined_key)
+                        prediction .+= alpha_j * beta[combined_key] .* K_index[combined_key]
+                    end
+                end
+            end
+        end
+
+        P_estimated[i, :] .= prediction
+    end
+
+    return P_estimated
 end
 
 """
@@ -757,58 +834,6 @@ function plot_residuals_for_gene(
     title!(gene)
     plot!(grid=true)
     savefig(joinpath(results_dir,"cumulative_residuals_$(gene).png"))
-
-    # 4. Histogram of Residuals
-    histogram([], size=(800, 800))  # Initialize empty histogram with desired size
-
-    for (i, psite) in enumerate(gene_data["psites"])
-        histogram!(
-            gene_data["residuals"][i],
-            bins=20,
-            label=psite,
-            color=colors[i],
-            alpha=0.6,
-            normalization=:pdf
-        )
-    end
-
-    xlabel!("Residuals")
-    ylabel!("Frequency")
-    title!(gene)
-    savefig(joinpath(results_dir,"histogram_residuals_$(gene).png"))
-
-    # 5. QQ Plot of Residuals
-    plot(
-        title="$gene",
-        xlabel="Theoretical Quantiles",
-        ylabel="Sample Quantiles",
-        size=(800, 800)
-    )
-    for (i, psite) in enumerate(gene_data["psites"])
-        residuals = gene_data["residuals"][i]
-        sorted_data = sort(collect(residuals))  # Ensure it’s sorted
-        theoretical_quantiles = quantile(Normal(0, 1), range(0, 1, length=length(sorted_data) + 2)[2:end-1])
-        scatter!(
-            theoretical_quantiles, sorted_data,
-            label=psite, color=colors[i], marker=(:circle, 4, 0.6), markerstrokecolor=:black
-        )
-    end
-
-    # Calculate limits for the reference line
-    all_residuals = vcat([gene_data["residuals"][i] for i in eachindex(gene_data["psites"])]...)
-    data_min, data_max = extrema(all_residuals)
-    ref_min = min(data_min, -3)  # Adjust based on the desired theoretical range
-    ref_max = max(data_max, 3)
-
-    # Add a 45-degree reference line
-    plot!(
-        [ref_min, ref_max], [ref_min, ref_max],
-        seriestype=:line,
-        linestyle=:dash,
-        color=:red,
-    )
-
-    savefig(joinpath(results_dir,"qqplot_residuals_$(gene).png"))
 
 end
 
