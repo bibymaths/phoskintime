@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Packaged directories: `bin`, `config`, `kinopt`, `models`, `paramest`, `plotting`, `sensitivity`, `steady`, `tfopt`, and `utils`.
 - Documentation and homepage available at [https://bibymaths.github.io/phoskintime/](https://bibymaths.github.io/phoskintime/). 
    
-## [Unreleased]
+## [0.2.0] - 2025-04-24
 ### Added
 - Added light grid in plotting of model.
 - Added `CHANGELOG.md`.
@@ -39,3 +39,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Removed
 - Removed clipping of predicted expression.
 - Deleted `abopt` directory.
+
+## [0.3.0] - Unreleased
+### Added
+- Support for non-psite time series in kinase data.
+- New results directory for structured output saving.
+- Detailed docstrings and inline documentation for key functions.
+
+### Changed
+- Refactored `powell.jl`: cleaner function names, improved parameter handling, and threading support.
+- Updated threading configuration and residuals calculation.
+- Replaced print statements with logger output in Python modules.
+- Adjusted beta bounds and default loss function settings.
+- Improved ODE system equations, plotting aesthetics, and documentation structure.
+
+### Fixed
+- LaTeX formatting in README.md.
+- Sheet name for estimated values in Excel export.
+
+### Removed
+- Obsolete `abopt` directory.
+- Outdated module references and unused code. 
+- Removed julia implementation of kinopt  
+- Removed Project.toml for Julia dependency management.

@@ -37,7 +37,7 @@ __pycache__/
 /network/
 
 # Ignore any lock files
-*.lock
+#*.lock
 
 # Ignore any environment files
 *.env
