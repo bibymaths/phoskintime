@@ -34,7 +34,7 @@ These contributions are modulated by two sets of parameters:
   \beta_j = \left( \beta_{0,j}, \beta_{1,j}, \dots, \beta_{K_j,j} \right)
   $$
 
-Here, \( \beta_{0,j} \) multiplies the raw TF protein signal, and the remaining terms multiply phosphorylation site contributions.
+Here, $ \beta_{0,j} $ multiplies the raw TF protein signal, and the remaining terms multiply phosphorylation site contributions.
 
 The full predicted mRNA time series is then:
 
@@ -42,7 +42,7 @@ $$
 \hat{R}_i(t) = \sum_{j\in \mathcal{J}_i} \alpha_{i,j} \cdot TF_{i,j}(t) \left( \beta_{0,j} + \sum_{k=1}^{K_j} PSite_{k,j}(t) \cdot \beta_{k,j} \right)
 $$
 
-where \( \mathcal{J}_i \) is the set of TFs regulating gene *i* (according to the interaction data).
+where $ \mathcal{J}_i $ is the set of TFs regulating gene *i* (according to the interaction data).
 
 ---
 
@@ -63,13 +63,13 @@ This formulation supports multiple loss types (MSE, MAE, soft L1, Cauchy, etc.) 
 ### α-constraints (for each mRNA *i*):
 
 $$
-\sum_{j\in \mathcal{J}_i} \alpha_{i,j} = 1, \qquad 0 \le \alpha_{i,j} \le 1
+\sum_{j\in \mathcal{J}_i} \alpha_{i,j} = 1, \quad 0 \le \alpha_{i,j} \le 1
 $$
 
 ### β-constraints (for each TF *j*):
 
 $$
-\sum_{q=0}^{K_j} \beta_{q,j} = 1, \qquad -2 \le \beta_{q,j} \le 2
+\sum_{q=0}^{K_j} \beta_{q,j} = 1, \quad -2 \le \beta_{q,j} \le 2
 $$
 
 This ensures that weights are interpretable and stable.
