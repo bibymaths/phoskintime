@@ -20,10 +20,10 @@ if __name__ == '__main__':
     # Copy the output file to the ODE_DATA_DIR
     # shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
     # Post-process the optimization results
-    post_optimization_results()
-    # Organize the output files
-    organize_output_files(OUT_DIR)
-    # Create a report of the results
-    create_report(OUT_DIR)
-    # Log the location of the report and results
-    logger.info(f'Report & Results {location(str(OUT_DIR))}')
+    # post_optimization_results()
+    # # Organize the output files
+    # organize_output_files(OUT_DIR)
+    # # Create a report of the results
+    # create_report(OUT_DIR)
+    # # Log the location of the report and results
+    # logger.info(f'Report & Results {location(str(OUT_DIR))}')

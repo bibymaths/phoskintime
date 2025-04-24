@@ -1,34 +1,24 @@
-#List of required packages
-required_packages = [
-    "LinearAlgebra",
-    "DataFrames",
-    "CSV",
-    "StatsBase",
-    "Random",
-    "Optimization",
-    "OptimizationPRIMA",
-    "Plots",
-    "Distributions",
-    "Statistics",
-    "XLSX",
-    "DataStructures",
-    "SparseArrays",
-    "ColorSchemes",
-    "ArgParse"
-]
 import Pkg
-# Install missing packages
-for pkg in required_packages
-    if !haskey(Pkg.dependencies(), pkg)
-        println("Installing missing package: $pkg")
-        Pkg.add(pkg)
-    end
-end
+Pkg.activate(joinpath(@__DIR__, "..", ".."))  # Goes from powell/ -> kinopt/ -> phoskintime/
+Pkg.instantiate()
+Pkg.precompile()
+println("Environment ready.")
 
-for pkg in required_packages
-    @eval using $(Symbol(pkg))
-end
-
+using DataFrames
+using CSV
+using StatsBase
+using Optimization
+using OptimizationPRIMA
+using Distributions
+using Random
+using Plots
+using XLSX
+using DataStructures
+using ArgParse
+using Statistics
+using LinearAlgebra
+using SparseArrays
+using ColorSchemes
 
 function parse_command_line_args()
     s = ArgParseSettings()
@@ -59,23 +49,6 @@ end
 
 # Parse command-line arguments
 args = parse_command_line_args()
-
-# Import the packages
-using LinearAlgebra
-using DataFrames
-using CSV
-using StatsBase
-using Random
-using Optimization
-using OptimizationPRIMA
-using Distributions
-using Statistics
-using XLSX
-using DataStructures
-using SparseArrays
-using Base.Threads
-using ColorSchemes
-using Plots
 
 # Configure GR for headless, high-quality operation
 gr()
@@ -788,9 +761,9 @@ function plot_residuals_for_gene(
     plot!(grid=true)
     savefig(joinpath(results_dir,"cumulative_residuals_$(gene).png")
 
-
     # 4. Histogram of Residuals
-    histogram(size=(800, 800))
+    histogram([], size=(800, 800))  # Initialize empty histogram with desired size
+
     for (i, psite) in enumerate(gene_data["psites"])
         histogram!(
             gene_data["residuals"][i],
@@ -798,9 +771,10 @@ function plot_residuals_for_gene(
             label=psite,
             color=colors[i],
             alpha=0.6,
-            normalization=:pdf,
+            normalization=:pdf
         )
     end
+
     xlabel!("Residuals")
     ylabel!("Frequency")
     title!(gene)
