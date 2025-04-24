@@ -16,14 +16,14 @@ required_packages = [
     "ColorSchemes",
     "ArgParse"
 ]
-#= import Pkg
+import Pkg
 # Install missing packages
 for pkg in required_packages
     if !haskey(Pkg.dependencies(), pkg)
         println("Installing missing package: $pkg")
         Pkg.add(pkg)
     end
-end =#
+end
 
 for pkg in required_packages
     @eval using $(Symbol(pkg))
