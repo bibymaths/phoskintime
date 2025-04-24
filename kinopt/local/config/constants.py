@@ -57,7 +57,7 @@ def parse_args():
     # loss_type is the type of loss function to use.
     parser.add_argument("--loss_type", type=str,
                         choices=["base", "weighted", "softl1", "cauchy", "arctan"],
-                        default="weighted", help="Loss function to use.")
+                        default="base", help="Loss function to use.")
 
     # estimate_missing_kinases indicates whether to estimate missing kinase-psite values.
     parser.add_argument("--estimate_missing_kinases", type=str, choices=["yes", "no"], default="yes",

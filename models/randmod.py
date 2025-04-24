@@ -1,10 +1,10 @@
 
 import numpy as np
-from numba import njit, prange
+from numba import njit
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
 
-@njit(nopython=True)
+@njit
 def ode_system(y, t,
                A, B, C, D,
                num_sites,

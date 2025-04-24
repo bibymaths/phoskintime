@@ -70,7 +70,7 @@ def main():
         return
 
     # Load protein groups
-    genes = data["Gene"].unique().tolist() # For testing, only process the first gene
+    genes = data["Gene"].unique().tolist()[:1] # For testing, only process the first gene
 
     # Check if the genes are empty
     if not genes:
@@ -108,7 +108,7 @@ def main():
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
-        print(f"{fpath.as_uri()}")
+        logger.info(f"{fpath.as_uri()}")
 
 if __name__ == "__main__":
     main()

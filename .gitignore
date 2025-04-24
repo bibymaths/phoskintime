@@ -18,6 +18,7 @@ logs/
 # Ignore tfopt and kinopt result outputs
 /tfopt/results/
 /kinopt/results/
+/kinopt/julia_results/
 
 # Ignore general results directory
 /results/
@@ -36,7 +37,7 @@ __pycache__/
 /network/
 
 # Ignore any lock files
-*.lock
+#*.lock
 
 # Ignore any environment files
 *.env

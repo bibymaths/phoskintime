@@ -177,6 +177,7 @@ def _build_k_array(
             # Get protein time series for this kinase where 'Psite' is empty or NaN
             protein_level_df = full_hgnc_df[(full_hgnc_df['GeneID'] == kinase) & (full_hgnc_df['Psite'].isna())]
             if not protein_level_df.empty:
+                # Adding the non-psite time series
                 synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
             idx = len(K_array)
             K_array.append(synthetic_ts)
@@ -186,12 +187,6 @@ def _build_k_array(
 
     # Finalize K_array
     K_array = np.array(K_array)
-
-    # Zero out synthetic rows (again, to be extra safe)
-    # This is a placeholder; zeroes are used
-    for idx in synthetic_rows:
-        # mutiply by zero to ensure no effect
-        K_array[idx] = 0.0
 
     return K_index, K_array, beta_counts
 

@@ -19,24 +19,6 @@ def build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psi
     TF_index = {tf: idx for idx, tf in enumerate(TF_ids)}
     n_TF = len(TF_ids)
 
-    # # Determine maximum number of regulators per mRNA.
-    # max_reg = 0
-    # reg_list = []
-    # for gene in mRNA_ids:
-    #     regs = reg_map.get(gene, [])
-    #     max_reg = max(max_reg, len(regs))
-    #     reg_list.append(regs)
-    # n_reg = max_reg if max_reg > 0 else 1
-    #
-    # # Build regulators array (n_mRNA x n_reg), padded with index 0.
-    # regulators = np.zeros((n_mRNA, n_reg), dtype=np.int32)
-    # for i, regs in enumerate(reg_list):
-    #     for j in range(n_reg):
-    #         if j < len(regs):
-    #             regulators[i, j] = TF_index.get(regs[j], 0)
-    #         else:
-    #             regulators[i, j] = 0
-
     # Determine max number of valid regulators across all mRNA, and keep valid indices only.
     reg_list = []
     for gene in mRNA_ids:
