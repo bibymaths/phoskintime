@@ -41,19 +41,6 @@ abopt/
 
 ---
 
-## Requirements
-
-- **Python 3.x:**  
-  Required to run the main module and post-processing steps.
-
-- **Julia:**  
-  Must be installed and accessible via the command line to execute the `powell.jl` script.
-
-- **System Utilities:**  
-  The module relies on the `lscpu` command to determine the number of available CPU threads.
-
----
-
 ## Usage
 
 1. **Ensure Julia is Installed:**  
@@ -71,15 +58,6 @@ abopt/
 
 3. **Monitor Logs:**  
    The module logs detailed output from the Julia script in real time and provides a final summary message with the location of the generated report.
-
----
-
-## Dependencies
-
-- **abopt.evol.config.constants:** Provides configuration constants like `OUT_FILE`, `ODE_DATA_DIR`, and `OUT_DIR`.
-- **abopt.optimality.KKT:** Used for post-optimization analysis and result validation.
-- **abopt.local.config.logconf:** Supplies the logging configuration.
-- **Python Standard Libraries:** `subprocess`, `os`, and `shutil` for process management and file operations.
 
 ---
 

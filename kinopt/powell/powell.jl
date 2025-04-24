@@ -115,15 +115,14 @@ Build the initial protein-kinase mapping and time series data.
 # Arguments
 - `full_df::DataFrame`: DataFrame containing all genes, sites, and time series columns.
 - `interact_df::DataFrame`: DataFrame containing GeneID, Psite, and Kinase columns.
+- `time_cols::Vector{String}`: Vector of time series column names.
 
 # Returns
 - `P_initial::Dict{Tuple{String,String},Dict{String,Any}}`: Mapping (gene, psite) → Dict with "Kinases" and "TimeSeries".
 - `P_array::Matrix{Float64}`: Each row is the time series for a (gene, psite) pair found in `full_df`.
 """
-function build_P_initial(full_df::DataFrame, interact_df::DataFrame)
-    # Define time-series column symbols x1 through x14
-    time_cols = [Symbol("x$i") for i in 1:14]
-
+function prepare_initial_arrays(full_df::DataFrame, interact_df::DataFrame, time_cols::Vector{String})
+    full_df = dropmissing(full_df, [:GeneID, :Psite])
     # Initialize outputs
     P_initial = Dict{Tuple{String,String},Dict{String,Any}}()
     P_list = Vector{Vector{Float64}}()
@@ -132,20 +131,19 @@ function build_P_initial(full_df::DataFrame, interact_df::DataFrame)
     for row in eachrow(interact_df)
         gene  = row.GeneID
         psite = row.Psite
-        # Split and trim kinases string
-        kinases = [strip(k) for k in split(row.Kinase, ",")]
 
-        # Filter full_df for matching gene and site
-        sub = full_df[(full_df.GeneID .== gene) .& (full_df.Psite .== psite), :]
-        if nrow(sub) == 0
-            # Skip if no matching record
+        if ismissing(gene) || ismissing(psite)
             continue
         end
 
-        # Extract the first matching time series as Float64 vector
-        ts = Array{Float64}(sub[1, time_cols])
+        kinases = [strip(k) for k in split(row.Kinase, ",")]
 
-        # Append to list and dict
+        sub = full_df[(full_df.GeneID .== gene) .& (full_df.Psite .== psite), :]
+        if nrow(sub) == 0
+            continue
+        end
+
+        ts = Array{Float64}(sub[1, time_cols])
         push!(P_list, ts)
         P_initial[(gene, psite)] = Dict("Kinases" => kinases, "TimeSeries" => ts)
     end
@@ -177,7 +175,7 @@ function prepare_kinase_data(
     full_hgnc_df::DataFrame,
     interaction_df::DataFrame,
     time_cols::Vector{String},
-    estimate_missing_kinases::Bool
+    estimate_missing::Bool
 )
     # Initialize outputs
     K_index = Dict{String, Vector{Tuple{String, Vector{Float64}}}}()
@@ -186,9 +184,9 @@ function prepare_kinase_data(
 
     synthetic_counter = 1
 
-    # Gather unique kinases from interact_df
+    # Gather unique kinases
     all_kinases = String[]
-    for row in eachrow(interact_df)
+    for row in eachrow(interaction_df)
         for k in split(row.Kinase, ",")
             push!(all_kinases, strip(k))
         end
@@ -197,28 +195,27 @@ function prepare_kinase_data(
 
     # Iterate through each kinase
     for kinase in unique_kinases
-        # Filter full_df for rows matching the kinase gene
-        kinase_df = filter(row -> row.GeneID == kinase, full_df)
+        # Filter for rows matching the kinase gene
+        kinase_df = filter(row -> row.GeneID == kinase, full_hgnc_df)
 
         if nrow(kinase_df) > 0
             # For each phosphorylation site associated with this kinase
             for row in eachrow(kinase_df)
                 psite = row.Psite
-                ts = Float64.(row[time_cols])
+                ts = Float64.(collect(row[time_cols]))
                 idx = length(K_list) + 1
                 push!(K_list, ts)
-                # Append to K_index
                 get!(K_index, kinase, Vector{Tuple{String, Vector{Float64}}}())
                 push!(K_index[kinase], (psite, ts))
-                # Initialize beta count
-                beta_counts[idx] = 1
+                key = "$(kinase)|$(psite)"
+                beta_counts[key] = 1
             end
         elseif estimate_missing
             # Create synthetic data for missing kinase
             synthetic_label = "P$(synthetic_counter)"
             synthetic_counter += 1
             # Try to find protein-level (no Psite) series
-            prot_df = filter(row -> row.GeneID == kinase && (ismissing(row.Psite) || row.Psite == ""), full_df)
+            prot_df = filter(row -> row.GeneID == kinase && (ismissing(row.Psite) || row.Psite == ""), full_hgnc_df)
             ts = if nrow(prot_df) > 0
                 Float64.(prot_df[1, time_cols])
             else
@@ -759,7 +756,7 @@ function plot_residuals_for_gene(
     ylabel!("Cumulative Residuals")
     title!(gene)
     plot!(grid=true)
-    savefig(joinpath(results_dir,"cumulative_residuals_$(gene).png")
+    savefig(joinpath(results_dir,"cumulative_residuals_$(gene).png"))
 
     # 4. Histogram of Residuals
     histogram([], size=(800, 800))  # Initialize empty histogram with desired size
@@ -778,7 +775,7 @@ function plot_residuals_for_gene(
     xlabel!("Residuals")
     ylabel!("Frequency")
     title!(gene)
-    savefig(joinpath(results_dir,"histogram_residuals_$(gene).png")
+    savefig(joinpath(results_dir,"histogram_residuals_$(gene).png"))
 
     # 5. QQ Plot of Residuals
     plot(
@@ -811,7 +808,7 @@ function plot_residuals_for_gene(
         color=:red,
     )
 
-    savefig(joinpath(results_dir,"qqplot_residuals_$(gene).png")
+    savefig(joinpath(results_dir,"qqplot_residuals_$(gene).png"))
 
 end
 
