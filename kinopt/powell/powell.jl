@@ -3,7 +3,6 @@ Pkg.activate(joinpath(@__DIR__, "..", ".."))  # Goes from powell/ -> kinopt/ -> 
 Pkg.instantiate()
 Pkg.precompile()
 println("Environment ready.")
-JULIA_NUM_THREADS = 50
 
 using DataFrames
 using CSV
@@ -591,13 +590,13 @@ function calculate_metrics(true_values, predicted_values)
     # Ensure dimensions match
     @assert size(true_values) == size(predicted_values)
 
-    # Residuals
-    residuals = true_values - predicted_values
-
     # Number of observations
     n = size(true_values, 1)
     # Number of predictors
     p = size(predicted_values, 2)
+
+    # Residuals
+    residuals = ((P_initial_array - P_estimated) .^ 2) / n
 
     # Metrics
     mse = mean(residuals .^ 2)

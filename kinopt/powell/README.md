@@ -50,7 +50,11 @@ abopt/
    From the command line, execute the module as follows:
    ```bash
    python -m kinopt.powell
-   ```
+   ``` 
+   or for runmning the Julia script directly:
+   ```bash 
+   JULIA_NUM_THREADS=$(lscpu | awk '/^CPU\(s\):/ {print $2}' | head -n1) julia powell.jl 
+    ```
    This command will:
    - Invoke the `run_powell()` function to run the Julia optimization script.
    - Copy the output file to the ODE data directory.
