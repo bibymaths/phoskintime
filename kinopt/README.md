@@ -39,12 +39,6 @@ kinopt/
 │   ├── __init__.py
 │   ├── KKT.py                 # Post-optimization analysis: feasibility, sensitivity, and reporting.
 │   └── README.md              # Detailed readme for the optimality module.
-├── powell
-│   ├── __init__.py
-│   ├── __main__.py            # Entry point for Julia-based Powell optimization.
-│   ├── powell.jl              # Julia script implementing Powell’s method.
-│   ├── README.md              # Detailed readme for the powell module.
-│   └── runpowell.py           # Python script to run the Powell optimization and log output. 
 ├── __init__.py
 ```
 
@@ -66,9 +60,6 @@ kinopt/
 - **Optimality Analysis (optimality):**  
   Post-processes optimization results to check constraint feasibility, perform sensitivity analysis, generate LaTeX summary tables, and produce diagnostic plots.
 
-- **Powell Optimization (powell):**  
-  Integrates Julia-based Powell optimization routines with automatic multi-threading to leverage high-performance computing resources.
-
 - **Fit Analysis (fitanalysis):**  
   Provides additional tools to evaluate the fit and performance of the optimized model.
 
@@ -77,10 +68,10 @@ kinopt/
 ## Features
 
 - **Modular Architecture:**  
-  Each submodule (evol, local, optimality, powell, fitanalysis) is designed to operate independently while integrating seamlessly into the overall workflow.
+  Each submodule (evol, local, optimality, fitanalysis) is designed to operate independently while integrating seamlessly into the overall workflow.
 
 - **Flexible Optimization Strategies:**  
-  Choose between global evolutionary algorithms, local constrained solvers, or Powell-based methods depending on your specific needs.
+  Choose between global evolutionary algorithms, local constrained solvers depending on your specific needs.
 
 - **Robust Post-Processing:**  
   Comprehensive post-optimization analysis includes constraint validation, sensitivity analysis, detailed reporting (both in LaTeX and Excel), and extensive plotting of diagnostic metrics.
@@ -90,26 +81,6 @@ kinopt/
 
 - **User-Friendly Logging:**  
   Custom logging configurations provide real-time feedback during execution, ensuring transparency in the optimization process.
-
----
-
-## Installation
-
-### Prerequisites
-
-- **Python 3.x**
-- **Julia:** Required for the Powell module.
-- **System Utilities:** `lscpu` for thread detection on Linux systems.
-
-### Python Dependencies
-
-Install the necessary Python packages using pip:
-
-```bash
-pip install numpy scipy pandas scikit-learn matplotlib seaborn statsmodels numba openpyxl
-```
-
-Ensure that Julia is installed and accessible via the command line.
 
 ---
 
@@ -128,18 +99,6 @@ python -m phoskintime kinopt --mode evol
 ```bash
 python -m phoskintime kinopt --mode local
 ```
-
-### Running Powell Optimization (powell)  
- 
-Uses Julia for optimization. Ensure Julia is installed and accessible in your PATH.
-
-To execute the Powell module, go to kinopt directory run:
-
-```bash
-python -m kinopt.powell
-```
-
-This will automatically run the Julia script, process the results, and generate the necessary reports.
 
 ### Post-Optimization Processing
 
