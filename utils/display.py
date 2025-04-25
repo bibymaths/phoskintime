@@ -172,7 +172,8 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "<style>",
         "body { font-family: Arial, sans-serif; margin: 20px; }",
         "h1 { color: #333; }",
-        "h2 { color: #555; font-size: 1.8em; border-bottom: 1px solid #ccc; padding-bottom: 5px; }",
+        "h2 { color: #555; font-size: 1.8em; border-bottom: 1px solid #ccc; padding-bottom: 5px; page-break-before: always; }",
+        "h2:first-of-type { page-break-before: avoid; }",
         "h3 { color: #666; font-size: 1.4em; margin-top: 10px; margin-bottom: 10px; }",
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
