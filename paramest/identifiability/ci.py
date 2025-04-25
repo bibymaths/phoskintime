@@ -45,7 +45,7 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
     upr_ci = beta_hat + qt_lin * se_lin
 
     # Log the summary.
-    header = "Parameter\tEstimate\tStd. Error\tPr(>|t|)\t 95% CI"
+    header = "\t\t Parameter\tEstimate\tStd. Error\tPr(>|t|)\t 95% CI"
     logger.info("Confidence Intervals:")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):

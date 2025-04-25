@@ -434,12 +434,15 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_model_error.png")
 
     def plot_gof(self, merged_data: pd.DataFrame):
+        """
+        Plot the goodness of fit for the model.
+        """
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
         ci_offset_99 = 2.576 * overall_std
 
         unique_genes = merged_data['Gene'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
+        palette = sns.color_palette("cubehelix", len(unique_genes))
         gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
 
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -454,7 +457,7 @@ class Plotter:
             obs_vals_sorted = obs_vals[sorted_indices]
             est_vals_sorted = est_vals[sorted_indices]
             ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=100, alpha=0.7)
+                       markeredgecolor='black', linewidths=2, s=100, alpha=0.5)
             for obs, est in zip(obs_vals_sorted, est_vals_sorted):
                 if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
                     txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
@@ -487,7 +490,7 @@ class Plotter:
         ax.set_ylim(y_min, y_max)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
+        ax.set_title(f"{model_type} Model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True, alpha=0.2)
         plt.tight_layout()
@@ -496,8 +499,7 @@ class Plotter:
 
     def plot_kld(self, merged_data: pd.DataFrame):
         """
-        Expects merged_data to have columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est',
-        as well as 'GeneID' and 'Psite'.
+        Plots the Kullback-Divergence for the model.
         """
         obs_data = merged_data.loc[:, 'x1_obs':'x14_obs']
         est_data = merged_data.loc[:, 'x1_est':'x14_est']
@@ -508,13 +510,11 @@ class Plotter:
         kl_df['KL'] = kl_div.values
         kl_by_gene = kl_df.groupby('Gene')['KL'].mean().sort_values()
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        indices = kl_by_gene.index.tolist()
-        values = kl_by_gene.values
-        ax.scatter(indices, values, marker='s', color='blue', label='Mean Normalized')
-        ax.set_xticklabels(indices, rotation=45, ha='right')
-        ax.set_ylabel("Entropy")
-        ax.set_title("Kullback-Liebler Divergence")
-        ax.legend()
+        fig, ax = plt.subplots(figsize=(10, 10))
+        colors = ['lightcoral' if val > 0.03 else 'dodgerblue' for val in kl_by_gene.values]
+        ax.barh(kl_by_gene.index, kl_by_gene.values, color=colors)
+        ax.set_xlabel("KL Divergence")
+        ax.set_ylabel("Protein")
+        ax.set_title("")
         plt.tight_layout()
         self._save_fig(fig, f"_kld_.png")

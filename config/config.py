@@ -101,7 +101,7 @@ def parse_args():
         argparse.Namespace: The parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space"
+        description="PhosKinTime - ODE Parameter Estimation of Cell Signalling Events in Temporal Space"
     )
     parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
     parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
@@ -208,8 +208,8 @@ def extract_config(args):
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
         # Adjust as needed for parallel processing
-        # 'max_workers': os.cpu_count(),  # Use all CPU cores
-        'max_workers': 1,
+        'max_workers': os.cpu_count(),  # Use all CPU cores
+        # 'max_workers': 1,
     }
     return config
 
