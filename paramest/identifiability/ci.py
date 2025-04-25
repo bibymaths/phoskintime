@@ -49,7 +49,7 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
     logger.info("Confidence Intervals:")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
-        logger.info(f"Rate{i}:\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
+        logger.info(f"Rate{i}:\t\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
 
     results = {
         'beta_hat': beta_hat,
