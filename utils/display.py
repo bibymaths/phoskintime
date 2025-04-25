@@ -1,5 +1,5 @@
 import os, re, shutil
-
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
@@ -225,7 +225,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         for filename in files:
             file_path = os.path.join(gene_folder, filename)
             if os.path.isfile(file_path) and filename.endswith(".png"):
-                rel_path = os.path.join(gene, filename)
+                uri_path = Path(os.path.join(gene_folder, filename)).resolve().as_uri()
                 # Remove the extension and split on '_'
                 base_name = os.path.splitext(filename)[0]
                 tokens = [token for token in base_name.split('_') if token]
@@ -235,7 +235,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
                 # Join remaining tokens with space and convert to upper case
                 title = " ".join(tokens).upper()
                 html_parts.append(
-                    f'<div class="plot-item"><h3>{title}</h3><img src="{rel_path}" alt="{filename}"></div>'
+                    f'<div class="plot-item"><h3>{title}</h3><img src="{uri_path}" alt="{filename}"></div>'
                 )
         html_parts.append('</div>')  # End of plot container
 
