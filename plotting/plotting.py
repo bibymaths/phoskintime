@@ -442,7 +442,7 @@ class Plotter:
         ci_offset_99 = 2.576 * overall_std
 
         unique_genes = merged_data['Gene'].unique()
-        palette = sns.color_palette("cubehelix", len(unique_genes))
+        palette = sns.color_palette("husl", len(unique_genes))
         gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
 
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -457,7 +457,7 @@ class Plotter:
             obs_vals_sorted = obs_vals[sorted_indices]
             est_vals_sorted = est_vals[sorted_indices]
             ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       markeredgecolor='black', linewidths=2, s=100, alpha=0.5)
+                       edgecolor='black', s=100, alpha=0.5)
             for obs, est in zip(obs_vals_sorted, est_vals_sorted):
                 if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
                     txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
