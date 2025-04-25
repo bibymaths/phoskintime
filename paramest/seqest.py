@@ -216,7 +216,7 @@ def sequential_estimation(p_data, time_points, init_cond, bounds,
         # Update the initial guess for the next iteration.
         p0_free = best_fit
 
-        logger.info(f"[{gene}] Time Index {i} Best Weight = {weight_key}")
+        logger.info(f"[{gene}] Time {t_now[-1]} min | Best Weight = {weight_key}")
 
     return est_params, model_fits, error_vals
 

@@ -50,7 +50,7 @@ def main():
     """
     # Set up the logger
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
-    logger.info(f"Estimation Mode: {ESTIMATION_MODE}")
+    logger.info(f"Estimation Mode: {ESTIMATION_MODE.upper()}")
     log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
 
     # Make output directory
@@ -72,7 +72,7 @@ def main():
         return
 
     # Load protein groups
-    genes = data["Gene"].unique().tolist() #[:1] # For testing, only process the first gene
+    genes = data["Gene"].unique().tolist()[:1] # For testing, only process the first gene
 
     # Check if the genes are empty
     if not genes:

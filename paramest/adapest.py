@@ -200,7 +200,7 @@ def adaptive_estimation(p_data, init_cond, num_psites, time_points, t,
     # Get the best parameters.
     popt_best = popts[best_weight]
     # Display the best weight and score for time points.
-    logger.info(f"[{gene}] Time = {t} Best Weight = {best_weight} Score: {best_score:.2f}")
+    logger.info(f"[{gene}] Time = {t}min | Best Weight = {best_weight} | Score: {best_score:.2f}")
 
     if bootstraps > 0:
         logger.info(f"[{gene}] Bootstrapping {bootstraps}x at T = {t}")

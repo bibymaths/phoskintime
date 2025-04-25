@@ -125,9 +125,7 @@ class Plotter:
             ax.legend()
             ax.grid(True, alpha=0.2)
             self._save_fig(fig, f"{self.gene}_pca_plot_.png")
-        else:
-            # Optionally handle non-3D cases here
-            pass
+        return pca_result, ev
 
     def plot_tsne(self, solution: np.ndarray, perplexity: int = 30):
         """
@@ -153,6 +151,7 @@ class Plotter:
         ax.grid(True, alpha=0.2)
         ax.legend()
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
+        return tsne_result
 
     def plot_param_bar(self, params_df: pd.DataFrame, s_df: pd.DataFrame):
         """
@@ -377,33 +376,6 @@ class Plotter:
             cbar.set_label("Density")
             plt.tight_layout()
             self._save_fig(fig, f"{self.gene}_density_{label}_S_.png")
-
-    def plot_all(self, solution: np.ndarray, labels: list, estimated_params: list,
-                 time_points: np.ndarray, P_data: np.ndarray, seq_model_fit: np.ndarray,
-                 psite_labels: list, perplexity: int = 5, components: int = 3, target_variance: float = 0.99):
-        """
-        Function that calls parallel, t-SNE, PCA, and model fit plots.
-        If mode is sequential, it also calls parameter series and A-S plots.
-
-        :param solution: 2D numpy array of shape (samples, features) representing the data.
-        :param labels: List of labels for the solution.
-        :param estimated_params: List of estimated parameter values.
-        :param time_points: 1D numpy array of time points.
-        :param P_data: Observed data for phosphorylation levels.
-        :param seq_model_fit: Estimated model fit values.
-        :param psite_labels: Labels for the phosphorylation sites.
-        :param perplexity: Perplexity parameter for t-SNE.
-        :param components: Number of PCA components to plot.
-        :param target_variance: The target cumulative explained variance to determine the required number of components.
-        """
-        self.plot_parallel(solution, labels)
-        self.plot_tsne(solution, perplexity=perplexity)
-        self.plot_pca(solution, components=components)
-        self.pca_components(solution, target_variance=target_variance)
-        self.plot_model_fit(seq_model_fit, P_data, solution, len(psite_labels), psite_labels, time_points)
-        if ESTIMATION_MODE == 'sequential':
-            self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
-            self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
     def plot_heatmap(self, param_value_df: pd.DataFrame):
         """

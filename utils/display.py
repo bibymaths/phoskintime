@@ -91,6 +91,11 @@ def save_result(results, excel_filename):
     - Sequential Parameter Estimates
     - Profiled Estimates (if available)
     - Errors summary
+    - Model fits for the system
+    - Model fits for each site
+    - Observed data for each site
+    - PCA results
+    - t-SNE results
     The sheet names are prefixed with the gene name, truncated to 25 characters.
     Args:
         results (list): List of dictionaries containing results for each gene.
@@ -144,6 +149,21 @@ def save_result(results, excel_filename):
             obs_df.index.name = "Site/Time(min)"
             obs_df.to_excel(writer, sheet_name=f"{sheet_prefix}_site_observed")
 
+            # 8. Save PCA results
+            pca_arr = np.array(res["pca_result"])
+            ev = np.array(res["ev"])
+            pca_df = pd.DataFrame(pca_arr, columns=[f"PC{i + 1}" for i in range(pca_arr.shape[1])])
+            pca_df.insert(0, "Time(min)", TIME_POINTS)
+            ev_row = pd.DataFrame([["Explained Var"] + list(ev)],columns=pca_df.columns)
+            pca_df = pd.concat([pca_df, ev_row], ignore_index=True)
+            pca_df.to_excel(writer, sheet_name=f"{sheet_prefix}_pca", index=False)
+
+            # 9. Save t-SNE results
+            tsne_arr = np.array(res["tsne_result"])
+            tsne_df = pd.DataFrame(tsne_arr, columns=[f"t-SNE{i+1}" for i in range(tsne_arr.shape[1])])
+            tsne_df.insert(0, "Time(min)", TIME_POINTS)
+            tsne_df.to_excel(writer, sheet_name=f"{sheet_prefix}_tsne", index=False)
+
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
@@ -154,7 +174,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
       - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
 
     Args:
-        results_dir (str): Path to the root results directory.
+        results_dir (str): Path to the root result's directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
     # Gather gene folders (skip "General" and "logs")
