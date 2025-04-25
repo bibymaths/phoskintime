@@ -4,10 +4,11 @@ from itertools import combinations
 from typing import cast, Tuple
 
 from config.config import score_fit
-from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI
+from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR
 from config.logconf import setup_logger
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
+from tfopt.fitanalysis.helper import Plotter
 from .identifiability import confidence_intervals
 
 logger = setup_logger()
@@ -185,13 +186,17 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             pcov_best = np.mean(valid_covs, axis=0)
         else:
             pcov_best = None
-        # Compute confidence intervals for the bootstrapped estimates.
+
+        # Compute confidence intervals.
         ci_results = confidence_intervals(
             np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
             pcov_best,
             target,
             alpha_val=ALPHA_CI
         )
+
+    Plotter(gene, OUT_DIR).plot_params_bar(gene, ci_results, get_param_names(num_psites))
+
     # Since all parameters are free, param_final is simply the best-fit vector.
     # If parameters were estimated in log-space, convert them back.
     if ODE_MODEL == 'randmod':

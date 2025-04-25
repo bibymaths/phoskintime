@@ -16,7 +16,7 @@ ODE_MODEL = 'distmod'
 # which produces a series of parameter estimates over time (one estimate per time point).
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'sequential'
+ESTIMATION_MODE = 'normal'
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
@@ -63,7 +63,7 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-3
+LAMBDA_REG = 1e-2
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #
@@ -85,8 +85,8 @@ LAMBDA_REG = 1e-3
 DELTA_WEIGHT = 1.0
 ALPHA_WEIGHT = 1.0
 BETA_WEIGHT = 1.0
-GAMMA_WEIGHT = 1.0
-MU_REG = 1.0
+GAMMA_WEIGHT = 0.0
+MU_REG = 0.0
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.

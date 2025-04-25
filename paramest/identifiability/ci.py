@@ -31,6 +31,7 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
         return None
 
     beta_hat = popt
+    # Calculate the standard errors of the parameter estimates.
     se_lin = np.sqrt(np.diag(pcov))
     # Degrees of freedom: number of observations (target should be 1D) minus number of parameters.
     df_lin = target.size - beta_hat.size

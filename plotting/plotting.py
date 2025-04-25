@@ -153,52 +153,6 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
         return tsne_result
 
-    def plot_param_bar(self, params_df: pd.DataFrame, s_df: pd.DataFrame):
-        """
-        Plots a bar chart of parameter values for the given gene.
-
-        This method visualizes the estimated parameter values for a specific gene
-        and its phosphorylation sites. It uses color coding to distinguish between
-        different phosphorylation sites and other parameters.
-
-        :param params_df: DataFrame containing parameter values.
-        :param s_df: DataFrame containing phosphorylation site information.
-        """
-        fig, ax = plt.subplots(figsize=(8, 8))
-        unique_psites = s_df.loc[s_df['GeneID'] == self.gene, 'Psite'].tolist()
-        color_map = {psite: plt.cm.tab20(i / len(unique_psites)) for i, psite in enumerate(unique_psites)}
-
-        if len(unique_psites) == 1:
-            single_psite = unique_psites[0]
-            color = color_map[single_psite]
-            if 'S' in params_df.columns and not params_df['S'].isna().all():
-                ax.bar('S', params_df['S'].mean(), color=color, label=f"{single_psite}")
-
-        for i, psite in enumerate(unique_psites):
-            color = color_map[psite]
-            for param in [f"S{i + 1}", f"D{i + 1}"]:
-                if param in params_df.columns and not params_df[param].isna().all():
-                    ax.bar(param, params_df[param].mean(), color=color,
-                           label=f"{psite}" if psite not in [h.get_label() for h in
-                                                             ax.get_legend_handles_labels()[0]] else None)
-
-        other_params = [col for col in params_df.columns
-                        if col not in ['Protein', 'S'] + [f"S{i + 1}" for i in range(len(unique_psites))] + [f"D{i + 1}"
-                                                                                                             for i in
-                                                                                                             range(
-                                                                                                                 len(unique_psites))]]
-        for i, param in enumerate(other_params):
-            if param in params_df.columns and not params_df[param].isna().all():
-                ax.bar(param, params_df[param].mean(), color=plt.cm.Paired(i / len(other_params)), alpha=0.6)
-
-        ax.set_title(self.gene)
-        ax.set_ylabel('Estimated Values')
-        ax.set_xlabel('Parameters')
-        plt.xticks(rotation=45)
-        ax.legend(title="Residue_Position", loc='upper right', ncol=2)
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_bar_.png")
-
 
     def plot_param_series(self, estimated_params: list, param_names: list, time_points: np.ndarray):
         """
@@ -490,3 +444,38 @@ class Plotter:
         ax.set_title("")
         plt.tight_layout()
         self._save_fig(fig, f"_kld_.png")
+
+    def plot_params_bar(self, ci_results: dict, param_labels: list = None,
+                        title: str = ''):
+        """
+        Plots parameter estimates as a bar plot with confidence intervals.
+
+        Parameters:
+          - ci_results: Output dictionary from confidence_intervals() function.
+          - param_labels: Optional list of labels for each parameter.
+          - title: Title for the plot.
+        """
+        beta_hat = ci_results['beta_hat']
+        lwr_ci = ci_results['lwr_ci']
+        upr_ci = ci_results['upr_ci']
+
+        num_params = len(beta_hat)
+        x = np.arange(num_params)
+
+        if param_labels is None:
+            param_labels = [f"Rate{i + 1}" for i in range(num_params)]
+
+        lower_error = beta_hat - lwr_ci
+        upper_error = upr_ci - beta_hat
+        errors = np.vstack((lower_error, upper_error))
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.8, edgecolor='black')
+        ax.set_xticks(x)
+        ax.set_xticklabels(param_labels, rotation=45, ha='right')
+        ax.set_ylabel('Estimate')
+        ax.set_title(title)
+        ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+
+        plt.tight_layout()
+        self._save_fig(fig, f"{self.gene}_params_bar_.png")
