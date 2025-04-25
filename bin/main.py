@@ -8,7 +8,9 @@ from config.config import parse_args, extract_config, log_config
 from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
-from utils.display import ensure_output_directory, save_result, organize_output_files, create_report
+from plotting import Plotter
+from utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
+
 logger = setup_logger()
 
 # Check if OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE are defined
@@ -99,6 +101,15 @@ def main():
 
     # Save the results
     save_result(results, excel_filename=OUT_RESULTS_DIR)
+
+    # Merge the observed data and model fits for each gene
+    merged_df = merge_obs_est(OUT_RESULTS_DIR)
+
+    # Plot goodness of fit.
+    Plotter("", OUT_DIR).plot_gof(merged_df)
+
+    # Plot Kullback-Leibler divergence.
+    Plotter("", OUT_DIR).plot_kld(merged_df)
 
     # Organize output files and create a report
     organize_output_files(OUT_DIR)

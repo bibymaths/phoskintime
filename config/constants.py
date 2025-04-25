@@ -10,13 +10,13 @@ from config.helpers import *
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'distmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'sequential'
+ESTIMATION_MODE = 'normal'
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.

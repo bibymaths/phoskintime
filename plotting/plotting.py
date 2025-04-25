@@ -405,26 +405,6 @@ class Plotter:
             self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
             self.plot_A_S(estimated_params, len(psite_labels), time_points)
 
-    def plot_clusters(self, s_values_df: pd.DataFrame, cluster_labels):
-        """
-        Plots the clusters of S values for the given gene.
-        Expects s_values_df to have columns 'S_value', 'GeneID', and 'Psite'.
-
-        :param s_values_df: DataFrame containing S values and gene information.
-        :param cluster_labels: Cluster labels for each S value.
-        """
-        df = s_values_df.copy()
-        df['Cluster'] = cluster_labels
-        fig, ax = plt.subplots(figsize=(8, 8))
-        sns.scatterplot(x=df.index, y=df['S_value'], hue=cluster_labels, palette="viridis", s=100, ax=ax)
-        for i, row in df.iterrows():
-            ax.text(i, row['S_value'], f"{row['GeneID']}-{row['Psite']}", fontsize=9, ha='right')
-        ax.set_title('')
-        ax.set_ylabel('S', fontstyle='italic')
-        ax.set_xticks([])
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_protein_clusters.png")
-
     def plot_heatmap(self, param_value_df: pd.DataFrame):
         """
         Expects param_value_df to have a 'Protein' column.
@@ -453,190 +433,28 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_model_error.png")
 
-    def plot_gof_1(self, merged_data: pd.DataFrame):
-        """
-        Expects merged_data to contain 'GeneID', 'Psite', and columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est'.
-        """
+    def plot_gof(self, merged_data: pd.DataFrame):
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
         ci_offset_99 = 2.576 * overall_std
 
-        unique_genes = merged_data['GeneID'].unique()
+        unique_genes = merged_data['Gene'].unique()
         palette = sns.color_palette("tab20", len(unique_genes))
         gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        gene_handles = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            if gene not in [handle.get_label() for handle in gene_handles]:
-                handle = plt.Line2D([], [], color=gene_color_map[gene],
-                                    marker='o', linestyle='', markersize=8, label=gene)
-                gene_handles.append(handle)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_1.png")
-
-    def plot_gof_2(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        gene_handles = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            if gene not in [handle.get_label() for handle in gene_handles]:
-                handle = plt.Line2D([], [], color=gene_color_map[gene],
-                                    marker='o', linestyle='', markersize=8, label=gene)
-                gene_handles.append(handle)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        # Expand axis limits slightly
-        x_min = obs_array.min() - 0.1 * (obs_array.max() - obs_array.min())
-        x_max = obs_array.max() + 0.1 * (obs_array.max() - obs_array.min())
-        y_min = est_array.min() - 0.1 * (est_array.max() - est_array.min())
-        y_max = est_array.max() + 0.1 * (est_array.max() - est_array.min())
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_2.png")
-
-    def plot_gof_3(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(10, 10))
         plotted_genes = set()
         text_annotations = []
         obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
         est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
+        for gene, psite, obs_vals, est_vals in zip(merged_data['Gene'],
                                                    merged_data['Psite'],
                                                    obs_array, est_array):
             sorted_indices = np.argsort(obs_vals)
             obs_vals_sorted = obs_vals[sorted_indices]
             est_vals_sorted = est_vals[sorted_indices]
             ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            for obs, est in zip(obs_vals_sorted, est_vals_sorted):
-                if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                    txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
-                                  fontweight='bold', ha='center', va='center',
-                                  bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                    text_annotations.append(txt)
-                    plotted_genes.add(gene)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"gof_3.png")
-
-    def plot_gof_4(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        text_annotations = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
+                       edgecolor='black', s=100, alpha=0.7)
             for obs, est in zip(obs_vals_sorted, est_vals_sorted):
                 if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
                     txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
@@ -674,101 +492,7 @@ class Plotter:
         ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"_gof_4.png")
-
-    def plot_gof_5(self, merged_data: pd.DataFrame):
-        """
-        Uses the row means of observed (x1_obs:x14_obs) and estimated (x1_est:x14_est) values.
-        """
-        df = merged_data.copy()
-        if 'Observed_Mean' not in df.columns or 'Estimated_Mean' not in df.columns:
-            df['Observed_Mean'] = df.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
-            df['Estimated_Mean'] = df.loc[:, 'x1_est':'x14_est'].mean(axis=1)
-        overall_std = df['Observed_Mean'].std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = df['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        colors = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        for obs, est, gene in zip(df['Observed_Mean'], df['Estimated_Mean'], df['GeneID']):
-            ax.scatter(obs, est, color=colors[gene], edgecolor='black', s=100, marker='o')
-            if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                ax.text(obs, est, gene, fontsize=10, color=colors[gene],
-                        fontweight='bold', ha='center', va='center',
-                        bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                plotted_genes.add(gene)
-        x_vals = [min(df['Observed_Mean'].min(), df['Estimated_Mean'].min()),
-                  max(df['Observed_Mean'].max(), df['Estimated_Mean'].max())]
-        ax.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-        ax.plot(x_vals, [x + ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot(x_vals, [x - ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot(x_vals, [x + ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot(x_vals, [x - ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_5.png")
-
-    def plot_gof_6(self, merged_data: pd.DataFrame):
-        df = merged_data.copy()
-        if 'Observed_Mean' not in df.columns or 'Estimated_Mean' not in df.columns:
-            df['Observed_Mean'] = df.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
-            df['Estimated_Mean'] = df.loc[:, 'x1_est':'x14_est'].mean(axis=1)
-        overall_std = df['Observed_Mean'].std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = df['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        colors = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        sorted_indices = np.argsort(df['Observed_Mean'].values)
-        for idx in sorted_indices:
-            obs = df['Observed_Mean'].iloc[idx]
-            est = df['Estimated_Mean'].iloc[idx]
-            gene = df['GeneID'].iloc[idx]
-            ax.scatter(obs, est, color=colors[gene], edgecolor='black', s=100, marker='o')
-            if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                ax.text(obs, est, gene, fontsize=10, color=colors[gene],
-                        fontweight='bold', ha='center', va='center',
-                        bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                plotted_genes.add(gene)
-        x_min = df['Observed_Mean'].min() - 0.1 * (df['Observed_Mean'].max() - df['Observed_Mean'].min())
-        x_max = df['Observed_Mean'].max() + 0.1 * (df['Observed_Mean'].max() - df['Observed_Mean'].min())
-        y_min = df['Estimated_Mean'].min() - 0.1 * (df['Estimated_Mean'].max() - df['Estimated_Mean'].min())
-        y_max = df['Estimated_Mean'].max() + 0.1 * (df['Estimated_Mean'].max() - df['Estimated_Mean'].min())
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        x_vals = [df['Observed_Mean'].min(), df['Observed_Mean'].max()]
-        ax.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-        ax.plot(x_vals, [x + ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot(x_vals, [x - ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot(x_vals, [x + ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot(x_vals, [x - ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_6.png")
+        self._save_fig(fig, f"_Goodness_of_Fit_.png")
 
     def plot_kld(self, merged_data: pd.DataFrame):
         """
@@ -780,9 +504,9 @@ class Plotter:
         normalized_obs = obs_data.div(obs_data.sum(axis=1), axis=0)
         normalized_est = est_data.div(est_data.sum(axis=1), axis=0)
         kl_div = normalized_obs.apply(lambda row: entropy(row, normalized_est.loc[row.name]), axis=1)
-        kl_df = merged_data[['GeneID', 'Psite']].copy()
+        kl_df = merged_data[['Gene', 'Psite']].copy()
         kl_df['KL'] = kl_div.values
-        kl_by_gene = kl_df.groupby('GeneID')['KL'].mean().sort_values()
+        kl_by_gene = kl_df.groupby('Gene')['KL'].mean().sort_values()
 
         fig, ax = plt.subplots(figsize=(8, 8))
         indices = kl_by_gene.index.tolist()
@@ -793,4 +517,4 @@ class Plotter:
         ax.set_title("Kullback-Liebler Divergence")
         ax.legend()
         plt.tight_layout()
-        self._save_fig(fig, f"_kld.png")
+        self._save_fig(fig, f"_kld_.png")

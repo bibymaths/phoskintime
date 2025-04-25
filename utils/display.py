@@ -1,5 +1,10 @@
 import os, re, shutil
+
+import numpy as np
 import pandas as pd
+
+from config.constants import TIME_POINTS
+
 
 def ensure_output_directory(directory):
     """
@@ -38,6 +43,47 @@ def format_duration(seconds):
     else:
         return f"{seconds / 3600:.2f} hr"
 
+def merge_obs_est(filename):
+    """
+    Loads observed and estimated data from an Excel file where:
+    - Each gene has two sheets: <GENE>_site_observed and <GENE>_site_estimates
+    - Rows = Psites with index "Site/Time(min)"
+    - Columns = time points (14)
+
+    Returns:
+        A DataFrame with columns: Gene, Psite, x1_obs–x14_obs, x1_est–x14_est
+    """
+    xls = pd.ExcelFile(filename)
+    all_data = []
+
+    obs_sheets = [s for s in xls.sheet_names if s.endswith("_site_observed")]
+
+    for obs_sheet in obs_sheets:
+        gene = obs_sheet.replace("_site_observed", "")
+        est_sheet = f"{gene}_site_estimates"
+
+        if est_sheet not in xls.sheet_names:
+            continue
+
+        # Load both sheets with Psite as index
+        obs_df = pd.read_excel(xls, sheet_name=obs_sheet, index_col=0)
+        est_df = pd.read_excel(xls, sheet_name=est_sheet, index_col=0)
+
+        for psite in obs_df.index:
+            obs_vals = obs_df.loc[psite].values
+            est_vals = est_df.loc[psite].values
+
+            row = {
+                "Gene": gene,
+                "Psite": psite
+            }
+            row.update({f"x{i + 1}_obs": val for i, val in enumerate(obs_vals)})
+            row.update({f"x{i + 1}_est": val for i, val in enumerate(est_vals)})
+
+            all_data.append(row)
+
+    return pd.DataFrame(all_data)
+
 def save_result(results, excel_filename):
     """
     Save the results to an Excel file with multiple sheets.
@@ -55,8 +101,9 @@ def save_result(results, excel_filename):
             gene = res["gene"]
             sheet_prefix = gene[:25]  # Excel sheet names must be ≤31 chars
 
-            # 1. Save Sequential Parameter Estimates
+            # 1. Parameter Estimates
             param_df = res["param_df"].copy()
+            param_df.rename(columns={"Time": "Time(min)"}, inplace=True)
             if "errors" in res:
                 param_df["MSE"] = pd.Series(res["errors"][:len(param_df)])
             param_df.insert(0, "Gene", gene)
@@ -76,6 +123,26 @@ def save_result(results, excel_filename):
             }
             err_df = pd.DataFrame([error_summary])
             err_df.to_excel(writer, sheet_name=f"{sheet_prefix}_errors", index=False)
+
+            # 5. Save model fits for the system
+            fits_arr = np.array(res["model_fits"])
+            state_labels = res.get("labels")
+            fits_df = pd.DataFrame(fits_arr, columns=state_labels, index=TIME_POINTS)
+            fits_df = fits_df.T
+            fits_df.index.name = "States/Time(min)"
+            fits_df.to_excel(writer, sheet_name=f"{sheet_prefix}_solution")
+
+            # 6. Save model fits for each site
+            seq_arr = np.array(res["seq_model_fit"])
+            seq_df = pd.DataFrame(seq_arr, index=res["psite_labels"], columns=TIME_POINTS)
+            seq_df.index.name = "Site/Time(min)"
+            seq_df.to_excel(writer, sheet_name=f"{sheet_prefix}_site_estimates")
+
+            # 7. Save observed data for each site
+            obs_arr = np.array(res["observed_data"])
+            obs_df = pd.DataFrame(obs_arr, index=res["psite_labels"], columns=TIME_POINTS)
+            obs_df.index.name = "Site/Time(min)"
+            obs_df.to_excel(writer, sheet_name=f"{sheet_prefix}_site_observed")
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """

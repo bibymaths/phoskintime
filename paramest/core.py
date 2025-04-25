@@ -93,7 +93,6 @@ def process_gene(
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
-
     # 7. Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
@@ -141,9 +140,12 @@ def process_gene(
     # 8. Return Results
     return {
         "gene": gene,
+        "labels": labels,
+        "psite_labels": psite_values,
         "estimated_params": estimated_params,
-        "model_fits": model_fits,
+        "model_fits": sol_full,
         "seq_model_fit": seq_model_fit,
+        "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
         "profiles": profiles_dict,
