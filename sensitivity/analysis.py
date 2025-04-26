@@ -2,6 +2,7 @@ import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
@@ -92,8 +93,8 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
         problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
     else:
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
-    N = 10000
-    num_levels = 400
+    N = 100
+    num_levels = 4
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
     Y = np.zeros(len(param_values))
 
@@ -142,7 +143,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
     rmse = np.sqrt(mse)  # RMSE per simulation
 
     # Select the top K-closest simulations
-    K = 50  # Choose the best trajectories, adjust as you want
+    K = 5  # Choose the best trajectories, adjust as you want
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
@@ -150,46 +151,78 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
 
     # --- Plot all model_psite solutions ---
     n_sites = best_model_psite_solutions.shape[2]
-    plt.figure(figsize=(8, 8))
+    # cut-off time point
+    cutoff_idx = 7
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+    # --- Left plot: Until 9th time point ---
+    ax = axes[0]
     for site_idx in range(n_sites):
         color = COLOR_PALETTE[site_idx]
-
-        # Plot all simulation trajectories for this site
         for sim_idx in range(best_model_psite_solutions.shape[0]):
-            plt.plot(
-                time_points,
-                best_model_psite_solutions[sim_idx, :, site_idx],
+            ax.plot(
+                time_points[:cutoff_idx],
+                best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                 color=color,
-                alpha=0.05
+                alpha=0.2
             )
-
-        # Plot the mean trajectory
-        mean_curve = np.mean(best_model_psite_solutions[:, :, site_idx], axis=0)
-        plt.plot(
-            time_points,
+        mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
+        ax.plot(
+            time_points[:cutoff_idx],
             mean_curve,
-            color=color,
-            alpha=0.7,
-            label=f'{psite_labels[site_idx]}'
+            color=color
         )
-
-        # Plot the experimental data
-        plt.plot(
-            time_points,
-            data[site_idx],
+        ax.plot(
+            time_points[:cutoff_idx],
+            data[site_idx, :cutoff_idx],
             marker='s',
             linestyle='--',
             color=color,
             markersize=5,
         )
 
-    plt.xlabel('Time (min)')
-    plt.ylabel('Phosphorylation Level (FC)')
-    plt.title(f'{gene}')
-    plt.legend()
-    plt.grid(True, alpha=0)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_phosphorylation_dynamics.png", format='png', dpi=300)
+    ax.set_xlabel('Time (min)')
+    ax.set_xticks(time_points[:cutoff_idx])
+    ax.set_xticklabels(time_points[:cutoff_idx], fontsize=6)
+    ax.set_ylabel('Phosphorylation Level (FC)')
+    ax.grid(True, alpha=0.05)
+
+    # --- Right plot: From 9th time point onwards ---
+    ax = axes[1]
+    for site_idx in range(n_sites):
+        color = COLOR_PALETTE[site_idx]
+        for sim_idx in range(best_model_psite_solutions.shape[0]):
+            ax.plot(
+                time_points[cutoff_idx - 1:],
+                best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
+                color=color,
+                alpha=0.2
+            )
+        mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
+        ax.plot(
+            time_points[cutoff_idx - 1:],
+            mean_curve,
+            color=color,
+            label=f'{psite_labels[site_idx]}'
+        )
+        ax.plot(
+            time_points[cutoff_idx - 1:],
+            data[site_idx, cutoff_idx - 1:],
+            marker='s',
+            linestyle='--',
+            color=color,
+            markersize=5,
+        )
+
+    ax.set_xlabel('Time (min)')
+    ax.set_xticks(time_points[cutoff_idx+2:])
+    ax.set_xticklabels(time_points[cutoff_idx+2:], fontsize=6)
+    ax.grid(True, alpha=0.05)
+    ax.legend()
+
+    plt.suptitle(f'{gene}', fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for suptitle
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_.png", format='png', dpi=300)
     plt.close()
 
     # Absolute Mean of Elementary Effects : represents the overall importance
