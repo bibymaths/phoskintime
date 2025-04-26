@@ -40,7 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Removed clipping of predicted expression.
 - Deleted `abopt` directory.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2025-04-24
 ### Added
 - Support for non-psite time series in kinase data.
 - New results directory for structured output saving.

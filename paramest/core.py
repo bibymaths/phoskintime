@@ -93,7 +93,6 @@ def process_gene(
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
-
     # 7. Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
@@ -125,11 +124,15 @@ def process_gene(
     illustrate(gene, num_psites)
     # Create a single Plotter instance.
     plotter = Plotter(gene, out_dir)
-    # Call plot_all with all necessary data.
-    plotter.plot_all(solution=sol_full, labels=labels,
-                     estimated_params=estimated_params, time_points=time_points,
-                     P_data=P_data, seq_model_fit=seq_model_fit,
-                     psite_labels=psite_values, perplexity=5, components=3, target_variance=0.99)
+    pca_result, ev = plotter.plot_pca(sol_full, components=3)
+    tsne_result = plotter.plot_tsne(sol_full, perplexity=5)
+    plotter.plot_parallel(sol_full, labels)
+    plotter.pca_components(sol_full, target_variance=0.99)
+    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, labels, time_points)
+
+    if ESTIMATION_MODE == "sequential":
+        plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
+        plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
     # 6. Save Sequential Parameters to Excel
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
@@ -141,9 +144,12 @@ def process_gene(
     # 8. Return Results
     return {
         "gene": gene,
+        "labels": labels,
+        "psite_labels": psite_values,
         "estimated_params": estimated_params,
-        "model_fits": model_fits,
+        "model_fits": sol_full,
         "seq_model_fit": seq_model_fit,
+        "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
         "profiles": profiles_dict,
@@ -151,7 +157,11 @@ def process_gene(
         "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,
-        "mae": mae
+        "mae": mae,
+        "pca_result": pca_result,
+        "ev": ev,
+        "tsne_result": tsne_result,
+
     }
 
 def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,

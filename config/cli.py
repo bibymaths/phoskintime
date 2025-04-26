@@ -7,25 +7,25 @@ Usage
 # (where you can see the project directory).
 
 # run everything with the default (local) solver
-python -m phoskintime all
+python phoskintime all
 
 # run only preprocessing
-python -m phoskintime prep
+python phoskintime prep
 
 # run tfopt with local flavour
-python -m phoskintime tfopt --mode local
+python phoskintime tfopt --mode local
 
 # run tfopt with evol flavour
-python -m phoskintime tfopt --mode evol
+python phoskintime tfopt --mode evol
 
 # run kinopt with local flavour
-python -m phoskintime kinopt --mode local
+python phoskintime kinopt --mode local
 
 # run kinopt with evol flavour
-python -m phoskintime kinopt --mode evol
+python phoskintime kinopt --mode evol
 
 # run the model
-python -m phoskintime model
+python phoskintime model
 """
 from pathlib import Path
 import subprocess as sp
@@ -46,7 +46,7 @@ def _run(cmd: list[str]) -> None:
 
 def _python_module(module: str, cfg: Path | None) -> list[str]:
     """
-    Return `python -m module [--conf path]`.
+    Return `python module [--conf path]`.
     """
     cmd = [module]
     if cfg is not None:
@@ -120,5 +120,5 @@ def all(
     model.callback(conf=model_conf)
 
 if __name__ == "__main__":
-    # Allow `python -m phoskintime ...`
+    # Allow `python phoskintime ...`
     app()

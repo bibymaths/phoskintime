@@ -1,5 +1,10 @@
 import os, re, shutil
+from pathlib import Path
+import numpy as np
 import pandas as pd
+
+from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE
+
 
 def ensure_output_directory(directory):
     """
@@ -38,6 +43,47 @@ def format_duration(seconds):
     else:
         return f"{seconds / 3600:.2f} hr"
 
+def merge_obs_est(filename):
+    """
+    Loads observed and estimated data from an Excel file where:
+    - Each gene has two sheets: <GENE>_site_observed and <GENE>_site_estimates
+    - Rows = Psites with index "Site/Time(min)"
+    - Columns = time points (14)
+
+    Returns:
+        A DataFrame with columns: Gene, Psite, x1_obs–x14_obs, x1_est–x14_est
+    """
+    xls = pd.ExcelFile(filename)
+    all_data = []
+
+    obs_sheets = [s for s in xls.sheet_names if s.endswith("_site_observed")]
+
+    for obs_sheet in obs_sheets:
+        gene = obs_sheet.replace("_site_observed", "")
+        est_sheet = f"{gene}_site_estimates"
+
+        if est_sheet not in xls.sheet_names:
+            continue
+
+        # Load both sheets with Psite as index
+        obs_df = pd.read_excel(xls, sheet_name=obs_sheet, index_col=0)
+        est_df = pd.read_excel(xls, sheet_name=est_sheet, index_col=0)
+
+        for psite in obs_df.index:
+            obs_vals = obs_df.loc[psite].values
+            est_vals = est_df.loc[psite].values
+
+            row = {
+                "Gene": gene,
+                "Psite": psite
+            }
+            row.update({f"x{i + 1}_obs": val for i, val in enumerate(obs_vals)})
+            row.update({f"x{i + 1}_est": val for i, val in enumerate(est_vals)})
+
+            all_data.append(row)
+
+    return pd.DataFrame(all_data)
+
 def save_result(results, excel_filename):
     """
     Save the results to an Excel file with multiple sheets.
@@ -45,6 +91,11 @@ def save_result(results, excel_filename):
     - Sequential Parameter Estimates
     - Profiled Estimates (if available)
     - Errors summary
+    - Model fits for the system
+    - Model fits for each site
+    - Observed data for each site
+    - PCA results
+    - t-SNE results
     The sheet names are prefixed with the gene name, truncated to 25 characters.
     Args:
         results (list): List of dictionaries containing results for each gene.
@@ -55,8 +106,9 @@ def save_result(results, excel_filename):
             gene = res["gene"]
             sheet_prefix = gene[:25]  # Excel sheet names must be ≤31 chars
 
-            # 1. Save Sequential Parameter Estimates
+            # 1. Parameter Estimates
             param_df = res["param_df"].copy()
+            param_df.rename(columns={"Time": "Time(min)"}, inplace=True)
             if "errors" in res:
                 param_df["MSE"] = pd.Series(res["errors"][:len(param_df)])
             param_df.insert(0, "Gene", gene)
@@ -77,6 +129,41 @@ def save_result(results, excel_filename):
             err_df = pd.DataFrame([error_summary])
             err_df.to_excel(writer, sheet_name=f"{sheet_prefix}_errors", index=False)
 
+            # 5. Save model fits for the system
+            fits_arr = np.array(res["model_fits"])
+            state_labels = res.get("labels")
+            fits_df = pd.DataFrame(fits_arr, columns=state_labels, index=TIME_POINTS)
+            fits_df = fits_df.T
+            fits_df.index.name = "States/Time(min)"
+            fits_df.to_excel(writer, sheet_name=f"{sheet_prefix}_solution")
+
+            # 6. Save model fits for each site
+            seq_arr = np.array(res["seq_model_fit"])
+            seq_df = pd.DataFrame(seq_arr, index=res["psite_labels"], columns=TIME_POINTS)
+            seq_df.index.name = "Site/Time(min)"
+            seq_df.to_excel(writer, sheet_name=f"{sheet_prefix}_site_estimates")
+
+            # 7. Save observed data for each site
+            obs_arr = np.array(res["observed_data"])
+            obs_df = pd.DataFrame(obs_arr, index=res["psite_labels"], columns=TIME_POINTS)
+            obs_df.index.name = "Site/Time(min)"
+            obs_df.to_excel(writer, sheet_name=f"{sheet_prefix}_site_observed")
+
+            # 8. Save PCA results
+            pca_arr = np.array(res["pca_result"])
+            ev = np.array(res["ev"])
+            pca_df = pd.DataFrame(pca_arr, columns=[f"PC{i + 1}" for i in range(pca_arr.shape[1])])
+            pca_df.insert(0, "Time(min)", TIME_POINTS)
+            ev_row = pd.DataFrame([["Explained Var"] + list(ev)],columns=pca_df.columns)
+            pca_df = pd.concat([pca_df, ev_row], ignore_index=True)
+            pca_df.to_excel(writer, sheet_name=f"{sheet_prefix}_pca", index=False)
+
+            # 9. Save t-SNE results
+            tsne_arr = np.array(res["tsne_result"])
+            tsne_df = pd.DataFrame(tsne_arr, columns=[f"t-SNE{i+1}" for i in range(tsne_arr.shape[1])])
+            tsne_df.insert(0, "Time(min)", TIME_POINTS)
+            tsne_df.to_excel(writer, sheet_name=f"{sheet_prefix}_tsne", index=False)
+
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
@@ -87,7 +174,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
       - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
 
     Args:
-        results_dir (str): Path to the root results directory.
+        results_dir (str): Path to the root result's directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
     # Gather gene folders (skip "General" and "logs")
@@ -105,7 +192,8 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "<style>",
         "body { font-family: Arial, sans-serif; margin: 20px; }",
         "h1 { color: #333; }",
-        "h2 { color: #555; font-size: 1.8em; border-bottom: 1px solid #ccc; padding-bottom: 5px; }",
+        "h2 { color: #555; font-size: 1.8em; border-bottom: 1px solid #ccc; padding-bottom: 5px; page-break-before: always; }",
+        "h2:first-of-type { page-break-before: avoid; }",
         "h3 { color: #666; font-size: 1.4em; margin-top: 10px; margin-bottom: 10px; }",
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
@@ -144,7 +232,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Modelling & Parameter Estimation Report</h1>"
+        f"<h1>{model_type.upper()} Modelling & {ESTIMATION_MODE.upper()} Parameter Estimation Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.
@@ -158,7 +246,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         for filename in files:
             file_path = os.path.join(gene_folder, filename)
             if os.path.isfile(file_path) and filename.endswith(".png"):
-                rel_path = os.path.join(gene, filename)
+                uri_path = Path(os.path.join(gene_folder, filename)).resolve().as_uri()
                 # Remove the extension and split on '_'
                 base_name = os.path.splitext(filename)[0]
                 tokens = [token for token in base_name.split('_') if token]
@@ -168,7 +256,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
                 # Join remaining tokens with space and convert to upper case
                 title = " ".join(tokens).upper()
                 html_parts.append(
-                    f'<div class="plot-item"><h3>{title}</h3><img src="{rel_path}" alt="{filename}"></div>'
+                    f'<div class="plot-item"><h3>{title}</h3><img src="{uri_path}" alt="{filename}"></div>'
                 )
         html_parts.append('</div>')  # End of plot container
 

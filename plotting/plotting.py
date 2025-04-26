@@ -1,4 +1,4 @@
-import os
+import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -12,9 +12,7 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-
-from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, \
-    ESTIMATION_MODE
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
 
 
 class Plotter:
@@ -125,9 +123,7 @@ class Plotter:
             ax.legend()
             ax.grid(True, alpha=0.2)
             self._save_fig(fig, f"{self.gene}_pca_plot_.png")
-        else:
-            # Optionally handle non-3D cases here
-            pass
+        return pca_result, ev
 
     def plot_tsne(self, solution: np.ndarray, perplexity: int = 30):
         """
@@ -153,52 +149,7 @@ class Plotter:
         ax.grid(True, alpha=0.2)
         ax.legend()
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
-
-    def plot_param_bar(self, params_df: pd.DataFrame, s_df: pd.DataFrame):
-        """
-        Plots a bar chart of parameter values for the given gene.
-
-        This method visualizes the estimated parameter values for a specific gene
-        and its phosphorylation sites. It uses color coding to distinguish between
-        different phosphorylation sites and other parameters.
-
-        :param params_df: DataFrame containing parameter values.
-        :param s_df: DataFrame containing phosphorylation site information.
-        """
-        fig, ax = plt.subplots(figsize=(8, 8))
-        unique_psites = s_df.loc[s_df['GeneID'] == self.gene, 'Psite'].tolist()
-        color_map = {psite: plt.cm.tab20(i / len(unique_psites)) for i, psite in enumerate(unique_psites)}
-
-        if len(unique_psites) == 1:
-            single_psite = unique_psites[0]
-            color = color_map[single_psite]
-            if 'S' in params_df.columns and not params_df['S'].isna().all():
-                ax.bar('S', params_df['S'].mean(), color=color, label=f"{single_psite}")
-
-        for i, psite in enumerate(unique_psites):
-            color = color_map[psite]
-            for param in [f"S{i + 1}", f"D{i + 1}"]:
-                if param in params_df.columns and not params_df[param].isna().all():
-                    ax.bar(param, params_df[param].mean(), color=color,
-                           label=f"{psite}" if psite not in [h.get_label() for h in
-                                                             ax.get_legend_handles_labels()[0]] else None)
-
-        other_params = [col for col in params_df.columns
-                        if col not in ['Protein', 'S'] + [f"S{i + 1}" for i in range(len(unique_psites))] + [f"D{i + 1}"
-                                                                                                             for i in
-                                                                                                             range(
-                                                                                                                 len(unique_psites))]]
-        for i, param in enumerate(other_params):
-            if param in params_df.columns and not params_df[param].isna().all():
-                ax.bar(param, params_df[param].mean(), color=plt.cm.Paired(i / len(other_params)), alpha=0.6)
-
-        ax.set_title(self.gene)
-        ax.set_ylabel('Estimated Values')
-        ax.set_xlabel('Parameters')
-        plt.xticks(rotation=45)
-        ax.legend(title="Residue_Position", loc='upper right', ncol=2)
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_bar_.png")
+        return tsne_result
 
 
     def plot_param_series(self, estimated_params: list, param_names: list, time_points: np.ndarray):
@@ -312,112 +263,71 @@ class Plotter:
 
     def plot_A_S(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
         """
-        Plots the scatter plot of A vs S and the density contour plot.
+        Plots scatter and density plots for (A, S), (B, S), (C, S), (D, S).
 
         :param est_arr: Estimated parameters array.
         :param num_psites: Number of phosphorylation sites.
         :param time_vals: Time values for the data.
-        :return:
         """
         est_arr = np.array(est_arr)
-        A_vals = est_arr[:, 0]
         cmap = plt.get_cmap("viridis")
         norm = mcolors.Normalize(vmin=min(time_vals), vmax=max(time_vals))
-        fig, ax = plt.subplots(figsize=(8, 8))
-        legend_handles = []
-        for i in range(num_psites):
-            S_vals = est_arr[:, 4 + i]
-            sc = ax.scatter(A_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
-                            s=50, alpha=0.8, marker=available_markers[i])
-            slope, intercept = np.polyfit(A_vals, S_vals, 1)
-            x_fit = np.linspace(A_vals.min(), A_vals.max(), 100)
-            y_fit = slope * x_fit + intercept
-            line_color = f"C{i}"
-            ax.plot(x_fit, y_fit, color=line_color, lw=1)
-            legend_handles.append(Line2D([0], [0],
-                                         marker=available_markers[i],
-                                         color='w',
-                                         markerfacecolor=line_color,
-                                         markeredgecolor='k',
-                                         markersize=8,
-                                         label=f"S{i + 1}"))
-        ax.set_xlabel("A (mRNA production rate)")
-        ax.set_ylabel("S (Phosphorylation rate)")
-        ax.set_title(self.gene)
-        cbar = plt.colorbar(sc, ax=ax)
-        cbar.set_label("Time (min)")
-        ax.grid(True, alpha=0.2)
-        ax.legend(handles=legend_handles)
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_scatter_A_S_.png")
 
-        # Density contour plot for A and S.
-        all_points = np.vstack([np.column_stack((A_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
-        kde = gaussian_kde(all_points.T)
-        A_lin = np.linspace(A_vals.min(), A_vals.max(), 100)
-        all_S = all_points[:, 1]
-        S_lin = np.linspace(all_S.min(), all_S.max(), 100)
-        A_grid, S_grid = np.meshgrid(A_lin, S_lin)
-        grid_coords = np.vstack([A_grid.ravel(), S_grid.ravel()])
-        density = kde(grid_coords).reshape(A_grid.shape)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
-        contourf = ax.contourf(A_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
-        ax.contour(A_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
-        ax.set_xlabel("A")
-        ax.set_ylabel("S")
-        ax.set_title(self.gene)
-        cbar = plt.colorbar(contourf, ax=ax)
-        cbar.set_label("Density")
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_density_A_S_.png")
+        param_labels = ["A", "B", "C", "D"]
 
-    def plot_all(self, solution: np.ndarray, labels: list, estimated_params: list,
-                 time_points: np.ndarray, P_data: np.ndarray, seq_model_fit: np.ndarray,
-                 psite_labels: list, perplexity: int = 5, components: int = 3, target_variance: float = 0.99):
-        """
-        Function that calls parallel, t-SNE, PCA, and model fit plots.
-        If mode is sequential, it also calls parameter series and A-S plots.
+        for idx, label in enumerate(param_labels):
+            param_vals = est_arr[:, idx]
 
-        :param solution: 2D numpy array of shape (samples, features) representing the data.
-        :param labels: List of labels for the solution.
-        :param estimated_params: List of estimated parameter values.
-        :param time_points: 1D numpy array of time points.
-        :param P_data: Observed data for phosphorylation levels.
-        :param seq_model_fit: Estimated model fit values.
-        :param psite_labels: Labels for the phosphorylation sites.
-        :param perplexity: Perplexity parameter for t-SNE.
-        :param components: Number of PCA components to plot.
-        :param target_variance: The target cumulative explained variance to determine the required number of components.
-        """
-        self.plot_parallel(solution, labels)
-        self.plot_tsne(solution, perplexity=perplexity)
-        self.plot_pca(solution, components=components)
-        self.pca_components(solution, target_variance=target_variance)
-        self.plot_model_fit(seq_model_fit, P_data, solution, len(psite_labels), psite_labels, time_points)
-        if ESTIMATION_MODE == 'sequential':
-            self.plot_param_series(estimated_params, get_param_names(len(psite_labels)), time_points)
-            self.plot_A_S(estimated_params, len(psite_labels), time_points)
+            # Scatter plot
+            fig, ax = plt.subplots(figsize=(8, 8))
+            legend_handles = []
+            for i in range(num_psites):
+                S_vals = est_arr[:, 4 + i]
+                sc = ax.scatter(param_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
+                                s=50, alpha=0.8, marker=available_markers[i])
+                slope, intercept = np.polyfit(param_vals, S_vals, 1)
+                x_fit = np.linspace(param_vals.min(), param_vals.max(), 100)
+                y_fit = slope * x_fit + intercept
+                line_color = f"C{i}"
+                ax.plot(x_fit, y_fit, color=line_color, lw=1)
+                legend_handles.append(Line2D([0], [0],
+                                             marker=available_markers[i],
+                                             color='w',
+                                             markerfacecolor=line_color,
+                                             markeredgecolor='k',
+                                             markersize=8,
+                                             label=f"S{i + 1}"))
+            ax.set_xlabel(f"{label} (rate)")
+            ax.set_ylabel("S (Phosphorylation rate)")
+            ax.set_title(self.gene)
+            cbar = plt.colorbar(sc, ax=ax)
+            cbar.set_label("Time (min)")
+            ax.grid(True, alpha=0.2)
+            ax.legend(handles=legend_handles)
+            plt.tight_layout()
+            self._save_fig(fig, f"{self.gene}_scatter_{label}_S_.png")
 
-    def plot_clusters(self, s_values_df: pd.DataFrame, cluster_labels):
-        """
-        Plots the clusters of S values for the given gene.
-        Expects s_values_df to have columns 'S_value', 'GeneID', and 'Psite'.
+            # Density contour plot
+            all_points = np.vstack([np.column_stack((param_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
+            kde = gaussian_kde(all_points.T)
+            param_lin = np.linspace(param_vals.min(), param_vals.max(), 100)
+            all_S = all_points[:, 1]
+            S_lin = np.linspace(all_S.min(), all_S.max(), 100)
+            param_grid, S_grid = np.meshgrid(param_lin, S_lin)
+            grid_coords = np.vstack([param_grid.ravel(), S_grid.ravel()])
+            density = kde(grid_coords).reshape(param_grid.shape)
 
-        :param s_values_df: DataFrame containing S values and gene information.
-        :param cluster_labels: Cluster labels for each S value.
-        """
-        df = s_values_df.copy()
-        df['Cluster'] = cluster_labels
-        fig, ax = plt.subplots(figsize=(8, 8))
-        sns.scatterplot(x=df.index, y=df['S_value'], hue=cluster_labels, palette="viridis", s=100, ax=ax)
-        for i, row in df.iterrows():
-            ax.text(i, row['S_value'], f"{row['GeneID']}-{row['Psite']}", fontsize=9, ha='right')
-        ax.set_title('')
-        ax.set_ylabel('S', fontstyle='italic')
-        ax.set_xticks([])
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_protein_clusters.png")
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
+            contourf = ax.contourf(param_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
+            ax.contour(param_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
+            ax.set_xlabel(f"{label}")
+            ax.set_ylabel("S")
+            ax.set_title(self.gene)
+            cbar = plt.colorbar(contourf, ax=ax)
+            cbar.set_label("Density")
+            plt.tight_layout()
+            self._save_fig(fig, f"{self.gene}_density_{label}_S_.png")
 
     def plot_heatmap(self, param_value_df: pd.DataFrame):
         """
@@ -447,190 +357,31 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_model_error.png")
 
-    def plot_gof_1(self, merged_data: pd.DataFrame):
+    def plot_gof(self, merged_data: pd.DataFrame):
         """
-        Expects merged_data to contain 'GeneID', 'Psite', and columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est'.
+        Plot the goodness of fit for the model.
         """
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
         ci_offset_99 = 2.576 * overall_std
 
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
+        unique_genes = merged_data['Gene'].unique()
+        palette = sns.color_palette("husl", len(unique_genes))
         gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        gene_handles = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            if gene not in [handle.get_label() for handle in gene_handles]:
-                handle = plt.Line2D([], [], color=gene_color_map[gene],
-                                    marker='o', linestyle='', markersize=8, label=gene)
-                gene_handles.append(handle)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_1.png")
-
-    def plot_gof_2(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        gene_handles = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            if gene not in [handle.get_label() for handle in gene_handles]:
-                handle = plt.Line2D([], [], color=gene_color_map[gene],
-                                    marker='o', linestyle='', markersize=8, label=gene)
-                gene_handles.append(handle)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        # Expand axis limits slightly
-        x_min = obs_array.min() - 0.1 * (obs_array.max() - obs_array.min())
-        x_max = obs_array.max() + 0.1 * (obs_array.max() - obs_array.min())
-        y_min = est_array.min() - 0.1 * (est_array.max() - est_array.min())
-        y_max = est_array.max() + 0.1 * (est_array.max() - est_array.min())
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(handles=gene_handles, loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_2.png")
-
-    def plot_gof_3(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(10, 10))
         plotted_genes = set()
         text_annotations = []
         obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
         est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
+        for gene, psite, obs_vals, est_vals in zip(merged_data['Gene'],
                                                    merged_data['Psite'],
                                                    obs_array, est_array):
             sorted_indices = np.argsort(obs_vals)
             obs_vals_sorted = obs_vals[sorted_indices]
             est_vals_sorted = est_vals[sorted_indices]
             ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
-            for obs, est in zip(obs_vals_sorted, est_vals_sorted):
-                if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                    txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
-                                  fontweight='bold', ha='center', va='center',
-                                  bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                    text_annotations.append(txt)
-                    plotted_genes.add(gene)
-        min_val = min(obs_array.min(), est_array.min())
-        max_val = max(obs_array.max(), est_array.max())
-        ax.plot([min_val, max_val], [min_val, max_val],
-                color='gray', linestyle='-', linewidth=1.5)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_95, max_val + ci_offset_95],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_95, max_val - ci_offset_95],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot([min_val, max_val],
-                [min_val + ci_offset_99, max_val + ci_offset_99],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot([min_val, max_val],
-                [min_val - ci_offset_99, max_val - ci_offset_99],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"gof_3.png")
-
-    def plot_gof_4(self, merged_data: pd.DataFrame):
-        overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = merged_data['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        gene_color_map = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        text_annotations = []
-        obs_array = merged_data.loc[:, 'x1_obs':'x14_obs'].values
-        est_array = merged_data.loc[:, 'x1_est':'x14_est'].values
-        for gene, psite, obs_vals, est_vals in zip(merged_data['GeneID'],
-                                                   merged_data['Psite'],
-                                                   obs_array, est_array):
-            sorted_indices = np.argsort(obs_vals)
-            obs_vals_sorted = obs_vals[sorted_indices]
-            est_vals_sorted = est_vals[sorted_indices]
-            ax.scatter(obs_vals_sorted, est_vals_sorted, color=gene_color_map[gene],
-                       edgecolor='black', s=50)
+                       edgecolor='black', s=100, alpha=0.5)
             for obs, est in zip(obs_vals_sorted, est_vals_sorted):
                 if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
                     txt = ax.text(obs, est, gene, fontsize=10, color=gene_color_map[gene],
@@ -663,128 +414,68 @@ class Plotter:
         ax.set_ylim(y_min, y_max)
         ax.set_xlabel("Observed")
         ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
+        ax.set_title(f"{model_type} Model")
         ax.legend(loc='upper left', fontsize='small', ncol=2)
         ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"_gof_4.png")
-
-    def plot_gof_5(self, merged_data: pd.DataFrame):
-        """
-        Uses the row means of observed (x1_obs:x14_obs) and estimated (x1_est:x14_est) values.
-        """
-        df = merged_data.copy()
-        if 'Observed_Mean' not in df.columns or 'Estimated_Mean' not in df.columns:
-            df['Observed_Mean'] = df.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
-            df['Estimated_Mean'] = df.loc[:, 'x1_est':'x14_est'].mean(axis=1)
-        overall_std = df['Observed_Mean'].std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = df['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        colors = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        for obs, est, gene in zip(df['Observed_Mean'], df['Estimated_Mean'], df['GeneID']):
-            ax.scatter(obs, est, color=colors[gene], edgecolor='black', s=100, marker='o')
-            if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                ax.text(obs, est, gene, fontsize=10, color=colors[gene],
-                        fontweight='bold', ha='center', va='center',
-                        bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                plotted_genes.add(gene)
-        x_vals = [min(df['Observed_Mean'].min(), df['Estimated_Mean'].min()),
-                  max(df['Observed_Mean'].max(), df['Estimated_Mean'].max())]
-        ax.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-        ax.plot(x_vals, [x + ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot(x_vals, [x - ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot(x_vals, [x + ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot(x_vals, [x - ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_5.png")
-
-    def plot_gof_6(self, merged_data: pd.DataFrame):
-        df = merged_data.copy()
-        if 'Observed_Mean' not in df.columns or 'Estimated_Mean' not in df.columns:
-            df['Observed_Mean'] = df.loc[:, 'x1_obs':'x14_obs'].mean(axis=1)
-            df['Estimated_Mean'] = df.loc[:, 'x1_est':'x14_est'].mean(axis=1)
-        overall_std = df['Observed_Mean'].std()
-        ci_offset_95 = 1.96 * overall_std
-        ci_offset_99 = 2.576 * overall_std
-
-        unique_genes = df['GeneID'].unique()
-        palette = sns.color_palette("tab20", len(unique_genes))
-        colors = {gene: palette[i] for i, gene in enumerate(unique_genes)}
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        plotted_genes = set()
-        sorted_indices = np.argsort(df['Observed_Mean'].values)
-        for idx in sorted_indices:
-            obs = df['Observed_Mean'].iloc[idx]
-            est = df['Estimated_Mean'].iloc[idx]
-            gene = df['GeneID'].iloc[idx]
-            ax.scatter(obs, est, color=colors[gene], edgecolor='black', s=100, marker='o')
-            if gene not in plotted_genes and (est > obs + ci_offset_95 or est < obs - ci_offset_95):
-                ax.text(obs, est, gene, fontsize=10, color=colors[gene],
-                        fontweight='bold', ha='center', va='center',
-                        bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
-                plotted_genes.add(gene)
-        x_min = df['Observed_Mean'].min() - 0.1 * (df['Observed_Mean'].max() - df['Observed_Mean'].min())
-        x_max = df['Observed_Mean'].max() + 0.1 * (df['Observed_Mean'].max() - df['Observed_Mean'].min())
-        y_min = df['Estimated_Mean'].min() - 0.1 * (df['Estimated_Mean'].max() - df['Estimated_Mean'].min())
-        y_max = df['Estimated_Mean'].max() + 0.1 * (df['Estimated_Mean'].max() - df['Estimated_Mean'].min())
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        x_vals = [df['Observed_Mean'].min(), df['Observed_Mean'].max()]
-        ax.plot(x_vals, x_vals, color='grey', linestyle='-', linewidth=1.5)
-        ax.plot(x_vals, [x + ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1, label='95% CI')
-        ax.plot(x_vals, [x - ci_offset_95 for x in x_vals],
-                color='red', linestyle='--', linewidth=1)
-        ax.plot(x_vals, [x + ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1, label='99% CI')
-        ax.plot(x_vals, [x - ci_offset_99 for x in x_vals],
-                color='gray', linestyle='--', linewidth=1)
-        ax.set_xlabel("Observed")
-        ax.set_ylabel("Fitted")
-        ax.set_title(f"{model_type} model")
-        ax.legend(loc='upper left', fontsize='small', ncol=2)
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"_gof_6.png")
+        self._save_fig(fig, f"_Goodness_of_Fit_.png")
 
     def plot_kld(self, merged_data: pd.DataFrame):
         """
-        Expects merged_data to have columns 'x1_obs' to 'x14_obs' and 'x1_est' to 'x14_est',
-        as well as 'GeneID' and 'Psite'.
+        Plots the Kullback-Divergence for the model.
         """
         obs_data = merged_data.loc[:, 'x1_obs':'x14_obs']
         est_data = merged_data.loc[:, 'x1_est':'x14_est']
         normalized_obs = obs_data.div(obs_data.sum(axis=1), axis=0)
         normalized_est = est_data.div(est_data.sum(axis=1), axis=0)
         kl_div = normalized_obs.apply(lambda row: entropy(row, normalized_est.loc[row.name]), axis=1)
-        kl_df = merged_data[['GeneID', 'Psite']].copy()
+        kl_df = merged_data[['Gene', 'Psite']].copy()
         kl_df['KL'] = kl_div.values
-        kl_by_gene = kl_df.groupby('GeneID')['KL'].mean().sort_values()
+        kl_by_gene = kl_df.groupby('Gene')['KL'].mean().sort_values()
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        indices = kl_by_gene.index.tolist()
-        values = kl_by_gene.values
-        ax.scatter(indices, values, marker='s', color='blue', label='Mean Normalized')
-        ax.set_xticklabels(indices, rotation=45, ha='right')
-        ax.set_ylabel("Entropy")
-        ax.set_title("Kullback-Liebler Divergence")
-        ax.legend()
+        fig, ax = plt.subplots(figsize=(10, 10))
+        colors = ['lightcoral' if val > 0.03 else 'dodgerblue' for val in kl_by_gene.values]
+        ax.barh(kl_by_gene.index, kl_by_gene.values, color=colors)
+        ax.set_xlabel("KL Divergence")
+        ax.set_ylabel("Protein")
+        ax.set_title("")
         plt.tight_layout()
-        self._save_fig(fig, f"_kld.png")
+        self._save_fig(fig, f"_kld_.png")
+
+    def plot_params_bar(self, ci_results: dict, param_labels: list = None, time: str = None):
+        """
+        Plots bar plot for estimated parameter with 95% Confidence Interval.
+        """
+        beta_hat = ci_results['beta_hat']
+        lwr_ci = ci_results['lwr_ci']
+        upr_ci = ci_results['upr_ci']
+        num_params = len(beta_hat)
+        x = np.arange(num_params)
+        if param_labels is None:
+            param_labels = [f"{i + 1}" for i in range(num_params)]
+        lower_error = beta_hat - lwr_ci
+        upper_error = upr_ci - beta_hat
+        errors = np.vstack((lower_error, upper_error))
+        fig, ax = plt.subplots(figsize=(12, 8))
+        colors = []
+        s_counter = 0
+        for label in param_labels:
+            if re.fullmatch(r"S\d", label):
+                color = self.color_palette[s_counter % len(self.color_palette)]
+                colors.append(color)
+                s_counter += 1
+            else:
+                colors.append('lightgray')
+        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.7, edgecolor='black', color=colors)
+        ax.set_xticks(x)
+        ax.set_xticklabels(param_labels, ha='right')
+        ax.set_ylabel('Estimate')
+        ax.set_title(self.gene)
+        ax.grid(True, axis='y', linestyle='--', alpha=0.2)
+        plt.tight_layout()
+        if time is not None:
+            self._save_fig(fig, f"{self.gene}_params_{time}_min.png")
+        else:
+            self._save_fig(fig, f"{self.gene}_params_bar_.png")
+
