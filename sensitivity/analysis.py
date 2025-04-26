@@ -6,6 +6,10 @@ from config.constants import OUT_DIR, ODE_MODEL
 from config.helpers import (get_number_of_params_rand, get_param_names_rand,
                             get_bounds_rand)
 from models import solve_ode
+from config.logconf import setup_logger
+
+logger = setup_logger()
+
 
 def define_sensitivity_problem_rand(num_psites):
     """
@@ -95,7 +99,7 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
         except Exception:
             Y[i] = np.nan
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
-    print(f"\n\nSensitivity Analysis for Protein: {gene}\n")
+    logger.info(f"[{gene}]Sensitivity Analysis for Protein")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95, scaled=True, print_to_console=True)
 
     # Absolute Mean of Elementary Effects : represents the overall importance

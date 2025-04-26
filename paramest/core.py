@@ -80,20 +80,20 @@ def process_gene(
         - param_df: DataFrame of estimated parameters.
         - gene_psite_data: Dictionary of gene-specific data.
     """
-    # 1. Extract Gene-specific Data
+    # Extract Gene-specific Data
     gene_data = measurement_data[measurement_data['Gene'] == gene]
     num_psites = gene_data.shape[0]
     psite_values = gene_data['Psite'].values
     init_cond = initial_condition(num_psites)
     P_data = gene_data.iloc[:, 2:].values
 
-    # 2. Choose estimation mode
+    # Choose estimation mode
     estimation_mode = ESTIMATION_MODE
 
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
-    # 7. Error Metrics
+    # Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
     logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
@@ -111,7 +111,7 @@ def process_gene(
         profiles_df.to_excel(profile_path, index=False)
         # logger.info(f"Profiled Estimates: {profile_path}")
 
-    # 4. Solve Full ODE with Final Params
+    # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
@@ -122,7 +122,6 @@ def process_gene(
     # 5. Plotting Outputs
     labels = generate_labels(num_psites)
     illustrate(gene, num_psites)
-    # Create a single Plotter instance.
     plotter = Plotter(gene, out_dir)
     pca_result, ev = plotter.plot_pca(sol_full, components=3)
     tsne_result = plotter.plot_tsne(sol_full, perplexity=5)
@@ -134,14 +133,14 @@ def process_gene(
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
-    # 6. Save Sequential Parameters to Excel
+    # Save Sequential Parameters to Excel
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
     # logger.info(f"Estimated Parameters: {param_path}")
 
-    # 8. Return Results
+    # Return Results
     return {
         "gene": gene,
         "labels": labels,
