@@ -6,32 +6,42 @@ from config.constants import OUT_DIR, ODE_MODEL
 from config.helpers import (get_number_of_params_rand, get_param_names_rand,
                             get_bounds_rand)
 from models import solve_ode
+from itertools import combinations
+from joblib import Parallel, delayed
 from config.logconf import setup_logger
 
 logger = setup_logger()
 
 
-def define_sensitivity_problem_rand(num_psites):
+def define_sensitivity_problem_rand(num_psites, bounds):
     """
-    Defines the Morris sensitivity analysis problem for a dynamic number of parameters.
-
-    Args:
-        num_psites (int): Number of phosphorylation sites.
-
-    Returns:
-        dict: Problem definition for sensitivity analysis.
+    Defines the Morris sensitivity analysis problem for the random model.
     """
     num_vars = get_number_of_params_rand(num_psites)
     param_names = get_param_names_rand(num_psites)
-    bounds = get_bounds_rand(num_psites)
+
+    _bounds = [
+        list(bounds['A']),   # A
+        list(bounds['B']),   # B
+        list(bounds['C']),   # C
+        list(bounds['D']),   # D
+    ] + [list(bounds['Ssite'])] * num_psites  # Ssite bounds
+
+    # Additional bounds for random phosphorylation site combinations
+    for i in range(1, num_psites + 1):
+        for _ in combinations(range(1, num_psites + 1), i):
+            # Dsite bounds for each combination
+            _bounds.append(list(bounds['Dsite']))
+
     problem = {
         'num_vars': num_vars,
         'names': param_names,
-        'bounds': bounds
+        'bounds': _bounds
     }
     return problem
 
-def define_sensitivity_problem_ds(ub, num_psites):
+
+def define_sensitivity_problem_ds(num_psites, bounds):
     """
     Defines the Morris sensitivity analysis problem for a dynamic number of parameters.
 
@@ -46,20 +56,23 @@ def define_sensitivity_problem_ds(ub, num_psites):
     param_names = ['A', 'B', 'C', 'D'] + \
                   [f'S{i + 1}' for i in range(num_psites)] + \
                   [f'D{i + 1}' for i in range(num_psites)]
-    bounds = [
-                 [0, ub],  # A
-                 [0, ub],  # B
-                 [0, ub],  # C
-                 [0, ub],  # D
-             ] + [[0, ub]] * num_psites + [[0, ub]] * num_psites  # S and D parameters
+    _bounds = ([
+              list(bounds['A']),  # A
+              list(bounds['B']),  # B
+              list(bounds['C']),  # C
+              list(bounds['D']),  # D
+              ] +
+               [list(bounds['Ssite'])] * num_psites
+               +
+               [list(bounds['Dsite'])] * num_psites)
     problem = {
         'num_vars': num_vars,
         'names': param_names,
-        'bounds': bounds
+        'bounds': _bounds
     }
     return problem
 
-def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
+def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
@@ -78,29 +91,40 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
     """
 
     if ODE_MODEL == 'randmod':
-        problem = define_sensitivity_problem_rand(num_psites=num_psites)
+        problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
     else:
-        problem = define_sensitivity_problem_ds(num_psites=num_psites)
+        problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
     N = 10000
     num_levels = 400
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
-    Y = np.zeros(len(param_values))
-    for i, X in enumerate(param_values):
-        A, B, C, D, *rest = X
-        S_list = rest[:num_psites]
-        D_list = rest[num_psites:]
-        params = (A, B, C, D, *S_list, *D_list)
+
+    def simulate_single_param(X):
+        """
+        Simulate the ODE model for a given parameter set and compute the fit error.
+
+        Args:
+            X (np.ndarray): A sampled parameter vector from the sensitivity analysis method.
+
+        Returns:
+            float: Sum of squared differences between model prediction and data.
+                   Returns 0.0 if the simulation fails.
+
+        Notes:
+            - This function is designed to be used inside a parallel loop for sensitivity analysis.
+            - The ODE is solved with the parameter set X, and the model output is compared
+              to the experimental data to compute the fitting error.
+        """
         try:
-            sol, _ = solve_ode(params, init_cond, num_psites, time_points)
-            # Sum last time point P1, P2, ..., Pn
-            Y[i] = np.sum(sol[-1, list(range(2, 2 + num_psites))])  \
-                if ODE_MODEL == 'randmod'  \
-                else np.sum(sol[-1, 2:2 + num_psites])
+            _, model_psite = solve_ode(X, init_cond, num_psites, time_points)
+            return np.sum((data - model_psite) ** 2)
         except Exception:
-            Y[i] = np.nan
-    Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
+            return 0.0
+
+    # Parallel execution
+    Y = Parallel(n_jobs=-1, backend="loky")(delayed(simulate_single_param)(X) for X in param_values)
+    Y = np.nan_to_num(np.array(Y), nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}]Sensitivity Analysis for Protein")
-    Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95, scaled=True, print_to_console=True)
+    Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95, scaled=False, print_to_console=True)
 
     # Absolute Mean of Elementary Effects : represents the overall importance
     # of each parameter, reflecting its sensitivity
@@ -119,7 +143,7 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
     ax.bar(problem['names'], Si['sigma'], color='orange')
     ax.set_title(f'{gene}')
     ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/bar_plot_sigma_{gene}.png", format='png', dpi=300)
     plt.close()
@@ -137,7 +161,7 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
     ax.set_title(f'{gene}')
     ax.set_xlabel('mu* (Mean Absolute Effect)')
     ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True)
+    plt.grid(True, alpha=0.5)
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/scatter_plot_musigma_{gene}.png", format='png', dpi=300)
     plt.close()
@@ -165,6 +189,7 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
     ax.set_xticklabels(categories)
     ax.set_title(f'{gene}')
     plt.legend(loc='upper right')
+    plt.grid(True, alpha=0.2)
     plt.savefig(f"{OUT_DIR}/radial_plot_{gene}.png", format='png', dpi=300)
     plt.close()
 
@@ -180,7 +205,7 @@ def sensitivity_analysis(data, popt, time_points, num_psites, init_cond, gene):
     plt.xlabel('Sensitivity Index')
     plt.ylabel('Cumulative Probability')
     plt.legend()
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.savefig(f"{OUT_DIR}/cdf_plot_{gene}.png", format='png', dpi=300)
     plt.close()
 

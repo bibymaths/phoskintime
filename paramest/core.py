@@ -5,10 +5,11 @@ import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE
+from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
+from sensitivity.analysis import sensitivity_analysis
 from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
@@ -98,7 +99,7 @@ def process_gene(
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
     logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
 
-    # 3. Adaptive Profile Estimation (Optional)
+    # Adaptive Profile Estimation
     profiles_df, profiles_dict = None, None
     if desired_times is not None and time_fixed is not None:
         profiles_df, profiles_dict = estimate_profiles(
@@ -119,7 +120,7 @@ def process_gene(
 
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
-    # 5. Plotting Outputs
+    # Plotting Outputs
     labels = generate_labels(num_psites)
     illustrate(gene, num_psites)
     plotter = Plotter(gene, out_dir)
@@ -133,12 +134,16 @@ def process_gene(
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
-    # Save Sequential Parameters to Excel
+    # Save Sequential Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
     # logger.info(f"Estimated Parameters: {param_path}")
+
+    if SENSITIVITY_ANALYSIS:
+        # Perform Sensitivity Analysis
+        sensitivity_analysis(gene_data, final_params, bounds, time_points, num_psites, init_cond, gene)
 
     # Return Results
     return {
