@@ -97,7 +97,7 @@ def process_gene(
     # Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
-    logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
+    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Adaptive Profile Estimation
     profiles_df, profiles_dict = None, None

@@ -142,7 +142,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
     rmse = np.sqrt(mse)  # RMSE per simulation
 
     # Select the top K-closest simulations
-    K = 5  # Choose best trajectories, adjust as you want
+    K = 50  # Choose the best trajectories, adjust as you want
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
@@ -150,7 +150,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
 
     # --- Plot all model_psite solutions ---
     n_sites = best_model_psite_solutions.shape[2]
-    plt.figure(figsize=(16, 10))
+    plt.figure(figsize=(8, 8))
     for site_idx in range(n_sites):
         color = COLOR_PALETTE[site_idx]
 
@@ -160,7 +160,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
                 time_points,
                 best_model_psite_solutions[sim_idx, :, site_idx],
                 color=color,
-                alpha=0.1
+                alpha=0.05
             )
 
         # Plot the mean trajectory
@@ -169,9 +169,18 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
             time_points,
             mean_curve,
             color=color,
-            linewidth=2,
             alpha=0.7,
             label=f'{psite_labels[site_idx]}'
+        )
+
+        # Plot the experimental data
+        plt.plot(
+            time_points,
+            data[site_idx],
+            marker='s',
+            linestyle='--',
+            color=color,
+            markersize=5,
         )
 
     plt.xlabel('Time (min)')
