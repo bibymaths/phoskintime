@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config.constants import TIME_POINTS
+from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE
 
 
 def ensure_output_directory(directory):
@@ -232,7 +232,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "</style>",
         "</head>",
         "<body>",
-        "<h1>Modelling & Parameter Estimation Report</h1>"
+        f"<h1>{model_type.upper()} Modelling & {ESTIMATION_MODE.upper()} Parameter Estimation Report</h1>"
     ]
 
     # For each gene folder, create a section in the report.
