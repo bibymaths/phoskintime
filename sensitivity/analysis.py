@@ -142,7 +142,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
     rmse = np.sqrt(mse)  # RMSE per simulation
 
     # Select the top K-closest simulations
-    K = 10  # Choose 50 best trajectories, adjust as you want
+    K = 5  # Choose best trajectories, adjust as you want
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
