@@ -92,21 +92,13 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
         problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
     else:
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
-    N = 1000
-    num_levels = 100
+    N = 10000
+    num_levels = 400
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
     Y = np.zeros(len(param_values))
 
     # Initialize list to collect all model_psite trajectories
     all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
-
-    # Get per-site min and max from the experimental data
-    min_per_site = np.min(data, axis=0)
-    max_per_site = np.max(data, axis=0)
-
-    # Calculate tolerance bands (5% to 95%) around experimental data
-    lower_bound = 0.95 * data.T
-    upper_bound = 1.05 * data.T
 
     # Loop through each parameter set and solve the ODE
     for i, X in enumerate(param_values):
@@ -117,19 +109,10 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
         try:
             _,model_psite = solve_ode(params, init_cond, num_psites, time_points)
 
-            # Clip each site's phosphorylation to the max of observed data
-            # max_per_site = np.max(data, axis=0)
-            # for p_idx in range(num_psites):
-            #     model_psite[p_idx] = np.clip(model_psite[p_idx], 0, max_per_site[p_idx])
-            # Clip each site's model prediction between its own min and max
-            # for p_idx in range(num_psites):
-            #     model_psite[p_idx] = np.clip(model_psite[p_idx], min_per_site[p_idx], max_per_site[p_idx])
-
             # Y represents the scalar model output (observable) used
             # to compute sensitivity to parameter perturbations
             # Total phosphorylation across all sites
-            Y[i] = np.sum(model_psite.T)
-
+            Y[i] = np.sum(model_psite)
             # # Mean phosphorylation level across sites (normalizes output)
             # Y[i] = np.mean(model_psite)
             # # Variance in phosphorylation across sites (captures uneven site behavior)
@@ -154,11 +137,11 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
 
     # --- Select the closest simulations to the data ---
     # Compute RMSE between each simulation and the experimental data
-    diff = all_model_psite_solutions - data[np.newaxis, :, :]  # shape (n_samples, n_timepoints, n_sites)
+    diff = all_model_psite_solutions - data.T[np.newaxis, :, :]  # shape (n_samples, n_timepoints, n_sites)
     mse = np.mean(diff ** 2, axis=(1, 2))  # mean over timepoints and sites
     rmse = np.sqrt(mse)  # RMSE per simulation
 
-    # Select the top K closest simulations
+    # Select the top K-closest simulations
     K = 10  # Choose 50 best trajectories, adjust as you want
     best_idxs = np.argsort(rmse)[:K]
 
@@ -190,16 +173,6 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
             alpha=0.7,
             label=f'{psite_labels[site_idx]}'
         )
-
-        # Plot the observed data for this site
-        # plt.plot(
-        #     time_points,
-        #     data[site_idx],
-        #     color=color,
-        #     linestyle='-',
-        #     linewidth=2,
-        #     label=f'{psite_labels[site_idx]}'
-        # )
 
     plt.xlabel('Time (min)')
     plt.ylabel('Phosphorylation Level (FC)')
