@@ -131,7 +131,7 @@ def process_gene(
     plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, labels, time_points)
 
     if ESTIMATION_MODE == "sequential":
-        plotter.plot_param_series(estimated_params, get_param_names(len(labels)), time_points)
+        plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
     # 6. Save Sequential Parameters to Excel
