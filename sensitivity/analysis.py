@@ -3,7 +3,8 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
 from config.constants import OUT_DIR, ODE_MODEL
-from config.helpers import get_number_of_params_rand, get_param_names_rand
+from config.helpers import (get_number_of_params_rand, get_param_names_rand,
+                            get_bounds_rand)
 from models import solve_ode
 from itertools import combinations
 from config.logconf import setup_logger
@@ -97,12 +98,12 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
     Y = np.zeros(len(param_values))
     for i, X in enumerate(param_values):
-        A, B, C, D, *rest = popt
+        A, B, C, D, *rest = X
         S_list = rest[:num_psites]
         D_list = rest[num_psites:]
         params = (A, B, C, D, *S_list, *D_list)
         try:
-            _,model_psite = solve_ode(params, init_cond, num_psites, time_points)
+            _,model_psite = solve_ode(X, init_cond, num_psites, time_points)
             # Sum of squared differences (can change depending on what you want)
             Y[i] = np.sum((data - model_psite) ** 2)
         except Exception:
