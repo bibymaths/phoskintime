@@ -143,7 +143,8 @@ def process_gene(
 
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
-        sensitivity_analysis(gene_data, final_params, bounds, time_points, num_psites, init_cond, gene)
+        # Perturbation of parameters around the estimated values
+        sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
     return {

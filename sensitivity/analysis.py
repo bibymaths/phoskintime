@@ -2,9 +2,8 @@ import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
-from config.constants import OUT_DIR, ODE_MODEL
-from config.helpers import (get_number_of_params_rand, get_param_names_rand,
-                            get_bounds_rand)
+from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE
+from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
 from itertools import combinations
 from config.logconf import setup_logger
@@ -71,7 +70,7 @@ def define_sensitivity_problem_ds(num_psites, bounds):
     }
     return problem
 
-def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond, gene):
+def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
@@ -93,24 +92,88 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
         problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
     else:
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
-    N = 100
-    num_levels = 50
-    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
+    N = 10
+    num_levels = 5
+    param_values = popt + morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
     Y = np.zeros(len(param_values))
+
+    # Initialize list to collect all model_psite trajectories
+    all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
+
+    # Loop through each parameter set and solve the ODE
     for i, X in enumerate(param_values):
         A, B, C, D, *rest = X
         S_list = rest[:num_psites]
         D_list = rest[num_psites:]
         params = (A, B, C, D, *S_list, *D_list)
         try:
-            _,model_psite = solve_ode(X, init_cond, num_psites, time_points)
-            # Sum of squared differences (can change depending on what you want)
-            Y[i] = np.sum((data - model_psite) ** 2)
+            _,model_psite = solve_ode(params, init_cond, num_psites, time_points)
+            # Y represents the scalar model output (observable) used
+            # to compute sensitivity to parameter perturbations
+            # Total phosphorylation across all sites
+            Y[i] = np.sum(model_psite.T)
+            # # Mean phosphorylation level across sites (normalizes output)
+            # Y[i] = np.mean(model_psite)
+            # # Variance in phosphorylation across sites (captures uneven site behavior)
+            # Y[i] = np.var(model_psite)
+            # # Sum of squared changes between time points (captures dynamic fluctuations)
+            # Y[i] = np.sum(np.diff(model_psite) ** 2)
+            # # Overall magnitude of phosphorylation vector (energy/magnitude interpretation)
+            # Y[i] = np.linalg.norm(model_psite)
+            # Collect the phosphorylation trajectory for each parameter set
+            # Stack all collected solutions
+            # (n_samples, n_timepoints, n_sites)
+            all_model_psite_solutions[i] = model_psite.T
         except Exception:
             Y[i] = np.nan
+
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}] Sensitivity Analysis for Protein")
-    Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95, scaled=True, print_to_console=True)
+    Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.95,
+                 scaled=True, print_to_console=True)
+
+    # --- Plot all model_psite solutions ---
+    n_sites = all_model_psite_solutions.shape[2]
+    plt.figure(figsize=(16, 10))
+    for site_idx in range(n_sites):
+        color = COLOR_PALETTE[site_idx]
+
+        # Plot all simulation trajectories for this site
+        for sim_idx in range(all_model_psite_solutions.shape[0]):
+            plt.plot(
+                time_points,
+                all_model_psite_solutions[sim_idx, :, site_idx],
+                color=color,
+                alpha=0.02
+            )
+
+        # Plot the mean trajectory
+        mean_curve = np.mean(all_model_psite_solutions[:, :, site_idx], axis=0)
+        plt.plot(
+            time_points,
+            mean_curve,
+            color=color,
+            linewidth=2,
+        )
+
+        # Plot the observed data for this site
+        plt.plot(
+            time_points,
+            data[site_idx],
+            color=color,
+            linestyle='-',
+            linewidth=2,
+            label=f'{psite_labels[site_idx]}'
+        )
+
+    plt.xlabel('Time (min)')
+    plt.ylabel('Phosphorylation Level (FC)')
+    plt.title(f'{gene}')
+    plt.legend()
+    plt.grid(True, alpha=0)
+    plt.tight_layout()
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_phosphorylation_dynamics.png", format='png', dpi=300)
+    plt.close()
 
     # Absolute Mean of Elementary Effects : represents the overall importance
     # of each parameter, reflecting its sensitivity
@@ -121,17 +184,17 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
     ax.bar(problem['names'], Si['mu_star'], yerr=Si['mu_star_conf'], color='skyblue')
     ax.set_title(f'{gene}')
     ax.set_ylabel('mu* (Importance)')
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/bar_plot_mu_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_bar_plot_mu.png", format='png', dpi=300)
     plt.close()
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.bar(problem['names'], Si['sigma'], color='orange')
     ax.set_title(f'{gene}')
     ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/bar_plot_sigma_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_bar_plot_sigma.png", format='png', dpi=300)
     plt.close()
 
     ## Bar Plot of sigma ##
@@ -147,9 +210,9 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
     ax.set_title(f'{gene}')
     ax.set_xlabel('mu* (Mean Absolute Effect)')
     ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True)
+    plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/scatter_plot_musigma_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_scatter_plot_musigma.png", format='png', dpi=300)
     plt.close()
 
     # A radial plot (also known as a spider or radar plot) can give a visual
@@ -174,8 +237,9 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(categories)
     ax.set_title(f'{gene}')
-    plt.legend(loc='upper right')
-    plt.savefig(f"{OUT_DIR}/radial_plot_{gene}.png", format='png', dpi=300)
+    plt.legend(loc='upper right') 
+    plt.grid(True, alpha=0.2)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_radial_plot.png", format='png', dpi=300)
     plt.close()
 
     # CDF can show how often the effects of certain parameters are strong or
@@ -190,8 +254,8 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
     plt.xlabel('Sensitivity Index')
     plt.ylabel('Cumulative Probability')
     plt.legend()
-    plt.grid(True)
-    plt.savefig(f"{OUT_DIR}/cdf_plot_{gene}.png", format='png', dpi=300)
+    plt.grid(True, alpha=0.2)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_cdf_plot.png", format='png', dpi=300)
     plt.close()
 
     # Visualize the proportion of total sensitivity contributed by each
@@ -203,5 +267,5 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, init_cond,
            textprops={'fontsize': 8})
     ax.set_title(f'{gene}')
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/pie_chart_{gene}.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_pie_chart.png", format='png', dpi=300)
     plt.close()
