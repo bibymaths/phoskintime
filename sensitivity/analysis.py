@@ -164,7 +164,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
                 time_points[:cutoff_idx],
                 best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                 color=color,
-                alpha=0.2
+                alpha=0.1
             )
         mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
         ax.plot(
@@ -196,7 +196,7 @@ def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labe
                 time_points[cutoff_idx - 1:],
                 best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
                 color=color,
-                alpha=0.2
+                alpha=0.1
             )
         mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
         ax.plot(
