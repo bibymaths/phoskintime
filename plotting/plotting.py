@@ -1,4 +1,4 @@
-import os
+import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -12,9 +12,7 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-
-from config.constants import get_param_names, COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, \
-    ESTIMATION_MODE
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
 
 
 class Plotter:
@@ -445,37 +443,39 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"_kld_.png")
 
-    def plot_params_bar(self, ci_results: dict, param_labels: list = None,
-                        title: str = ''):
+    def plot_params_bar(self, ci_results: dict, param_labels: list = None, time: str = None):
         """
-        Plots parameter estimates as a bar plot with confidence intervals.
-
-        Parameters:
-          - ci_results: Output dictionary from confidence_intervals() function.
-          - param_labels: Optional list of labels for each parameter.
-          - title: Title for the plot.
+        Plots bar plot for estimated parameter with 95% Confidence Interval.
         """
         beta_hat = ci_results['beta_hat']
         lwr_ci = ci_results['lwr_ci']
         upr_ci = ci_results['upr_ci']
-
         num_params = len(beta_hat)
         x = np.arange(num_params)
-
         if param_labels is None:
-            param_labels = [f"Rate{i + 1}" for i in range(num_params)]
-
+            param_labels = [f"{i + 1}" for i in range(num_params)]
         lower_error = beta_hat - lwr_ci
         upper_error = upr_ci - beta_hat
         errors = np.vstack((lower_error, upper_error))
-
         fig, ax = plt.subplots(figsize=(12, 8))
-        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.8, edgecolor='black')
+        colors = []
+        s_counter = 0
+        for label in param_labels:
+            if re.fullmatch(r"S\d", label):
+                color = self.color_palette[s_counter % len(self.color_palette)]
+                colors.append(color)
+                s_counter += 1
+            else:
+                colors.append('lightgray')
+        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.7, edgecolor='black', color=colors)
         ax.set_xticks(x)
-        ax.set_xticklabels(param_labels, rotation=45, ha='right')
+        ax.set_xticklabels(param_labels, ha='right')
         ax.set_ylabel('Estimate')
-        ax.set_title(title)
-        ax.grid(True, axis='y', linestyle='--', alpha=0.7)
-
+        ax.set_title(self.gene)
+        ax.grid(True, axis='y', linestyle='--', alpha=0.2)
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_bar_.png")
+        if time is not None:
+            self._save_fig(fig, f"{self.gene}_params_{time}_min.png")
+        else:
+            self._save_fig(fig, f"{self.gene}_params_bar_.png")
+

@@ -8,7 +8,7 @@ from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION, OD
 from config.logconf import setup_logger
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
-from tfopt.fitanalysis.helper import Plotter
+from plotting import Plotter
 from .identifiability import confidence_intervals
 
 logger = setup_logger()
@@ -195,7 +195,8 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             alpha_val=ALPHA_CI
         )
 
-    Plotter(gene, OUT_DIR).plot_params_bar(gene, ci_results, get_param_names(num_psites))
+    plotter = Plotter(gene, OUT_DIR)
+    plotter.plot_params_bar(ci_results, get_param_names(num_psites))
 
     # Since all parameters are free, param_final is simply the best-fit vector.
     # If parameters were estimated in log-space, convert them back.
@@ -207,4 +208,4 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
     error_vals.append(np.sum(np.abs(target - p_fit.flatten()) ** 2))
-    return est_params, model_fits, error_vals #, ci_results
+    return est_params, model_fits, error_vals

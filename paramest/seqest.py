@@ -2,18 +2,19 @@ import numpy as np
 from scipy.optimize import curve_fit
 from itertools import combinations
 from typing import cast, Tuple
-
+from .identifiability import confidence_intervals
 from config.config import score_fit
-from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL
+from config.constants import LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, OUT_DIR, ALPHA_CI
 from config.logconf import setup_logger
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options
 from config.constants import get_param_names
+from plotting import Plotter
 
 logger = setup_logger()
 
 def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
-                       use_regularization=True, lambda_reg=1e-3):
+                       use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
     """
     Prepare the model function for sequential parameter estimation.
 
@@ -92,7 +93,7 @@ def prepare_model_func(num_psites, init_cond, bounds, fixed_params,
 
 def fit_parameters(time_points, p_data, model_func, p0_free,
                    bounds, weight_options,
-                   use_regularization=True):
+                   use_regularization=USE_REGULARIZATION):
     """
     Fit the parameters of the model using curve fitting with different
     weighting options. This function iterates over the provided
@@ -109,7 +110,7 @@ def fit_parameters(time_points, p_data, model_func, p0_free,
     :param use_regularization:
     :return: best_fit_params, best_weight_key, scores
     """
-    scores, popts = {}, {}
+    scores, popts, pcovs = {}, {}, {}
     target = p_data.flatten()
 
     if use_regularization:
@@ -122,12 +123,13 @@ def fit_parameters(time_points, p_data, model_func, p0_free,
                           p0=p0_free, bounds=bounds,
                           sigma=sigma, absolute_sigma=True,
                           maxfev=20000))
-            popt, _ = result
+            popt, pcov = result
         except Exception as e:
             logger.warning(f"Fit failed with {key}: {e}")
             popt = p0_free
 
         popts[key] = popt
+        pcovs[key] = pcov
         prediction = model_func(time_points, *popt)
         score = score_fit(target, prediction, popt)
         scores[key] = score
@@ -135,8 +137,7 @@ def fit_parameters(time_points, p_data, model_func, p0_free,
 
     best_key = min(scores, key=scores.get)
     best_score = scores[best_key]
-    logger.info(f"Score: {best_score:.2f}")
-    return popts[best_key], best_key, scores
+    return popts[best_key], pcovs[best_key], best_key, best_score
 
 def sequential_estimation(p_data, time_points, init_cond, bounds,
                           fixed_params, num_psites, gene,
@@ -195,7 +196,7 @@ def sequential_estimation(p_data, time_points, init_cond, bounds,
                                      use_regularization, len(p0_free), early_emphasis_weights)
 
         # Perform the fit with the best weights.
-        best_fit, weight_key, _ = fit_parameters(t_now, y_now, model_func, popt_init,
+        best_fit, best_cov, weight_key, score = fit_parameters(t_now, y_now, model_func, popt_init,
                                                  free_bounds, weights,
                                                  use_regularization)
         p_full = np.zeros(num_total_params)
@@ -215,8 +216,18 @@ def sequential_estimation(p_data, time_points, init_cond, bounds,
         error_vals.append(np.sum(np.abs(y_flat - p_fit.flatten()) ** 2))
         # Update the initial guess for the next iteration.
         p0_free = best_fit
+        # Compute confidence intervals.
+        ci_results = confidence_intervals(
+            best_fit,
+            best_cov,
+            target_fit,
+            alpha_val=ALPHA_CI
+        )
 
-        logger.info(f"[{gene}] Time {t_now[-1]} min | Best Weight = {weight_key}")
+        plotter = Plotter(gene, OUT_DIR)
+        str_t_now = f"{t_now[-1]:.1f}".rstrip('0').rstrip('.')
+        plotter.plot_params_bar(ci_results, get_param_names(num_psites), str_t_now)
+        logger.info(f"[{gene}] Time {str_t_now} min | Best Weight = {weight_key} | Score: {score:.2f}")
 
     return est_params, model_fits, error_vals
 
