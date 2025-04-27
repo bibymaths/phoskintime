@@ -479,9 +479,7 @@ class Plotter:
         else:
             self._save_fig(fig, f"{self.gene}_params_bar_.png")
 
-    def plot_simulations(results_dict: dict,
-                         num_psites: int,
-                         psite_labels: list):
+    def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
         Plot wild-type and knockout simulation results for comparison.
 
@@ -506,12 +504,14 @@ class Plotter:
         ax_rp.legend(loc='upper right')
         ax_rp.grid(True)
 
-        ax_ph.set_xlabel("Time")
+        ax_ph.set_xlabel("Time (min)")
+        ax_ph.set_xticks(range(len(results_dict['wildtype'][0][9:])))
+        ax_ph.set_xticklabels(results_dict['wildtype'][0][9:], rotation=45)
         ax_ph.set_ylabel("Phospho-level")
         ax_ph.set_title("Phosphorylation sites over time")
         ax_ph.legend(loc='upper right')
-        ax_ph.grid(True)
-
+        ax_ph.grid(True, alpha=0.2)
+        plt.title(f"{self.gene}")
         plt.tight_layout()
-        plt.show()
+        self._save_fig(fig, f"{self.gene}_knockouts.png")
 

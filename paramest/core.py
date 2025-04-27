@@ -134,7 +134,21 @@ def process_gene(
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
-    knockout_targets = {'transcription': True}
+    # Simulate wild-type (normal)
+    sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
+
+    # Define knockout you want
+    knockout_targets = {
+        'transcription': True,
+        'phosphorylation': True,  # or list like [0,1,2] if partial knockout
+    }
+    final_params_ko = apply_knockout(final_params, knockout_targets, num_psites)
+    sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
+    knockout_dict = {
+        'wildtype': (time_points, sol_wt, p_fit_wt),
+        'knockout': (time_points, sol_ko, p_fit_ko),
+    }
+    plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
     # Save Sequential Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))

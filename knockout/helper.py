@@ -1,3 +1,5 @@
+import numpy as np
+
 def apply_knockout(base_params: np.ndarray,
                    knockout_targets: dict,
                    num_psites: int) -> np.ndarray:
