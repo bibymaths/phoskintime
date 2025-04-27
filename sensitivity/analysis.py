@@ -134,7 +134,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}] Sensitivity Analysis for Protein")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
-                 scaled=True, print_to_console=True)
+                 scaled=True, print_to_console=False)
 
     # --- Select the closest simulations to the data ---
     # Compute RMSE between each simulation and the experimental data
@@ -240,7 +240,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.legend()
 
     plt.suptitle(f'{gene}', fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for suptitle
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_.png", format='png', dpi=300)
     plt.close()
 

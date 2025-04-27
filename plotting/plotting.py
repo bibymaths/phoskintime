@@ -209,8 +209,8 @@ class Plotter:
         :return:
         """
         cutoff_idx = 7
-        fig, ax = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
-        ax = ax[0]
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+        ax = axes[0]
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth = 1)
         for i in range(num_psites):
@@ -226,7 +226,7 @@ class Plotter:
             fontsize=6
         )
         ax.grid(True, alpha=0.05)
-        ax = ax[1]
+        ax = axes[1]
         ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth = 1)
         ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth = 1)
         for i in range(num_psites):
@@ -508,18 +508,18 @@ class Plotter:
         """
         marker_cycle = itertools.cycle(available_markers)
         time_points = results_dict['WT'][0]
-        fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')  # 2 rows, 2 columns
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
             marker = next(marker_cycle)
             # -- Full time range plots
-            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=1, marker=marker,
+            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
-            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=1, marker=marker,
+            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=1, marker=marker,
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=0.5, marker=marker,
                                 markeredgecolor='black', markersize=6, mew = 0.5)
 
             # -- First 'n' points only
@@ -527,20 +527,18 @@ class Plotter:
             sol_early = sol[:time_cutoff]
             p_fit_early = p_fit[:, :time_cutoff]
 
-            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=1, marker=marker,
+            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
-            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=1, marker=marker,
+            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=1, marker=marker,
+                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=0.5, marker=marker,
                                markeredgecolor='black', markersize=6, mew = 0.5)
 
-        ax_rp_full.set_ylabel("FC")
         ax_rp_full.legend(loc='upper right', fontsize=8)
         ax_rp_full.grid(True, alpha=0.1)
 
         ax_ph_full.set_xlabel("Time (min)")
-        ax_ph_full.set_ylabel("FC")
         ax_ph_full.legend(loc='upper right', fontsize=8)
         ax_ph_full.grid(True, alpha=0.2)
 
@@ -548,9 +546,11 @@ class Plotter:
         ax_ph_full.set_xticklabels([f"{int(tp)}" for tp in time_points][time_cutoff:], rotation=45, fontsize=6)
 
         ax_rp_zoom.grid(True, alpha=0.2)
+        ax_rp_zoom.set_ylabel("FC")
         ax_rp_zoom.set_title("Transcription and Translation")
 
         ax_ph_zoom.set_xlabel("Time (min)")
+        ax_ph_zoom.set_ylabel("FC")
         ax_ph_zoom.set_title("Phosphorylation")
         ax_ph_zoom.grid(True, alpha=0.1)
 
@@ -560,8 +560,8 @@ class Plotter:
             rotation=45,
             fontsize=6
         )
-        plt.suptitle(f"{self.gene}")
-        plt.tight_layout()
+        plt.suptitle(f"{self.gene}", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_.png")
 
 
