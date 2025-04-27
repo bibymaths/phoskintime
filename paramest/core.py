@@ -128,7 +128,7 @@ def process_gene(
     tsne_result = plotter.plot_tsne(sol_full, perplexity=5)
     plotter.plot_parallel(sol_full, labels)
     plotter.pca_components(sol_full, target_variance=0.99)
-    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, labels, time_points)
+    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points)
 
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)

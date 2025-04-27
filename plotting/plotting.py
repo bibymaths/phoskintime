@@ -211,10 +211,9 @@ class Plotter:
         ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)')
         ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)')
         for i in range(num_psites):
-            ax.plot(time_points, P_data[i, :], '-', marker='s',
+            ax.plot(time_points, P_data[i, :], '--', marker='s',
                     color=self.color_palette[i], label=f'P+{psite_labels[i]}')
-            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i],
-                    label=f'P+{psite_labels[i]} (model)')
+            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i])
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("Phosphorylation level (FC)")
         ax.set_title(self.gene)

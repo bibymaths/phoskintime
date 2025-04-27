@@ -34,10 +34,14 @@ SENSITIVITY_ANALYSIS = False
 
 # Define the knockout settings
 KNOCKOUTS = {
-    'translation': False,       # Knockout translation by setting C = 0 (no protein production)
-    'transcription': False,      # Knockout transcription by setting A = 0 (no mRNA production)
-    'phosphorylation': [2],    # Knockout all phosphorylation rates (set all S_rates = 0)
+    # Knockout translation by setting C = 0 (no protein production)
+    'translation': False,
+    # Knockout transcription by setting A = 0 (no mRNA production)
+    'transcription': False,
+    # Knockout all phosphorylation (set all S_rates = 0)
     # Alternatively, you can specify a list like [0, 1, 2] to knockout only specific phosphorylation sites
+    # (e.g., 0 for site 1, 1 for site 2, etc.).
+    'phosphorylation': [0],
 }
 
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
@@ -86,7 +90,7 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-3
+LAMBDA_REG = 1e-2
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #
