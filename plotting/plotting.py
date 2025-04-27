@@ -479,3 +479,39 @@ class Plotter:
         else:
             self._save_fig(fig, f"{self.gene}_params_bar_.png")
 
+    def plot_simulations(results_dict: dict,
+                         num_psites: int,
+                         psite_labels: list):
+        """
+        Plot wild-type and knockout simulation results for comparison.
+
+        :param results_dict: mapping label -> (time array, sol array, p_fitted array)
+        :param num_psites: number of phosphorylation sites
+        :param psite_labels: labels for phospho-sites
+        """
+        fig, axes = plt.subplots(2, 1, figsize=(8, 10), sharex=True)
+        ax_rp, ax_ph = axes
+
+        for label, (t, sol, p_fit) in results_dict.items():
+            # mRNA and Protein
+            ax_rp.plot(t, sol[:, 0], label=f"{label} (R)")
+            ax_rp.plot(t, sol[:, 1], label=f"{label} (P)")
+            # Phospho-sites
+            for i in range(num_psites):
+                ax_ph.plot(t, p_fit[i, :],
+                           label=f"{label} P+{psite_labels[i]}")
+
+        ax_rp.set_ylabel("Concentration")
+        ax_rp.set_title("mRNA and Protein over time")
+        ax_rp.legend(loc='upper right')
+        ax_rp.grid(True)
+
+        ax_ph.set_xlabel("Time")
+        ax_ph.set_ylabel("Phospho-level")
+        ax_ph.set_title("Phosphorylation sites over time")
+        ax_ph.legend(loc='upper right')
+        ax_ph.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+

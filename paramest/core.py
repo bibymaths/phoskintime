@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-
+from knockout.helper import apply_knockout
 from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
@@ -133,6 +133,8 @@ def process_gene(
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
+
+    knockout_targets = {'transcription': True}
 
     # Save Sequential Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))

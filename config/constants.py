@@ -30,11 +30,7 @@ ESTIMATION_MODE = 'normal'
 #   - Skips sensitivity analysis entirely to save computation time.
 #   - Useful during development, debugging, or when only
 #     parameter estimation is needed.
-# Notes:
-#   - Sensitivity analysis can be computationally expensive
-#     because it solves many ODE systems (~thousands).
-#   - Parallelization is used to speed up the ODE evaluations.
-SENSITIVITY_ANALYSIS = True
+SENSITIVITY_ANALYSIS = False
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
@@ -81,7 +77,7 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-2
+LAMBDA_REG = 1e-3
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #
