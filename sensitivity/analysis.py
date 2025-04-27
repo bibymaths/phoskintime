@@ -319,3 +319,4 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_pie_chart.png", format='png', dpi=300)
     plt.close()
+    return Si

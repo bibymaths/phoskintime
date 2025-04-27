@@ -166,24 +166,21 @@ def save_result(results, excel_filename):
             tsne_df.to_excel(writer, sheet_name=f"{sheet_prefix}_tsne", index=False)
 
             # 10. Save knockout results
-            if "knockout_results" in res and res["knockout_results"]:
-                system_fits = []  # for R and P
-                phospho_fits = []  # for phospho sites
+            system_fits = []
+            for knockout_name, ko_data in res["knockout_results"].items():
+                sol_ko = np.array(ko_data["sol_ko"])
+                state_labels = ["R", "P"] + [f"{ps}" for ps in res["psite_labels"]]
+                sys_df = pd.DataFrame(sol_ko, columns=[f"{knockout_name} | {label}" for label in state_labels],
+                                      index=TIME_POINTS)
+                system_fits.append(sys_df)
+            system_concat = pd.concat(system_fits, axis=1)
+            system_concat.index.name = "Time (min)"
+            system_concat.to_excel(writer, sheet_name=f"{sheet_prefix}_knockouts", index=True)
 
-                for knockout_name, ko_data in res["knockout_results"].items():
-                    sol_ko = np.array(ko_data["sol_ko"])  # (time, 2)
-                    p_fit_ko = np.array(ko_data["p_fit_ko"])  # (psites, time)
-
-                    # System dynamics
-                    state_labels = ["R", "P"] + [f"" for ps in res["psite_labels"]]
-                    sys_df = pd.DataFrame(sol_ko, columns=[f"{knockout_name} {label}" for label in state_labels],
-                                          index=TIME_POINTS)
-                    system_fits.append(sys_df)
-
-                # -- Concatenate system dynamics
-                system_concat = pd.concat(system_fits, axis=1)
-                system_concat.index.name = "Time (min)"
-                system_concat.to_excel(writer, sheet_name=f"{sheet_prefix}_knockouts_system", index=True)
+            # 11. Save Senstivity Analysis
+            if res["perturbation_analysis"] is not None:
+                sens_res = res["perturbation_analysis"]
+                sens_res.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=True)
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """

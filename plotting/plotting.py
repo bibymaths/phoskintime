@@ -261,7 +261,7 @@ class Plotter:
                                  width=900, height=900)
         fig_plotly.write_html(os.path.join(self.out_dir, f"{self.gene}_model_fit_.html"))
 
-    def plot_A_S(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
+    def plot_param_scatter(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
         """
         Plots scatter and density plots for (A, S), (B, S), (C, S), (D, S).
 

@@ -146,7 +146,7 @@ def process_gene(
 
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
-        plotter.plot_A_S(estimated_params, len(psite_values), time_points)
+        plotter.plot_param_scatter(estimated_params, len(psite_values), time_points)
 
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
@@ -173,7 +173,7 @@ def process_gene(
         if phospho is True:
             knockout_name.append("Phospho KO")
         elif isinstance(phospho, list) and phospho:
-            knockout_name.append(f"Phospho KO {','.join(psite_values[p] for p in phospho)}")
+            knockout_name.append(f"PhosphoSite KO {','.join(psite_values[p] for p in phospho)}")
         if not knockout_name:
             knockout_name = ["WT"]
 
@@ -206,7 +206,7 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis = sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
     return {
@@ -228,6 +228,7 @@ def process_gene(
         "pca_result": pca_result,
         "ev": ev,
         "tsne_result": tsne_result,
+        "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
         "knockout_results": knockout_results
     }
 
