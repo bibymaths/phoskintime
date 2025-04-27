@@ -96,6 +96,7 @@ def save_result(results, excel_filename):
     - Observed data for each site
     - PCA results
     - t-SNE results
+    - Knockout results
     The sheet names are prefixed with the gene name, truncated to 25 characters.
     Args:
         results (list): List of dictionaries containing results for each gene.
@@ -163,6 +164,24 @@ def save_result(results, excel_filename):
             tsne_df = pd.DataFrame(tsne_arr, columns=[f"t-SNE{i+1}" for i in range(tsne_arr.shape[1])])
             tsne_df.insert(0, "Time(min)", TIME_POINTS)
             tsne_df.to_excel(writer, sheet_name=f"{sheet_prefix}_tsne", index=False)
+
+            # 10. Save knockout results
+            system_fits = []
+            for knockout_name, ko_data in res["knockout_results"].items():
+                sol_ko = np.array(ko_data["sol_ko"])
+                state_labels = ["R", "P"] + [f"{ps}" for ps in res["psite_labels"]]
+                sys_df = pd.DataFrame(sol_ko, columns=[f"{knockout_name} | {label}" for label in state_labels],
+                                      index=TIME_POINTS)
+                system_fits.append(sys_df)
+            system_concat = pd.concat(system_fits, axis=1)
+            system_concat.index.name = "Time (min)"
+            system_concat.to_excel(writer, sheet_name=f"{sheet_prefix}_knockouts", index=True)
+
+            # 11. Save Sensitivity Analysis
+            if res["perturbation_analysis"] is not None:
+                sens_res = res["perturbation_analysis"]
+                sens_df = pd.DataFrame(sens_res)
+                sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=False)
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """

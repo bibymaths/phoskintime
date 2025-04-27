@@ -1,3 +1,4 @@
+import itertools
 import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -207,20 +208,42 @@ class Plotter:
         :param time_points: time points for the data.
         :return:
         """
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)')
-        ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)')
+        cutoff_idx = 7
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+        ax = axes[0]
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth = 1)
         for i in range(num_psites):
-            ax.plot(time_points, P_data[i, :], '-', marker='s',
-                    color=self.color_palette[i], label=f'P+{psite_labels[i]}')
-            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i],
-                    label=f'P+{psite_labels[i]} (model)')
+            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                    color=self.color_palette[i], linewidth = 0.75)
+            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
-        ax.set_ylabel("Phosphorylation level (FC)")
-        ax.set_title(self.gene)
-        ax.grid(True, alpha=0.2)
+        ax.set_ylabel("FC")
+        ax.set_xticks(time_points[:cutoff_idx])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
+            rotation=45,
+            fontsize=6
+        )
+        ax.grid(True, alpha=0.05)
+        ax = axes[1]
+        ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth = 1)
+        ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth = 1)
+        for i in range(num_psites):
+            ax.plot(time_points, P_data[i, :], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth = 0.75)
+            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth = 1)
+        ax.set_xlabel("Time (minutes)")
+        ax.set_xticks(time_points[cutoff_idx + 2:])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx + 2:]],
+            rotation=45,
+            fontsize=6
+        )
         ax.legend()
-        plt.tight_layout()
+        ax.grid(True, alpha=0.05)
+        plt.suptitle(f'{self.gene}', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_model_fit_.png")
 
         # Plot using Plotly for an interactive version.
@@ -261,7 +284,7 @@ class Plotter:
                                  width=900, height=900)
         fig_plotly.write_html(os.path.join(self.out_dir, f"{self.gene}_model_fit_.html"))
 
-    def plot_A_S(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
+    def plot_param_scatter(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
         """
         Plots scatter and density plots for (A, S), (B, S), (C, S), (D, S).
 
@@ -478,4 +501,67 @@ class Plotter:
             self._save_fig(fig, f"{self.gene}_params_{time}_min.png")
         else:
             self._save_fig(fig, f"{self.gene}_params_bar_.png")
+
+    def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
+        """
+        Plot wild-type and knockout simulation results for comparison.
+        """
+        marker_cycle = itertools.cycle(available_markers)
+        time_points = results_dict['WT'][0]
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')
+        (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
+        time_cutoff = 8
+        for label, (t, sol, p_fit) in results_dict.items():
+            marker = next(marker_cycle)
+            # -- Full time range plots
+            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=0.5, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=0.5, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            for i in range(num_psites):
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=0.5, marker=marker,
+                                markeredgecolor='black', markersize=6, mew = 0.5)
+
+            # -- First 'n' points only
+            t_early = t[:time_cutoff]
+            sol_early = sol[:time_cutoff]
+            p_fit_early = p_fit[:, :time_cutoff]
+
+            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=0.5, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=0.5, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            for i in range(num_psites):
+                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=0.5, marker=marker,
+                               markeredgecolor='black', markersize=6, mew = 0.5)
+
+        ax_rp_full.legend(loc='upper right', fontsize=8)
+        ax_rp_full.grid(True, alpha=0.1)
+
+        ax_ph_full.set_xlabel("Time (min)")
+        ax_ph_full.legend(loc='upper right', fontsize=8)
+        ax_ph_full.grid(True, alpha=0.2)
+
+        ax_ph_full.set_xticks(time_points[time_cutoff:])
+        ax_ph_full.set_xticklabels([f"{int(tp)}" for tp in time_points][time_cutoff:], rotation=45, fontsize=6)
+
+        ax_rp_zoom.grid(True, alpha=0.2)
+        ax_rp_zoom.set_ylabel("FC")
+        ax_rp_zoom.set_title("Transcription and Translation")
+
+        ax_ph_zoom.set_xlabel("Time (min)")
+        ax_ph_zoom.set_ylabel("FC")
+        ax_ph_zoom.set_title("Phosphorylation")
+        ax_ph_zoom.grid(True, alpha=0.1)
+
+        ax_ph_zoom.set_xticks(time_points[:time_cutoff])
+        ax_ph_zoom.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:time_cutoff]],
+            rotation=45,
+            fontsize=6
+        )
+        plt.suptitle(f"{self.gene}", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        self._save_fig(fig, f"{self.gene}_.png")
+
 

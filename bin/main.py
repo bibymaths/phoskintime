@@ -71,8 +71,16 @@ def main():
         logger.error(f"Missing columns in the input data: {', '.join(missing_columns)}")
         return
 
-    # Load protein groups
-    genes = data["Gene"].unique().tolist()[:1] # For testing, only process the first gene
+    # Load all protein groups
+
+    # genes = data["Gene"].unique().tolist()
+
+    # Load only gene 'X'
+    _test = "ABL2"
+    if _test in data["Gene"].values:
+        genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
+    else:
+        raise ValueError(f"{_test} not found in the input data.")
 
     # Check if the genes are empty
     if not genes:

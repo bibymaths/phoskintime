@@ -17,6 +17,24 @@ ODE_MODEL = 'distmod'
 # Set to "normal" to perform fitting using all-time points at once (normal estimation),
 # yielding a single set of parameter estimates that best describes the entire time course.
 ESTIMATION_MODE = 'normal'
+# Controls whether sensitivity analysis is performed
+# during the pipeline run.
+# If True:
+#   - Performs global sensitivity analysis using the Morris method.
+#   - Samples the parameter space, solves the ODE system for each sample,
+#     and calculates sensitivity indices (mu*, sigma).
+#   - Generates multiple plots (bar, scatter, radial, CDF, pie charts)
+#     to visualize parameter importance and interactions.
+#
+# If False:
+#   - Skips sensitivity analysis entirely to save computation time.
+#   - Useful during development, debugging, or when only
+#     parameter estimation is needed.
+SENSITIVITY_ANALYSIS = False
+# Trajectories for profiling
+NUM_TRAJECTORIES = 1000
+# Spread of parameters (has to be even number) -> SALib.morris()
+PARAMETER_SPACE = 1000
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.

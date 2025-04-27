@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE
+from knockout import apply_knockout, generate_knockout_combinations
+from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
+from sensitivity import sensitivity_analysis
 from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
@@ -80,25 +81,25 @@ def process_gene(
         - param_df: DataFrame of estimated parameters.
         - gene_psite_data: Dictionary of gene-specific data.
     """
-    # 1. Extract Gene-specific Data
+    # Extract Gene-specific Data
     gene_data = measurement_data[measurement_data['Gene'] == gene]
     num_psites = gene_data.shape[0]
     psite_values = gene_data['Psite'].values
     init_cond = initial_condition(num_psites)
     P_data = gene_data.iloc[:, 2:].values
 
-    # 2. Choose estimation mode
+    # Choose estimation mode
     estimation_mode = ESTIMATION_MODE
 
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
-    # 7. Error Metrics
+    # Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
-    logger.info(f"{gene} → MSE: {mse:.4f}, MAE: {mae:.4f}")
+    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
-    # 3. Adaptive Profile Estimation (Optional)
+    # Adaptive Profile Estimation
     profiles_df, profiles_dict = None, None
     if desired_times is not None and time_fixed is not None:
         profiles_df, profiles_dict = estimate_profiles(
@@ -111,7 +112,7 @@ def process_gene(
         profiles_df.to_excel(profile_path, index=False)
         # logger.info(f"Profiled Estimates: {profile_path}")
 
-    # 4. Solve Full ODE with Final Params
+    # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
@@ -119,29 +120,95 @@ def process_gene(
 
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
-    # 5. Plotting Outputs
+    # Generate Labels
     labels = generate_labels(num_psites)
+
+    # Generate phosphorylation ODE diagram
     illustrate(gene, num_psites)
-    # Create a single Plotter instance.
+
+    # Create plotting instance
     plotter = Plotter(gene, out_dir)
+
+    # Plot PCA
     pca_result, ev = plotter.plot_pca(sol_full, components=3)
+
+    # Plot t-SNE
     tsne_result = plotter.plot_tsne(sol_full, perplexity=5)
+
+    # Plot parallel coordinates
     plotter.plot_parallel(sol_full, labels)
+
+    # Plot PCA components
     plotter.pca_components(sol_full, target_variance=0.99)
-    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, labels, time_points)
+
+    # Plot ODE model fits
+    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points)
 
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
-        plotter.plot_A_S(estimated_params, len(psite_values), time_points)
+        plotter.plot_param_scatter(estimated_params, len(psite_values), time_points)
 
-    # 6. Save Sequential Parameters to Excel
+    # Simulate wild-type
+    sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
+
+    # Generate combinations for knockouts
+    knockout_combinations = generate_knockout_combinations(num_psites)
+    knockout_results = {}
+    # Loop through those combinations
+    for knockout_setting in knockout_combinations:
+
+        # Apply knockout settings
+        final_params_ko = apply_knockout(final_params, knockout_setting, num_psites)
+
+        # Solve ODE with knockout settings
+        sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
+
+        # Create a descriptive title for the plot and report
+        knockout_name = []
+        if knockout_setting['transcription']:
+            knockout_name.append("Transcription KO")
+        if knockout_setting['translation']:
+            knockout_name.append("Translation KO")
+        phospho = knockout_setting['phosphorylation']
+        if phospho is True:
+            knockout_name.append("Phospho KO")
+        elif isinstance(phospho, list) and phospho:
+            knockout_name.append(f"PhosphoSite KO {','.join(psite_values[p] for p in phospho)}")
+        if not knockout_name:
+            knockout_name = ["WT"]
+
+        # Save the knockout result
+        knockout_results["_".join(knockout_name)] = {
+            "knockout_setting": knockout_setting,
+            "sol_ko": sol_ko,
+            "p_fit_ko": p_fit_ko,
+        }
+
+        # Update the file names dynamically
+        plotter.gene = f"{gene}_" + "_".join(knockout_name)
+
+        # Create the dictionary to pass
+        knockout_dict = {
+            'WT': (time_points, sol_wt, p_fit_wt),
+            'KO': (time_points, sol_ko, p_fit_ko),
+        }
+
+        # Plot the knockout results
+        plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
+
+    # Save Sequential Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
     # logger.info(f"Estimated Parameters: {param_path}")
 
-    # 8. Return Results
+    if SENSITIVITY_ANALYSIS:
+        # Perform Sensitivity Analysis
+        # Perturbation of parameters around the estimated values
+        perturbation_analysis = sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
+
+    # Return Results
     return {
         "gene": gene,
         "labels": labels,
@@ -161,7 +228,8 @@ def process_gene(
         "pca_result": pca_result,
         "ev": ev,
         "tsne_result": tsne_result,
-
+        "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
+        "knockout_results": knockout_results
     }
 
 def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,
