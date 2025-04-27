@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from knockout.helper import apply_knockout, generate_knockout_combinations
+from knockout import apply_knockout, generate_knockout_combinations
 from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
-from sensitivity.analysis import sensitivity_analysis
+from sensitivity import sensitivity_analysis
 from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
@@ -120,14 +120,28 @@ def process_gene(
 
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
-    # Plotting Outputs
+    # Generate Labels
     labels = generate_labels(num_psites)
+
+    # Generate phosphorylation ODE diagram
     illustrate(gene, num_psites)
+
+    # Create plotting instance
     plotter = Plotter(gene, out_dir)
+
+    # Plot PCA
     pca_result, ev = plotter.plot_pca(sol_full, components=3)
+
+    # Plot t-SNE
     tsne_result = plotter.plot_tsne(sol_full, perplexity=5)
+
+    # Plot parallel coordinates
     plotter.plot_parallel(sol_full, labels)
+
+    # Plot PCA components
     plotter.pca_components(sol_full, target_variance=0.99)
+
+    # Plot ODE model fits
     plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points)
 
     if ESTIMATION_MODE == "sequential":
@@ -139,10 +153,14 @@ def process_gene(
 
     # Generate combinations for knockouts
     knockout_combinations = generate_knockout_combinations(num_psites)
-
+    knockout_results = {}
     # Loop through those combinations
     for knockout_setting in knockout_combinations:
+
+        # Apply knockout settings
         final_params_ko = apply_knockout(final_params, knockout_setting, num_psites)
+
+        # Solve ODE with knockout settings
         sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
 
         # Create a descriptive title for the plot and report
@@ -153,21 +171,29 @@ def process_gene(
             knockout_name.append("Translation KO")
         phospho = knockout_setting['phosphorylation']
         if phospho is True:
-            knockout_name.append("All Phospho KO")
+            knockout_name.append("Phospho KO")
         elif isinstance(phospho, list) and phospho:
-            knockout_name.append(f"Phospho KO Sites {','.join(str(p + 1) for p in phospho)}")
+            knockout_name.append(f"Phospho KO {','.join(psite_values[p] for p in phospho)}")
         if not knockout_name:
-            knockout_name = ["Wildtype"]
+            knockout_name = ["WT"]
+
+        # Save the knockout result
+        knockout_results["_".join(knockout_name)] = {
+            "knockout_setting": knockout_setting,
+            "sol_ko": sol_ko,
+            "p_fit_ko": p_fit_ko,
+        }
 
         # Update the file names dynamically
         plotter.gene = f"{gene}_" + "_".join(knockout_name)
 
         # Create the dictionary to pass
         knockout_dict = {
-            'wildtype': (time_points, sol_wt, p_fit_wt),
-            'knockout': (time_points, sol_ko, p_fit_ko),
+            'WT': (time_points, sol_wt, p_fit_wt),
+            'KO': (time_points, sol_ko, p_fit_ko),
         }
 
+        # Plot the knockout results
         plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
     # Save Sequential Parameters
@@ -202,7 +228,7 @@ def process_gene(
         "pca_result": pca_result,
         "ev": ev,
         "tsne_result": tsne_result,
-
+        "knockout_results": knockout_results
     }
 
 def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,

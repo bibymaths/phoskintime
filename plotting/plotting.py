@@ -484,7 +484,7 @@ class Plotter:
         Plot wild-type and knockout simulation results for comparison.
         """
         marker_cycle = itertools.cycle(available_markers)
-        time_points = results_dict['wildtype'][0]
+        time_points = results_dict['WT'][0]
         fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')  # 2 rows, 2 columns
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8

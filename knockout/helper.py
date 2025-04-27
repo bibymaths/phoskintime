@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 
-def apply_knockout(base_params: np.ndarray,
+def _apply_knockout(base_params: np.ndarray,
                    knockout_targets: dict,
                    num_psites: int) -> np.ndarray:
     """
@@ -37,7 +37,7 @@ def apply_knockout(base_params: np.ndarray,
                     params[start + idx] = 0.0
     return params
 
-def generate_knockout_combinations(num_psites: int):
+def _generate_knockout_combinations(num_psites: int):
     """
     Generate all possible knockout combinations.
     """

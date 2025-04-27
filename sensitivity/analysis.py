@@ -71,7 +71,7 @@ def define_sensitivity_problem_ds(num_psites, bounds):
     }
     return problem
 
-def sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labels, init_cond, gene):
+def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
