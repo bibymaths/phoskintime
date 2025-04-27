@@ -20,11 +20,11 @@ def define_sensitivity_problem_rand(num_psites, bounds):
     param_names = get_param_names_rand(num_psites)
 
     _bounds = [
-        list(bounds['A']),   # A
-        list(bounds['B']),   # B
-        list(bounds['C']),   # C
-        list(bounds['D']),   # D
-    ] + [list(bounds['Ssite'])] * num_psites  # Ssite bounds
+                  list(bounds['A']),  # A
+                  list(bounds['B']),  # B
+                  list(bounds['C']),  # C
+                  list(bounds['D']),  # D
+              ] + [list(bounds['Ssite'])] * num_psites  # Ssite bounds
 
     # Additional bounds for random phosphorylation site combinations
     for i in range(1, num_psites + 1):
@@ -56,11 +56,11 @@ def define_sensitivity_problem_ds(num_psites, bounds):
                   [f'S{i + 1}' for i in range(num_psites)] + \
                   [f'D{i + 1}' for i in range(num_psites)]
     _bounds = ([
-              list(bounds['A']),  # A
-              list(bounds['B']),  # B
-              list(bounds['C']),  # C
-              list(bounds['D']),  # D
-              ] +
+                   list(bounds['A']),  # A
+                   list(bounds['B']),  # B
+                   list(bounds['C']),  # C
+                   list(bounds['D']),  # D
+               ] +
                [list(bounds['Ssite'])] * num_psites
                +
                [list(bounds['Dsite'])] * num_psites)
@@ -70,6 +70,7 @@ def define_sensitivity_problem_ds(num_psites, bounds):
         'bounds': _bounds
     }
     return problem
+
 
 def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_labels, init_cond, gene):
     """
@@ -108,7 +109,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
         D_list = rest[num_psites:]
         params = (A, B, C, D, *S_list, *D_list)
         try:
-            _,model_psite = solve_ode(params, init_cond, num_psites, time_points)
+            _, model_psite = solve_ode(params, init_cond, num_psites, time_points)
 
             # Y represents the scalar model output (observable) used
             # to compute sensitivity to parameter perturbations
@@ -168,14 +169,14 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
                 best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                 color=color,
                 alpha=0.1,
-                linewidth = 0.5
+                linewidth=0.5
             )
         mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
         ax.plot(
             time_points[:cutoff_idx],
             mean_curve,
             color=color,
-            linewidth = 1
+            linewidth=1
         )
         ax.plot(
             time_points[:cutoff_idx],
@@ -184,7 +185,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
             linestyle='--',
             color=color,
             markersize=5,
-            linewidth = 0.75,
+            linewidth=0.75,
             mew=0.5, mec='black',
         )
 
@@ -230,9 +231,9 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
         )
 
     ax.set_xlabel('Time (min)')
-    ax.set_xticks(time_points[cutoff_idx+2:])
+    ax.set_xticks(time_points[cutoff_idx + 2:])
     ax.set_xticklabels(
-        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx+2:]],
+        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx + 2:]],
         rotation=45,
         fontsize=6
     )
@@ -306,7 +307,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(categories)
     ax.set_title(f'{gene}')
-    plt.legend(loc='upper right') 
+    plt.legend(loc='upper right')
     plt.grid(True, alpha=0.2)
     plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_radial_plot.png", format='png', dpi=300)
     plt.close()
@@ -317,7 +318,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ## Pie Chart for Sensitivity Contribution ##
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.pie(Si['mu_star'], labels=problem['names'], autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors,
-           textprops={'fontsize': 8})
+           textprops={'fontsize': 6})
     ax.set_title(f'{gene}')
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_pie_chart.png", format='png', dpi=300)

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 from itertools import combinations
 from typing import cast, Tuple
@@ -149,7 +150,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     ci_results = confidence_intervals(
         np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
         pcov_best,
-        target,
+        target_fit,
         alpha_val=ALPHA_CI
     )
 
@@ -191,11 +192,25 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         ci_results = confidence_intervals(
             np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
             pcov_best,
-            target,
+            target_fit,
             alpha_val=ALPHA_CI
         )
 
+    # Save the confidence intervals.
+    param_names = get_param_names(num_psites)
+    ci_df = pd.DataFrame({
+        'Parameter': param_names,
+        'Estimate': ci_results['beta_hat'],
+        'Std_Error': ci_results['se_lin'],
+        'p_value': ci_results['pval'],
+        'Lower_95CI': ci_results['lwr_ci'],
+        'Upper_95CI': ci_results['upr_ci']
+    })
+    ci_df.to_csv(f"{OUT_DIR}/{gene}_confidence_intervals.csv", index=False)
+
     plotter = Plotter(gene, OUT_DIR)
+
+    # Plot the estimated parameters with confidence intervals.
     plotter.plot_params_bar(ci_results, get_param_names(num_psites))
 
     # Since all parameters are free, param_final is simply the best-fit vector.

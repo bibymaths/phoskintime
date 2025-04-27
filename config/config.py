@@ -11,7 +11,7 @@ from config.constants import (
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
     MU_REG,
-    INPUT_EXCEL
+    INPUT_EXCEL, DEV_TEST
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -103,12 +103,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Cell Signalling Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,5")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,5")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,5")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,5")
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,5")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,5")
 
     parser.add_argument("--fix-A", type=float, default=None)
     parser.add_argument("--fix-B", type=float, default=None)
@@ -207,9 +207,7 @@ def extract_config(args):
         'profile_end': args.profile_end,
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
-        # Adjust as needed for parallel processing
-        'max_workers': os.cpu_count(),  # Use all CPU cores
-        # 'max_workers': 1,
+        'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
     return config
 

@@ -94,6 +94,7 @@ def process_gene(
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
+
     # Error Metrics
     mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
     mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
@@ -154,7 +155,7 @@ def process_gene(
     # Generate combinations for knockouts
     knockout_combinations = generate_knockout_combinations(num_psites)
     knockout_results = {}
-    
+
     # Loop through those combinations
     for knockout_setting in knockout_combinations:
 
@@ -204,6 +205,7 @@ def process_gene(
     df_params.to_excel(param_path, index=False)
     # logger.info(f"Estimated Parameters: {param_path}")
 
+    perturbation_analysis = None
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
