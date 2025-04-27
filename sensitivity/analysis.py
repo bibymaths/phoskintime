@@ -146,7 +146,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     # About 25% of PARAMETER_SPACE
     # K = max(5, int(PARAMETER_SPACE * 0.25))
     # Minimum of 25% of PARAMETER_SPACE and 0.5% of NUM_TRAJECTORIES, clamped between 5 and 50
-    K = min(50, max(5, min(int(PARAMETER_SPACE * 0.25), int(NUM_TRAJECTORIES * 0.005))))
+    K = min(50, max(5, min(int(PARAMETER_SPACE * 0.25), int(NUM_TRAJECTORIES * 0.01))))
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
@@ -167,13 +167,15 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
                 time_points[:cutoff_idx],
                 best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                 color=color,
-                alpha=0.1
+                alpha=0.1,
+                linewidth = 0.5
             )
         mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
         ax.plot(
             time_points[:cutoff_idx],
             mean_curve,
-            color=color
+            color=color,
+            linewidth = 1
         )
         ax.plot(
             time_points[:cutoff_idx],
@@ -182,6 +184,8 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
             linestyle='--',
             color=color,
             markersize=5,
+            linewidth = 0.75,
+            mew=0.5, mec='black',
         )
 
     ax.set_xlabel('Time (min)')
@@ -191,7 +195,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
         rotation=45,
         fontsize=6
     )
-    ax.set_ylabel('Phosphorylation Level (FC)')
+    ax.set_ylabel('FC')
     ax.grid(True, alpha=0.05)
 
     # --- Right plot: From 9th time point onwards ---
@@ -203,14 +207,16 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
                 time_points[cutoff_idx - 1:],
                 best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
                 color=color,
-                alpha=0.1
+                alpha=0.1,
+                linewidth=0.5
             )
         mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
         ax.plot(
             time_points[cutoff_idx - 1:],
             mean_curve,
             color=color,
-            label=f'{psite_labels[site_idx]}'
+            label=f'{psite_labels[site_idx]}',
+            linewidth=1
         )
         ax.plot(
             time_points[cutoff_idx - 1:],
@@ -219,6 +225,8 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
             linestyle='--',
             color=color,
             markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black'
         )
 
     ax.set_xlabel('Time (min)')
@@ -301,22 +309,6 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     plt.legend(loc='upper right') 
     plt.grid(True, alpha=0.2)
     plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_radial_plot.png", format='png', dpi=300)
-    plt.close()
-
-    # CDF can show how often the effects of certain parameters are strong or
-    # weak across the model outputs.
-    # Visualizing how many times a parameter has a strong effect across
-    # different sample runs.
-    ## Cumulative Distribution Function (CDF) of Sensitivity Indices ##
-    plt.figure(figsize=(8, 8))
-    for i, param in enumerate(problem['names']):
-        plt.plot(np.sort(Si['mu_star']), np.linspace(0, 1, len(Si['mu_star'])), label=param)
-    plt.title(f'{gene}')
-    plt.xlabel('Sensitivity Index')
-    plt.ylabel('Cumulative Probability')
-    plt.legend()
-    plt.grid(True, alpha=0.2)
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_cdf_plot.png", format='png', dpi=300)
     plt.close()
 
     # Visualize the proportion of total sensitivity contributed by each
