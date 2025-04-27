@@ -208,8 +208,8 @@ def extract_config(args):
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
         # Adjust as needed for parallel processing
-        # 'max_workers': os.cpu_count(),  # Use all CPU cores
-        'max_workers': 1,
+        'max_workers': os.cpu_count(),  # Use all CPU cores
+        # 'max_workers': 1,
     }
     return config
 

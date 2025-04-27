@@ -73,14 +73,14 @@ def main():
 
     # Load all protein groups
 
-    # genes = data["Gene"].unique().tolist()
+    genes = data["Gene"].unique().tolist()
 
     # Load only gene 'X'
-    _test = "ABL2"
-    if _test in data["Gene"].values:
-        genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
-    else:
-        raise ValueError(f"{_test} not found in the input data.")
+    # _test = "ABL2"
+    # if _test in data["Gene"].values:
+    #     genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
+    # else:
+    #     raise ValueError(f"{_test} not found in the input data.")
 
     # Check if the genes are empty
     if not genes:
