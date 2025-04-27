@@ -1,3 +1,4 @@
+import itertools
 import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -482,27 +483,34 @@ class Plotter:
         """
         Plot wild-type and knockout simulation results for comparison.
         """
+        marker_cycle = itertools.cycle(available_markers)
         time_points = results_dict['wildtype'][0]
-
         fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')  # 2 rows, 2 columns
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
+            marker = next(marker_cycle)
             # -- Full time range plots
-            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=1)
-            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=1)
+            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=1, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=1, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=1)
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=1, marker=marker,
+                                markeredgecolor='black', markersize=6, mew = 0.5)
 
             # -- First 'n' points only
             t_early = t[:time_cutoff]
             sol_early = sol[:time_cutoff]
             p_fit_early = p_fit[:, :time_cutoff]
 
-            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=1)
-            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=1)
+            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=1, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
+            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=1, marker=marker,
+                            markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=1)
+                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=1, marker=marker,
+                               markeredgecolor='black', markersize=6, mew = 0.5)
 
         ax_rp_full.set_ylabel("FC")
         ax_rp_full.legend(loc='upper right', fontsize=8)
@@ -531,6 +539,6 @@ class Plotter:
         )
         plt.suptitle(f"{self.gene}")
         plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_knockouts.png")
+        self._save_fig(fig, f"{self.gene}_.png")
 
 

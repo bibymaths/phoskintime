@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from knockout.helper import apply_knockout
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS, KNOCKOUTS
+from knockout.helper import apply_knockout, generate_knockout_combinations
+from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
@@ -137,18 +137,38 @@ def process_gene(
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
 
-    # Do knockouts
-    final_params_ko = apply_knockout(final_params, KNOCKOUTS, num_psites)
+    # Generate combinations for knockouts
+    knockout_combinations = generate_knockout_combinations(num_psites)
 
-    # Simulate knockout
-    sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
+    # Loop through those combinations
+    for knockout_setting in knockout_combinations:
+        final_params_ko = apply_knockout(final_params, knockout_setting, num_psites)
+        sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
 
-    # Plotting Knockouts
-    knockout_dict = {
-        'wildtype': (time_points, sol_wt, p_fit_wt),
-        'knockout': (time_points, sol_ko, p_fit_ko),
-    }
-    plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
+        # Create a descriptive title for the plot and report
+        knockout_name = []
+        if knockout_setting['transcription']:
+            knockout_name.append("Transcription KO")
+        if knockout_setting['translation']:
+            knockout_name.append("Translation KO")
+        phospho = knockout_setting['phosphorylation']
+        if phospho is True:
+            knockout_name.append("All Phospho KO")
+        elif isinstance(phospho, list) and phospho:
+            knockout_name.append(f"Phospho KO Sites {','.join(str(p + 1) for p in phospho)}")
+        if not knockout_name:
+            knockout_name = ["Wildtype"]
+
+        # Update the file names dynamically
+        plotter.gene = f"{gene}_" + "_".join(knockout_name)
+
+        # Create the dictionary to pass
+        knockout_dict = {
+            'wildtype': (time_points, sol_wt, p_fit_wt),
+            'knockout': (time_points, sol_ko, p_fit_ko),
+        }
+
+        plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
     # Save Sequential Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
