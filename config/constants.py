@@ -30,7 +30,7 @@ ESTIMATION_MODE = 'normal'
 #   - Skips sensitivity analysis entirely to save computation time.
 #   - Useful during development, debugging, or when only
 #     parameter estimation is needed.
-SENSITIVITY_ANALYSIS = True
+SENSITIVITY_ANALYSIS = False
 # Trajectories for profiling
 NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
