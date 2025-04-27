@@ -34,9 +34,9 @@ SENSITIVITY_ANALYSIS = False
 
 # Define the knockout settings
 KNOCKOUTS = {
-    'translation': True,       # Knockout translation by setting C = 0 (no protein production)
-    'transcription': True,      # Knockout transcription by setting A = 0 (no mRNA production)
-    'phosphorylation': False,    # Knockout all phosphorylation rates (set all S_rates = 0)
+    'translation': False,       # Knockout translation by setting C = 0 (no protein production)
+    'transcription': False,      # Knockout transcription by setting A = 0 (no mRNA production)
+    'phosphorylation': [2],    # Knockout all phosphorylation rates (set all S_rates = 0)
     # Alternatively, you can specify a list like [0, 1, 2] to knockout only specific phosphorylation sites
 }
 
