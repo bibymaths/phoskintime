@@ -3,7 +3,7 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE
+from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
 from itertools import combinations
@@ -93,8 +93,8 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
         problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
     else:
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
-    N = 100
-    num_levels = 4
+    N = NUM_TRAJECTORIES
+    num_levels = PARAMETER_SPACE
     param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
     Y = np.zeros(len(param_values))
 
@@ -143,7 +143,10 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     rmse = np.sqrt(mse)  # RMSE per simulation
 
     # Select the top K-closest simulations
-    K = 5  # Choose the best trajectories, adjust as you want
+    # About 25% of PARAMETER_SPACE
+    # K = max(5, int(PARAMETER_SPACE * 0.25))
+    # Minimum of 25% of PARAMETER_SPACE and 0.5% of NUM_TRAJECTORIES, clamped between 5 and 50
+    K = min(50, max(5, min(int(PARAMETER_SPACE * 0.25), int(NUM_TRAJECTORIES * 0.005))))
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
@@ -183,7 +186,11 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
 
     ax.set_xlabel('Time (min)')
     ax.set_xticks(time_points[:cutoff_idx])
-    ax.set_xticklabels(time_points[:cutoff_idx], fontsize=6)
+    ax.set_xticklabels(
+        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
+        rotation=45,
+        fontsize=6
+    )
     ax.set_ylabel('Phosphorylation Level (FC)')
     ax.grid(True, alpha=0.05)
 
@@ -216,7 +223,11 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
 
     ax.set_xlabel('Time (min)')
     ax.set_xticks(time_points[cutoff_idx+2:])
-    ax.set_xticklabels(time_points[cutoff_idx+2:], fontsize=6)
+    ax.set_xticklabels(
+        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx+2:]],
+        rotation=45,
+        fontsize=6
+    )
     ax.grid(True, alpha=0.05)
     ax.legend()
 

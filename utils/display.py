@@ -180,7 +180,8 @@ def save_result(results, excel_filename):
             # 11. Save Senstivity Analysis
             if res["perturbation_analysis"] is not None:
                 sens_res = res["perturbation_analysis"]
-                sens_res.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=True)
+                sens_df = pd.DataFrame(sens_res)
+                sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=True)
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """

@@ -30,7 +30,11 @@ ESTIMATION_MODE = 'normal'
 #   - Skips sensitivity analysis entirely to save computation time.
 #   - Useful during development, debugging, or when only
 #     parameter estimation is needed.
-SENSITIVITY_ANALYSIS = False
+SENSITIVITY_ANALYSIS = True
+# Trajectories for profiling
+NUM_TRAJECTORIES = 1000
+# Spread of parameters (has to be even number) -> SALib.morris()
+PARAMETER_SPACE = 40
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
