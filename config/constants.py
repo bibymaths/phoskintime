@@ -5,6 +5,9 @@ import matplotlib.markers as mmarkers
 from pathlib import Path
 from config.helpers import *
 
+# Flag to indicate if the code is in development mode.
+DEV_TEST = True
+
 # Select the ODE model for phosphorylation kinetics.
 # Options:
 # 'distmod' : Distributive model (phosphorylation events occur independently).

@@ -154,6 +154,7 @@ def process_gene(
     # Generate combinations for knockouts
     knockout_combinations = generate_knockout_combinations(num_psites)
     knockout_results = {}
+    
     # Loop through those combinations
     for knockout_setting in knockout_combinations:
 
