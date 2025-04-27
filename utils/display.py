@@ -177,7 +177,7 @@ def save_result(results, excel_filename):
             system_concat.index.name = "Time (min)"
             system_concat.to_excel(writer, sheet_name=f"{sheet_prefix}_knockouts", index=True)
 
-            # 11. Save Senstivity Analysis
+            # 11. Save Sensitivity Analysis
             if res["perturbation_analysis"] is not None:
                 sens_res = res["perturbation_analysis"]
                 sens_df = pd.DataFrame(sens_res)
