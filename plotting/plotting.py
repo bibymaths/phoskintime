@@ -490,20 +490,20 @@ class Plotter:
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
             # -- Full time range plots
-            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)")
-            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)")
+            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=1)
+            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=1)
             for i in range(num_psites):
-                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}")
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=1)
 
             # -- First 'n' points only
             t_early = t[:time_cutoff]
             sol_early = sol[:time_cutoff]
             p_fit_early = p_fit[:, :time_cutoff]
 
-            ax_rp_zoom.plot(t_early, sol_early[:, 0])
-            ax_rp_zoom.plot(t_early, sol_early[:, 1])
+            ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=1)
+            ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=1)
             for i in range(num_psites):
-                ax_ph_zoom.plot(t_early, p_fit_early[i, :])
+                ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=1)
 
         ax_rp_full.set_ylabel("FC")
         ax_rp_full.legend(loc='upper right', fontsize=8)
@@ -525,8 +525,11 @@ class Plotter:
         ax_ph_zoom.grid(True, alpha=0.1)
 
         ax_ph_zoom.set_xticks(time_points[:time_cutoff])
-        ax_ph_zoom.set_xticklabels([f"{int(tp)}" for tp in time_points[:time_cutoff]], rotation=45, fontsize=6)
-
+        ax_ph_zoom.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:time_cutoff]],
+            rotation=45,
+            fontsize=6
+        )
         plt.suptitle(f"{self.gene}")
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_knockouts.png")
