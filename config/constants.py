@@ -31,6 +31,14 @@ ESTIMATION_MODE = 'normal'
 #   - Useful during development, debugging, or when only
 #     parameter estimation is needed.
 SENSITIVITY_ANALYSIS = False
+
+# Define the knockout settings
+KNOCKOUTS = {
+    'transcription': True,      # Knockout transcription by setting A = 0 (no mRNA production)
+    'phosphorylation': [0],    # Knockout all phosphorylation rates (set all S_rates = 0)
+    # Alternatively, you can specify a list like [0, 1, 2] to knockout only specific phosphorylation sites
+}
+
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.

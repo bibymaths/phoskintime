@@ -482,36 +482,53 @@ class Plotter:
     def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
         Plot wild-type and knockout simulation results for comparison.
-
-        :param results_dict: mapping label -> (time array, sol array, p_fitted array)
-        :param num_psites: number of phosphorylation sites
-        :param psite_labels: labels for phospho-sites
         """
-        fig, axes = plt.subplots(2, 1, figsize=(8, 10), sharex=True)
-        ax_rp, ax_ph = axes
+        time_points = results_dict['wildtype'][0]
 
+        fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')  # 2 rows, 2 columns
+        (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
+        time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
-            # mRNA and Protein
-            ax_rp.plot(t, sol[:, 0], label=f"{label} (R)")
-            ax_rp.plot(t, sol[:, 1], label=f"{label} (P)")
-            # Phospho-sites
+            # -- Full time range plots
+            ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)")
+            ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)")
             for i in range(num_psites):
-                ax_ph.plot(t, p_fit[i, :],
-                           label=f"{label} P+{psite_labels[i]}")
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}")
 
-        ax_rp.set_ylabel("Concentration")
-        ax_rp.set_title("mRNA and Protein over time")
-        ax_rp.legend(loc='upper right')
-        ax_rp.grid(True)
+            # -- First 'n' points only
+            t_early = t[:time_cutoff]
+            sol_early = sol[:time_cutoff]
+            p_fit_early = p_fit[:, :time_cutoff]
 
-        ax_ph.set_xlabel("Time (min)")
-        ax_ph.set_xticks(range(len(results_dict['wildtype'][0][9:])))
-        ax_ph.set_xticklabels(results_dict['wildtype'][0][9:], rotation=45)
-        ax_ph.set_ylabel("Phospho-level")
-        ax_ph.set_title("Phosphorylation sites over time")
-        ax_ph.legend(loc='upper right')
-        ax_ph.grid(True, alpha=0.2)
-        plt.title(f"{self.gene}")
+            ax_rp_zoom.plot(t_early, sol_early[:, 0])
+            ax_rp_zoom.plot(t_early, sol_early[:, 1])
+            for i in range(num_psites):
+                ax_ph_zoom.plot(t_early, p_fit_early[i, :])
+
+        ax_rp_full.set_ylabel("FC")
+        ax_rp_full.legend(loc='upper right', fontsize=8)
+        ax_rp_full.grid(True, alpha=0.1)
+
+        ax_ph_full.set_xlabel("Time (min)")
+        ax_ph_full.set_ylabel("FC")
+        ax_ph_full.legend(loc='upper right', fontsize=8)
+        ax_ph_full.grid(True, alpha=0.2)
+
+        ax_ph_full.set_xticks(time_points[time_cutoff:])
+        ax_ph_full.set_xticklabels([f"{int(tp)}" for tp in time_points][time_cutoff:], rotation=45, fontsize=6)
+
+        ax_rp_zoom.grid(True, alpha=0.2)
+        ax_rp_zoom.set_title("Transcription and Translation")
+
+        ax_ph_zoom.set_xlabel("Time (min)")
+        ax_ph_zoom.set_title("Phosphorylation")
+        ax_ph_zoom.grid(True, alpha=0.1)
+
+        ax_ph_zoom.set_xticks(time_points[:time_cutoff])
+        ax_ph_zoom.set_xticklabels([f"{int(tp)}" for tp in time_points[:time_cutoff]], rotation=45, fontsize=6)
+
+        plt.suptitle(f"{self.gene}")
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_knockouts.png")
+
 

@@ -5,7 +5,7 @@ import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from knockout.helper import apply_knockout
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
+from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS, KNOCKOUTS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from paramest.adapest import estimate_profiles
@@ -134,16 +134,16 @@ def process_gene(
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
         plotter.plot_A_S(estimated_params, len(psite_values), time_points)
 
-    # Simulate wild-type (normal)
+    # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
 
-    # Define knockout you want
-    knockout_targets = {
-        'transcription': True,
-        'phosphorylation': True,  # or list like [0,1,2] if partial knockout
-    }
-    final_params_ko = apply_knockout(final_params, knockout_targets, num_psites)
+    # Do knockouts
+    final_params_ko = apply_knockout(final_params, KNOCKOUTS, num_psites)
+
+    # Simulate knockout
     sol_ko, p_fit_ko = solve_ode(final_params_ko, init_cond, num_psites, time_points)
+
+    # Plotting Knockouts
     knockout_dict = {
         'wildtype': (time_points, sol_wt, p_fit_wt),
         'knockout': (time_points, sol_ko, p_fit_ko),
