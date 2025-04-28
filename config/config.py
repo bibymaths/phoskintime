@@ -213,7 +213,7 @@ def extract_config(args):
     }
     return config
 
-def score_fit(target, prediction,
+def score_fit(gene, weight, target, prediction,
               alpha=ALPHA_WEIGHT,
               beta=BETA_WEIGHT,
               gamma=GAMMA_WEIGHT,
@@ -237,6 +237,9 @@ def score_fit(target, prediction,
     :param reg_penalty:
     :return:
     """
+    # Format the weight
+    weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
+
     # Compute scaled absolute residuals (error per data point).
     residual = np.abs(target - prediction) / target.size
 
@@ -253,13 +256,13 @@ def score_fit(target, prediction,
     variance = np.var(residual)
 
     # Calculate weighted total score combining errors
-    score = delta * mse + alpha * rmse + beta * mae + gamma * variance
+    score = delta * mse + alpha * rmse + beta * mae  + gamma * variance
 
-    # Log all calculated metrics for transparency.
-    logging.info(f"MSE: {mse:.4e}")
-    logging.info(f"RMSE: {rmse:.4e}")
-    logging.info(f"MAE: {mae:.4e}")
-    logging.info(f"Variance: {variance:.4e}")
-    logging.info(f"Score: {score:.4e}")
+    # Log all calculated metrics for each weighting schema.
+    logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")
+    logging.info(f"[{gene}] [{weight_display}] RMSE: {rmse:.2e}")
+    logging.info(f"[{gene}] [{weight_display}] MAE: {mae:.2e}")
+    logging.info(f"[{gene}] [{weight_display}] Variance: {variance:.2e}")
+    logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
 
     return score

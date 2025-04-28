@@ -18,8 +18,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
     """
     Perform normal parameter estimation using all provided time points at once.
-    Uses the provided bounds (ignores fixed_params so that all parameters are estimated)
-    and supports bootstrapping if specified.
+    Uses the provided bounds and supports bootstrapping if specified.
 
     Parameters:
       - p_data: Measurement data (DataFrame or numpy array). Assumes data starts at column index 2.
@@ -27,7 +26,6 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
       - num_psites: Number of phosphorylation sites.
       - time_points: Array of time points to use.
       - bounds: Dictionary of parameter bounds.
-      - fixed_params: (Ignored in normest) Provided for interface consistency.
       - bootstraps: Number of bootstrapping iterations.
       - use_regularization: Flag to apply Tikhonov regularization.
       - lambda_reg: Regularization strength.
@@ -87,7 +85,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
         if use_regularization:
-            reg = np.sqrt(lambda_reg)/len(params) * np.asarray(params)
+            reg = lambda_reg * np.asarray(params)
             return np.concatenate([y_model, reg])
         return y_model
 
@@ -105,9 +103,9 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     try:
         # Attempt to get a good initial estimate using curve_fit.
         result = cast(Tuple[np.ndarray, np.ndarray],
-                      curve_fit(model_func, time_points, target_fit, x_scale='jac',
+                      curve_fit(model_func, time_points, target_fit, #x_scale='jac',
                       p0=p0, bounds=free_bounds, sigma=default_sigma,
-                      absolute_sigma=True, maxfev=20000))
+                      absolute_sigma=False, maxfev=20000))
         popt_init, _ = result
     except Exception as e:
         logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
@@ -124,8 +122,8 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             # Attempt to fit the model using the specified weights.
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, time_points, target_fit, p0=popt_init,
-                          bounds=free_bounds, sigma=sigma, x_scale='jac',
-                          absolute_sigma=True, maxfev=20000))
+                          bounds=free_bounds, sigma=sigma,# x_scale='jac',
+                          absolute_sigma=False, maxfev=20000))
             popt, pcov = result
         except Exception as e:
             logger.warning(f"[{gene}] Fit failed for {wname}: {e}")
@@ -135,7 +133,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         pcovs[wname] = pcov
         _,pred = solve_ode(popt, init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(p_data, pred)
+        scores[wname] = score_fit(gene, wname, p_data, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
@@ -143,11 +141,11 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
-
-    logger.info(f"[{gene}] Weighting Scheme: {best_weight} | Score: {best_score:.4f}")
+    logger.info(f"[{gene}] [{' '.join(w.capitalize() for w in best_weight.split('_'))}] Best Score: {best_score:.4f}")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
+        gene,
         np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
         pcov_best,
         target_fit,
@@ -191,6 +189,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
         # Compute confidence intervals.
         ci_results = confidence_intervals(
+            gene,
             np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
             pcov_best,
             target_fit,

@@ -133,7 +133,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
             Y[i] = np.nan
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
-    logger.info(f"[{gene}] Sensitivity Analysis for Protein")
+    logger.info(f"[{gene}] Sensitivity Analysis completed")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
                  scaled=True, print_to_console=False)
 
@@ -242,7 +242,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
 
     plt.suptitle(f'{gene}', fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_.png", format='png', dpi=300)
     plt.close()
 
     # Absolute Mean of Elementary Effects : represents the overall importance
@@ -256,7 +256,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.set_ylabel('mu* (Importance)')
     plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_bar_plot_mu.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_bar_plot_mu.png", format='png', dpi=300)
     plt.close()
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     ax.bar(problem['names'], Si['sigma'], color='orange')
@@ -264,7 +264,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.set_ylabel('σ (Standard Deviation)')
     plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_bar_plot_sigma.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_bar_plot_sigma.png", format='png', dpi=300)
     plt.close()
 
     ## Bar Plot of sigma ##
@@ -282,7 +282,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.set_ylabel('σ (Standard Deviation)')
     plt.grid(True, alpha=0.2)
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_scatter_plot_musigma.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_scatter_plot_musigma.png", format='png', dpi=300)
     plt.close()
 
     # A radial plot (also known as a spider or radar plot) can give a visual
@@ -309,7 +309,7 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
     ax.set_title(f'{gene}')
     plt.legend(loc='upper right')
     plt.grid(True, alpha=0.2)
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_radial_plot.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_radial_plot.png", format='png', dpi=300)
     plt.close()
 
     # Visualize the proportion of total sensitivity contributed by each
@@ -321,6 +321,6 @@ def _sensitivity_analysis(data, popt, bounds, time_points, num_psites, psite_lab
            textprops={'fontsize': 6})
     ax.set_title(f'{gene}')
     plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/sensitivity_{gene}_pie_chart.png", format='png', dpi=300)
+    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_pie_chart.png", format='png', dpi=300)
     plt.close()
     return Si

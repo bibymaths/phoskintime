@@ -471,6 +471,7 @@ class Plotter:
         Plots bar plot for estimated parameter with 95% Confidence Interval.
         """
         beta_hat = ci_results['beta_hat']
+        p_values = ci_results['pval']
         lwr_ci = ci_results['lwr_ci']
         upr_ci = ci_results['upr_ci']
         num_params = len(beta_hat)
@@ -491,6 +492,9 @@ class Plotter:
             else:
                 colors.append('lightgray')
         ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.7, edgecolor='black', color=colors)
+        for i, (xi, yi, pval) in enumerate(zip(x, beta_hat, p_values)):
+            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat), f"p={pval:.1e}",
+                    ha='center', va='bottom', fontsize=8)
         ax.set_xticks(x)
         ax.set_xticklabels(param_labels, ha='right')
         ax.set_ylabel('Estimate')

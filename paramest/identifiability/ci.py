@@ -4,7 +4,7 @@ from config.logconf import setup_logger
 
 logger = setup_logger()
 
-def confidence_intervals(popt, pcov, target, model, alpha_val=0.05):
+def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     """
     Computes the confidence intervals for parameter estimates using a linearization approach.
 
@@ -65,7 +65,7 @@ def confidence_intervals(popt, pcov, target, model, alpha_val=0.05):
 
     # Log the summary.
     header = "Parameter\t Estimate\t SE\t\t Pr(>|t|)\t\t 95% CI"
-    logger.info("Confidence Intervals:")
+    logger.info(f"[{gene}] Confidence Intervals:")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
         logger.info(f"Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
