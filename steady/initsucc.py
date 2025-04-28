@@ -51,8 +51,6 @@ def initial_condition(num_psites: int) -> list:
         bounds=bounds_local,
         constraints={'type': 'eq', 'fun': steady_state_equations}
     )
-
-    logger.info("Steady-State conditions calculated")
     if result.success:
         return result.x.tolist()
     else:

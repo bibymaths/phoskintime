@@ -88,7 +88,7 @@ def main():
         logger.error("No genes found in the input data.")
         return
 
-    logger.info(f"Time series data successfully loaded for {len(genes)} protein(s).")
+    logger.info(f"Fitting to data for [{', '.join(genes)}].")
 
     # Initiate the process pool and run the processing function for each gene
     with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:

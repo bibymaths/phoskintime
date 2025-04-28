@@ -46,7 +46,6 @@ def initial_condition(num_psites: int) -> list:
     bounds_local = [(1e-6, None)] * (num_psites + 2)
     result = minimize(lambda y: 0, y0_guess, method='SLSQP', bounds=bounds_local,
                       constraints={'type': 'eq', 'fun': steady_state_equations})
-    logger.info("Steady-State conditions calculated")
     if result.success:
         return result.x.tolist()
     else:

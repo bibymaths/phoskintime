@@ -169,7 +169,7 @@ def save_result(results, excel_filename):
             system_fits = []
             for knockout_name, ko_data in res["knockout_results"].items():
                 sol_ko = np.array(ko_data["sol_ko"])
-                state_labels = ["R", "P"] + [f"{ps}" for ps in res["psite_labels"]]
+                state_labels = [f"{ps}" for ps in res["labels"]]
                 sys_df = pd.DataFrame(sol_ko, columns=[f"{knockout_name} | {label}" for label in state_labels],
                                       index=TIME_POINTS)
                 system_fits.append(sys_df)

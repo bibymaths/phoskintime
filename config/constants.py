@@ -13,7 +13,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).
@@ -85,7 +85,7 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
 # L2 regularization - added term in the cost function.
-LAMBDA_REG = 0.05
+LAMBDA_REG = 0.1
 # Flag to use custom weights for parameter estimation.
 # If True, the function will apply custom weights to the data points
 # based on their importance or reliability.
