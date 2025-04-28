@@ -84,7 +84,9 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 # - LAMBDA_REG: Specifies the regularization parameter (lambda) for L2 regularization.
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
-LAMBDA_REG = 1e-1
+# Squared L2 regularization.
+# Root of the regularization term in the cost function.
+LAMBDA_REG = 100
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
 #

@@ -208,7 +208,7 @@ class Plotter:
         :param time_points: time points for the data.
         :return:
         """
-        cutoff_idx = 7
+        cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
@@ -234,9 +234,9 @@ class Plotter:
                     color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth = 0.75)
             ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
-        ax.set_xticks(time_points[cutoff_idx + 2:])
+        ax.set_xticks(time_points[cutoff_idx:])
         ax.set_xticklabels(
-            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx + 2:]],
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
             rotation=45,
             fontsize=6
         )

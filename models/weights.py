@@ -33,7 +33,7 @@ def early_emphasis(p_data, time_points, num_psites):
 
     for i in range(num_psites):
         # Emphasize early time points - first five
-        limit = min(5, n_times)
+        limit = min(8, n_times)
         # Compute weights for early time points
         for j in range(1, limit):
             # Calculate the data-based and time-based weights

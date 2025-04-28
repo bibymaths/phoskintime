@@ -87,7 +87,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
         if use_regularization:
-            reg = np.sqrt(lambda_reg) * np.array(params)
+            reg = np.sqrt(lambda_reg) * np.asarray(params)
             return np.concatenate([y_model, reg])
         return y_model
 
@@ -133,9 +133,9 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             pcov = None
         popts[wname] = popt
         pcovs[wname] = pcov
-        pred = model_func(time_points, *popt)
+        _,pred = solve_ode(popt, init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(target_fit, pred, popt)
+        scores[wname] = score_fit(p_data, pred, popt)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
@@ -144,7 +144,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
 
-    logger.info(f"[{gene}] Best weight: {best_weight} with score: {best_score:.4f}")
+    logger.info(f"[{gene}] Weighting Scheme: {best_weight} | Score: {best_score:.4f}")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
@@ -222,5 +222,5 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     est_params.append(param_final)
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
-    error_vals.append(np.sum(np.abs(target - p_fit.flatten()) ** 2))
+    error_vals.append(np.sum(np.abs(p_fit.flatten()-target) ** 2)/target.size)
     return est_params, model_fits, error_vals
