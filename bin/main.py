@@ -9,6 +9,7 @@ from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, 
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
+from utils import latexit
 from utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
 
 logger = setup_logger()
@@ -109,6 +110,9 @@ def main():
 
     # Save the results
     save_result(results, excel_filename=OUT_RESULTS_DIR)
+
+    # LateX the results
+    latexit.main()
 
     # Merge the observed data and model fits for each gene
     merged_df = merge_obs_est(OUT_RESULTS_DIR)
