@@ -31,7 +31,7 @@ def generate_latex_table(df, sheet_name):
 
 def generate_latex_image(image_filename):
     image_name = os.path.basename(image_filename)
-    image_path_in_latex = f"Figures/GeneSymbol/{image_name}"
+    image_path_in_latex = f"Figures/{image_name.split('_')[0]}/{image_name}"
     caption = f"Figure showing {os.path.splitext(image_name)[0].replace('_', ' ')}."
     label = f"fig:{os.path.splitext(image_name)[0].lower()}"
 
