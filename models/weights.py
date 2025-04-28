@@ -1,7 +1,13 @@
 
 import numpy as np
+import pandas as pd
 from numba import njit
 from scipy.ndimage import uniform_filter1d
+from pathlib import Path
+
+from config.constants import USE_CUSTOM_WEIGHTS
+
+current_dir = Path(__file__).resolve().parent
 
 @njit
 def early_emphasis(p_data, time_points, num_psites):
@@ -47,7 +53,56 @@ def early_emphasis(p_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
-def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights):
+
+def get_protein_weights(
+    gene,
+    input1_path=Path(__file__).resolve().parent.parent / 'processing' / 'input1_wstd.csv',
+    input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
+):
+    """
+    Extracts x1_std to x14_std weights for a single GeneID.
+
+    Args:
+        gene: GeneID (str) to process
+        input1_path: Path to input1_wstd.csv
+        input2_path: Path to input2.csv
+
+    Returns:
+        Flattened numpy array of weights for the specific GeneID
+    """
+
+    # Load input1_wstd and input2
+    input1 = pd.read_csv(input1_path)
+    input2 = pd.read_csv(input2_path)
+
+    # Clean column names
+    input1.columns = input1.columns.str.strip()
+    input2.columns = input2.columns.str.strip()
+
+    # Filter input2 for the given GeneID
+    input2_gene = input2[input2['GeneID'] == gene]
+
+    if input2_gene.empty:
+        raise ValueError(f"No entries for GeneID {gene} found in input2.csv")
+
+    # Merge to get corresponding x1_std to x14_std values
+    merged = pd.merge(
+        input2_gene, input1,
+        on=['GeneID', 'Psite'],
+        how='left'
+    )
+
+    if merged.isnull().any().any():
+        missing = merged[merged.isnull().any(axis=1)][['GeneID', 'Psite']]
+        raise ValueError(f"Missing (GeneID, Psite) pairs for {gene} in input1_wstd.csv:\n{missing}")
+
+    # Extract weights
+    std_columns = [f'x{i}_std' for i in range(1, 15)]
+    weights = merged[std_columns].to_numpy().flatten()
+
+    return weights
+
+def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights, ms_gauss_weights):
     """
     Function to calculate weights for parameter estimation based on the target data and time points.
     The weights are designed to emphasize early time points and account for noise in the data.
@@ -124,8 +179,12 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
                 np.full(8, 0.05), np.full(2, 0.2), np.ones(max(0, len(t_target) * num_psites - 10))]), 1)
             if len(t_target) * num_psites >= 10 else np.ones(len(target))
         ),
-        "early_emphasis": early_weights
+        "early_emphasis": early_weights,
+        "uncertainties_from_data": ms_gauss_weights,
     }
+
+    if not USE_CUSTOM_WEIGHTS:
+        base_weights = {"uncertainties_from_data": base_weights["uncertainties_from_data"]}
 
     if use_regularization:
         base_weights = {

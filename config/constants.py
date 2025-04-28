@@ -33,7 +33,7 @@ ESTIMATION_MODE = 'normal'
 #   - Skips sensitivity analysis entirely to save computation time.
 #   - Useful during development, debugging, or when only
 #     parameter estimation is needed.
-SENSITIVITY_ANALYSIS = True
+SENSITIVITY_ANALYSIS = False
 # Trajectories for profiling
 NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
@@ -85,7 +85,12 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
 # L2 regularization - added term in the cost function.
-LAMBDA_REG = 0.01
+LAMBDA_REG = 0.05
+# Flag to use custom weights for parameter estimation.
+# If True, the function will apply custom weights to the data points
+# based on their importance or reliability.
+# If False, the function will use weights from uncertainties from data.
+USE_CUSTOM_WEIGHTS = False
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE
 #

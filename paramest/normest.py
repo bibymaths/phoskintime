@@ -5,10 +5,11 @@ from itertools import combinations
 from typing import cast, Tuple
 
 from config.config import score_fit
-from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR
+from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
+    USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
 from models import solve_ode
-from models.weights import early_emphasis, get_weight_options
+from models.weights import early_emphasis, get_weight_options, get_protein_weights
 from plotting import Plotter
 from .identifiability import confidence_intervals
 
@@ -105,7 +106,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         result = cast(Tuple[np.ndarray, np.ndarray],
                       curve_fit(model_func, time_points, target_fit, #x_scale='jac',
                       p0=p0, bounds=free_bounds, sigma=default_sigma,
-                      absolute_sigma=False, maxfev=20000))
+                      absolute_sigma=True if not USE_CUSTOM_WEIGHTS else False, maxfev=20000))
         popt_init, _ = result
     except Exception as e:
         logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
@@ -113,8 +114,9 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
     # Get weights for the model fitting.
     early_weights = early_emphasis(p_data, time_points, num_psites)
+    ms_gauss_weights = get_protein_weights(gene)
     weight_options = get_weight_options(target, time_points, num_psites,
-                                        use_regularization, len(p0), early_weights)
+                                        use_regularization, len(p0), early_weights, ms_gauss_weights)
 
     scores, popts, pcovs = {}, {}, {}
     for wname, sigma in weight_options.items():
@@ -122,8 +124,8 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             # Attempt to fit the model using the specified weights.
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, time_points, target_fit, p0=popt_init,
-                          bounds=free_bounds, sigma=sigma,# x_scale='jac',
-                          absolute_sigma=False, maxfev=20000))
+                          bounds=free_bounds, sigma=sigma, # x_scale='jac',
+                          absolute_sigma=True if not USE_CUSTOM_WEIGHTS else False, maxfev=20000))
             popt, pcov = result
         except Exception as e:
             logger.warning(f"[{gene}] Fit failed for {wname}: {e}")
@@ -166,7 +168,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
                 result = cast(Tuple[np.ndarray, np.ndarray],
                               curve_fit(model_func, time_points, noisy_target,
                                         p0=popt_best, bounds=free_bounds, sigma=default_sigma,
-                                        absolute_sigma=True, maxfev=20000))
+                                        absolute_sigma=True if not USE_CUSTOM_WEIGHTS else False, maxfev=20000))
                 popt_bs, pcov_bs = result
             except Exception as e:
                 logger.warning(f"Bootstrapping iteration failed: {e}")
