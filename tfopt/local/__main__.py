@@ -11,6 +11,7 @@ from tfopt.local.opt.optrun import run_optimizer
 from tfopt.local.optcon.filter import load_and_filter_data, prepare_data
 from tfopt.local.utils.params import get_optimization_parameters, postprocess_results
 from tfopt.fitanalysis.helper import Plotter
+from utils import latexit
 
 logger = setup_logger()
 
@@ -96,6 +97,9 @@ def main():
 
     # Copy output file to the ODE_DATA_DIR.
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
+
+    # LateX the results
+    latexit.main(OUT_DIR)
 
     # Organize output files and create a report.
     organize_output_files(OUT_DIR)

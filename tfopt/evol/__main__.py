@@ -12,6 +12,7 @@ from tfopt.evol.utils.iodata import organize_output_files, create_report
 from tfopt.evol.utils.params import create_no_psite_array, compute_beta_indices, create_initial_guess, create_bounds, \
     get_parallel_runner, print_alpha_mapping, print_beta_mapping, extract_best_solution
 from tfopt.fitanalysis.helper import Plotter
+from utils import latexit
 
 logger = setup_logger()
 
@@ -145,6 +146,9 @@ def main():
 
     # Copy result file to ODE_DATA_DIR
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
+
+    # LateX the results
+    latexit.main(OUT_DIR)
 
     # Organize output files and create a report.
     organize_output_files(OUT_DIR)

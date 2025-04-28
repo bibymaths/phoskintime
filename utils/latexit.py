@@ -2,11 +2,8 @@ import os
 import re
 import pandas as pd
 
-from config.constants import OUT_DIR
-
 # Directory where Excel and PNG files are located
-input_dir = OUT_DIR
-output_file = "output_latex.tex"
+output_file = "_latex.tex"
 
 # Regular expression for matching GeneSymbol_Something
 sheet_pattern = re.compile(r"^[A-Z0-9]+_[a-zA-Z0-9]+$")
@@ -46,7 +43,7 @@ def generate_latex_image(image_filename):
     return latex_code
 
 
-def main():
+def main(input_dir):
     tables_latex = []
     figures_latex = []
 
@@ -82,7 +79,3 @@ def main():
             for latex_chunk in figures_latex:
                 f.write(latex_chunk)
                 f.write("\n\n")
-
-
-if __name__ == "__main__":
-    main()

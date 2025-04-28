@@ -112,7 +112,7 @@ def main():
     save_result(results, excel_filename=OUT_RESULTS_DIR)
 
     # LateX the results
-    latexit.main()
+    latexit.main(OUT_DIR)
 
     # Merge the observed data and model fits for each gene
     merged_df = merge_obs_est(OUT_RESULTS_DIR)
