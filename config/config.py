@@ -10,11 +10,13 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    MU_REG,
     INPUT_EXCEL, DEV_TEST
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+from config.logconf import setup_logger
+logging = setup_logger()
 
 def parse_bound_pair(val):
     """
@@ -211,12 +213,11 @@ def extract_config(args):
     }
     return config
 
-def score_fit(target, prediction, params,
+def score_fit(target, prediction,
               alpha=ALPHA_WEIGHT,
               beta=BETA_WEIGHT,
               gamma=GAMMA_WEIGHT,
-              delta=DELTA_WEIGHT,
-              reg_penalty=MU_REG):
+              delta=DELTA_WEIGHT):
     """
     Calculate the score for the fit of a model to target data.
     The score is a weighted combination of various metrics including
@@ -236,12 +237,29 @@ def score_fit(target, prediction, params,
     :param reg_penalty:
     :return:
     """
-    residual = target - prediction
-    mse = np.sum(np.abs(residual) ** 2)
-    rmse = np.sqrt(np.mean(residual ** 2))
-    mae = np.mean(np.abs(residual))
-    variance = np.var(residual)
-    l2_norm = np.linalg.norm(params)
+    # Compute scaled absolute residuals (error per data point).
+    residual = np.abs(target - prediction) / target.size
 
-    score = delta * mse + alpha * rmse + beta * mae + gamma * variance + reg_penalty * l2_norm
+    # Compute mean squared error (MSE) from residuals.
+    mse = np.sum(residual ** 2)
+
+    # Compute root mean squared error (RMSE) from residuals.
+    rmse = np.sqrt(np.mean(residual ** 2))
+
+    # Compute mean absolute error (MAE) from residuals.
+    mae = np.mean(residual)
+
+    # Compute variance of residuals.
+    variance = np.var(residual)
+
+    # Calculate weighted total score combining errors
+    score = delta * mse + alpha * rmse + beta * mae + gamma * variance
+
+    # Log all calculated metrics for transparency.
+    logging.info(f"MSE: {mse:.4e}")
+    logging.info(f"RMSE: {rmse:.4e}")
+    logging.info(f"MAE: {mae:.4e}")
+    logging.info(f"Variance: {variance:.4e}")
+    logging.info(f"Score: {score:.4e}")
+
     return score

@@ -86,30 +86,27 @@ CONTOUR_LEVELS = 100
 USE_REGULARIZATION = True
 # Squared L2 regularization.
 # Root of the regularization term in the cost function.
-LAMBDA_REG = 100
+LAMBDA_REG = 2
 # Composite Scoring Function:
-# score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * ||theta||2
+# score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE
 #
 # Definitions:
 #   RMSE         = Root Mean Squared Error
 #   MAE          = Mean Absolute Error
 #   Var(residual)= Variance of residuals
 #   MSE          = Mean Squared Error
-#   ||theta||2   = L2 norm of parameters
 #
 # Weights:
 #   alpha = weight for RMSE
 #   beta  = weight for MAE
 #   gamma = weight for residual variance
 #   delta = weight for MSE
-#   mu    = weight for L2 regularization
 #
 # Lower score indicates a better fit.
 DELTA_WEIGHT = 1.0
 ALPHA_WEIGHT = 1.0
 BETA_WEIGHT = 1.0
 GAMMA_WEIGHT = 1.0
-MU_REG = 1.0
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.

@@ -135,7 +135,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         pcovs[wname] = pcov
         _,pred = solve_ode(popt, init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(p_data, pred, popt)
+        scores[wname] = score_fit(p_data, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
@@ -151,6 +151,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
         pcov_best,
         target_fit,
+        model_func(time_points, *(np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best)),
         alpha_val=ALPHA_CI
     )
 
@@ -193,6 +194,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
             pcov_best,
             target_fit,
+            model_func(time_points, *(np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best)),
             alpha_val=ALPHA_CI
         )
 
