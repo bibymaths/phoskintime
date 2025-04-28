@@ -81,13 +81,13 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         :return: model predictions
         """
         if ODE_MODEL == 'randmod':
-            param_vec = np.exp(np.array(params))
+            param_vec = np.exp(np.asarray(params))
         else:
-            param_vec = np.array(params)
+            param_vec = np.asarray(params)
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
         if use_regularization:
-            reg = np.sqrt(lambda_reg) * np.asarray(params)
+            reg = np.sqrt(lambda_reg)/len(params) * np.asarray(params)
             return np.concatenate([y_model, reg])
         return y_model
 
