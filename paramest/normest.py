@@ -1,3 +1,5 @@
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
@@ -14,6 +16,80 @@ from plotting import Plotter
 from .identifiability import confidence_intervals
 
 logger = setup_logger()
+
+def worker_find_lambda(
+    lam: float,
+    gene: str,
+    target: np.ndarray,
+    p0: np.ndarray,
+    time_points: np.ndarray,
+    free_bounds: Tuple[np.ndarray, np.ndarray],
+    init_cond: np.ndarray,
+    num_psites: int,
+    p_data: np.ndarray
+) -> Tuple[float, float]:
+    """
+    Worker function for a single lambda value.
+    """
+    def model_func(tpts, *params):
+        param_vec = np.exp(np.asarray(params)) if ODE_MODEL == 'randmod' else np.asarray(params)
+        _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
+        y_model = p_fitted.flatten()
+        reg = lam * np.asarray(params)
+        return np.concatenate([y_model, reg])
+
+    tf = np.concatenate([target, np.zeros(len(p0))])
+    early_weights = early_emphasis(p_data, time_points, num_psites)
+    ms_gauss_weights = get_protein_weights(gene)
+    weight_options = get_weight_options(target, time_points, num_psites,
+                                        USE_REGULARIZATION, len(p0), early_weights, ms_gauss_weights)
+    result = curve_fit(
+        model_func, time_points, tf,
+        p0=p0, bounds=free_bounds, sigma=weight_options["uncertainties_from_data"], x_scale='jac',
+        absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000
+    )
+
+    popt_try, _ = result
+    _, pred = solve_ode(np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
+                        init_cond, num_psites, time_points)
+
+    score = score_fit(gene, popt_try, f"lambda_{lam:.0e}", p_data, pred)
+    return lam, score
+
+def find_best_lambda(
+    gene: str,
+    target: np.ndarray,
+    p0: np.ndarray,
+    time_points: np.ndarray,
+    free_bounds: Tuple[np.ndarray, np.ndarray],
+    init_cond: np.ndarray,
+    num_psites: int,
+    p_data: np.ndarray,
+    lambdas = np.linspace(1e-2, 1, 100),
+    max_workers: int = os.cpu_count(),
+) -> float:
+    """
+    Finds best lambda_reg to use in model_func.
+    """
+
+    best_lambda = None
+    best_score = np.inf
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                worker_find_lambda,
+                lam, gene, target, p0, time_points, free_bounds,
+                init_cond, num_psites, p_data
+            ): lam for lam in lambdas
+        }
+        for future in as_completed(futures):
+            lam, score = future.result()
+            if score < best_score:
+                best_score = score
+                best_lambda = lam
+
+    return best_lambda
 
 def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
@@ -71,6 +147,22 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             [bounds["Dsite"][1]] * num_psites
         )
 
+
+    free_bounds = (lower_bounds_full, upper_bounds_full)
+
+    # Set initial guess for all parameters (midpoint of bounds).
+    p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
+
+    # Build the target vector from the measured data.
+    target = p_data.flatten()
+    target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
+
+    default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
+
+    lambda_reg = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites, p_data)
+
+    logger.info(f"[{gene}] Using regularization term λ = {lambda_reg}")
+
     def model_func(tpts, *params):
         """
         Define the model function for curve fitting.
@@ -89,17 +181,6 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             reg = lambda_reg * np.asarray(params)
             return np.concatenate([y_model, reg])
         return y_model
-
-    free_bounds = (lower_bounds_full, upper_bounds_full)
-
-    # Set initial guess for all parameters (midpoint of bounds).
-    p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
-
-    # Build the target vector from the measured data.
-    target = p_data.flatten()
-    target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
-
-    default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
     try:
         # Attempt to get a good initial estimate using curve_fit.
@@ -135,7 +216,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         pcovs[wname] = pcov
         _,pred = solve_ode(popt, init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(gene, wname, p_data, pred)
+        scores[wname] = score_fit(gene, popt, wname, p_data, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)

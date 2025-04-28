@@ -10,7 +10,7 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    INPUT_EXCEL, DEV_TEST
+    INPUT_EXCEL, DEV_TEST, MU_WEIGHT
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -213,11 +213,12 @@ def extract_config(args):
     }
     return config
 
-def score_fit(gene, weight, target, prediction,
+def score_fit(gene, params, weight, target, prediction,
               alpha=ALPHA_WEIGHT,
               beta=BETA_WEIGHT,
               gamma=GAMMA_WEIGHT,
-              delta=DELTA_WEIGHT):
+              delta=DELTA_WEIGHT,
+              mu=MU_WEIGHT):
     """
     Calculate the score for the fit of a model to target data.
     The score is a weighted combination of various metrics including
@@ -241,7 +242,7 @@ def score_fit(gene, weight, target, prediction,
     weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
 
     # Compute scaled absolute residuals (error per data point).
-    residual = np.abs(target - prediction) / target.size
+    residual = np.abs(target - prediction) # / target.size
 
     # Compute mean squared error (MSE) from residuals.
     mse = np.sum(residual ** 2)
@@ -255,14 +256,18 @@ def score_fit(gene, weight, target, prediction,
     # Compute variance of residuals.
     variance = np.var(residual)
 
+    # L2 norm of parameters.
+    l2_norm = np.linalg.norm(params)
+
     # Calculate weighted total score combining errors
-    score = delta * mse + alpha * rmse + beta * mae  + gamma * variance
+    score = delta * mse + alpha * rmse + beta * mae  + gamma * variance + mu * l2_norm
 
     # Log all calculated metrics for each weighting schema.
-    logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")
-    logging.info(f"[{gene}] [{weight_display}] RMSE: {rmse:.2e}")
-    logging.info(f"[{gene}] [{weight_display}] MAE: {mae:.2e}")
-    logging.info(f"[{gene}] [{weight_display}] Variance: {variance:.2e}")
-    logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] RMSE: {rmse:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] MAE: {mae:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] Variance: {variance:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] L2 Norm: {l2_norm:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
 
     return score
