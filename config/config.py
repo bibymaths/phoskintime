@@ -10,11 +10,13 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    MU_REG,
-    INPUT_EXCEL
+    INPUT_EXCEL, DEV_TEST, MU_WEIGHT
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+from config.logconf import setup_logger
+logging = setup_logger()
 
 def parse_bound_pair(val):
     """
@@ -207,18 +209,16 @@ def extract_config(args):
         'profile_end': args.profile_end,
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
-        # Adjust as needed for parallel processing
-        # 'max_workers': os.cpu_count(),  # Use all CPU cores
-        'max_workers': 1,
+        'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
     return config
 
-def score_fit(target, prediction, params,
+def score_fit(gene, params, weight, target, prediction,
               alpha=ALPHA_WEIGHT,
               beta=BETA_WEIGHT,
               gamma=GAMMA_WEIGHT,
               delta=DELTA_WEIGHT,
-              reg_penalty=MU_REG):
+              mu=MU_WEIGHT):
     """
     Calculate the score for the fit of a model to target data.
     The score is a weighted combination of various metrics including
@@ -238,12 +238,36 @@ def score_fit(target, prediction, params,
     :param reg_penalty:
     :return:
     """
-    residual = target - prediction
-    mse = np.sum(np.abs(residual) ** 2)
-    rmse = np.sqrt(np.mean(residual ** 2))
-    mae = np.mean(np.abs(residual))
-    variance = np.var(residual)
-    l2_norm = np.linalg.norm(params)
+    # Format the weight
+    weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
 
-    score = delta * mse + alpha * rmse + beta * mae + gamma * variance + reg_penalty * l2_norm
+    # Compute scaled absolute residuals (error per data point).
+    residual = np.abs(target - prediction)
+
+    # Compute mean squared error (MSE) from residuals.
+    mse = np.sum(residual ** 2)
+
+    # Compute root mean squared error (RMSE) from residuals.
+    rmse = np.sqrt(np.mean(residual ** 2))
+
+    # Compute mean absolute error (MAE) from residuals.
+    mae = np.mean(residual)
+
+    # Compute variance of residuals.
+    variance = np.var(residual)
+
+    # L2 norm of parameters.
+    l2_norm = np.linalg.norm(params, ord=2)
+
+    # Calculate weighted total score combining errors
+    score = delta * mse + alpha * rmse + beta * mae  + gamma * variance + mu * l2_norm
+
+    # Log all calculated metrics for each weighting schema.
+    # logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] RMSE: {rmse:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] MAE: {mae:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] Variance: {variance:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] L2 Norm: {l2_norm:.2e}")
+    # logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
+
     return score

@@ -192,7 +192,7 @@ def adaptive_estimation(p_data, init_cond, num_psites, time_points, t,
         popts[wname] = popt_weight
         pred = model_func(t_target, *popt_weight)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(target_fit, pred, popt_weight)
+        scores[wname] = score_fit(target_fit, pred)
 
     # Get the best weight and score.
     best_weight = min(scores, key=scores.get)

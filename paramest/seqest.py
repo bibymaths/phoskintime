@@ -131,7 +131,7 @@ def fit_parameters(time_points, p_data, model_func, p0_free,
         popts[key] = popt
         pcovs[key] = pcov
         prediction = model_func(time_points, *popt)
-        score = score_fit(target, prediction, popt)
+        score = score_fit(target, prediction)
         scores[key] = score
         logger.debug(f"[{key}] Score: {score:.4f}")
 

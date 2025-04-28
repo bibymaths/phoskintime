@@ -1,24 +1,107 @@
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 from itertools import combinations
 from typing import cast, Tuple
 
 from config.config import score_fit
-from config.constants import get_param_names, LAMBDA_REG, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR
+from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
+    USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
 from models import solve_ode
-from models.weights import early_emphasis, get_weight_options
+from models.weights import early_emphasis, get_weight_options, get_protein_weights
 from plotting import Plotter
 from .identifiability import confidence_intervals
 
 logger = setup_logger()
 
+def worker_find_lambda(
+    lam: float,
+    gene: str,
+    target: np.ndarray,
+    p0: np.ndarray,
+    time_points: np.ndarray,
+    free_bounds: Tuple[np.ndarray, np.ndarray],
+    init_cond: np.ndarray,
+    num_psites: int,
+    p_data: np.ndarray
+) -> Tuple[float, float]:
+    """
+    Worker function for a single lambda value.
+    """
+    def model_func(tpts, *params):
+        param_vec = np.exp(np.asarray(params)) if ODE_MODEL == 'randmod' else np.asarray(params)
+        _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
+        y_model = p_fitted.flatten()
+        reg = lam/len(params) * np.square(params)
+        return np.concatenate([y_model, reg])
+
+    tf = np.concatenate([target, np.zeros(len(p0))])
+    early_weights = early_emphasis(p_data, time_points, num_psites)
+    ms_gauss_weights = get_protein_weights(gene)
+    weight_options = get_weight_options(target, time_points, num_psites,
+                                        USE_REGULARIZATION, len(p0), early_weights, ms_gauss_weights)
+
+    result = (cast
+        (
+        Tuple[np.ndarray, np.ndarray],
+        curve_fit(
+                model_func, time_points, tf,
+                p0=p0, bounds=free_bounds, sigma=weight_options["uncertainties_from_data"], x_scale='jac',
+                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000
+                )
+        )
+            )
+
+    popt_try, _ = result
+    _, pred = solve_ode(np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
+                        init_cond, num_psites, time_points)
+
+    score = score_fit(gene, popt_try, f"lambda_term_{lam}", p_data, pred)
+    return lam, score
+
+def find_best_lambda(
+    gene: str,
+    target: np.ndarray,
+    p0: np.ndarray,
+    time_points: np.ndarray,
+    free_bounds: Tuple[np.ndarray, np.ndarray],
+    init_cond: np.ndarray,
+    num_psites: int,
+    p_data: np.ndarray,
+    lambdas = np.linspace(1e-3, 1, 100),
+    max_workers: int = os.cpu_count(),
+) -> float:
+    """
+    Finds best lambda_reg to use in model_func.
+    """
+
+    best_lambda = None
+    best_score = np.inf
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                worker_find_lambda,
+                lam, gene, target, p0, time_points, free_bounds,
+                init_cond, num_psites, p_data
+            ): lam for lam in lambdas
+        }
+        for future in as_completed(futures):
+            lam, score = future.result()
+            if score < best_score:
+                best_score = score
+                best_lambda = lam
+
+    return best_lambda
+
 def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
-            bootstraps, use_regularization=USE_REGULARIZATION, lambda_reg=LAMBDA_REG):
+            bootstraps, use_regularization=USE_REGULARIZATION):
     """
     Perform normal parameter estimation using all provided time points at once.
-    Uses the provided bounds (ignores fixed_params so that all parameters are estimated)
-    and supports bootstrapping if specified.
+    Uses the provided bounds and supports bootstrapping if specified.
 
     Parameters:
       - p_data: Measurement data (DataFrame or numpy array). Assumes data starts at column index 2.
@@ -26,7 +109,6 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
       - num_psites: Number of phosphorylation sites.
       - time_points: Array of time points to use.
       - bounds: Dictionary of parameter bounds.
-      - fixed_params: (Ignored in normest) Provided for interface consistency.
       - bootstraps: Number of bootstrapping iterations.
       - use_regularization: Flag to apply Tikhonov regularization.
       - lambda_reg: Regularization strength.
@@ -71,6 +153,26 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             [bounds["Dsite"][1]] * num_psites
         )
 
+
+    free_bounds = (lower_bounds_full, upper_bounds_full)
+
+    # Set initial guess for all parameters (midpoint of bounds).
+    # p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
+    np.random.seed(42)
+    p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
+
+    # Build the target vector from the measured data.
+    target = p_data.flatten()
+    target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
+
+    default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
+
+    logger.info(f"[{gene}] Finding best regularization term λ...")
+
+    lambda_reg = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites, p_data)
+
+    logger.info(f"[{gene}] Using λ = {lambda_reg/len(p0)}")
+
     def model_func(tpts, *params):
         """
         Define the model function for curve fitting.
@@ -80,33 +182,22 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
         :return: model predictions
         """
         if ODE_MODEL == 'randmod':
-            param_vec = np.exp(np.array(params))
+            param_vec = np.exp(np.asarray(params))
         else:
-            param_vec = np.array(params)
+            param_vec = np.asarray(params)
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
         if use_regularization:
-            reg = np.sqrt(lambda_reg) * np.array(params)
+            reg =  lambda_reg/len(param_vec) * np.square(params)
             return np.concatenate([y_model, reg])
         return y_model
-
-    free_bounds = (lower_bounds_full, upper_bounds_full)
-
-    # Set initial guess for all parameters (midpoint of bounds).
-    p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
-
-    # Build the target vector from the measured data.
-    target = p_data.flatten()
-    target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
-
-    default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
     try:
         # Attempt to get a good initial estimate using curve_fit.
         result = cast(Tuple[np.ndarray, np.ndarray],
                       curve_fit(model_func, time_points, target_fit, x_scale='jac',
                       p0=p0, bounds=free_bounds, sigma=default_sigma,
-                      absolute_sigma=True, maxfev=20000))
+                      absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
         popt_init, _ = result
     except Exception as e:
         logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
@@ -114,8 +205,9 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
     # Get weights for the model fitting.
     early_weights = early_emphasis(p_data, time_points, num_psites)
+    ms_gauss_weights = get_protein_weights(gene)
     weight_options = get_weight_options(target, time_points, num_psites,
-                                        use_regularization, len(p0), early_weights)
+                                        use_regularization, len(p0), early_weights, ms_gauss_weights)
 
     scores, popts, pcovs = {}, {}, {}
     for wname, sigma in weight_options.items():
@@ -124,7 +216,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             result = cast(Tuple[np.ndarray, np.ndarray],
                           curve_fit(model_func, time_points, target_fit, p0=popt_init,
                           bounds=free_bounds, sigma=sigma, x_scale='jac',
-                          absolute_sigma=True, maxfev=20000))
+                          absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
             popt, pcov = result
         except Exception as e:
             logger.warning(f"[{gene}] Fit failed for {wname}: {e}")
@@ -132,9 +224,10 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
             pcov = None
         popts[wname] = popt
         pcovs[wname] = pcov
-        pred = model_func(time_points, *popt)
+        _,pred = solve_ode(np.exp(popt) if ODE_MODEL == 'randmod' else popt,
+                           init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(target_fit, pred, popt)
+        scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, p_data, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
@@ -142,14 +235,16 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
-
-    logger.info(f"[{gene}] Best weight: {best_weight} with score: {best_score:.4f}")
+    logger.info(f"[{gene}] Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
+    logger.info(f"[{gene}] Fit Score: {best_score:.2f}")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
+        gene,
         np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
         pcov_best,
-        target,
+        target_fit,
+        model_func(time_points, *popt_best),
         alpha_val=ALPHA_CI
     )
 
@@ -166,7 +261,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
                 result = cast(Tuple[np.ndarray, np.ndarray],
                               curve_fit(model_func, time_points, noisy_target,
                                         p0=popt_best, bounds=free_bounds, sigma=default_sigma,
-                                        absolute_sigma=True, maxfev=20000))
+                                        absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
                 popt_bs, pcov_bs = result
             except Exception as e:
                 logger.warning(f"Bootstrapping iteration failed: {e}")
@@ -189,13 +284,29 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
         # Compute confidence intervals.
         ci_results = confidence_intervals(
+            gene,
             np.exp(popt_best) if ODE_MODEL == 'randmod' else popt_best,
             pcov_best,
-            target,
+            target_fit,
+            model_func(time_points, *popt_best),
             alpha_val=ALPHA_CI
         )
 
+    # Save the confidence intervals.
+    param_names = get_param_names(num_psites)
+    ci_df = pd.DataFrame({
+        'Parameter': param_names,
+        'Estimate': ci_results['beta_hat'],
+        'Std_Error': ci_results['se_lin'],
+        'p_value': ci_results['pval'],
+        'Lower_95CI': ci_results['lwr_ci'],
+        'Upper_95CI': ci_results['upr_ci']
+    })
+    ci_df.to_csv(f"{OUT_DIR}/{gene}_confidence_intervals.csv", index=False)
+
     plotter = Plotter(gene, OUT_DIR)
+
+    # Plot the estimated parameters with confidence intervals.
     plotter.plot_params_bar(ci_results, get_param_names(num_psites))
 
     # Since all parameters are free, param_final is simply the best-fit vector.
@@ -207,5 +318,5 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     est_params.append(param_final)
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
-    error_vals.append(np.sum(np.abs(target - p_fit.flatten()) ** 2))
+    error_vals.append(np.sum(np.abs(p_fit.flatten()-target) ** 2)/target.size)
     return est_params, model_fits, error_vals

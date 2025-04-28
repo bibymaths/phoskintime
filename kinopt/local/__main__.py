@@ -12,6 +12,8 @@ from kinopt.local.utils.params import compute_metrics, extract_parameters
 from kinopt.local.config.logconf import setup_logger
 from kinopt.optimality.KKT import post_optimization_results
 from kinopt.fitanalysis import optimization_performance
+from utils import latexit
+
 logger = setup_logger()
 
 
@@ -106,6 +108,9 @@ def main():
     # Analyze optimization performance.
     post_optimization_results()
     optimization_performance()
+
+    # LateX the results.
+    latexit.main(OUT_DIR)
 
     # Organize output files and create a report.
     organize_output_files(OUT_DIR)

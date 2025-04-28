@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE
+from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE, ODE_MODEL
 
 
 def ensure_output_directory(directory):
@@ -169,7 +169,7 @@ def save_result(results, excel_filename):
             system_fits = []
             for knockout_name, ko_data in res["knockout_results"].items():
                 sol_ko = np.array(ko_data["sol_ko"])
-                state_labels = ["R", "P"] + [f"{ps}" for ps in res["psite_labels"]]
+                state_labels = [f"{ps}" for ps in res["labels"]]
                 sys_df = pd.DataFrame(sol_ko, columns=[f"{knockout_name} | {label}" for label in state_labels],
                                       index=TIME_POINTS)
                 system_fits.append(sys_df)
@@ -183,7 +183,7 @@ def save_result(results, excel_filename):
                 sens_df = pd.DataFrame(sens_res)
                 sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=False)
 
-def create_report(results_dir: str, output_file: str = "report.html"):
+def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
@@ -199,7 +199,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
         d for d in os.listdir(results_dir)
-        if os.path.isdir(os.path.join(results_dir, d)) and d not in ("General", "logs")
+        if os.path.isdir(os.path.join(results_dir, d)) and d not in ("General", f"{ODE_MODEL}_logs")
     ]
 
     # Build HTML content with updated CSS for spacing.

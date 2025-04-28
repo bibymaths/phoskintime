@@ -1,7 +1,13 @@
 
 import numpy as np
+import pandas as pd
 from numba import njit
 from scipy.ndimage import uniform_filter1d
+from pathlib import Path
+
+from config.constants import USE_CUSTOM_WEIGHTS
+
+current_dir = Path(__file__).resolve().parent
 
 @njit
 def early_emphasis(p_data, time_points, num_psites):
@@ -33,7 +39,7 @@ def early_emphasis(p_data, time_points, num_psites):
 
     for i in range(num_psites):
         # Emphasize early time points - first five
-        limit = min(5, n_times)
+        limit = min(8, n_times)
         # Compute weights for early time points
         for j in range(1, limit):
             # Calculate the data-based and time-based weights
@@ -47,7 +53,56 @@ def early_emphasis(p_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
-def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights):
+
+def get_protein_weights(
+    gene,
+    input1_path=Path(__file__).resolve().parent.parent / 'processing' / 'input1_wstd.csv',
+    input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
+):
+    """
+    Extracts x1_std to x14_std weights for a single GeneID.
+
+    Args:
+        gene: GeneID (str) to process
+        input1_path: Path to input1_wstd.csv
+        input2_path: Path to input2.csv
+
+    Returns:
+        Flattened numpy array of weights for the specific GeneID
+    """
+
+    # Load input1_wstd and input2
+    input1 = pd.read_csv(input1_path)
+    input2 = pd.read_csv(input2_path)
+
+    # Clean column names
+    input1.columns = input1.columns.str.strip()
+    input2.columns = input2.columns.str.strip()
+
+    # Filter input2 for the given GeneID
+    input2_gene = input2[input2['GeneID'] == gene]
+
+    if input2_gene.empty:
+        raise ValueError(f"No entries for GeneID {gene} found in input2.csv")
+
+    # Merge to get corresponding x1_std to x14_std values
+    merged = pd.merge(
+        input2_gene, input1,
+        on=['GeneID', 'Psite'],
+        how='left'
+    )
+
+    if merged.isnull().any().any():
+        missing = merged[merged.isnull().any(axis=1)][['GeneID', 'Psite']]
+        raise ValueError(f"Missing (GeneID, Psite) pairs for {gene} in input1_wstd.csv:\n{missing}")
+
+    # Extract weights
+    std_columns = [f'x{i}_std' for i in range(1, 15)]
+    weights = merged[std_columns].to_numpy().flatten()
+
+    return weights
+
+def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights, ms_gauss_weights):
     """
     Function to calculate weights for parameter estimation based on the target data and time points.
     The weights are designed to emphasize early time points and account for noise in the data.
@@ -100,32 +155,36 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
         flat_region_penalty = 1 / np.maximum(np.abs(target), 1e-5)  # inverse signal intensity
 
     base_weights = {
-        "inverse_data": 1 / np.maximum(np.abs(target), 1e-5),
-        "exp_decay": np.exp(-0.5 * target),
-        "log_scale": 1 / np.maximum(log_scale, 1e-5),
-        "time_diff": 1 / np.maximum(np.abs(np.diff(target, prepend=target[0])), 1e-5),
-        "moving_avg": 1 / np.maximum(np.abs(target - uniform_filter1d(target, 3)), 1e-5),
+        "inverse": 1 / np.maximum(np.abs(target), 1e-5),
+        "exponential_decay": np.exp(-0.5 * target),
+        "inverse_log_scale": 1 / np.maximum(log_scale, 1e-5),
+        "inverse_time_diff": 1 / np.maximum(np.abs(np.diff(target, prepend=target[0])), 1e-5),
+        "inverse_moving_avg": 1 / np.maximum(np.abs(target - uniform_filter1d(target, 3)), 1e-5),
 
-        "sigmoid_time_decay": early_sigmoid,
-        "exponential_early_emphasis": np.exp(-0.5 * time_indices),
-        "polynomial_decay": 1 / (1 + 0.5 * time_indices),
+        "sigmoid_decay": early_sigmoid,
+        "exponential_early_decay": np.exp(-0.5 * time_indices),
+        "polynomial_time_decay": 1 / (1 + 0.5 * time_indices),
 
-        "ms_snr_model": signal_noise_model,
-        "ms_inverse_variance": inverse_variance_model,
-        "flat_region_penalty": flat_region_penalty,
-        "steady_state_decay": steady_state_decay,
+        "signal_noise": signal_noise_model,
+        "inverse_variance": inverse_variance_model,
+        "flat_penalty": flat_region_penalty,
+        "steady_decay": steady_state_decay,
 
         "combined_data_time": 1 / (np.maximum(np.abs(target), 1e-5) * (1 + 0.5 * time_indices)),
-        "inverse_sqrt_data": 1 / sqrt_signal,
+        "inverse_square_root_data": 1 / sqrt_signal,
 
-        "early_emphasis_moderate": np.ones_like(target),
-        "early_emphasis_steep_decay": (
+        "early_moderate_decay": np.ones_like(target),
+        "early_steep_decay": (
             np.tile(np.concatenate([
                 np.full(8, 0.05), np.full(2, 0.2), np.ones(max(0, len(t_target) * num_psites - 10))]), 1)
             if len(t_target) * num_psites >= 10 else np.ones(len(target))
         ),
-        "custom_early_points_emphasis": early_weights
+        "early_emphasis": early_weights,
+        "uncertainties_from_data": ms_gauss_weights,
     }
+
+    if not USE_CUSTOM_WEIGHTS:
+        base_weights = {"uncertainties_from_data": base_weights["uncertainties_from_data"]}
 
     if use_regularization:
         base_weights = {

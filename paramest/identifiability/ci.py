@@ -4,7 +4,7 @@ from config.logconf import setup_logger
 
 logger = setup_logger()
 
-def confidence_intervals(popt, pcov, target, alpha_val=0.05):
+def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     """
     Computes the confidence intervals for parameter estimates using a linearization approach.
 
@@ -30,24 +30,42 @@ def confidence_intervals(popt, pcov, target, alpha_val=0.05):
         logger.info(msg)
         return None
 
+    # Best-fit parameter estimates.
     beta_hat = popt
-    # Calculate the standard errors of the parameter estimates.
-    se_lin = np.sqrt(np.diag(pcov))
-    # Degrees of freedom: number of observations (target should be 1D) minus number of parameters.
-    df_lin = target.size - beta_hat.size
-    # Compute t-statistics for each parameter.
+
+    # Degrees of freedom: number of observations minus number of parameters, minimum 1 to avoid division by zero.
+    df_lin = max(target.size - beta_hat.size, 1)
+
+    # Compute scaled residuals (error per data point).
+    residuals = (target - model) / target.size
+
+    # Residual sum of squares (RSS) from scaled residuals.
+    rss = np.sum(residuals ** 2)
+
+    # Mean squared error (MSE) to rescale covariance matrix.
+    mse = rss / df_lin
+
+    # Standard errors from scaled covariance matrix.
+    se_lin = np.sqrt(np.diag(pcov * mse))
+
+    # t-statistics for each parameter estimate.
     t_stat = beta_hat / se_lin
-    # Two-sided p-values.
+
+    # Two-tailed p-values from t-statistics.
     pval = stats.t.sf(np.abs(t_stat), df_lin) * 2
-    # t critical value for a two-tailed confidence interval.
+
+    # Critical t-value for the desired confidence level.
     qt_lin = stats.t.ppf(1 - alpha_val / 2, df_lin)
-    # Calculate confidence intervals.
+
+    # Lower bound of confidence interval, clipped at zero.
     lwr_ci = np.maximum(beta_hat - qt_lin * se_lin, 0)
+
+    # Upper bound of confidence interval.
     upr_ci = beta_hat + qt_lin * se_lin
 
     # Log the summary.
-    header = "Parameter\t Estimate\t Standard Error\t\t Pr(>|t|)\t\t 95% CI"
-    logger.info("Confidence Intervals:")
+    header = "Parameter\t Estimate\t SE\t\t Pr(>|t|)\t\t 95% CI"
+    logger.info(f"[{gene}] Confidence Intervals:")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
         logger.info(f"Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")

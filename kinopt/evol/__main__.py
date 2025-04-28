@@ -7,6 +7,7 @@ from kinopt.evol.exporter.sheetutils import output_results
 from kinopt.evol.objfn import estimated_series, residuals
 from kinopt.evol.optcon.construct import check_kinases
 from kinopt.fitanalysis import optimization_performance
+from utils import latexit
 
 if METHOD == "DE":
     from kinopt.evol.objfn.minfndiffevo import PhosphorylationOptimizationProblem
@@ -134,6 +135,9 @@ def main():
 
     # Analyze the performance of the optimization.
     optimization_performance()
+
+    # LateX the results
+    latexit.main(OUT_DIR)
 
     # Organize the output files.
     organize_output_files(OUT_DIR)

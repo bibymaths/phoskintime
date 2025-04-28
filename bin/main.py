@@ -5,10 +5,11 @@ from concurrent.futures import ProcessPoolExecutor
 
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
-from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE
+from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE, DEV_TEST
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
+from utils import latexit
 from utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
 
 logger = setup_logger()
@@ -71,23 +72,23 @@ def main():
         logger.error(f"Missing columns in the input data: {', '.join(missing_columns)}")
         return
 
-    # Load all protein groups
-
-    # genes = data["Gene"].unique().tolist()
-
+    if DEV_TEST:
     # Load only gene 'X'
-    _test = "ABL2"
-    if _test in data["Gene"].values:
-        genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
+        _test = "ABL2"
+        if _test in data["Gene"].values:
+            genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
+        else:
+            raise ValueError(f"{_test} not found in the input data.")
     else:
-        raise ValueError(f"{_test} not found in the input data.")
+        # Load all protein groups
+        genes = data["Gene"].unique().tolist()
 
     # Check if the genes are empty
     if not genes:
         logger.error("No genes found in the input data.")
         return
 
-    logger.info(f"Loaded Time Series for {len(genes)} Protein(s)")
+    logger.info(f"Fitting to data for [{', '.join(genes)}].")
 
     # Initiate the process pool and run the processing function for each gene
     with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:
@@ -109,6 +110,9 @@ def main():
 
     # Save the results
     save_result(results, excel_filename=OUT_RESULTS_DIR)
+
+    # LateX the results
+    latexit.main(OUT_DIR)
 
     # Merge the observed data and model fits for each gene
     merged_df = merge_obs_est(OUT_RESULTS_DIR)

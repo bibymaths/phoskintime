@@ -20,8 +20,8 @@ logs/
 /kinopt/results/
 /kinopt/julia_results/
 
-# Ignore general results directory
-/results/
+# Ignore all result directories
+/*results*/
 
 # Ignore any raw data directory
 /data/
