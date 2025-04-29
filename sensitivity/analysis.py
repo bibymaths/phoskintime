@@ -96,7 +96,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
-    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
+    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
     Y = np.zeros(len(param_values))
 
     # Initialize list to collect all model_psite trajectories
@@ -114,7 +114,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             # Y represents the scalar model output (observable) used
             # to compute sensitivity to parameter perturbations
             # Total phosphorylation across all sites
-            Y[i] = np.sum(model_psite)
+            # Y[i] = np.sum(model_psite)
             # # Mean phosphorylation level across sites (normalizes output)
             # Y[i] = np.mean(model_psite)
             # # Variance in phosphorylation across sites (captures uneven site behavior)
@@ -122,8 +122,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             # # Sum of squared changes between time points (captures dynamic fluctuations)
             # Y[i] = np.sum(np.diff(model_psite) ** 2)
             # # Overall magnitude of phosphorylation vector (energy/magnitude interpretation)
-            # Y[i] = np.linalg.norm(model_psite)
-
+            Y[i] = np.linalg.norm(model_psite)
             # Collect the phosphorylation trajectory for each parameter set
             # Stack all collected solutions
             # (n_samples, n_timepoints, n_sites)
