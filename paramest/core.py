@@ -100,8 +100,8 @@ def process_gene(
     )
 
     # Error Metrics
-    mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
-    mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
+    mse = mean_squared_error(np.concatenate(R_data, P_data.flatten()), seq_model_fit.flatten())
+    mae = mean_absolute_error(np.concatenate(R_data, P_data.flatten()), seq_model_fit.flatten())
     logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Adaptive Profile Estimation
@@ -147,7 +147,7 @@ def process_gene(
     plotter.pca_components(sol_full, target_variance=0.99)
 
     # Plot ODE model fits
-    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points)
+    plotter.plot_model_fit(seq_model_fit, P_data, R_data, sol_full, num_psites, psite_values, time_points)
 
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
@@ -213,31 +213,31 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis = sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis = sensitivity_analysis(P_data, R_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
-    return {
-        "gene": gene,
-        "labels": labels,
-        "psite_labels": psite_values,
-        "estimated_params": estimated_params,
-        "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit,
-        "observed_data": P_data,
-        "errors": errors,
-        "final_params": final_params,
-        "profiles": profiles_dict,
-        "profiles_df": profiles_df,
-        "param_df": df_params,
-        "gene_psite_data": gene_psite_dict_local,
-        "mse": mse,
-        "mae": mae,
-        "pca_result": pca_result,
-        "ev": ev,
-        "tsne_result": tsne_result,
-        "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
-        "knockout_results": knockout_results
-    }
+    # return {
+    #     "gene": gene,
+    #     "labels": labels,
+    #     "psite_labels": psite_values,
+    #     "estimated_params": estimated_params,
+    #     "model_fits": sol_full,
+    #     "seq_model_fit": seq_model_fit,
+    #     "observed_data": P_data,
+    #     "errors": errors,
+    #     "final_params": final_params,
+    #     "profiles": profiles_dict,
+    #     "profiles_df": profiles_df,
+    #     "param_df": df_params,
+    #     "gene_psite_data": gene_psite_dict_local,
+    #     "mse": mse,
+    #     "mae": mae,
+    #     "pca_result": pca_result,
+    #     "ev": ev,
+    #     "tsne_result": tsne_result,
+    #     "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
+    #     "knockout_results": knockout_results
+    # }
 
 def process_gene_wrapper(gene, measurement_data, mrna_data, time_points, bounds, fixed_params,
                          desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):

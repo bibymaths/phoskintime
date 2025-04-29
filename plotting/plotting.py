@@ -13,7 +13,7 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, TIME_POINTS_RNA
 
 
 class Plotter:
@@ -195,13 +195,14 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
-    def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, sol: np.ndarray,
+    def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
         """
         Plots the model fit for the given data.
 
         :param model_fit: Estimated model fit values.
         :param P_data: Observed data for phosphorylation levels.
+        :param R_data: Observed data for mRNA levels.
         :param sol: ODE solution for mRNA and protein levels.
         :param num_psites: number of phosphorylation sites.
         :param psite_labels: labels for the phosphorylation sites.
@@ -212,11 +213,13 @@ class Plotter:
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
+        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                color='black', alpha=0.7, linewidth=0.75)
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth = 1)
         for i in range(num_psites):
             ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
                     color=self.color_palette[i], linewidth = 0.75)
-            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points[:cutoff_idx], model_fit[i+1, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("FC")
         ax.set_xticks(time_points[:cutoff_idx])
@@ -228,11 +231,13 @@ class Plotter:
         ax.grid(True, alpha=0.05)
         ax = axes[1]
         ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth = 1)
+        ax.plot(TIME_POINTS_RNA[4:], R_data[4:], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                color='black', alpha=0.7, linewidth=0.75)
         ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth = 1)
         for i in range(num_psites):
             ax.plot(time_points, P_data[i, :], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
                     color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth = 0.75)
-            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points, model_fit[i+1, :], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_points[cutoff_idx:])
         ax.set_xticklabels(
@@ -272,7 +277,7 @@ class Plotter:
             ))
             fig_plotly.add_trace(go.Scatter(
                 x=time_points,
-                y=model_fit[i, :],
+                y=model_fit[i+1, :],
                 mode='lines+markers',
                 name=f'P+{psite_labels[i]} (model)',
                 line=dict(color=self.color_palette[i])

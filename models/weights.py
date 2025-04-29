@@ -51,7 +51,7 @@ def early_emphasis(p_data, time_points, num_psites):
             # For later time points, use a fixed weight
             custom_weights[i, j] = 1.0
 
-    return custom_weights.ravel()
+    return np.concatenate(np.ones(9), custom_weights.ravel())
 
 
 def get_protein_weights(
@@ -182,6 +182,9 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
         "early_emphasis": early_weights,
         "uncertainties_from_data": ms_gauss_weights,
     }
+
+    for key in base_weights:
+        base_weights[key] = np.concatenate([np.ones(9), base_weights[key]])
 
     if not USE_CUSTOM_WEIGHTS:
         base_weights = {"uncertainties_from_data": base_weights["uncertainties_from_data"]}
