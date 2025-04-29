@@ -209,7 +209,7 @@ class Plotter:
         :param time_points: time points for the data.
         :return:
         """
-        model_fit = model_fit[14:].reshape(num_psites, 14)
+        model_fit = model_fit[9:].reshape(num_psites, 14)
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
@@ -522,6 +522,7 @@ class Plotter:
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
+            p_fit = p_fit[9:].reshape(num_psites, 14)
             marker = next(marker_cycle)
             # -- Full time range plots
             ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=0.5, marker=marker,
