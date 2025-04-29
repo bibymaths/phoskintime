@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.stats as stats
+
+from config.constants import USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
 
 logger = setup_logger()
@@ -46,7 +48,10 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     mse = rss / df_lin
 
     # Standard errors from scaled covariance matrix.
-    se_lin = np.sqrt(np.diag(pcov * mse))
+    if USE_CUSTOM_WEIGHTS:
+        se_lin = np.sqrt(np.diag(pcov))
+    else:
+        se_lin = np.sqrt(np.diag(pcov*mse))
 
     # t-statistics for each parameter estimate.
     t_stat = beta_hat / se_lin

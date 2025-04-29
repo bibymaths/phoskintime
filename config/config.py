@@ -245,7 +245,7 @@ def score_fit(gene, params, weight, target, prediction,
     weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
 
     # Compute scaled absolute residuals (error per data point).
-    residual = np.abs(target - prediction)
+    residual = np.abs(target - prediction) / target.size
 
     # Compute mean squared error (MSE) from residuals.
     mse = np.sum(residual ** 2)
@@ -260,7 +260,7 @@ def score_fit(gene, params, weight, target, prediction,
     variance = np.var(residual)
 
     # L2 norm of parameters.
-    l2_norm = np.linalg.norm(params, ord=2)
+    l2_norm = np.linalg.norm(params, ord=2) / len(params)
 
     # Calculate weighted total score combining errors
     score = delta * mse + alpha * rmse + beta * mae  + gamma * variance + mu * l2_norm

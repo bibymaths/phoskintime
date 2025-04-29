@@ -88,7 +88,6 @@ def ode_system(y, t, params, num_psites):
     D_rates = np.array([params[4 + num_psites + i] for i in range(num_psites)])
     return ode_core(y, A, B, C, D, S_rates, D_rates)
 
-
 def solve_ode(params, init_cond, num_psites, t):
     """
     Solve the ODE system for the distributive phosphorylation model.

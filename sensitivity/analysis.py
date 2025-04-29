@@ -3,7 +3,7 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE
+from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
 from itertools import combinations
@@ -96,11 +96,13 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
         problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
-    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
+    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
     Y = np.zeros(len(param_values))
 
-    # Initialize list to collect all model_psite trajectories
+    # Initialize list to collect all trajectories
     all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
+    all_mrna_solutions = np.zeros((len(param_values), len(time_points)))
+    all_flat_mRNA= np.zeros((len(param_values), len(time_points)))
 
     # Loop through each parameter set and solve the ODE
     for i, X in enumerate(param_values):
@@ -108,39 +110,58 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
         S_list = rest[:num_psites]
         D_list = rest[num_psites:]
         params = (A, B, C, D, *S_list, *D_list)
-        try:
-            _, model_psite = solve_ode(params, init_cond, num_psites, time_points)
 
-            # Y represents the scalar model output (observable) used
-            # to compute sensitivity to parameter perturbations
-            # Total phosphorylation across all sites
-            # Y[i] = np.sum(model_psite)
-            # # Mean phosphorylation level across sites (normalizes output)
-            # Y[i] = np.mean(model_psite)
-            # # Variance in phosphorylation across sites (captures uneven site behavior)
-            # Y[i] = np.var(model_psite)
-            # # Sum of squared changes between time points (captures dynamic fluctuations)
-            # Y[i] = np.sum(np.diff(model_psite) ** 2)
-            # # Overall magnitude of phosphorylation vector (energy/magnitude interpretation)
-            Y[i] = np.linalg.norm(model_psite)
-            # Collect the phosphorylation trajectory for each parameter set
-            # Stack all collected solutions
-            # (n_samples, n_timepoints, n_sites)
-            all_model_psite_solutions[i] = model_psite.T
+        solution, flat_psite_mRNA = solve_ode(params, init_cond, num_psites, time_points)
 
-        except Exception:
-            Y[i] = np.nan
+        # Y represents the scalar model output (observable) used
+        # to compute sensitivity to parameter perturbations
+        # Total phosphorylation across all sites
+        # Sensitivity metric (pick one):
+
+        # Total signal (recommended default)
+        Y[i] = np.sum(solution)
+
+        # # Mean level of total activity
+        # Y[i] = np.mean(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
+
+        # # Variance across time + sites
+        # Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
+
+        # # Dynamics: squared changes
+        # Y[i] = np.sum(np.diff(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()])) ** 2)
+
+        # # L2 norm (magnitude)
+        # Y[i] = np.linalg.norm(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
+
+        mRNA = solution[:, 0]
+        psite_data = np.vstack(solution[:, 2:2 + num_psites])
+        # Flatten and combine mRNA and psite_data into a 1D array
+        combined = np.hstack([mRNA, psite_data.flatten()])
+        # Stack all collected solutions
+        # (n_samples, n_timepoints, n_sites)
+        all_mrna_solutions[i] = mRNA
+        all_model_psite_solutions[i] = psite_data
+        all_flat_mRNA[i] = flat_psite_mRNA
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}] Sensitivity Analysis completed")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
-                 scaled=True, print_to_console=False)
+                 scaled=True, print_to_console=True)
 
-    # --- Select the closest simulations to the data ---
-    # Compute RMSE between each simulation and the experimental data
-    diff = all_model_psite_solutions - data.T[np.newaxis, :, :]  # shape (n_samples, n_timepoints, n_sites)
-    mse = np.mean(diff ** 2, axis=(1, 2))  # mean over timepoints and sites
-    rmse = np.sqrt(mse)  # RMSE per simulation
+    # --- Select the closest simulations to the data  ---
+    psite_data_ref = data
+    rna_ref = rna_data.reshape(-1)
+
+    # Compute diff from concatenated flat outputs
+    psite_preds = all_model_psite_solutions[:, :, :]
+    rna_preds = all_mrna_solutions[:, -9:]
+
+    rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :])
+    psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :])
+
+    rna_mse = np.mean(rna_diff ** 2, axis=1)
+    psite_mse = np.mean(psite_diff ** 2, axis=(1, 2))
+    rmse = np.sqrt((rna_mse + psite_mse) / 2.0)
 
     # Select the top K-closest simulations
     # About 25% of PARAMETER_SPACE
@@ -151,11 +172,12 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
 
     # Restrict the trajectories to only the closest ones
     best_model_psite_solutions = all_model_psite_solutions[best_idxs]
+    best_mrna_solutions = all_mrna_solutions[best_idxs]
 
     # --- Plot all model_psite solutions ---
     n_sites = best_model_psite_solutions.shape[2]
     # cut-off time point
-    cutoff_idx = 7
+    cutoff_idx = 8
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
     # --- Left plot: Until 9th time point ---
@@ -187,6 +209,34 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             linewidth=0.75,
             mew=0.5, mec='black',
         )
+    for sim_idx in range(best_mrna_solutions.shape[0]):
+        ax.plot(
+            time_points[:cutoff_idx],
+            best_mrna_solutions[sim_idx, :cutoff_idx],
+            marker='s',
+            linestyle='--',
+            color='black',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
+        )
+        mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
+        ax.plot(
+            time_points[:cutoff_idx],
+            mean_curve_mrna,
+            color='black',
+            linewidth=1
+        )
+    ax.plot(
+        TIME_POINTS_RNA[:3],
+        rna_ref[:3],
+        marker='s',
+        linestyle='--',
+        color='black',
+        markersize=5,
+        linewidth=0.75,
+        mew=0.5, mec='black',
+    )
 
     ax.set_xlabel('Time (min)')
     ax.set_xticks(time_points[:cutoff_idx])
@@ -228,11 +278,40 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             linewidth=0.75,
             mew=0.5, mec='black'
         )
+    for sim_idx in range(best_mrna_solutions.shape[0]):
+        ax.plot(
+            time_points[cutoff_idx - 1:],
+            best_mrna_solutions[sim_idx, cutoff_idx - 1:],
+            marker='s',
+            linestyle='--',
+            color='black',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
+        )
+        mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx-1:], axis=0)
+        ax.plot(
+            time_points[cutoff_idx - 1:],
+            mean_curve_mrna,
+            color='black',
+            linewidth=1
+        )
+    ax.plot(
+        TIME_POINTS_RNA[4:],
+        rna_ref[4:],
+        marker='s',
+        linestyle='--',
+        color='black',
+        label='mRNA (R)',
+        markersize=5,
+        linewidth=0.75,
+        mew=0.5, mec='black',
+    )
 
     ax.set_xlabel('Time (min)')
-    ax.set_xticks(time_points[cutoff_idx + 2:])
+    ax.set_xticks(time_points[cutoff_idx:])
     ax.set_xticklabels(
-        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx + 2:]],
+        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
         rotation=45,
         fontsize=6
     )

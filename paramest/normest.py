@@ -71,7 +71,7 @@ def find_best_lambda(
     init_cond: np.ndarray,
     num_psites: int,
     p_data: np.ndarray,
-    lambdas = np.linspace(1e-3, 1, 100),
+    lambdas = np.linspace(1e-3, 1, 10),
     max_workers: int = os.cpu_count(),
 ) -> float:
     """
