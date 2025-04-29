@@ -59,7 +59,7 @@ def worker_find_lambda(
     _, pred = solve_ode(np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
                         init_cond, num_psites, time_points)
 
-    score = score_fit(gene, popt_try, f"lambda_term_{lam}", p_data, pred)
+    score = score_fit(gene, popt_try, f"lambda_term_{lam}", target, pred)
     return lam, score
 
 def find_best_lambda(
@@ -162,7 +162,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
-    target = np.concatenate([r_data, p_data.flatten()])
+    target = np.concatenate([r_data.flatten(), p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
@@ -227,7 +227,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         _,pred = solve_ode(np.exp(popt) if ODE_MODEL == 'randmod' else popt,
                            init_cond, num_psites, time_points)
         # Calculate the score for the fit.
-        scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, p_data, pred)
+        scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, target, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)

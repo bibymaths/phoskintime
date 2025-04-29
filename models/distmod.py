@@ -126,5 +126,4 @@ def solve_ode(params, init_cond, num_psites, t):
     # Extract the phosphorylated sites from the solution
     P_fitted = sol[:, 2:].T
     # Return the solution and the phosphorylated sites
-    return sol, np.concatenate((R_fitted, P_fitted))
-
+    return sol, np.concatenate((R_fitted.flatten(), P_fitted.flatten()))

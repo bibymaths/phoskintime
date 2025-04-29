@@ -209,6 +209,7 @@ class Plotter:
         :param time_points: time points for the data.
         :return:
         """
+        model_fit = model_fit[14:].reshape(num_psites, 14)
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
@@ -219,7 +220,7 @@ class Plotter:
         for i in range(num_psites):
             ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
                     color=self.color_palette[i], linewidth = 0.75)
-            ax.plot(time_points[:cutoff_idx], model_fit[i+1, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("FC")
         ax.set_xticks(time_points[:cutoff_idx])
@@ -237,7 +238,7 @@ class Plotter:
         for i in range(num_psites):
             ax.plot(time_points, P_data[i, :], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
                     color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth = 0.75)
-            ax.plot(time_points, model_fit[i+1, :], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth = 1)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_points[cutoff_idx:])
         ax.set_xticklabels(
@@ -277,7 +278,7 @@ class Plotter:
             ))
             fig_plotly.add_trace(go.Scatter(
                 x=time_points,
-                y=model_fit[i+1, :],
+                y=model_fit[i, :],
                 mode='lines+markers',
                 name=f'P+{psite_labels[i]} (model)',
                 line=dict(color=self.color_palette[i])

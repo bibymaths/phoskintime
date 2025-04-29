@@ -90,7 +90,7 @@ def process_gene(
     psite_values = gene_data['Psite'].values
     init_cond = initial_condition(num_psites)
     P_data = gene_data.iloc[:, 2:].values
-    R_data = gene_data.iloc[:, 1:].values
+    R_data = rna_data.iloc[:, 1:].values
 
     # Choose estimation mode
     estimation_mode = ESTIMATION_MODE
@@ -98,10 +98,9 @@ def process_gene(
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, R_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
-
     # Error Metrics
-    mse = mean_squared_error(np.concatenate(R_data, P_data.flatten()), seq_model_fit.flatten())
-    mae = mean_absolute_error(np.concatenate(R_data, P_data.flatten()), seq_model_fit.flatten())
+    mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
+    mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Adaptive Profile Estimation
@@ -147,7 +146,7 @@ def process_gene(
     plotter.pca_components(sol_full, target_variance=0.99)
 
     # Plot ODE model fits
-    plotter.plot_model_fit(seq_model_fit, P_data, R_data, sol_full, num_psites, psite_values, time_points)
+    plotter.plot_model_fit(seq_model_fit, P_data, R_data.flatten(), sol_full, num_psites, psite_values, time_points)
 
     if ESTIMATION_MODE == "sequential":
         plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)

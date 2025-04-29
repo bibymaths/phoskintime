@@ -21,7 +21,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'distmod'
 # ESTIMATION_MODE: Global constant to choose the estimation strategy.
 # Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
 # which produces a series of parameter estimates over time (one estimate per time point).

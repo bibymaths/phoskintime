@@ -51,8 +51,7 @@ def early_emphasis(p_data, time_points, num_psites):
             # For later time points, use a fixed weight
             custom_weights[i, j] = 1.0
 
-    return np.concatenate(np.ones(9), custom_weights.ravel())
-
+    return np.concatenate((np.ones(9), custom_weights.ravel()))
 
 def get_protein_weights(
     gene,
@@ -136,6 +135,8 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
     :return: dictionary of weights for parameter estimation
     """
     time_indices = np.tile(np.arange(1, len(t_target) + 1), num_psites)
+    time_indices = np.concatenate([np.ones(9), time_indices])
+
     log_scale = np.log1p(np.abs(target))
     sqrt_signal = np.sqrt(np.maximum(np.abs(target), 1e-5))
 
@@ -184,7 +185,8 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
     }
 
     for key in base_weights:
-        base_weights[key] = np.concatenate([np.ones(9), base_weights[key]])
+        # if base_weights[key].shape[0] == target.shape[0]:
+            base_weights[key] = np.concatenate([np.ones(9), base_weights[key]])
 
     if not USE_CUSTOM_WEIGHTS:
         base_weights = {"uncertainties_from_data": base_weights["uncertainties_from_data"]}
