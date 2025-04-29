@@ -97,7 +97,7 @@ def find_best_lambda(
 
     return best_lambda
 
-def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
+def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
     """
     Perform normal parameter estimation using all provided time points at once.
@@ -162,7 +162,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
-    target = p_data.flatten()
+    target = np.concatenate([r_data, p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)

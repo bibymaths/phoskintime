@@ -4,7 +4,7 @@ from paramest.normest import normest
 from paramest.seqest import sequential_estimation
 
 
-def estimate_parameters(mode, gene, p_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps):
+def estimate_parameters(mode, gene, p_data, r_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps):
     """
     Toggle between sequential and normal (all timepoints) estimation.
 
@@ -17,7 +17,8 @@ def estimate_parameters(mode, gene, p_data, init_cond, num_psites, time_points, 
     Args:
         - mode: The estimation mode, either "sequential" or "normal".
         - gene: The gene name.
-        - p_data: Measurement data (DataFrame or numpy array).
+        - p_data: phosphorylation data (DataFrame or numpy array).
+        - r_data: mRNA data (DataFrame or numpy array).
         - init_cond: Initial condition for the ODE solver.
         - num_psites: Number of phosphorylation sites.
         - time_points: Array of time points to use.
@@ -51,7 +52,7 @@ def estimate_parameters(mode, gene, p_data, init_cond, num_psites, time_points, 
 
         # For normal estimation, we use the provided bounds and fixed parameters
         estimated_params, model_fits, errors = normest(
-            gene, p_data, init_cond, num_psites, time_points, bounds, bootstraps
+            gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
         )
 
         # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))

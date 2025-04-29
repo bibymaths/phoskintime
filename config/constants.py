@@ -47,10 +47,11 @@ PARAMETER_SPACE = 100
 ALPHA_CI = 0.99
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
-# These time points capture the dynamics of the system, with finer resolution at early times (0.0 to 16.0 minutes)
-# to account for rapid changes and broader intervals later up to 960.0 minutes.
-TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
-                        16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+# TIME_POINTS_RNA:
+# A numpy array representing the discrete time points (in minutes) for RNA data.
+# These time points are used for RNA data analysis and are different from the MS data time points.
+TIME_POINTS_RNA = np.array([4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 # Whether to normalize model output to match fold change (FC) data
 # ----------------------------------------------------------------
 # Set to True when experimental data is provided in fold change format
@@ -156,6 +157,7 @@ OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'
 OUT_RESULTS_DIR = OUT_DIR / f'{ODE_MODEL}_results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
+INPUT_EXCEL_RNA = DATA_DIR / 'tfopt_results.xlsx'
 LOG_DIR = OUT_DIR / f'{ODE_MODEL}_logs'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)

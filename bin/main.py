@@ -59,18 +59,48 @@ def main():
 
     # Load the data
     data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
+    mrna_data = pd.read_excel(config['input_excel_rna'], sheet_name='Estimated')
 
     # Check if the data is empty
-    if data.empty:
-        logger.error("No data found in the input Excel file.")
+    if mrna_data.empty and data.empty:
+        logger.error("No data found in the input Excel files.")
         return
 
     # Check if the required columns are present: Gene, Psite, x1 - x14
     required_columns = ['Gene', 'Psite'] + [f'x{i}' for i in range(1, 15)]
     missing_columns = [col for col in required_columns if col not in data.columns]
     if missing_columns:
-        logger.error(f"Missing columns in the input data: {', '.join(missing_columns)}")
+        logger.error(f"Missing columns in the phosphorylation data: {', '.join(missing_columns)}")
         return
+
+    # Check if the required columns are present in mRNA data: mRNA, x1 - x9
+    required_mrna_columns = ['mRNA'] + [f'x{i}' for i in range(1, 10)]
+    missing_mrna_columns = [col for col in required_mrna_columns if col not in mrna_data.columns]
+    if missing_mrna_columns:
+        logger.error(f"Missing columns in the mRNA data: {', '.join(missing_mrna_columns)}")
+        return
+
+    # Extract unique values from both datasets
+    proteins = set(data['Gene'].dropna().unique())
+    mrnas = set(mrna_data['mRNA'].dropna().unique())
+
+    # Get sorted common proteins
+    common_proteins = sorted(proteins.intersection(mrnas))
+
+    # Get sorted non-common proteins
+    non_common = sorted(proteins.symmetric_difference(mrnas))
+
+    if not common_proteins:
+        logger.warning("No common proteins found between phosphorylation and mRNA data.")
+    else:
+        logger.info(f"Genes found in phosphorylation data: {len(proteins)}")
+        logger.info(f"{"".join(f"[{gene}]" for gene in proteins)}.")
+        logger.info(f"Genes found in mRNA data: {len(mrnas)}")
+        logger.info(f"{"".join(f"[{rna}]" for rna in mrnas)}.")
+        logger.info(f"Genes found common between phosphorylation and mRNA data: {len(common_proteins)}")
+        logger.info(f"{"".join(f"[{gene}]" for gene in common_proteins)}.")
+        logger.info(f"Genes found NOT common between phosphorylation and mRNA data: {len(non_common)}")
+        logger.info(f"{"".join(f"[{gene}]" for gene in non_common)}.")
 
     if DEV_TEST:
     # Load only gene 'X'
@@ -81,7 +111,7 @@ def main():
             raise ValueError(f"{_test} not found in the input data.")
     else:
         # Load all protein groups
-        genes = data["Gene"].unique().tolist()
+        genes = common_proteins
 
     # Check if the genes are empty
     if not genes:
@@ -95,6 +125,7 @@ def main():
         results = list(executor.map(
             process_gene_wrapper, genes,
             [data] * len(genes),
+            [mrna_data] * len(genes),
             [TIME_POINTS] * len(genes),
             [config['bounds']] * len(genes),
             [config['fixed_params']] * len(genes),

@@ -103,6 +103,10 @@ def solve_ode(params, init_cond, num_psites, t):
     sol = np.asarray(odeint(ode_system, init_cond, t, args=(params, num_psites)))
     # Clip the solution to be non-negative
     np.clip(sol, 0, None, out=sol)
+    # Solve separately at 15.0 minutes
+    sol_15 = np.asarray(odeint(ode_system, init_cond, [15.0], args=(params, num_psites)))
+    # Clip the solution to be non-negative
+    np.clip(sol_15, 0, None, out=sol_15)
     # Normalize the solution if NORMALIZE_MODEL_OUTPUT is True
     if NORMALIZE_MODEL_OUTPUT:
         # Normalize the solution to the initial condition
@@ -111,8 +115,16 @@ def solve_ode(params, init_cond, num_psites, t):
         recip = 1.0 / norm_init
         # Normalize the solution by multiplying by the reciprocal of the norm_init
         sol *= recip[np.newaxis, :]
+        sol_15 *= recip[np.newaxis, :]
+        # Now, replace the 8th value (index 7) with the solution at 15
+        sol[7] = sol_15[0]
+    # Extract the mRNA from the solution
+    R_fitted = sol[5:, 0].T
+    # Now replace the 8th value of R_fitted (index 7 after slicing at 5:)
+    # index 7 corresponds to time points: [4.0, 8.0, (15.0 instead of 16.0), 30.0, ...]
+    R_fitted[2] = sol_15[0, 0]  # 2nd index in R_fitted because 5+2 = 7th original
     # Extract the phosphorylated sites from the solution
     P_fitted = sol[:, 2:].T
     # Return the solution and the phosphorylated sites
-    return sol, P_fitted
+    return sol, np.concatenate((R_fitted, P_fitted))
 

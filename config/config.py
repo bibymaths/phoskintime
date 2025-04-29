@@ -10,7 +10,7 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    INPUT_EXCEL, DEV_TEST, MU_WEIGHT
+    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -131,8 +131,10 @@ def parse_args():
     parser.add_argument("--profile-step", type=float, default=0.5)
     parser.add_argument("--input-excel", type=str,
                         default=INPUT_EXCEL,
-                        help="Path to the input Excel file")
-
+                        help="Path to the estimated optimized phosphorylation-residue file")
+    parser.add_argument("--input-excel-rna", type=str,
+                        default=INPUT_EXCEL_RNA,
+                        help="Path to the estimated optimized mRNA-TF file")
     return parser.parse_args()
 
 def log_config(logger, bounds, fixed_params, time_fixed, args):
@@ -209,6 +211,7 @@ def extract_config(args):
         'profile_end': args.profile_end,
         'profile_step': args.profile_step,
         'input_excel': args.input_excel,
+        'input_excel_rna': args.input_excel_rna,
         'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
     return config
