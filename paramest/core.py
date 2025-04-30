@@ -206,7 +206,6 @@ def process_gene(
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
-    # logger.info(f"Estimated Parameters: {param_path}")
 
     perturbation_analysis = None
     trajectories_w_params = None

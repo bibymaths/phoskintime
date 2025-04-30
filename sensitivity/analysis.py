@@ -72,7 +72,7 @@ def define_sensitivity_problem_ds(num_psites, bounds):
     return problem
 
 
-def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites, psite_labels, init_cond, gene):
+def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num_psites, psite_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
@@ -91,9 +91,9 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
     """
 
     if ODE_MODEL == 'randmod':
-        problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=bounds)
+        problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=optimal_params)
     else:
-        problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=bounds)
+        problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=optimal_params)
 
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
