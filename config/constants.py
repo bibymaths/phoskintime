@@ -21,7 +21,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'distmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -155,7 +155,7 @@ ESTIMATION_MODE = 'normal'
 # If True, the function will apply custom weights to the data points
 # based on their importance or reliability.
 # If False, the function will use weights from uncertainties from data.
-USE_CUSTOM_WEIGHTS = False
+USE_CUSTOM_WEIGHTS = True
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'

@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 from pathlib import Path
+from config.logconf import setup_logger
+logger = setup_logger()
 
 ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
 BASE = Path(__file__).parent                      # …/processing
@@ -120,29 +122,38 @@ def generate_nodes(edge_df):
     ])
 
 if __name__ == "__main__":
+
     # Path to the Excel file of mRNA-TF optimization results
     file_path = ROOT / "data" / "tfopt_results.xlsx"
+
     # Call the function to map optimization results
     mapped_df = map_optimization_results(file_path)
+
     # Save the mapped DataFrame to a CSV file
     mapped_df.to_csv('mapped_TF_mRNA_phospho.csv', index=False)
+
     # Create a Cytoscape-compatible edge table
     edge_table = create_cytoscape_table('mapped_TF_mRNA_phospho.csv')
+
     # Save the edge table to a CSV file
     edge_table.to_csv('mapping_table.csv', index=False)
+
     # Generate nodes for Cytoscape
     nodes_df = generate_nodes(edge_table)
+
     # Save the nodes DataFrame to a CSV file
     nodes_df.to_csv('nodes.csv', index=False)
+
     # Move the files to the data folder
     os.rename('nodes.csv', ROOT / "data" / 'nodes.csv')
     os.rename('mapped_TF_mRNA_phospho.csv', ROOT / "data" / 'mapping.csv')
     os.rename('mapping_table.csv',  ROOT / "data" / 'mapping_.csv')
-    # Show clickable hyperlinks for the generated files
+
+    logger.info(f"Mapping files for merging with ODE results & further use in Cytoscape")
     for fpath in [ROOT / "data" / 'nodes.csv',
                   ROOT / "data" / 'mapping.csv',
                   ROOT / "data" / 'mapping_.csv']:
-        print(f"{fpath.as_uri()}")
+        logger.info(f"{fpath.as_uri()}")
 
 
 # Note: The following comment is an example of how to handle missing data

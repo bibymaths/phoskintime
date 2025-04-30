@@ -41,27 +41,56 @@ def worker_find_lambda(
     tf = np.concatenate([target, np.zeros(len(p0))])
     early_weights = early_emphasis(p_data, time_points, num_psites)
     ms_gauss_weights = get_protein_weights(gene)
-    weight_options = get_weight_options(target, time_points, num_psites,
-                                        USE_REGULARIZATION, len(p0), early_weights, ms_gauss_weights)
 
-    result = (cast
-        (
-        Tuple[np.ndarray, np.ndarray],
-        curve_fit(
-                model_func, time_points, tf,
-                p0=p0, bounds=free_bounds, sigma=weight_options["uncertainties_from_data"], x_scale='jac',
-                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000
-                )
-        )
+    weight_options = get_weight_options(
+        target, time_points, num_psites,
+        use_regularization=True,
+        reg_len=len(p0),
+        early_weights=early_weights,
+        ms_gauss_weights=ms_gauss_weights
+    )
+
+    best_score = float("inf")
+    best_weight_key = None
+
+    for weight_key, sigma in weight_options.items():
+        try:
+            result = cast(Tuple[np.ndarray, np.ndarray], curve_fit(
+                model_func,
+                time_points,
+                tf,
+                p0=p0,
+                bounds=free_bounds,
+                sigma=sigma,
+                x_scale='jac',
+                absolute_sigma=not USE_CUSTOM_WEIGHTS,
+                maxfev=20000
+            ))
+
+            popt_try, _ = result
+
+            _, pred = solve_ode(
+                np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
+                init_cond,
+                num_psites,
+                time_points
             )
 
-    popt_try, _ = result
-    _, pred = solve_ode(np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
-                        init_cond, num_psites, time_points)
+            score = score_fit(gene, popt_try, f"{weight_key}_lambda_{lam}", target, pred)
 
-    score = score_fit(gene, popt_try, f"lambda_term_{lam}", target, pred)
-    return lam, score
- 
+            if score < best_score:
+                best_score = score
+                best_weight_key = weight_key
+
+        except Exception as e:
+            logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
+
+    if best_weight_key:
+        logger.info(f"[{gene}] Best weight: '{best_weight_key}' for lambda={lam:.2g} with score={best_score:.4f}")
+    else:
+        logger.warning(f"[{gene}] All fits failed for lambda={lam:.2g}")
+
+    return lam, best_score
 
 def find_best_lambda(
     gene: str,

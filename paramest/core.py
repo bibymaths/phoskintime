@@ -111,6 +111,7 @@ def process_gene(
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, R_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
     )
+
     # Error Metrics
     mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
