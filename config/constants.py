@@ -28,7 +28,7 @@ ODE_MODEL = 'randmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 1000
+NUM_TRAJECTORIES = 10000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
@@ -59,7 +59,7 @@ TIME_POINTS_RNA = np.array([4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960
 #     FC_model(t) = Y(t) / Y(t0)
 #
 # This ensures the model output is in the same scale and units as the FC data.
-# If False, raw concentrations will be used directly
+# If False, raw FC values will be used directly
 # (only valid if data is also in absolute units).
 # IMPORTANT: Set to True if your time series data represents relative changes.
 NORMALIZE_MODEL_OUTPUT = False
@@ -88,11 +88,6 @@ SENSITIVITY_ANALYSIS = True
 # When set to False, the optimization process will not include this regularization term,
 # which may result in less stable solutions, especially in cases where the data is noisy or sparse.
 USE_REGULARIZATION = True
-# Flag to use custom weights for parameter estimation.
-# If True, the function will apply custom weights to the data points
-# based on their importance or reliability.
-# If False, the function will use weights from uncertainties from data.
-USE_CUSTOM_WEIGHTS = False
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * L2 norm
 #
@@ -156,6 +151,12 @@ ESTIMATION_MODE = 'normal'
 # - DATA_DIR: Directory containing input data files.
 # - INPUT_EXCEL: Full path to the Excel file with optimization results.
 # - LOG_DIR: Directory to store log files.
+# Flag to use custom weights for parameter estimation.
+# If True, the function will apply custom weights to the data points
+# based on their importance or reliability.
+# If False, the function will use weights from uncertainties from data.
+USE_CUSTOM_WEIGHTS = False
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'
 OUT_RESULTS_DIR = OUT_DIR / f'{ODE_MODEL}_results.xlsx'

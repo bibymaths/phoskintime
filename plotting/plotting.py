@@ -625,10 +625,10 @@ class Plotter:
                     line_kws={'color': 'red', 'alpha': 0.5},
                     ci=95
                 )
-                ax.set_xlabel(a, fontsize=10)
-                ax.set_ylabel(b, fontsize=10)
-                ax.tick_params(axis='both', labelsize=8)
-                ax.set_title(f"corr = {score:.2f}", fontsize=10)
+                ax.set_xlabel(a, fontsize=8)
+                ax.set_ylabel(b, fontsize=8)
+                ax.tick_params(axis='both', labelsize=6)
+                ax.set_title(f"Corr = {score:.2f}", fontsize=9)
 
             for ax in axes[top_n:]:
                 ax.axis('off')
@@ -641,8 +641,7 @@ class Plotter:
                 "D1, D2, ... = degradation of phosphorylated protein at 1st, 2nd, ... residue\n"
                 "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue"
             )
-            fig.text(0.5, -0.01, caption, ha='center', fontsize=9)
-
-            plt.suptitle(f"{gene}", fontsize=16, y=1.02)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+            fig.text(0.5, 0.99, caption, ha='center', va='top', fontsize=10)
+            plt.suptitle(f"{gene}", fontsize=10, y=0.965)
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
             self._save_fig(fig, f"{gene}_top_parameter_pairs.png")

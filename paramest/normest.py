@@ -61,6 +61,7 @@ def worker_find_lambda(
 
     score = score_fit(gene, popt_try, f"lambda_term_{lam}", target, pred)
     return lam, score
+ 
 
 def find_best_lambda(
     gene: str,
@@ -105,6 +106,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
 
     Parameters:
       - p_data: Measurement data (DataFrame or numpy array). Assumes data starts at column index 2.
+      - r_data: mRNA data (DataFrame or numpy array). Assumes data starts at column index 1.
       - init_cond: Initial condition for the ODE solver.
       - num_psites: Number of phosphorylation sites.
       - time_points: Array of time points to use.
