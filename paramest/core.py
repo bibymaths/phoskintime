@@ -215,28 +215,28 @@ def process_gene(
         perturbation_analysis = sensitivity_analysis(P_data, R_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
-    # return {
-    #     "gene": gene,
-    #     "labels": labels,
-    #     "psite_labels": psite_values,
-    #     "estimated_params": estimated_params,
-    #     "model_fits": sol_full,
-    #     "seq_model_fit": seq_model_fit,
-    #     "observed_data": P_data,
-    #     "errors": errors,
-    #     "final_params": final_params,
-    #     "profiles": profiles_dict,
-    #     "profiles_df": profiles_df,
-    #     "param_df": df_params,
-    #     "gene_psite_data": gene_psite_dict_local,
-    #     "mse": mse,
-    #     "mae": mae,
-    #     "pca_result": pca_result,
-    #     "ev": ev,
-    #     "tsne_result": tsne_result,
-    #     "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
-    #     "knockout_results": knockout_results
-    # }
+    return {
+        "gene": gene,
+        "labels": labels,
+        "psite_labels": psite_values,
+        "estimated_params": estimated_params,
+        "model_fits": sol_full,
+        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, 14),
+        "observed_data": P_data,
+        "errors": errors,
+        "final_params": final_params,
+        "profiles": profiles_dict,
+        "profiles_df": profiles_df,
+        "param_df": df_params,
+        "gene_psite_data": gene_psite_dict_local,
+        "mse": mse,
+        "mae": mae,
+        "pca_result": pca_result,
+        "ev": ev,
+        "tsne_result": tsne_result,
+        "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
+        "knockout_results": knockout_results
+    }
 
 def process_gene_wrapper(gene, measurement_data, mrna_data, time_points, bounds, fixed_params,
                          desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):

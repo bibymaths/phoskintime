@@ -102,7 +102,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
     # Initialize list to collect all trajectories
     all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
     all_mrna_solutions = np.zeros((len(param_values), len(time_points)))
-    all_flat_mRNA= np.zeros((len(param_values), len(time_points)))
+    all_flat_mRNA= np.zeros((len(param_values), len(TIME_POINTS_RNA)))
 
     # Loop through each parameter set and solve the ODE
     for i, X in enumerate(param_values):
@@ -119,7 +119,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
         # Sensitivity metric (pick one):
 
         # Total signal (recommended default)
-        Y[i] = np.sum(solution)
+        Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
 
         # # Mean level of total activity
         # Y[i] = np.mean(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
@@ -141,12 +141,12 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
         # (n_samples, n_timepoints, n_sites)
         all_mrna_solutions[i] = mRNA
         all_model_psite_solutions[i] = psite_data
-        all_flat_mRNA[i] = flat_psite_mRNA
+        all_flat_mRNA[i] = flat_psite_mRNA[:len(TIME_POINTS_RNA)]
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}] Sensitivity Analysis completed")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
-                 scaled=True, print_to_console=True)
+                 scaled=True, print_to_console=False)
 
     # --- Select the closest simulations to the data  ---
     psite_data_ref = data
@@ -220,13 +220,13 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             linewidth=0.75,
             mew=0.5, mec='black',
         )
-        mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
-        ax.plot(
-            time_points[:cutoff_idx],
-            mean_curve_mrna,
-            color='black',
-            linewidth=1
-        )
+    mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
+    ax.plot(
+        time_points[:cutoff_idx],
+        mean_curve_mrna,
+        color='black',
+        linewidth=1
+    )
     ax.plot(
         TIME_POINTS_RNA[:3],
         rna_ref[:3],
@@ -289,13 +289,13 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
             linewidth=0.75,
             mew=0.5, mec='black',
         )
-        mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx-1:], axis=0)
-        ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve_mrna,
-            color='black',
-            linewidth=1
-        )
+    mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
+    ax.plot(
+        time_points[cutoff_idx - 1:],
+        mean_curve_mrna,
+        color='black',
+        linewidth=1
+    )
     ax.plot(
         TIME_POINTS_RNA[4:],
         rna_ref[4:],

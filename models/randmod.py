@@ -130,14 +130,23 @@ def solve_ode(popt, y0, num_sites, t):
 
     np.clip(sol, 0, None, out=sol)
 
+    sol_15 = np.asarray(odeint(ode_system, init_cond, [15.0], args=(A, B, C, D, num_sites, *rest)))
+
+    np.clip(sol_15, 0, None, out=sol_15)
+
     if NORMALIZE_MODEL_OUTPUT:
         ic = np.array(y0, dtype=sol.dtype)
-        sol *= (1.0/ic)[None, :]
+        sol    *=  (1.0/ic)[None, :]
+        sol_15 *=  (1.0/ic)[None, :]
+        sol[7] = sol_15[0]
 
-    # return full trace + mono‐phospho rows
+    OFFSET = 5
+    R_fitted = sol[OFFSET:, 0].copy()
+    R_fitted[2] = sol_15[0, 0]  # Replace 3rd point (index 2)
+
     if num_sites > 1:
-        mono = sol[:, 2:2 + num_sites].T
+        P_fitted = sol[:, 2:2 + num_sites].T
     else:
-        mono = sol[:, 2].reshape(1, -1)
+        P_fitted = sol[:, 2].reshape(1, -1)
 
-    return sol, mono
+    return sol, np.concatenate((R_fitted, P_fitted.flatten()))
