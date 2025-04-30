@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
+from itertools import combinations
 from adjustText import adjust_text
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
@@ -575,4 +576,102 @@ class Plotter:
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_.png")
 
+    def plot_param_relationships(self, excel_path: str, out_dir: str = OUT_DIR):
+        """
+        For each gene's '_perturbations' sheet in the Excel file,
+        extract parameters and create pairwise scatter plots to
+        visualize relationships between parameters.
 
+        Args:
+            excel_path (str): Path to the Excel file.
+            out_dir (str): Directory to save plots.
+        """
+        xls = pd.ExcelFile(excel_path)
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_perturbations"):
+                continue
+
+            gene = sheet.replace("_perturbations", "")
+            df = pd.read_excel(xls, sheet_name=sheet)
+            df = df.nsmallest(100, "RMSE")
+            param_cols = [col for col in df.columns if isinstance(col, str)
+                          and col not in ["RMSE"] and not col.startswith("(")]
+
+            if len(param_cols) < 2:
+                continue
+
+            df_clean = df[param_cols].dropna().drop_duplicates()
+            if df_clean.empty:
+                continue
+
+            n = len(param_cols)
+            fig, axes = plt.subplots(n - 1, n - 1, figsize=(4 * (n - 1), 4 * (n - 1)))
+
+            for i in range(1, n):
+                for j in range(i):
+                    ax = axes[i - 1, j]
+                    x = df_clean[param_cols[j]]
+                    y = df_clean[param_cols[i]]
+                    ax.scatter(x, y, alpha=0.4, s=10)
+                    ax.set_xlabel(param_cols[j])
+                    ax.set_ylabel(param_cols[i])
+                for k in range(i, n - 1):
+                    axes[i - 1, k].axis('off')
+            plt.suptitle(f"{gene} - Parameter Profiles", y=1.02)
+            plt.tight_layout()
+            self._save_fig(fig, f"{gene}_parameters_pairplot.png")
+
+    def plot_top_param_pairs(self, excel_path: str, top_n: int = 20, out_dir: str = OUT_DIR):
+        """
+        For each gene's '_perturbations' sheet in the Excel file,
+        plot scatter plots for the top N parameter pairs with highest correlation.
+
+        Args:
+            excel_path (str): Path to the Excel file.
+            top_n (int): Number of top parameter pairs to plot.
+            out_dir (str): Directory where plots will be saved.
+        """
+        xls = pd.ExcelFile(excel_path)
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_perturbations"):
+                continue
+
+            gene = sheet.replace("_perturbations", "")
+            df = pd.read_excel(xls, sheet_name=sheet)
+            df = df.nsmallest(100, "RMSE")
+            param_cols = [col for col in df.columns if isinstance(col, str)
+                          and col not in ["RMSE"] and not col.startswith("(")]
+
+            if len(param_cols) < 2:
+                continue
+
+            df_clean = df[param_cols].dropna().drop_duplicates()
+            if df_clean.empty:
+                continue
+
+            corr = df_clean.corr().abs()
+            pairs = list(combinations(corr.columns, 2))
+            pair_scores = [(a, b, corr.loc[a, b]) for a, b in pairs]
+            pair_scores.sort(key=lambda x: x[2], reverse=True)
+            top_pairs = pair_scores[:top_n]
+
+            ncols = 5
+            nrows = (top_n + ncols - 1) // ncols
+            fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 4 * nrows))
+            axes = axes.flatten()
+
+            for i, (a, b, score) in enumerate(top_pairs):
+                ax = axes[i]
+                ax.scatter(df_clean[a], df_clean[b], alpha=0.3, s=10)
+                ax.set_xlabel(a)
+                ax.set_ylabel(b)
+                ax.set_title(f"r={score:.2f}")
+
+            for ax in axes[top_n:]:
+                ax.axis('off')
+
+            plt.suptitle(f"{gene}", fontsize=16, y=1.02)
+            plt.tight_layout()
+            self._save_fig(fig, f"{gene}_top_parameter_pairs.png")

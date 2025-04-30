@@ -142,9 +142,6 @@ def main():
     # Save the results
     save_result(results, excel_filename=OUT_RESULTS_DIR)
 
-    # LateX the results
-    latexit.main(OUT_DIR)
-
     # Merge the observed data and model fits for each gene
     merged_df = merge_obs_est(OUT_RESULTS_DIR)
 
@@ -153,6 +150,13 @@ def main():
 
     # Plot Kullback-Leibler divergence.
     Plotter("", OUT_DIR).plot_kld(merged_df)
+
+    # Plot parameter relationships - profiles
+    Plotter("", OUT_DIR).plot_param_relationships(OUT_RESULTS_DIR)
+    Plotter("", OUT_DIR).plot_top_param_pairs(OUT_RESULTS_DIR)
+
+    # LateX the results
+    latexit.main(OUT_DIR)
 
     # Organize output files and create a report
     organize_output_files(OUT_DIR)

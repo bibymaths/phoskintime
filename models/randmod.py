@@ -130,7 +130,7 @@ def solve_ode(popt, y0, num_sites, t):
 
     np.clip(sol, 0, None, out=sol)
 
-    sol_15 = np.asarray(odeint(ode_system, init_cond, [15.0], args=(A, B, C, D, num_sites, *rest)))
+    sol_15 = np.asarray(odeint(ode_system, y0, [15.0], args=(A, B, C, D, num_sites, *rest)))
 
     np.clip(sol_15, 0, None, out=sol_15)
 
