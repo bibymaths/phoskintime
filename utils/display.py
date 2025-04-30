@@ -278,6 +278,15 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         "<body>",
         f"<h1>{model_type.upper()} Modelling & {ESTIMATION_MODE.upper()} Parameter Estimation Report</h1>"
     ]
+    html_parts += [
+        "<pre style=\"font-size: 0.9em; color: #444; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #ccc;\">",
+        "A = production of mRNA | B = degradation of mRNA | ",
+        "C = production of protein | D = degradation of protein\n",
+        "S1, S2, ... = phosphorylation at 1st, 2nd, ... residue | ",
+        "D1, D2, ... = degradation of phosphorylated protein at 1st, 2nd, ... residue\n",
+        "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue",
+        "</pre>"
+    ]
 
     # For each gene folder, create a section in the report.
     for gene in sorted(gene_folders):

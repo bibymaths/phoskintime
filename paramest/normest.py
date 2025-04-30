@@ -86,7 +86,7 @@ def worker_find_lambda(
             logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
 
     if best_weight_key:
-        logger.info(f"[{gene}] λ = {lam:.3f} |  "
+        logger.info(f"[{gene}] λ = {lam/len(p0):.3f} |  "
                     f"Best Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
                     f"Score = {best_score:.2f}")
     else:

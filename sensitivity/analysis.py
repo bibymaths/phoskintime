@@ -169,9 +169,8 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     # Select the top K-closest simulations
 
-    # Minimum of 25% of PARAMETER_SPACE and 0.5% of NUM_TRAJECTORIES, clamped between 5 and 50
-    # K = min(100, max(5, int(0.05 * NUM_TRAJECTORIES * PARAMETER_SPACE)))
-    K = sum(rmse <= np.percentile(rmse, 10))
+    # Top 5% of the RMSE values
+    K = sum(rmse <= np.percentile(rmse, 5))
 
     # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]

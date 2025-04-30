@@ -1,4 +1,5 @@
 import itertools
+import math
 import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -607,16 +608,9 @@ class Plotter:
             corr = df_clean.corr().abs()
             pairs = list(combinations(corr.columns, 2))
             pair_scores = [(a, b, corr.loc[a, b]) for a, b in pairs]
-            pair_scores.sort(key=lambda x: x[2], reverse=True)
-            top_pairs = pair_scores[:top_n]
 
-            ncols = 5
-            nrows = (top_n + ncols - 1) // ncols
-            fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 4 * nrows))
-            axes = axes.flatten()
-
-            for i, (a, b, score) in enumerate(top_pairs):
-                ax = axes[i]
+            for a, b, score in pair_scores:
+                fig, ax = plt.subplots(figsize=(8, 8))
                 sns.regplot(
                     x=df_clean[a],
                     y=df_clean[b],
@@ -625,22 +619,8 @@ class Plotter:
                     line_kws={'color': 'red', 'alpha': 0.5},
                     ci=95
                 )
-                ax.set_xlabel(a, fontsize=8)
-                ax.set_ylabel(b, fontsize=8)
-                ax.tick_params(axis='both', labelsize=6)
-                ax.set_title(f"Corr = {score:.2f}", fontsize=9)
-
-            for ax in axes[top_n:]:
-                ax.axis('off')
-
-            # Caption or legend for parameter label explanations
-            caption = (
-                "A = production of mRNA | B = degradation of mRNA | "
-                "C = production of protein | D = degradation of protein\n"
-                "S1, S2, ... = phosphorylation at 1st, 2nd, ... residue | "
-                "D1, D2, ... = degradation of phosphorylated protein at 1st, 2nd, ... residue\n"
-                "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue"
-            )
-            fig.text(0.5, 0.99, caption, ha='center', va='top', fontsize=10)
-            plt.tight_layout(rect=[0, 0, 1, 0.95])
-            self._save_fig(fig, f"{gene}_top_parameter_pairs.png")
+                ax.set_xlabel(a, fontsize=10)
+                ax.set_ylabel(b, fontsize=10)
+                ax.set_title(f"{gene}: {a} vs {b}\nCorrelation = {score:.2f}", fontsize=11)
+                plt.tight_layout()
+                self._save_fig(fig, f"{gene}_{a}_vs_{b}.png")

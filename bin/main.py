@@ -94,13 +94,13 @@ def main():
         logger.warning("No common proteins found between phosphorylation and mRNA data.")
     else:
         logger.info(f"Genes found in phosphorylation data: {len(proteins)}")
-        logger.info(f"{"".join(f"[{gene}]" for gene in proteins)}.")
+        logger.info("  " + " ".join(f"[{gene}]" for gene in proteins))
         logger.info(f"Genes found in mRNA data: {len(mrnas)}")
-        logger.info(f"{"".join(f"[{rna}]" for rna in mrnas)}.")
+        logger.info("  " + " ".join(f"[{rna}]" for rna in mrnas))
         logger.info(f"Genes found common between phosphorylation and mRNA data: {len(common_proteins)}")
-        logger.info(f"{"".join(f"[{gene}]" for gene in common_proteins)}.")
-        logger.info(f"Genes found NOT common between phosphorylation and mRNA data: {len(non_common)}")
-        logger.info(f"{"".join(f"[{gene}]" for gene in non_common)}.")
+        logger.info("  " + " ".join(f"[{gene}]" for gene in common_proteins))
+        logger.info(f"Genes NOT found in both datasets: {len(non_common)}")
+        logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
 
     if DEV_TEST:
     # Load only gene 'X'
