@@ -204,6 +204,7 @@ def save_result(results, excel_filename):
                 sol_expanded = pd.DataFrame(sol_flat, columns=multi_columns)
                 combined_df = pd.concat([params_expanded, sol_expanded], axis=1)
                 combined_df["RMSE"] = pert_df["rmse"]
+                combined_df = combined_df.sort_values(by="RMSE").reset_index(drop=True)
                 combined_df.to_excel(writer, sheet_name=f"{sheet_prefix}_perturbations", index=False)
 
 

@@ -161,7 +161,7 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
 
     # Compute diff from concatenated flat outputs
     psite_preds = all_model_psite_solutions[:, :, :]
-    rna_preds = all_mrna_solutions[:, -9:]
+    rna_preds = all_mrna_solutions[:, -len(TIME_POINTS_RNA):]
 
     rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :])/rna_ref.size
     psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :])/psite_data_ref.size
