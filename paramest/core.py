@@ -209,6 +209,7 @@ def process_gene(
     # logger.info(f"Estimated Parameters: {param_path}")
 
     perturbation_analysis = None
+    trajectories_w_params = None
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values

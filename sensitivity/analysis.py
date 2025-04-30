@@ -163,8 +163,8 @@ def _sensitivity_analysis(data, rna_data, popt, bounds, time_points, num_psites,
     psite_preds = all_model_psite_solutions[:, :, :]
     rna_preds = all_mrna_solutions[:, -9:]
 
-    rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :])
-    psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :])
+    rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :])/rna_ref.size
+    psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :])/psite_data_ref.size
 
     rna_mse = np.mean(rna_diff ** 2, axis=1)
     psite_mse = np.mean(psite_diff ** 2, axis=(1, 2))

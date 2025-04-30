@@ -184,7 +184,28 @@ def save_result(results, excel_filename):
                 sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=False)
 
             # 12. Save Perturbation Results
-            if res
+            if res["perturbation_curves_params"] is not None:
+                pert_data = res["perturbation_curves_params"]
+                if isinstance(pert_data, pd.DataFrame):
+                    pert_df = pert_data.copy()
+                else:
+                    pert_df = pd.DataFrame(pert_data)
+                param_names = sens_df['names'].tolist()
+                params_expanded = pd.DataFrame(pert_df["params"].tolist(), columns=param_names)
+                sol_array = np.array(pert_df["solution"].tolist())
+                n_time, n_states = sol_array.shape[1], sol_array.shape[2]
+                time_labels = list(TIME_POINTS) * n_states
+                state_labels_repeated = [label for label in state_labels for _ in TIME_POINTS]
+                multi_columns = pd.MultiIndex.from_arrays(
+                    [time_labels, state_labels_repeated],
+                    names=["Time(min)", "State"]
+                )
+                sol_flat = sol_array.reshape(len(pert_df), -1)
+                sol_expanded = pd.DataFrame(sol_flat, columns=multi_columns)
+                combined_df = pd.concat([params_expanded, sol_expanded], axis=1)
+                combined_df["RMSE"] = pert_df["rmse"]
+                combined_df.to_excel(writer, sheet_name=f"{sheet_prefix}_perturbations", index=False)
+
 
 def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
     """
