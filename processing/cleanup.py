@@ -4,6 +4,9 @@ import numpy as np
 import mygene, os, concurrent.futures
 from tqdm import tqdm
 from pathlib import Path
+from config.logconf import setup_logger
+logger = setup_logger()
+
 ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
 BASE = Path(__file__).parent                      # …/processing
 
@@ -48,7 +51,7 @@ def process_collecttri():
     # Copy the input2.csv file to the current directory using shutil
     shutil.copy(os.path.join(base_dir, "input2.csv"), "input2.csv")
 
-    print("Saved TF-mRNA interactions to input4.csv")
+    logger.info("Saved TF-mRNA interactions to input4.csv")
 
 def format_site(site):
     """
@@ -126,7 +129,7 @@ def process_msgauss():
     # Save the filtered time series to input1.csv
     kinopt_df.to_csv("input1.csv", index=False)
 
-    print("Saved MS Gaussian (predict_mean) time series to input1.csv")
+    logger.info("Saved MS Gaussian (predict_mean) time series to input1.csv")
 
 
 def process_msgauss_std():
@@ -187,7 +190,7 @@ def process_msgauss_std():
     # Save to input1_wstd.csv
     result.to_csv("input1_wstd.csv", index=False)
 
-    print("Saved MS Gaussian time-series with standard deviations to input1_wstd.csv")
+    logger.info("Saved MS Gaussian time-series with standard deviations to input1_wstd.csv")
 
 def process_routlimma():
     """
@@ -239,7 +242,7 @@ def process_routlimma():
     # Save the resulting time series to input3.csv
     df_new.to_csv("input3.csv", index=False)
 
-    print("Saved Rout Limma time series - mRNA to input3.csv")
+    logger.info("Saved Rout Limma time series - mRNA to input3.csv")
 
 def update_gene_symbols(filename):
     """
@@ -263,7 +266,7 @@ def update_gene_symbols(filename):
         - A message confirming the update of gene symbols in the file.
     """
     df = pd.read_csv(filename)
-    df['GeneID'] = df['GeneID'].astype(str)
+    df['GeneID'] = df['GeneID']
     unique_gene_ids = list(df["GeneID"].unique())
 
     # Initialize MyGeneInfo client and query in bulk.
@@ -299,7 +302,7 @@ def update_gene_symbols(filename):
 
     df["GeneID"] = results
     df.to_csv(filename, index=False)
-    print(f"Updated gene symbols in {filename}")
+    logger.info(f"Updated gene symbols in {filename}")
 
 def move_processed_files():
     """
@@ -345,23 +348,34 @@ def move_processed_files():
         "input4.csv"
     ]
 
-    # Track files already moved so we copy them next time
-    moved_files = set()
+    copied_files = set()
 
-    # Move or copy files to their respective directories
-    for file_list, target_dir in [(kinopt_files, kin_data_dir), (tfopt_files, tf_data_dir)]:
-        for f in file_list:
-            if os.path.exists(f):
-                target_path = os.path.join(target_dir, f)
-                if f in moved_files:
-                    shutil.copy(target_path, os.path.join(target_dir, f))
-                    print(f"Copied {f} to {target_dir}")
-                else:
-                    shutil.move(f, target_path)
-                    moved_files.add(f)
-                    print(f"Moved {f} to {target_dir}")
-            else:
-                print(f"{f} does not exist in the current directory or has already been moved.")
+    for f in kinopt_files:
+        src = BASE / f
+        dst = kin_data_dir / f
+        if src.exists():
+            shutil.copy(src, dst)
+            copied_files.add(f)
+            logger.info(f"Copied {f} to {kin_data_dir}")
+        else:
+            logger.info(f"{f} not found for kinopt.")
+
+    for f in tfopt_files:
+        src = BASE / f
+        dst = tf_data_dir / f
+        if src.exists():
+            shutil.copy(src, dst)
+            copied_files.add(f)
+            logger.info(f"Copied {f} to {tf_data_dir}")
+        else:
+            logger.info(f"{f} not found for tfopt.")
+
+    # Remove only the files that were successfully copied
+    for f in copied_files:
+        src = BASE / f
+        if src.exists():
+            os.remove(src)
+            logger.info(f"Removed {f} from {BASE}")
 
 
 if __name__ == "__main__":
@@ -396,19 +410,26 @@ if __name__ == "__main__":
     move_processed_files()
 
     # 7. Print clickable hyperlinks for key output files
-    output_files = [
+    kinopt_outputs = [
         ROOT / "kinopt" / "data" / "input1.csv",
-        ROOT / "kinopt" / "data" / "input2.csv",
-        ROOT / "tfopt" / "data" / "input3.csv",
-        ROOT / "tfopt" / "data" / "input4.csv",
-        ROOT / "tfopt" / "data" / "input1.csv",  # reused in TFopt
-        ROOT / "tfopt" / "data" / "input1_wstd.csv"
+        ROOT / "kinopt" / "data" / "input2.csv"
     ]
 
-    for fpath in output_files:
-        if fpath.exists():
-            print(f"{fpath.as_uri()}")
+    tfopt_outputs = [
+        ROOT / "tfopt" / "data" / "input1.csv",
+        ROOT / "tfopt" / "data" / "input3.csv",
+        ROOT / "tfopt" / "data" / "input4.csv"
+    ]
 
+    logger.info("\n[KinOpt Output Files]")
+    for fpath in kinopt_outputs:
+        if fpath.exists():
+            logger.info(f"  {fpath.as_uri()}")
+
+    logger.info("[TFOpt Output Files]")
+    for fpath in tfopt_outputs:
+        if fpath.exists():
+            logger.info(f"  {fpath.as_uri()}")
 
 """ 
 These IDs, cannot be converted to Symbols in MS Gaussian:
