@@ -15,7 +15,8 @@ The config module is composed of several submodules:
     - `ESTIMATION_MODE`: Chooses the parameter estimation strategy ("sequential" or "normal").
     - A mapping (`model_names`) that converts internal model identifiers to human-readable names (stored in `model_type`).
   - **Time Points and Directories:**  
-    - `TIME_POINTS`: A NumPy array of experimental time points (in minutes) for data fitting.
+    - `TIME_POINTS`: A NumPy array of time points for phosphorylation. 
+    - `TIME_POINTS_RNA`: A NumPy array of time points for mRNA measurements.
     - Directory paths such as `PROJECT_ROOT`, `OUT_DIR`, `DATA_DIR`, `INPUT_EXCEL`, and `LOG_DIR`.
   - **Plotting and Regularization Settings:**  
     - `COLOR_PALETTE`: A list of colors for plotting.
@@ -55,7 +56,7 @@ The logger configured in `logconf.py` is used to log progress, warnings, and err
 ## Customization
 
 - **Model & Estimation Settings:**  
-  Adjust `ODE_MODEL` and `ESTIMATION_MODE` in `constants.py` to select different modeling strategies and parameter estimation routines.
+  Adjust `ODE_MODEL` in `constants.py` to select different modeling strategies and parameter estimation routines.
 
 - **Parameter Bounds and Fixed Values:**  
   These can be set via command-line arguments or within the configuration file. Custom parsers ensure values are correctly converted (e.g., converting "inf" to Python’s infinity).
