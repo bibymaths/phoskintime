@@ -2,77 +2,70 @@ import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from matplotlib import pyplot as plt
-from matplotlib.ticker import MaxNLocator
-from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA
+from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, \
+    PERTURBATIONS_VALUE
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
-from itertools import combinations
 from config.logconf import setup_logger
 
 logger = setup_logger()
 
 
-def define_sensitivity_problem_rand(num_psites, bounds):
+def compute_bound(value, perturbation=PERTURBATIONS_VALUE):
+    """
+    Computes the lower and upper bounds for a given parameter value.
+    The bounds are computed as a percentage of the parameter value,
+    with a specified perturbation value.
+    The lower bound is capped at 0.0 to avoid negative values.
+    The function returns a list containing the lower and upper bounds.
+    :param perturbation: Fractional perturbation around the parameter value.
+    :param value: The parameter value for which to compute the bounds.
+    :return: A list containing the lower and upper bounds.
+    """
+    if abs(value) < 1e-6:
+        return [0.0, 0.1]  # fallback for near-zero
+    lb = value * (1 - perturbation)
+    ub = value * (1 + perturbation)
+    return [max(0.0, lb), ub]
+
+
+def define_sensitivity_problem_rand(num_psites, values):
     """
     Defines the Morris sensitivity analysis problem for the random model.
     """
     num_vars = get_number_of_params_rand(num_psites)
     param_names = get_param_names_rand(num_psites)
 
-    _bounds = [
-                  list(bounds['A']),  # A
-                  list(bounds['B']),  # B
-                  list(bounds['C']),  # C
-                  list(bounds['D']),  # D
-              ] + [list(bounds['Ssite'])] * num_psites  # Ssite bounds
+    assert len(values) == num_vars, "Length mismatch with values"
 
-    # Additional bounds for random phosphorylation site combinations
-    for i in range(1, num_psites + 1):
-        for _ in combinations(range(1, num_psites + 1), i):
-            # Dsite bounds for each combination
-            _bounds.append(list(bounds['Dsite']))
+    _bounds = [compute_bound(v) for v in values]
 
-    problem = {
+    return {
         'num_vars': num_vars,
         'names': param_names,
         'bounds': _bounds
     }
-    return problem
 
-
-def define_sensitivity_problem_ds(num_psites, bounds):
+def define_sensitivity_problem_ds(num_psites, values):
     """
-    Defines the Morris sensitivity analysis problem for a dynamic number of parameters.
-
-    Args:
-        num_psites (int): Number of phosphorylation sites.
-        ub (float): Upper bound for the parameters.
-
-    Returns:
-        dict: Problem definition for sensitivity analysis.
+    Defines the Morris sensitivity analysis problem for the dynamic-site model.
     """
-    num_vars = 4 + 2 * num_psites  # A, B, C, D, and S1, S2, ..., Sn, D1, D2, ..., Dn
+    num_vars = 4 + 2 * num_psites
     param_names = ['A', 'B', 'C', 'D'] + \
                   [f'S{i + 1}' for i in range(num_psites)] + \
                   [f'D{i + 1}' for i in range(num_psites)]
-    _bounds = ([
-                   list(bounds['A']),  # A
-                   list(bounds['B']),  # B
-                   list(bounds['C']),  # C
-                   list(bounds['D']),  # D
-               ] +
-               [list(bounds['Ssite'])] * num_psites
-               +
-               [list(bounds['Dsite'])] * num_psites)
-    problem = {
+
+    assert len(values) == num_vars, "Length mismatch with values"
+
+    _bounds = [compute_bound(v) for v in values]
+
+    return {
         'num_vars': num_vars,
         'names': param_names,
         'bounds': _bounds
     }
-    return problem
 
-
-def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num_psites, psite_labels, init_cond, gene):
+def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
@@ -91,9 +84,9 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
     """
 
     if ODE_MODEL == 'randmod':
-        problem = define_sensitivity_problem_rand(num_psites=num_psites, bounds=optimal_params)
+        problem = define_sensitivity_problem_rand(num_psites=num_psites, values=popt)
     else:
-        problem = define_sensitivity_problem_ds(num_psites=num_psites, bounds=optimal_params)
+        problem = define_sensitivity_problem_ds(num_psites=num_psites, values=popt)
 
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
@@ -176,9 +169,12 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
 
     # Select the top K-closest simulations
     # About 25% of PARAMETER_SPACE
-    # K = max(5, int(PARAMETER_SPACE * 0.25))
+    K = max(5, int(PARAMETER_SPACE * 0.5))
+
     # Minimum of 25% of PARAMETER_SPACE and 0.5% of NUM_TRAJECTORIES, clamped between 5 and 50
-    K = min(50, max(5, min(int(PARAMETER_SPACE * 0.25), int(NUM_TRAJECTORIES * 0.01))))
+    # K = min(50, max(5, min(int(PARAMETER_SPACE * 0.25), int(NUM_TRAJECTORIES * 0.01))))
+
+    # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]
 
     # Restrict the trajectories to only the closest ones
@@ -200,7 +196,7 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
                 time_points[:cutoff_idx],
                 best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                 color=color,
-                alpha=0.1,
+                alpha=0.01,
                 linewidth=0.5
             )
         mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
@@ -225,7 +221,7 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
             time_points[:cutoff_idx],
             best_mrna_solutions[sim_idx, :cutoff_idx],
             color='black',
-            alpha=0.1,
+            alpha=0.01,
             linewidth=0.5
         )
     mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
@@ -265,7 +261,7 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
                 time_points[cutoff_idx - 1:],
                 best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
                 color=color,
-                alpha=0.1,
+                alpha=0.01,
                 linewidth=0.5
             )
         mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
@@ -291,7 +287,7 @@ def _sensitivity_analysis(data, rna_data, popt, optimal_params, time_points, num
             time_points[cutoff_idx - 1:],
             best_mrna_solutions[sim_idx, cutoff_idx - 1:],
             color='black',
-            alpha=0.1,
+            alpha=0.01,
             linewidth=0.5
         )
     mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)

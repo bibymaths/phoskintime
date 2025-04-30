@@ -576,53 +576,7 @@ class Plotter:
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_.png")
 
-    def plot_param_relationships(self, excel_path: str, out_dir: str = OUT_DIR):
-        """
-        For each gene's '_perturbations' sheet in the Excel file,
-        extract parameters and create pairwise scatter plots to
-        visualize relationships between parameters.
-
-        Args:
-            excel_path (str): Path to the Excel file.
-            out_dir (str): Directory to save plots.
-        """
-        xls = pd.ExcelFile(excel_path)
-
-        for sheet in xls.sheet_names:
-            if not sheet.endswith("_perturbations"):
-                continue
-
-            gene = sheet.replace("_perturbations", "")
-            df = pd.read_excel(xls, sheet_name=sheet)
-            df = df.nsmallest(100, "RMSE")
-            param_cols = [col for col in df.columns if isinstance(col, str)
-                          and col not in ["RMSE"] and not col.startswith("(")]
-
-            if len(param_cols) < 2:
-                continue
-
-            df_clean = df[param_cols].dropna().drop_duplicates()
-            if df_clean.empty:
-                continue
-
-            n = len(param_cols)
-            fig, axes = plt.subplots(n - 1, n - 1, figsize=(4 * (n - 1), 4 * (n - 1)))
-
-            for i in range(1, n):
-                for j in range(i):
-                    ax = axes[i - 1, j]
-                    x = df_clean[param_cols[j]]
-                    y = df_clean[param_cols[i]]
-                    ax.scatter(x, y, alpha=0.4, s=10)
-                    ax.set_xlabel(param_cols[j])
-                    ax.set_ylabel(param_cols[i])
-                for k in range(i, n - 1):
-                    axes[i - 1, k].axis('off')
-            plt.suptitle(f"{gene} - Parameter Profiles", y=1.02)
-            plt.tight_layout()
-            self._save_fig(fig, f"{gene}_parameters_pairplot.png")
-
-    def plot_top_param_pairs(self, excel_path: str, top_n: int = 20, out_dir: str = OUT_DIR):
+    def plot_top_param_pairs(self, excel_path: str, top_n: int = 20):
         """
         For each gene's '_perturbations' sheet in the Excel file,
         plot scatter plots for the top N parameter pairs with highest correlation.
@@ -630,7 +584,6 @@ class Plotter:
         Args:
             excel_path (str): Path to the Excel file.
             top_n (int): Number of top parameter pairs to plot.
-            out_dir (str): Directory where plots will be saved.
         """
         xls = pd.ExcelFile(excel_path)
 
@@ -640,7 +593,7 @@ class Plotter:
 
             gene = sheet.replace("_perturbations", "")
             df = pd.read_excel(xls, sheet_name=sheet)
-            df = df.nsmallest(100, "RMSE")
+            df = df.nsmallest(50, "RMSE")
             param_cols = [col for col in df.columns if isinstance(col, str)
                           and col not in ["RMSE"] and not col.startswith("(")]
 
@@ -664,14 +617,32 @@ class Plotter:
 
             for i, (a, b, score) in enumerate(top_pairs):
                 ax = axes[i]
-                ax.scatter(df_clean[a], df_clean[b], alpha=0.3, s=10)
-                ax.set_xlabel(a)
-                ax.set_ylabel(b)
-                ax.set_title(f"r={score:.2f}")
+                sns.regplot(
+                    x=df_clean[a],
+                    y=df_clean[b],
+                    ax=ax,
+                    scatter_kws={'alpha': 0.7, 's': 10},
+                    line_kws={'color': 'red', 'alpha': 0.5},
+                    ci=95
+                )
+                ax.set_xlabel(a, fontsize=10)
+                ax.set_ylabel(b, fontsize=10)
+                ax.tick_params(axis='both', labelsize=8)
+                ax.set_title(f"corr = {score:.2f}", fontsize=10)
 
             for ax in axes[top_n:]:
                 ax.axis('off')
 
+            # Caption or legend for parameter label explanations
+            caption = (
+                "A = production of mRNA | B = degradation of mRNA | "
+                "C = production of protein | D = degradation of protein\n"
+                "S1, S2, ... = phosphorylation at 1st, 2nd, ... residue | "
+                "D1, D2, ... = degradation of phosphorylated protein at 1st, 2nd, ... residue\n"
+                "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue"
+            )
+            fig.text(0.5, -0.01, caption, ha='center', fontsize=9)
+
             plt.suptitle(f"{gene}", fontsize=16, y=1.02)
-            plt.tight_layout()
+            plt.tight_layout(rect=[0, 0.03, 1, 0.97])
             self._save_fig(fig, f"{gene}_top_parameter_pairs.png")

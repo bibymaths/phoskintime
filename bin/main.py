@@ -58,17 +58,17 @@ def main():
     ensure_output_directory(OUT_DIR)
 
     # Load the data
-    data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
+    kinase_data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
     mrna_data = pd.read_excel(config['input_excel_rna'], sheet_name='Estimated')
 
     # Check if the data is empty
-    if mrna_data.empty and data.empty:
+    if mrna_data.empty and kinase_data.empty:
         logger.error("No data found in the input Excel files.")
         return
 
     # Check if the required columns are present: Gene, Psite, x1 - x14
     required_columns = ['Gene', 'Psite'] + [f'x{i}' for i in range(1, 15)]
-    missing_columns = [col for col in required_columns if col not in data.columns]
+    missing_columns = [col for col in required_columns if col not in kinase_data.columns]
     if missing_columns:
         logger.error(f"Missing columns in the phosphorylation data: {', '.join(missing_columns)}")
         return
@@ -81,7 +81,7 @@ def main():
         return
 
     # Extract unique values from both datasets
-    proteins = set(data['Gene'].dropna().unique())
+    proteins = set(kinase_data['Gene'].dropna().unique())
     mrnas = set(mrna_data['mRNA'].dropna().unique())
 
     # Get sorted common proteins
@@ -105,8 +105,8 @@ def main():
     if DEV_TEST:
     # Load only gene 'X'
         _test = "ABL2"
-        if _test in data["Gene"].values:
-            genes = data[data["Gene"] == _test]["Gene"].unique().tolist()
+        if _test in kinase_data["Gene"].values:
+            genes = kinase_data[kinase_data["Gene"] == _test]["Gene"].unique().tolist()
         else:
             raise ValueError(f"{_test} not found in the input data.")
     else:
@@ -124,7 +124,7 @@ def main():
     with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:
         results = list(executor.map(
             process_gene_wrapper, genes,
-            [data] * len(genes),
+            [kinase_data] * len(genes),
             [mrna_data] * len(genes),
             [TIME_POINTS] * len(genes),
             [config['bounds']] * len(genes),
@@ -152,7 +152,6 @@ def main():
     Plotter("", OUT_DIR).plot_kld(merged_df)
 
     # Plot parameter relationships - profiles
-    Plotter("", OUT_DIR).plot_param_relationships(OUT_RESULTS_DIR)
     Plotter("", OUT_DIR).plot_top_param_pairs(OUT_RESULTS_DIR)
 
     # LateX the results

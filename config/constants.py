@@ -22,12 +22,6 @@ DEV_TEST = True
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
 ODE_MODEL = 'randmod'
-# ESTIMATION_MODE: Global constant to choose the estimation strategy.
-# Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
-# which produces a series of parameter estimates over time (one estimate per time point).
-# Set to "normal" to perform fitting using all-time points at once (normal estimation),
-# yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'normal'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -41,10 +35,14 @@ NUM_TRAJECTORIES = 1000
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
 PARAMETER_SPACE = 400
+# Fractional range around each parameter value for sensitivity analysis bounds.
+# Lower bound = value * (1 - PERTURBATIONS_VALUE)
+# Upper bound = value * (1 + PERTURBATIONS_VALUE)
+PERTURBATIONS_VALUE = 0.1  # 10% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
-ALPHA_CI = 0.99
+ALPHA_CI = 0.95
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
 TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
@@ -145,6 +143,12 @@ model_names = {
     "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
+# ESTIMATION_MODE: Global constant to choose the estimation strategy.
+# Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
+# which produces a series of parameter estimates over time (one estimate per time point).
+# Set to "normal" to perform fitting using all-time points at once (normal estimation),
+# yielding a single set of parameter estimates that best describes the entire time course.
+ESTIMATION_MODE = 'normal'
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.
