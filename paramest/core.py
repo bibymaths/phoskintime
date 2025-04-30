@@ -5,10 +5,9 @@ import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from knockout import apply_knockout, generate_knockout_combinations
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
+from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
-from paramest.adapest import estimate_profiles
 from sensitivity import sensitivity_analysis
 from models import solve_ode
 from steady import initial_condition
@@ -104,14 +103,11 @@ def process_gene(
     # Get the FC value for TIME_POINTS_RNA
     R_data = rna_data.iloc[:, 1:].values
 
-    # Choose estimation mode
-    estimation_mode = ESTIMATION_MODE
-
     logger.info(f"[{gene}] Fitting to data...")
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
-        estimation_mode, gene, P_data, R_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
+        gene, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # Error Metrics
@@ -119,19 +115,6 @@ def process_gene(
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
 
     logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
-
-    # Adaptive Profile Estimation
-    profiles_df, profiles_dict = None, None
-    if desired_times is not None and time_fixed is not None:
-        profiles_df, profiles_dict = estimate_profiles(
-            gene, kinase_data, init_cond, num_psites,
-            time_points, desired_times, bounds, fixed_params,
-            bootstraps, time_fixed
-        )
-        # Save profile Excel
-        profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
-        profiles_df.to_excel(profile_path, index=False)
-        # logger.info(f"Profiled Estimates: {profile_path}")
 
     # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
@@ -167,12 +150,6 @@ def process_gene(
 
     # Plot ODE model fits
     plotter.plot_model_fit(seq_model_fit, P_data, R_data.flatten(), sol_full, num_psites, psite_values, time_points)
-
-    if ESTIMATION_MODE == "sequential":
-        # Plot sequential estimation series
-        plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
-        # Plot sequential estimation scatter - pair plot
-        plotter.plot_param_scatter(estimated_params, len(psite_values), time_points)
 
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
@@ -223,7 +200,7 @@ def process_gene(
         # Plot the knockout results
         plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
-    # Save Sequential Parameters
+    # Save Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
@@ -247,8 +224,6 @@ def process_gene(
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
-        "profiles": profiles_dict,
-        "profiles_df": profiles_df,
         "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,

@@ -122,10 +122,6 @@ MU_WEIGHT = 1.0
 # INTERNAL CONSTANTS
 # These constants are used internally within the module and are not intended to be modified by users.
 ########################################################################################################################
-# DEPRECATED in normest.py
-# IGNORE THIS
-# L2 regularization - added term in the cost function.
-LAMBDA_REG = 0.1
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #
@@ -143,12 +139,7 @@ model_names = {
     "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
-# ESTIMATION_MODE: Global constant to choose the estimation strategy.
-# Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
-# which produces a series of parameter estimates over time (one estimate per time point).
-# Set to "normal" to perform fitting using all-time points at once (normal estimation),
-# yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'normal'
+
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.

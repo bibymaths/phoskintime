@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
-from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE, DEV_TEST
+from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
@@ -15,8 +15,8 @@ from utils.display import ensure_output_directory, save_result, organize_output_
 logger = setup_logger()
 
 # Check if OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, ESTIMATION_MODE are defined
-if OUT_DIR is None or TIME_POINTS is None or OUT_RESULTS_DIR is None or ESTIMATION_MODE is None:
-    logger.error("Output directory, time points, or estimation mode not defined. Exiting.")
+if OUT_DIR is None or TIME_POINTS is None or OUT_RESULTS_DIR is None:
+    logger.error("Output directory, time points, not defined. Exiting.")
     exit(1)
 
 # Parse command line arguments and extract configuration
@@ -51,7 +51,6 @@ def main():
     """
     # Set up the logger
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
-    logger.info(f"Estimation Mode: {ESTIMATION_MODE.upper()}")
     log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
 
     # Make output directory

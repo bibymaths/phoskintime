@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE, ODE_MODEL
+from config.constants import TIME_POINTS, model_type, ODE_MODEL
 
 
 def ensure_output_directory(directory):
@@ -276,7 +276,7 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         "</style>",
         "</head>",
         "<body>",
-        f"<h1>{model_type.upper()} Modelling & {ESTIMATION_MODE.upper()} Parameter Estimation Report</h1>"
+        f"<h1>{model_type.upper()} Modelling & Parameter Estimation Report</h1>"
     ]
     html_parts += [
         "<pre style=\"font-size: 0.9em; color: #444; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #ccc;\">",

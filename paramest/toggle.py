@@ -1,21 +1,16 @@
-import numpy as np
 
 from paramest.normest import normest
-from paramest.seqest import sequential_estimation
 
-
-def estimate_parameters(mode, gene, p_data, r_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps):
+def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):
     """
-    Toggle between sequential and normal (all timepoints) estimation.
 
     This function allows for the selection of the estimation mode
     and handles the parameter estimation process accordingly.
 
-    It uses the sequential estimation method for "sequential" mode
+    It uses the sequential estimation method for "sequential" mode (deprecated)
     and the normal estimation method for "normal" mode.
 
     Args:
-        - mode: The estimation mode, either "sequential" or "normal".
         - gene: The gene name.
         - p_data: phosphorylation data (DataFrame or numpy array).
         - r_data: mRNA data (DataFrame or numpy array).
@@ -32,33 +27,12 @@ def estimate_parameters(mode, gene, p_data, r_data, init_cond, num_psites, time_
         - errors: Error metrics (MSE, MAE).
     """
 
-    if mode == "sequential":
+    # For normal estimation, we use the provided bounds and fixed parameters
+    estimated_params, model_fits, errors = normest(
+        gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
+    )
 
-        # For sequential estimation, we need to set up the model function
-        estimated_params, model_fits, errors = sequential_estimation(
-            p_data, time_points, init_cond, bounds, fixed_params, num_psites, gene
-        )
-
-        # For sequential estimation, assemble the fitted predictions at each time point:
-        seq_model_fit = np.zeros((num_psites, len(time_points)))
-
-        # Iterate over the model fits and extract the last column (predictions)
-
-        for i, (_, P_fitted) in enumerate(model_fits):
-            # P_fitted is expected to be of shape (num_psites, len(time_points))
-            seq_model_fit[:, i] = P_fitted[:, -1]
-
-    elif mode == "normal":
-
-        # For normal estimation, we use the provided bounds and fixed parameters
-        estimated_params, model_fits, errors = normest(
-            gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
-        )
-
-        # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))
-        seq_model_fit = model_fits[0][1]
-
-    else:
-        raise ValueError("Invalid estimation mode. Choose 'sequential' or 'normal'.")
+    # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))
+    seq_model_fit = model_fits[0][1]
 
     return model_fits, estimated_params, seq_model_fit, errors
