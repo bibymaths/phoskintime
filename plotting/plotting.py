@@ -531,7 +531,7 @@ class Plotter:
             ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=0.5, marker=marker,
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} ({psite_labels[i]})", linewidth=0.5, marker=marker,
                                 markeredgecolor='black', markersize=6, mew = 0.5)
 
             # -- First 'n' points only
@@ -579,7 +579,7 @@ class Plotter:
     def plot_top_param_pairs(self, excel_path: str, top_n: int = 20):
         """
         For each gene's '_perturbations' sheet in the Excel file,
-        plot scatter plots for the top N parameter pairs with highest correlation.
+        plot scatter plots for the top N parameter pairs with the highest correlation.
 
         Args:
             excel_path (str): Path to the Excel file.
@@ -642,6 +642,5 @@ class Plotter:
                 "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue"
             )
             fig.text(0.5, 0.99, caption, ha='center', va='top', fontsize=10)
-            plt.suptitle(f"{gene}", fontsize=10, y=0.965)
             plt.tight_layout(rect=[0, 0, 1, 0.95])
             self._save_fig(fig, f"{gene}_top_parameter_pairs.png")

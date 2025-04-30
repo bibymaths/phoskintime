@@ -28,7 +28,7 @@ ODE_MODEL = 'distmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 10000
+NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
@@ -38,7 +38,7 @@ PARAMETER_SPACE = 400
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
-PERTURBATIONS_VALUE = 0.1  # 10% perturbation
+PERTURBATIONS_VALUE = 0.5  # 10% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
@@ -63,6 +63,11 @@ TIME_POINTS_RNA = np.array([4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960
 # (only valid if data is also in absolute units).
 # IMPORTANT: Set to True if your time series data represents relative changes.
 NORMALIZE_MODEL_OUTPUT = False
+# Flag to use custom weights for parameter estimation.
+# If True, the function will apply custom weights to the data points
+# based on their importance or reliability.
+# If False, the function will use weights from uncertainties from data.
+USE_CUSTOM_WEIGHTS = False
 # Controls whether sensitivity analysis is performed
 # during the pipeline run.
 # If True:
@@ -151,11 +156,6 @@ ESTIMATION_MODE = 'normal'
 # - DATA_DIR: Directory containing input data files.
 # - INPUT_EXCEL: Full path to the Excel file with optimization results.
 # - LOG_DIR: Directory to store log files.
-# Flag to use custom weights for parameter estimation.
-# If True, the function will apply custom weights to the data points
-# based on their importance or reliability.
-# If False, the function will use weights from uncertainties from data.
-USE_CUSTOM_WEIGHTS = True
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'

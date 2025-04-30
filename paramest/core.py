@@ -107,6 +107,8 @@ def process_gene(
     # Choose estimation mode
     estimation_mode = ESTIMATION_MODE
 
+    logger.info(f"[{gene}] Fitting to data...")
+
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
         estimation_mode, gene, P_data, R_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
@@ -115,6 +117,7 @@ def process_gene(
     # Error Metrics
     mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
+
     logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Adaptive Profile Estimation
