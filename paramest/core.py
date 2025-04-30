@@ -212,7 +212,7 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis = sensitivity_analysis(P_data, R_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
     return {
@@ -235,6 +235,7 @@ def process_gene(
         "ev": ev,
         "tsne_result": tsne_result,
         "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
+        "perturbation_curves_params": trajectories_w_params if SENSITIVITY_ANALYSIS else None,
         "knockout_results": knockout_results
     }
 

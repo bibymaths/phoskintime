@@ -183,6 +183,9 @@ def save_result(results, excel_filename):
                 sens_df = pd.DataFrame(sens_res)
                 sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=False)
 
+            # 12. Save Perturbation Results
+            if res
+
 def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
