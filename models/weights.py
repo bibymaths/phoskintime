@@ -125,7 +125,6 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
     - MS inverse variance: 1 / (abs(target) ** 0.7)
     - Flat region penalty: 1 / abs(grad)
     - Steady state decay: exp(-0.1 * time_indices)
-    - Combined data time: 1 / (abs(target) * (1 + 0.5 * time_indices))
     - Inverse sqrt data: 1 / sqrt(abs(target))
     - Early emphasis moderate: ones
     - Early emphasis steep decay: ones
