@@ -114,9 +114,15 @@ def solve_ode(params, init_cond, num_psites, t):
     """
     sol = np.asarray(odeint(ode_system, init_cond, t, args=(params, num_psites)))
     np.clip(sol, 0, None, out=sol)
+    sol_15 = np.asarray(odeint(ode_system, init_cond, [15.0], args=(params, num_psites)))
+    np.clip(sol_15, 0, None, out=sol_15)
     if NORMALIZE_MODEL_OUTPUT:
         norm_init = np.array(init_cond, dtype=sol.dtype)
         recip = 1.0 / norm_init
         sol *= recip[np.newaxis, :]
+        sol_15 *= recip[np.newaxis, :]
+        sol[7] = sol_15[0]
+    R_fitted = sol[5:, 0].T
+    R_fitted[2] = sol_15[0, 0]
     P_fitted = sol[:, 2:].T
-    return sol, P_fitted
+    return sol, np.concatenate((R_fitted.flatten(), P_fitted.flatten()))

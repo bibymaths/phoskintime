@@ -27,7 +27,7 @@ def worker_find_lambda(
     init_cond: np.ndarray,
     num_psites: int,
     p_data: np.ndarray
-) -> Tuple[float, float]:
+) -> Tuple[float, float, str]:
     """
     Worker function for a single lambda value.
     """
@@ -41,26 +41,58 @@ def worker_find_lambda(
     tf = np.concatenate([target, np.zeros(len(p0))])
     early_weights = early_emphasis(p_data, time_points, num_psites)
     ms_gauss_weights = get_protein_weights(gene)
-    weight_options = get_weight_options(target, time_points, num_psites,
-                                        USE_REGULARIZATION, len(p0), early_weights, ms_gauss_weights)
 
-    result = (cast
-        (
-        Tuple[np.ndarray, np.ndarray],
-        curve_fit(
-                model_func, time_points, tf,
-                p0=p0, bounds=free_bounds, sigma=weight_options["uncertainties_from_data"], x_scale='jac',
-                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000
-                )
-        )
+    weight_options = get_weight_options(
+        target, time_points, num_psites,
+        use_regularization=True,
+        reg_len=len(p0),
+        early_weights=early_weights,
+        ms_gauss_weights=ms_gauss_weights
+    )
+
+    best_score = float("inf")
+    best_weight_key = None
+
+    for weight_key, sigma in weight_options.items():
+        try:
+            result = cast(Tuple[np.ndarray, np.ndarray], curve_fit(
+                model_func,
+                time_points,
+                tf,
+                p0=p0,
+                bounds=free_bounds,
+                sigma=sigma,
+                x_scale='jac',
+                absolute_sigma=not USE_CUSTOM_WEIGHTS,
+                maxfev=20000
+            ))
+
+            popt_try, _ = result
+
+            _, pred = solve_ode(
+                np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
+                init_cond,
+                num_psites,
+                time_points
             )
 
-    popt_try, _ = result
-    _, pred = solve_ode(np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
-                        init_cond, num_psites, time_points)
+            score = score_fit(gene, popt_try, f"{weight_key}_lambda_{lam}", target, pred)
 
-    score = score_fit(gene, popt_try, f"lambda_term_{lam}", p_data, pred)
-    return lam, score
+            if score < best_score:
+                best_score = score
+                best_weight_key = weight_key
+
+        except Exception as e:
+            logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
+
+    if best_weight_key:
+        logger.info(f"[{gene}] λ = {lam/len(p0):.3f} |  "
+                    f"Best Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
+                    f"Score = {best_score:.2f}")
+    else:
+        logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
+
+    return lam, best_score, best_weight_key
 
 def find_best_lambda(
     gene: str,
@@ -71,9 +103,9 @@ def find_best_lambda(
     init_cond: np.ndarray,
     num_psites: int,
     p_data: np.ndarray,
-    lambdas = np.linspace(1e-3, 1, 100),
+    lambdas = np.linspace(1e-3, 1, 10),
     max_workers: int = os.cpu_count(),
-) -> float:
+) -> Tuple[float, str]:
     """
     Finds best lambda_reg to use in model_func.
     """
@@ -90,14 +122,15 @@ def find_best_lambda(
             ): lam for lam in lambdas
         }
         for future in as_completed(futures):
-            lam, score = future.result()
+            lam, score, weight = future.result()
             if score < best_score:
                 best_score = score
                 best_lambda = lam
+                best_score_weight = weight
 
-    return best_lambda
+    return best_lambda, best_score_weight
 
-def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
+def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
     """
     Perform normal parameter estimation using all provided time points at once.
@@ -105,6 +138,7 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
     Parameters:
       - p_data: Measurement data (DataFrame or numpy array). Assumes data starts at column index 2.
+      - r_data: mRNA data (DataFrame or numpy array). Assumes data starts at column index 1.
       - init_cond: Initial condition for the ODE solver.
       - num_psites: Number of phosphorylation sites.
       - time_points: Array of time points to use.
@@ -158,18 +192,19 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
 
     # Set initial guess for all parameters (midpoint of bounds).
     # p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
+
     np.random.seed(42)
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
-    target = p_data.flatten()
+    target = np.concatenate([r_data.flatten(), p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
     logger.info(f"[{gene}] Finding best regularization term λ...")
 
-    lambda_reg = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites, p_data)
+    lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites, p_data)
 
     logger.info(f"[{gene}] Using λ = {lambda_reg/len(p0)}")
 
@@ -209,29 +244,34 @@ def normest(gene, p_data, init_cond, num_psites, time_points, bounds,
     weight_options = get_weight_options(target, time_points, num_psites,
                                         use_regularization, len(p0), early_weights, ms_gauss_weights)
 
+    # Use only the best weight returned from find_best_lambda
+    sigma = weight_options[lambda_weight]
+    wname = lambda_weight
+
     scores, popts, pcovs = {}, {}, {}
-    for wname, sigma in weight_options.items():
-        try:
-            # Attempt to fit the model using the specified weights.
-            result = cast(Tuple[np.ndarray, np.ndarray],
-                          curve_fit(model_func, time_points, target_fit, p0=popt_init,
-                          bounds=free_bounds, sigma=sigma, x_scale='jac',
-                          absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
-            popt, pcov = result
-        except Exception as e:
-            logger.warning(f"[{gene}] Fit failed for {wname}: {e}")
-            popt = popt_init
-            pcov = None
-        popts[wname] = popt
-        pcovs[wname] = pcov
-        _,pred = solve_ode(np.exp(popt) if ODE_MODEL == 'randmod' else popt,
-                           init_cond, num_psites, time_points)
-        # Calculate the score for the fit.
-        scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, p_data, pred)
+    try:
+        result = cast(Tuple[np.ndarray, np.ndarray],
+                      curve_fit(model_func, time_points, target_fit, p0=popt_init,
+                                bounds=free_bounds, sigma=sigma, x_scale='jac',
+                                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
+        popt, pcov = result
+    except Exception as e:
+        logger.warning(f"[{gene}] Final fit failed for {wname}: {e}")
+        popt = popt_init
+        pcov = None
+
+    popts[wname] = popt
+    pcovs[wname] = pcov
+    _, pred = solve_ode(np.exp(popt) if ODE_MODEL == 'randmod' else popt,
+                        init_cond, num_psites, time_points)
+
+    # Calculate the score for the fit.
+    scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, target, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
     best_score = scores[best_weight]
+
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]

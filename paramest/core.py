@@ -5,10 +5,9 @@ import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from knockout import apply_knockout, generate_knockout_combinations
-from config.constants import get_param_names, generate_labels, OUT_DIR, ESTIMATION_MODE, SENSITIVITY_ANALYSIS
+from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
-from paramest.adapest import estimate_profiles
 from sensitivity import sensitivity_analysis
 from models import solve_ode
 from steady import initial_condition
@@ -44,7 +43,8 @@ def early_emphasis(P_data, time_points, num_psites):
 
 def process_gene(
     gene,
-    measurement_data,
+    kinase_data,
+    mrna_data,
     time_points,
     bounds,
     fixed_params,
@@ -61,7 +61,8 @@ def process_gene(
     to Excel files.
 
     :param gene:
-    :param measurement_data:
+    :param kinase_data:
+    :param mrna_data:
     :param time_points:
     :param bounds:
     :param fixed_params:
@@ -81,44 +82,49 @@ def process_gene(
         - param_df: DataFrame of estimated parameters.
         - gene_psite_data: Dictionary of gene-specific data.
     """
-    # Extract Gene-specific Data
-    gene_data = measurement_data[measurement_data['Gene'] == gene]
+    # Extract protein-group data
+    gene_data = kinase_data[kinase_data['Gene'] == gene]
+
+    # Extract mRNA data
+    rna_data = mrna_data[mrna_data['mRNA'] == gene]
+
+    # Get the number of phosphorylation sites
     num_psites = gene_data.shape[0]
+
+    # Get the residue and position values
     psite_values = gene_data['Psite'].values
+
+    # Get initial conditions
     init_cond = initial_condition(num_psites)
+
+    # Get the FC value for TIME_POINTS
     P_data = gene_data.iloc[:, 2:].values
 
-    # Choose estimation mode
-    estimation_mode = ESTIMATION_MODE
+    # Get the FC value for TIME_POINTS_RNA
+    R_data = rna_data.iloc[:, 1:].values
 
+    logger.info(f"[{gene}] Fitting to data...")
+
+    # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
-        estimation_mode, gene, P_data, init_cond, num_psites, time_points, bounds, fixed_params, bootstraps
+        gene, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # Error Metrics
-    mse = mean_squared_error(P_data.flatten(), seq_model_fit.flatten())
-    mae = mean_absolute_error(P_data.flatten(), seq_model_fit.flatten())
-    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
+    mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
+    mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
 
-    # Adaptive Profile Estimation
-    profiles_df, profiles_dict = None, None
-    if desired_times is not None and time_fixed is not None:
-        profiles_df, profiles_dict = estimate_profiles(
-            gene, measurement_data, init_cond, num_psites,
-            time_points, desired_times, bounds, fixed_params,
-            bootstraps, time_fixed
-        )
-        # Save profile Excel
-        profile_path = os.path.join(out_dir, f"{gene}_profiles.xlsx")
-        profiles_df.to_excel(profile_path, index=False)
-        # logger.info(f"Profiled Estimates: {profile_path}")
+    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
+
+    # Insert labels of the protein and phosphorylation sites
     gene_psite_dict_local = {'Protein': gene}
     for i, name in enumerate(get_param_names(num_psites)):
         gene_psite_dict_local[name] = [final_params[i]]
 
+    # Solve ODE with final parameters
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
     # Generate Labels
@@ -143,11 +149,7 @@ def process_gene(
     plotter.pca_components(sol_full, target_variance=0.99)
 
     # Plot ODE model fits
-    plotter.plot_model_fit(seq_model_fit, P_data, sol_full, num_psites, psite_values, time_points)
-
-    if ESTIMATION_MODE == "sequential":
-        plotter.plot_param_series(estimated_params, get_param_names(labels), time_points)
-        plotter.plot_param_scatter(estimated_params, len(psite_values), time_points)
+    plotter.plot_model_fit(seq_model_fit, P_data, R_data.flatten(), sol_full, num_psites, psite_values, time_points)
 
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
@@ -198,18 +200,18 @@ def process_gene(
         # Plot the knockout results
         plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
-    # Save Sequential Parameters
+    # Save Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
-    # logger.info(f"Estimated Parameters: {param_path}")
 
     perturbation_analysis = None
+    trajectories_w_params = None
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis = sensitivity_analysis(P_data, final_params, bounds, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points, num_psites, psite_values, init_cond, gene)
 
     # Return Results
     return {
@@ -218,12 +220,10 @@ def process_gene(
         "psite_labels": psite_values,
         "estimated_params": estimated_params,
         "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit,
+        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, 14),
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
-        "profiles": profiles_dict,
-        "profiles_df": profiles_df,
         "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,
@@ -232,10 +232,11 @@ def process_gene(
         "ev": ev,
         "tsne_result": tsne_result,
         "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
+        "perturbation_curves_params": trajectories_w_params if SENSITIVITY_ANALYSIS else None,
         "knockout_results": knockout_results
     }
 
-def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_params,
+def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixed_params,
                          desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):
     """
     Wrapper function to process a gene. This function is a placeholder for
@@ -243,7 +244,8 @@ def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_para
     main processing function.
 
     :param gene:
-    :param measurement_data:
+    :param kinase_data:
+    :param mrna_data:
     :param time_points:
     :param bounds:
     :param fixed_params:
@@ -256,7 +258,8 @@ def process_gene_wrapper(gene, measurement_data, time_points, bounds, fixed_para
     """
     return process_gene(
         gene=gene,
-        measurement_data=measurement_data,
+        kinase_data=kinase_data,
+        mrna_data=mrna_data,
         time_points=time_points,
         bounds=bounds,
         fixed_params=fixed_params,

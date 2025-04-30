@@ -1,4 +1,5 @@
 import itertools
+import math
 import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -6,6 +7,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
+from itertools import combinations
 from adjustText import adjust_text
 from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
@@ -13,7 +15,7 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type
+from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, TIME_POINTS_RNA
 
 
 class Plotter:
@@ -195,23 +197,27 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
-    def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, sol: np.ndarray,
+    def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
         """
         Plots the model fit for the given data.
 
         :param model_fit: Estimated model fit values.
         :param P_data: Observed data for phosphorylation levels.
+        :param R_data: Observed data for mRNA levels.
         :param sol: ODE solution for mRNA and protein levels.
         :param num_psites: number of phosphorylation sites.
         :param psite_labels: labels for the phosphorylation sites.
         :param time_points: time points for the data.
         :return:
         """
+        model_fit = model_fit[9:].reshape(num_psites, 14)
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
+        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                color='black', alpha=0.7, linewidth=0.75)
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth = 1)
         for i in range(num_psites):
             ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
@@ -228,6 +234,8 @@ class Plotter:
         ax.grid(True, alpha=0.05)
         ax = axes[1]
         ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth = 1)
+        ax.plot(TIME_POINTS_RNA[4:], R_data[4:], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+                color='black', alpha=0.7, linewidth=0.75)
         ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth = 1)
         for i in range(num_psites):
             ax.plot(time_points, P_data[i, :], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
@@ -516,6 +524,7 @@ class Plotter:
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
+            p_fit = p_fit[9:].reshape(num_psites, 14)
             marker = next(marker_cycle)
             # -- Full time range plots
             ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=0.5, marker=marker,
@@ -523,7 +532,7 @@ class Plotter:
             ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=0.5, marker=marker,
                             markeredgecolor='black', markersize=6, mew = 0.5)
             for i in range(num_psites):
-                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} P+{psite_labels[i]}", linewidth=0.5, marker=marker,
+                ax_ph_full.plot(t, p_fit[i, :], label=f"{label} ({psite_labels[i]})", linewidth=0.5, marker=marker,
                                 markeredgecolor='black', markersize=6, mew = 0.5)
 
             # -- First 'n' points only
@@ -568,4 +577,50 @@ class Plotter:
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_.png")
 
+    def plot_top_param_pairs(self, excel_path: str, top_n: int = 20):
+        """
+        For each gene's '_perturbations' sheet in the Excel file,
+        plot scatter plots for the top N parameter pairs with the highest correlation.
 
+        Args:
+            excel_path (str): Path to the Excel file.
+            top_n (int): Number of top parameter pairs to plot.
+        """
+        xls = pd.ExcelFile(excel_path)
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_perturbations"):
+                continue
+
+            gene = sheet.replace("_perturbations", "")
+            df = pd.read_excel(xls, sheet_name=sheet)
+            df = df.nsmallest(50, "RMSE")
+            param_cols = [col for col in df.columns if isinstance(col, str)
+                          and col not in ["RMSE"] and not col.startswith("(")]
+
+            if len(param_cols) < 2:
+                continue
+
+            df_clean = df[param_cols].dropna().drop_duplicates()
+            if df_clean.empty:
+                continue
+
+            corr = df_clean.corr().abs()
+            pairs = list(combinations(corr.columns, 2))
+            pair_scores = [(a, b, corr.loc[a, b]) for a, b in pairs]
+
+            for a, b, score in pair_scores:
+                fig, ax = plt.subplots(figsize=(8, 8))
+                sns.regplot(
+                    x=df_clean[a],
+                    y=df_clean[b],
+                    ax=ax,
+                    scatter_kws={'alpha': 0.7, 's': 10},
+                    line_kws={'color': 'red', 'alpha': 0.5},
+                    ci=95
+                )
+                ax.set_xlabel(a, fontsize=10)
+                ax.set_ylabel(b, fontsize=10)
+                ax.set_title(f"{gene}: {a} vs {b}\nCorrelation = {score:.2f}", fontsize=11)
+                plt.tight_layout()
+                self._save_fig(fig, f"{gene}_{a}_vs_{b}.png")

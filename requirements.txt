@@ -21,3 +21,4 @@ mygene
 cobyqa
 typer
 py2cytoscape
+jinja2

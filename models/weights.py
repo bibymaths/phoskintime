@@ -4,7 +4,6 @@ import pandas as pd
 from numba import njit
 from scipy.ndimage import uniform_filter1d
 from pathlib import Path
-
 from config.constants import USE_CUSTOM_WEIGHTS
 
 current_dir = Path(__file__).resolve().parent
@@ -52,7 +51,6 @@ def early_emphasis(p_data, time_points, num_psites):
             custom_weights[i, j] = 1.0
 
     return custom_weights.ravel()
-
 
 def get_protein_weights(
     gene,
@@ -102,6 +100,12 @@ def get_protein_weights(
 
     return weights
 
+def full_weight(p_data_weight, use_regularization, reg_len):
+    base = np.concatenate([np.ones(9), p_data_weight])
+    if use_regularization:
+        base = np.concatenate([base, np.ones(reg_len)])
+    return base
+
 def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights, ms_gauss_weights):
     """
     Function to calculate weights for parameter estimation based on the target data and time points.
@@ -121,7 +125,6 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
     - MS inverse variance: 1 / (abs(target) ** 0.7)
     - Flat region penalty: 1 / abs(grad)
     - Steady state decay: exp(-0.1 * time_indices)
-    - Combined data time: 1 / (abs(target) * (1 + 0.5 * time_indices))
     - Inverse sqrt data: 1 / sqrt(abs(target))
     - Early emphasis moderate: ones
     - Early emphasis steep decay: ones
@@ -136,16 +139,10 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
     :return: dictionary of weights for parameter estimation
     """
     time_indices = np.tile(np.arange(1, len(t_target) + 1), num_psites)
+
     log_scale = np.log1p(np.abs(target))
     sqrt_signal = np.sqrt(np.maximum(np.abs(target), 1e-5))
 
-    # Noise-aware weights
-    signal_noise_model = 1 / sqrt_signal  # MS-like error model
-    inverse_variance_model = 1 / (np.maximum(np.abs(target), 1e-5) ** 0.7)  # empirical fit
-
-    # Biological modeling
-    early_sigmoid = 1 / (1 + np.exp((time_indices - 5)))
-    steady_state_decay = np.exp(-0.1 * time_indices)  # Less weight to late points
     # fallback for flat region penalty
     if len(target) >= 2:
         grad = np.gradient(target)
@@ -155,41 +152,48 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
         flat_region_penalty = 1 / np.maximum(np.abs(target), 1e-5)  # inverse signal intensity
 
     base_weights = {
-        "inverse": 1 / np.maximum(np.abs(target), 1e-5),
-        "exponential_decay": np.exp(-0.5 * target),
-        "inverse_log_scale": 1 / np.maximum(log_scale, 1e-5),
-        "inverse_time_diff": 1 / np.maximum(np.abs(np.diff(target, prepend=target[0])), 1e-5),
-        "inverse_moving_avg": 1 / np.maximum(np.abs(target - uniform_filter1d(target, 3)), 1e-5),
+        "inverse": full_weight(1 / np.maximum(np.abs(target[9:]), 1e-5), use_regularization, reg_len),
+        "exponential_decay": full_weight(np.exp(-0.5 * target[9:]), use_regularization, reg_len),
+        "inverse_log_scale": full_weight(1 / np.maximum(log_scale[9:], 1e-5), use_regularization, reg_len),
+        "inverse_time_diff": full_weight(1 / np.maximum(np.abs(np.diff(target[9:], prepend=target[9])), 1e-5),
+                                         use_regularization, reg_len),
+        "inverse_moving_avg": full_weight(1 / np.maximum(np.abs(target[9:] - uniform_filter1d(target[9:], 3)), 1e-5),
+                                          use_regularization, reg_len),
 
-        "sigmoid_decay": early_sigmoid,
-        "exponential_early_decay": np.exp(-0.5 * time_indices),
-        "polynomial_time_decay": 1 / (1 + 0.5 * time_indices),
+        "sigmoid_decay": full_weight(1 / (1 + np.exp((time_indices - 5))), use_regularization, reg_len),
+        "exponential_early_decay": full_weight(np.exp(-0.5 * time_indices), use_regularization, reg_len),
+        "polynomial_time_decay": full_weight(1 / (1 + 0.5 * time_indices), use_regularization, reg_len),
 
-        "signal_noise": signal_noise_model,
-        "inverse_variance": inverse_variance_model,
-        "flat_penalty": flat_region_penalty,
-        "steady_decay": steady_state_decay,
+        "signal_noise": full_weight(1 / sqrt_signal[9:], use_regularization, reg_len),
+        "inverse_variance": full_weight(1 / (np.maximum(np.abs(target[9:]), 1e-5) ** 0.7), use_regularization, reg_len),
+        "flat_penalty": full_weight(flat_region_penalty[9:], use_regularization, reg_len) if flat_region_penalty.shape[
+                                                                                                 0] == target.shape[
+                                                                                                 0] else flat_region_penalty,
 
-        "combined_data_time": 1 / (np.maximum(np.abs(target), 1e-5) * (1 + 0.5 * time_indices)),
-        "inverse_square_root_data": 1 / sqrt_signal,
+        "steady_decay": full_weight(np.exp(-0.1 * time_indices), use_regularization, reg_len),
+        "inverse_square_root_data": full_weight(1 / sqrt_signal[9:], use_regularization, reg_len),
 
-        "early_moderate_decay": np.ones_like(target),
-        "early_steep_decay": (
-            np.tile(np.concatenate([
-                np.full(8, 0.05), np.full(2, 0.2), np.ones(max(0, len(t_target) * num_psites - 10))]), 1)
-            if len(t_target) * num_psites >= 10 else np.ones(len(target))
+        "early_moderate_decay": full_weight(
+            np.linspace(1.0, 0.3, len(time_indices)),
+            use_regularization,
+            reg_len
         ),
-        "early_emphasis": early_weights,
-        "uncertainties_from_data": ms_gauss_weights,
+
+        "early_steep_decay": full_weight(
+            np.concatenate([
+                np.full(min(8, len(time_indices)), 0.05),
+                np.full(min(2, max(len(time_indices) - 8, 0)), 0.2),
+                np.ones(max(len(time_indices) - 10, 0))
+            ]),
+            use_regularization,
+            reg_len
+        ),
+
+        "early_emphasis": full_weight(early_weights, use_regularization, reg_len),
+        "uncertainties_from_data": full_weight(ms_gauss_weights, use_regularization, reg_len),
     }
 
     if not USE_CUSTOM_WEIGHTS:
         base_weights = {"uncertainties_from_data": base_weights["uncertainties_from_data"]}
-
-    if use_regularization:
-        base_weights = {
-            k: np.concatenate([v, np.ones(reg_len)])
-            for k, v in base_weights.items()
-        }
 
     return base_weights

@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config.constants import TIME_POINTS, model_type, ESTIMATION_MODE, ODE_MODEL
+from config.constants import TIME_POINTS, model_type, ODE_MODEL
 
 
 def ensure_output_directory(directory):
@@ -183,6 +183,31 @@ def save_result(results, excel_filename):
                 sens_df = pd.DataFrame(sens_res)
                 sens_df.to_excel(writer, sheet_name=f"{sheet_prefix}_sensitivity", index=False)
 
+            # 12. Save Perturbation Results
+            if res["perturbation_curves_params"] is not None:
+                pert_data = res["perturbation_curves_params"]
+                if isinstance(pert_data, pd.DataFrame):
+                    pert_df = pert_data.copy()
+                else:
+                    pert_df = pd.DataFrame(pert_data)
+                param_names = sens_df['names'].tolist()
+                params_expanded = pd.DataFrame(pert_df["params"].tolist(), columns=param_names)
+                sol_array = np.array(pert_df["solution"].tolist())
+                n_time, n_states = sol_array.shape[1], sol_array.shape[2]
+                time_labels = list(TIME_POINTS) * n_states
+                state_labels_repeated = [label for label in state_labels for _ in TIME_POINTS]
+                multi_columns = pd.MultiIndex.from_arrays(
+                    [time_labels, state_labels_repeated],
+                    names=["Time(min)", "State"]
+                )
+                sol_flat = sol_array.reshape(len(pert_df), -1)
+                sol_expanded = pd.DataFrame(sol_flat, columns=multi_columns)
+                combined_df = pd.concat([params_expanded, sol_expanded], axis=1)
+                combined_df["RMSE"] = pert_df["rmse"]
+                combined_df = combined_df.sort_values(by="RMSE").reset_index(drop=True)
+                combined_df.to_excel(writer, sheet_name=f"{sheet_prefix}_perturbations", index=False)
+
+
 def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
@@ -251,7 +276,16 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         "</style>",
         "</head>",
         "<body>",
-        f"<h1>{model_type.upper()} Modelling & {ESTIMATION_MODE.upper()} Parameter Estimation Report</h1>"
+        f"<h1>{model_type.upper()} Modelling & Parameter Estimation Report</h1>"
+    ]
+    html_parts += [
+        "<pre style=\"font-size: 0.9em; color: #444; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #ccc;\">",
+        "A = production of mRNA | B = degradation of mRNA | ",
+        "C = production of protein | D = degradation of protein\n",
+        "S1, S2, ... = phosphorylation at 1st, 2nd, ... residue | ",
+        "D1, D2, ... = degradation of phosphorylated protein at 1st, 2nd, ... residue\n",
+        "Sx/Dx (x > 1) = phosphorylation/degradation of intermediate complex at x-th residue",
+        "</pre>"
     ]
 
     # For each gene folder, create a section in the report.

@@ -21,13 +21,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
-# ESTIMATION_MODE: Global constant to choose the estimation strategy.
-# Set to "sequential" to perform time-point-by-time-point fitting (sequential estimation),
-# which produces a series of parameter estimates over time (one estimate per time point).
-# Set to "normal" to perform fitting using all-time points at once (normal estimation),
-# yielding a single set of parameter estimates that best describes the entire time course.
-ESTIMATION_MODE = 'normal'
+ODE_MODEL = 'distmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -40,17 +34,22 @@ NUM_TRAJECTORIES = 1000
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 100
+PARAMETER_SPACE = 400
+# Fractional range around each parameter value for sensitivity analysis bounds.
+# Lower bound = value * (1 - PERTURBATIONS_VALUE)
+# Upper bound = value * (1 + PERTURBATIONS_VALUE)
+PERTURBATIONS_VALUE = 0.5  # 10% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
-ALPHA_CI = 0.99
+ALPHA_CI = 0.95
 # TIME_POINTS:
 # A numpy array representing the discrete time points (in minutes) obtained from experimental MS data.
-# These time points capture the dynamics of the system, with finer resolution at early times (0.0 to 16.0 minutes)
-# to account for rapid changes and broader intervals later up to 960.0 minutes.
-TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
-                        16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+# TIME_POINTS_RNA:
+# A numpy array representing the discrete time points (in minutes) for RNA data.
+# These time points are used for RNA data analysis and are different from the MS data time points.
+TIME_POINTS_RNA = np.array([4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 # Whether to normalize model output to match fold change (FC) data
 # ----------------------------------------------------------------
 # Set to True when experimental data is provided in fold change format
@@ -60,10 +59,15 @@ TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
 #     FC_model(t) = Y(t) / Y(t0)
 #
 # This ensures the model output is in the same scale and units as the FC data.
-# If False, raw concentrations will be used directly
+# If False, raw FC values will be used directly
 # (only valid if data is also in absolute units).
 # IMPORTANT: Set to True if your time series data represents relative changes.
 NORMALIZE_MODEL_OUTPUT = False
+# Flag to use custom weights for parameter estimation.
+# If True, the function will apply custom weights to the data points
+# based on their importance or reliability.
+# If False, the function will use weights from uncertainties from data.
+USE_CUSTOM_WEIGHTS = False
 # Controls whether sensitivity analysis is performed
 # during the pipeline run.
 # If True:
@@ -89,11 +93,6 @@ SENSITIVITY_ANALYSIS = True
 # When set to False, the optimization process will not include this regularization term,
 # which may result in less stable solutions, especially in cases where the data is noisy or sparse.
 USE_REGULARIZATION = True
-# Flag to use custom weights for parameter estimation.
-# If True, the function will apply custom weights to the data points
-# based on their importance or reliability.
-# If False, the function will use weights from uncertainties from data.
-USE_CUSTOM_WEIGHTS = False
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * L2 norm
 #
@@ -123,10 +122,6 @@ MU_WEIGHT = 1.0
 # INTERNAL CONSTANTS
 # These constants are used internally within the module and are not intended to be modified by users.
 ########################################################################################################################
-# DEPRECATED in normest.py
-# IGNORE THIS
-# L2 regularization - added term in the cost function.
-LAMBDA_REG = 0.1
 # This global constant defines a mapping between internal ODE_MODEL identifiers
 # and human-readable display names for different types of ODE models.
 #
@@ -144,6 +139,7 @@ model_names = {
     "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
+
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.
@@ -151,11 +147,13 @@ model_type = model_names.get(ODE_MODEL, "Unknown")
 # - DATA_DIR: Directory containing input data files.
 # - INPUT_EXCEL: Full path to the Excel file with optimization results.
 # - LOG_DIR: Directory to store log files.
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'
 OUT_RESULTS_DIR = OUT_DIR / f'{ODE_MODEL}_results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
+INPUT_EXCEL_RNA = DATA_DIR / 'tfopt_results.xlsx'
 LOG_DIR = OUT_DIR / f'{ODE_MODEL}_logs'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
