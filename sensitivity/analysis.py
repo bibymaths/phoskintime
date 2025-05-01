@@ -66,7 +66,7 @@ def define_sensitivity_problem_ds(num_psites, values):
     }
 
 
-def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, init_cond, gene):
+def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, state_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
@@ -178,17 +178,25 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]
 
-    # Restrict the trajectories to only the closest ones
-    best_model_psite_solutions = all_model_psite_solutions[best_idxs]
+    # Restrict the trajectories to only the closest ones 
+    # Best phosphorylation site solutions
+    best_model_psite_solutions = all_model_psite_solutions[best_idxs] 
+    # Best mRNA and protein solutions
     best_mrna_solutions = all_mrna_solutions[best_idxs]
-    best_protein_solutions = all_protein_solutions[best_idxs]
-    n_sites = best_model_psite_solutions.shape[2]
-
+    best_protein_solutions = all_protein_solutions[best_idxs] 
+    # Number of phosphorylation sites
+    n_sites = best_model_psite_solutions.shape[2] 
+    # Best model solutions stacked
+    all_states = np.stack([best_mrna_solutions, best_protein_solutions] +
+                          [best_model_psite_solutions[:, :, i] for i in range(n_sites)], axis=-1)
     # cut-off time point for plotting
     cutoff_idx = 8
 
-    # Plot all simulations
-    Plotter(gene, OUT_DIR).plot_model_pertrubations(problem, Si, cutoff_idx, time_points, n_sites,
+    # Plot time wise changes for each state for parameter perturbations
+    Plotter(gene, OUT_DIR).plot_time_wise_changes(all_states, time_points, state_labels)
+
+    # Plot best simulations
+    Plotter(gene, OUT_DIR).plot_model_perturbations(problem, Si, cutoff_idx, time_points, n_sites,
                                                     best_model_psite_solutions, best_mrna_solutions,
                                                     best_protein_solutions, psite_labels, psite_data_ref, rna_ref)
 

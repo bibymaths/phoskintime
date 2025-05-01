@@ -623,8 +623,10 @@ class Plotter:
                 plt.tight_layout()
                 self._save_fig(fig, f"{self.gene}_{a}_vs_{b}.png")
 
-    def plot_model_pertrubations(self, problem, Si, cutoff_idx, time_points, n_sites, best_model_psite_solutions,
-                                 best_mrna_solutions, best_protein_solutions, psite_labels, psite_data_ref, rna_ref):
+    def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
+                                 best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
+                                 best_protein_solutions: np.ndarray, psite_labels: list[str],
+                                 psite_data_ref: np.ndarray, rna_ref: np.ndarray) -> None:
         """
         Plot the best model perturbations for the given data.
 
@@ -821,7 +823,7 @@ class Plotter:
 
         plt.suptitle(f'{self.gene}', fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
-        self._save_fig(fig, f"{self.gene}_sensitivity_.png")
+        self._save_fig(fig, f"{self.gene}_sensitivity_perturbations.png")
 
         # Absolute Mean of Elementary Effects : represents the overall importance
         # of each parameter, reflecting its sensitivity
@@ -903,3 +905,51 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_sensitivity_pie_chart.png")
 
+    def plot_time_wise_changes(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
+        """
+        Creates a strip plot of ODE states across time points.
+
+        Args:
+            samples (np.ndarray): Shape (n_samples, n_timepoints, n_states)
+            time_points (np.ndarray): Time points corresponding to axis 1
+            state_names (list): Names for each state (axis 2)
+            gene (str): Gene name for title and filename
+        """
+        n_samples, n_timepoints, n_states = samples.shape
+        data = []
+
+        for state_idx in range(n_states):
+            for t_idx, t in enumerate(time_points):
+                values = samples[:, t_idx, state_idx]
+                for v in values:
+                    data.append({
+                        'Value': v,
+                        'State': state_names[state_idx],
+                        'Time': f"{t} "
+                    })
+
+        df = pd.DataFrame(data)
+
+        # Fixed palette by state
+        palette = {}
+        for i, state in enumerate(state_names):
+            if state.lower() == "p":
+                palette[state] = "red"
+            elif state.lower() == "r":
+                palette[state] = "black"
+            else:
+                palette[state] = self.color_palette[i]
+
+        plt.figure(figsize=(12, 6))
+        # sns.stripplot(data=df, x='Time', y='State', hue='State', dodge=True,
+        #               alpha=0.5, jitter=0.2, palette=palette, size=3)
+        sns.violinplot(data=df, x='Time', y='State', hue='State', palette=palette, cut=0, scale='width',
+                       inner='quartile', linewidth=1)
+        plt.title(f"{self.gene}")
+        plt.xlabel("Time (min)")
+        plt.ylabel("ODE State")
+        plt.xticks(rotation=45, fontsize=7)
+        plt.grid(True, axis='x', alpha=0.2)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        self._save_fig(plt.gcf(), f"{self.gene}_sensitivity_changes.png")

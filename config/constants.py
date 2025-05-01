@@ -92,7 +92,7 @@ SENSITIVITY_ANALYSIS = True
 # during the optimization process, which can lead to more stable and reliable parameter estimates.
 # When set to False, the optimization process will not include this regularization term,
 # which may result in less stable solutions, especially in cases where the data is noisy or sparse.
-USE_REGULARIZATION = False
+USE_REGULARIZATION = True
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * L2 norm
 #

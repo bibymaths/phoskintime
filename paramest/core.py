@@ -215,7 +215,8 @@ def process_gene(
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
         perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points,
-                                                                            num_psites, psite_values, init_cond, gene)
+                                                                            num_psites, psite_values, labels, init_cond,
+                                                                            gene)
 
     # Return Results
     return {
