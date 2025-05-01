@@ -905,49 +905,6 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_sensitivity_pie_chart.png")
 
-    def plot_time_wise_changes(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
-        """
-        Creates a strip plot of ODE states across time points.
-
-        Args:
-            samples (np.ndarray): Shape (n_samples, n_timepoints, n_states)
-            time_points (np.ndarray): Time points corresponding to axis 1
-            state_names (list): Names for each state (axis 2)
-            gene (str): Gene name for title and filename
-        """
-        n_samples, n_timepoints, n_states = samples.shape
-        data = []
-
-        for state_idx in range(n_states):
-            for t_idx, t in enumerate(time_points):
-                values = samples[:, t_idx, state_idx]
-                for v in values:
-                    data.append({
-                        'Value': v,
-                        'State': state_names[state_idx],
-                        'Time': f"{t} "
-                    })
-
-        df = pd.DataFrame(data)
-
-        # Fixed palette by state
-        palette = {}
-        for i, state in enumerate(state_names):
-            if state.lower() == "p":
-                palette[state] = "red"
-            elif state.lower() == "r":
-                palette[state] = "black"
-            else:
-                palette[state] = self.color_palette[i]
-
-        plt.figure(figsize=(8, 8))
-        sns.catplot(data=df, x="Time", y="Value", col="State", kind="strip", col_wrap=4, height=3)
-        plt.title(f"{self.gene}")
-        plt.xlabel("Time (min)")
-        plt.ylabel("State")
-        plt.tight_layout()
-        self._save_fig(plt.gcf(), f"{self.gene}_sensitivity_changes.png")
-
     def plot_time_state_grid(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
         """
         Grid of strip plots per state showing variability across time.
@@ -971,9 +928,9 @@ class Plotter:
         g.fig.suptitle(f"{self.gene} – State Distributions Over Time", y=1.02)
         g.set_xticklabels(rotation=45)
         g.set_axis_labels("Time (min)", "Value")
-        self._save_fig(g.fig, f"{self.gene}_state_time_stripgrid.png")
+        self._save_fig(g.fig, f"{self.gene}_state_time_grid.png")
 
-    def plot_phase_space(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
+    def plot_phase_space(self, samples: np.ndarray, state_names: list):
         """
         Phase space plots: one state vs another for each simulation.
 

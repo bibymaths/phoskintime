@@ -49,9 +49,6 @@ def process_gene(
         mrna_data,
         time_points,
         bounds,
-        fixed_params,
-        desired_times=None,
-        time_fixed=None,
         bootstraps=0,
         out_dir=OUT_DIR
 ):
@@ -67,9 +64,6 @@ def process_gene(
     :param mrna_data:
     :param time_points:
     :param bounds:
-    :param fixed_params:
-    :param desired_times:
-    :param time_fixed:
     :param bootstraps:
     :param out_dir:
     :return:
@@ -242,8 +236,7 @@ def process_gene(
     }
 
 
-def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixed_params,
-                         desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):
+def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
     """
     Wrapper function to process a gene. This function is a placeholder for
     any additional processing or modifications needed before calling the
@@ -254,9 +247,6 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixe
     :param mrna_data:
     :param time_points:
     :param bounds:
-    :param fixed_params:
-    :param desired_times:
-    :param time_fixed:
     :param bootstraps:
     :param out_dir:
     :return:
@@ -268,9 +258,6 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixe
         mrna_data=mrna_data,
         time_points=time_points,
         bounds=bounds,
-        fixed_params=fixed_params,
-        desired_times=desired_times,
-        time_fixed=time_fixed,
         bootstraps=bootstraps,
         out_dir=out_dir
     )

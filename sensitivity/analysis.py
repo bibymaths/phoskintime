@@ -193,7 +193,9 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     cutoff_idx = 8
 
     # Plot time wise changes for each state for parameter perturbations
-    Plotter(gene, OUT_DIR).plot_time_wise_changes(all_states, time_points, state_labels)
+    Plotter(gene, OUT_DIR).plot_time_state_grid(all_states, time_points, state_labels)
+
+    Plotter(gene, OUT_DIR).plot_phase_space(all_states, state_labels)
 
     # Plot best simulations
     Plotter(gene, OUT_DIR).plot_model_perturbations(problem, Si, cutoff_idx, time_points, n_sites,
