@@ -117,13 +117,13 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         # Sensitivity metric (pick one):
 
         # Total signal (recommended default)
-        # Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
+        Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
 
         # # Mean level of total activity
         # Y[i] = np.mean(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
 
         # # Variance across time + sites
-        Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
+        # Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
 
         # # Dynamics: squared changes
         # Y[i] = np.sum(np.diff(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()])) ** 2)
