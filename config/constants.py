@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = False
+DEV_TEST = True
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -28,13 +28,13 @@ ODE_MODEL = 'distmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 10000
+NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 1000
+PARAMETER_SPACE = 100
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
@@ -159,7 +159,6 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Plotting Style Configuration
-CONTOUR_LEVELS = 100
 COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 available_markers = [
     m for m in mmarkers.MarkerStyle.markers

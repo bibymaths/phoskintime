@@ -15,7 +15,7 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from config.constants import COLOR_PALETTE, OUT_DIR, CONTOUR_LEVELS, available_markers, model_type, TIME_POINTS_RNA
+from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA
 
 
 class Plotter:
@@ -350,7 +350,7 @@ class Plotter:
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
             contourf = ax.contourf(param_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
-            ax.contour(param_grid, S_grid, density, levels=CONTOUR_LEVELS, colors='white', linewidths=0.5)
+            ax.contour(param_grid, S_grid, density, levels=100, colors='white', linewidths=0.5)
             ax.set_xlabel(f"{label}")
             ax.set_ylabel("S")
             ax.set_title(self.gene)

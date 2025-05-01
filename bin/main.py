@@ -137,8 +137,12 @@ def main():
     # Plot parameter relationships - profiles
     Plotter("", OUT_DIR).plot_top_param_pairs(OUT_RESULTS_DIR)
 
+    logger.info("Plotting completed.")
+
     # LateX the results
     latexit.main(OUT_DIR)
+
+    logger.info(f"LateX generated.")
 
     # Organize output files and create a report
     organize_output_files(OUT_DIR)

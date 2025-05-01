@@ -110,6 +110,4 @@ weights = { delta = 1.0, alpha = 1.0, beta = 1.0, gamma = 1.0, mu_reg = 1.0 }
 # 6. Plotting & regularization     #
 ####################################
 [plotting]
-contour_levels = 100
 use_regularization = true
-lambda_reg = 1e-4
