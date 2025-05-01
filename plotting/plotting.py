@@ -1,5 +1,5 @@
 import itertools
-import math
+import matplotlib.cm as cm
 import os, re
 import seaborn as sns
 import matplotlib.colors as mcolors
@@ -916,18 +916,42 @@ class Plotter:
         """
         n_samples, n_timepoints, n_states = samples.shape
         data = []
+
+        time_labels = [f"{int(t)}" if t > 1 else f"{t}" for t in time_points]
+
         for state_idx in range(n_states):
-            for t_idx, t in enumerate(time_points):
+            for t_idx, label in enumerate(time_labels):
                 for v in samples[:, t_idx, state_idx]:
-                    data.append({'Value': v, 'Time': t, 'State': state_names[state_idx]})
+                    data.append({'Value': v, 'Time': label, 'State': state_names[state_idx]})
         df = pd.DataFrame(data)
 
-        g = sns.catplot(data=df, x="Time", y="Value", col="State", kind="strip",
-                        col_wrap=4, height=3, sharey=False, alpha=0.3, jitter=0.2,
-                        palette=self.color_palette[:len(state_names)])
-        g.fig.suptitle(f"{self.gene} – State Distributions Over Time", y=1.02)
-        g.set_xticklabels(rotation=45)
+        df['Time'] = pd.Categorical(df['Time'], categories=time_labels, ordered=True)
+
+        g = sns.catplot(
+            data=df,
+            x="Time",
+            y="Value",
+            col="State",
+            kind="strip",
+            col_wrap=4,
+            height=3,
+            sharey=False,
+            alpha=0.3,
+            jitter=0.2,
+            size=2,
+            palette=self.color_palette[:len(state_names)]
+        )
         g.set_axis_labels("Time (min)", "Value")
+        g.set_titles("{col_name}")
+
+        for ax in g.axes.flatten():
+            ax.tick_params(axis='y', labelsize=6)
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(45)
+                tick.set_fontsize(6)
+
+        g.fig.suptitle(f"{self.gene}", fontsize=12)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(g.fig, f"{self.gene}_state_time_grid.png")
 
     def plot_phase_space(self, samples: np.ndarray, state_names: list):
@@ -935,19 +959,34 @@ class Plotter:
         Phase space plots: one state vs another for each simulation.
 
         Args:
-            samples: shape (n_samples, n_timepoints, n_states)
-            time_points: array of time points
-            state_names: list of state names
+            samples (np.ndarray): Shape (n_samples, n_timepoints, n_states)
+            state_names (list): List of state names (length = num_states)
         """
-        assert samples.shape[2] >= 2, "Need at least two states for phase space plots."
+        n_samples, n_timepoints, n_states = samples.shape
+        assert n_states >= 2, "Need at least two states for phase space plots."
 
-        fig, ax = plt.subplots(figsize=(8, 6))
-        for sim in range(samples.shape[0]):
-            ax.plot(samples[sim, :, 0], samples[sim, :, 1], alpha=0.2)
+        # Assign one color per simulation
+        cmap = cm.get_cmap("tab20", n_samples)
+        sim_colors = [cmap(i) for i in range(n_samples)]
 
-        ax.set_xlabel(state_names[0])
-        ax.set_ylabel(state_names[1])
-        ax.set_title(f"{self.gene} – Phase Space: {state_names[0]} vs {state_names[1]}")
-        ax.grid(True, alpha=0.2)
-        self._save_fig(fig, f"{self.gene}_phase_space_{state_names[0]}_vs_{state_names[1]}.png")
+        for i, j in combinations(range(n_states), 2):
+            x_state = state_names[i]
+            y_state = state_names[j]
+
+            fig, ax = plt.subplots(figsize=(6, 5))
+            for sim in range(n_samples):
+                ax.plot(
+                    samples[sim, :, i],
+                    samples[sim, :, j],
+                    alpha=0.5,
+                    linewidth=1,
+                    color=sim_colors[sim]
+                )
+
+            ax.set_xlabel(x_state)
+            ax.set_ylabel(y_state)
+            ax.set_title(f"{self.gene}", fontsize=10)
+            ax.grid(True, alpha=0.2)
+            plt.tight_layout()
+            self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
 
