@@ -927,10 +927,14 @@ class Plotter:
 
         df['Time'] = pd.Categorical(df['Time'], categories=time_labels, ordered=True)
 
+        full_palette = list(itertools.islice(itertools.cycle(self.color_palette), len(state_names)))
+        palette_dict = dict(zip(state_names, full_palette))
+
         g = sns.catplot(
             data=df,
             x="Time",
             y="Value",
+            hue="State",
             col="State",
             kind="strip",
             col_wrap=4,
@@ -939,9 +943,11 @@ class Plotter:
             alpha=0.3,
             jitter=0.2,
             size=2,
-            palette=self.color_palette[:len(state_names)]
+            palette=palette_dict,
+            legend=False
         )
-        g.set_axis_labels("Time (min)", "Value")
+
+        g.set_axis_labels("", "")
         g.set_titles("{col_name}")
 
         for ax in g.axes.flatten():
@@ -973,20 +979,20 @@ class Plotter:
             x_state = state_names[i]
             y_state = state_names[j]
 
-            fig, ax = plt.subplots(figsize=(6, 5))
+            fig, ax = plt.subplots(figsize=(6, 6))
             for sim in range(n_samples):
                 ax.plot(
                     samples[sim, :, i],
                     samples[sim, :, j],
                     alpha=0.5,
-                    linewidth=1,
+                    linewidth=0.5,
                     color=sim_colors[sim]
                 )
 
             ax.set_xlabel(x_state)
             ax.set_ylabel(y_state)
             ax.set_title(f"{self.gene}", fontsize=10)
-            ax.grid(True, alpha=0.2)
+            ax.grid(True, alpha=0.05)
             plt.tight_layout()
             self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
 
