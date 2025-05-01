@@ -940,14 +940,57 @@ class Plotter:
             else:
                 palette[state] = self.color_palette[i]
 
-        # Pivot for heatmap: average value per state and time
-        df_mean = df.groupby(['State', 'Time'])['Value'].mean().reset_index()
-        df_pivot = df_mean.pivot(index='State', columns='Time', values='Value')
-
-        plt.figure(figsize=(10, 6))
-        sns.heatmap(df_pivot, cmap="viridis", linewidths=0.3, linecolor='gray', cbar_kws={'label': 'Mean Value'})
+        plt.figure(figsize=(8, 8))
+        sns.catplot(data=df, x="Time", y="Value", col="State", kind="strip", col_wrap=4, height=3)
         plt.title(f"{self.gene}")
         plt.xlabel("Time (min)")
         plt.ylabel("State")
         plt.tight_layout()
         self._save_fig(plt.gcf(), f"{self.gene}_sensitivity_changes.png")
+
+    def plot_time_state_grid(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
+        """
+        Grid of strip plots per state showing variability across time.
+
+        Args:
+            samples: shape (n_samples, n_timepoints, n_states)
+            time_points: array of time points
+            state_names: list of state names
+        """
+        n_samples, n_timepoints, n_states = samples.shape
+        data = []
+        for state_idx in range(n_states):
+            for t_idx, t in enumerate(time_points):
+                for v in samples[:, t_idx, state_idx]:
+                    data.append({'Value': v, 'Time': t, 'State': state_names[state_idx]})
+        df = pd.DataFrame(data)
+
+        g = sns.catplot(data=df, x="Time", y="Value", col="State", kind="strip",
+                        col_wrap=4, height=3, sharey=False, alpha=0.3, jitter=0.2,
+                        palette=self.color_palette[:len(state_names)])
+        g.fig.suptitle(f"{self.gene} – State Distributions Over Time", y=1.02)
+        g.set_xticklabels(rotation=45)
+        g.set_axis_labels("Time (min)", "Value")
+        self._save_fig(g.fig, f"{self.gene}_state_time_stripgrid.png")
+
+    def plot_phase_space(self, samples: np.ndarray, time_points: np.ndarray, state_names: list):
+        """
+        Phase space plots: one state vs another for each simulation.
+
+        Args:
+            samples: shape (n_samples, n_timepoints, n_states)
+            time_points: array of time points
+            state_names: list of state names
+        """
+        assert samples.shape[2] >= 2, "Need at least two states for phase space plots."
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for sim in range(samples.shape[0]):
+            ax.plot(samples[sim, :, 0], samples[sim, :, 1], alpha=0.2)
+
+        ax.set_xlabel(state_names[0])
+        ax.set_ylabel(state_names[1])
+        ax.set_title(f"{self.gene} – Phase Space: {state_names[0]} vs {state_names[1]}")
+        ax.grid(True, alpha=0.2)
+        self._save_fig(fig, f"{self.gene}_phase_space_{state_names[0]}_vs_{state_names[1]}.png")
+
