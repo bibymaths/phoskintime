@@ -940,16 +940,14 @@ class Plotter:
             else:
                 palette[state] = self.color_palette[i]
 
-        plt.figure(figsize=(12, 6))
-        # sns.stripplot(data=df, x='Time', y='State', hue='State', dodge=True,
-        #               alpha=0.5, jitter=0.2, palette=palette, size=3)
-        sns.violinplot(data=df, x='Time', y='State', hue='State', palette=palette, cut=0, scale='width',
-                       inner='quartile', linewidth=1)
+        # Pivot for heatmap: average value per state and time
+        df_mean = df.groupby(['State', 'Time'])['Value'].mean().reset_index()
+        df_pivot = df_mean.pivot(index='State', columns='Time', values='Value')
+
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(df_pivot, cmap="viridis", linewidths=0.3, linecolor='gray', cbar_kws={'label': 'Mean Value'})
         plt.title(f"{self.gene}")
         plt.xlabel("Time (min)")
-        plt.ylabel("ODE State")
-        plt.xticks(rotation=45, fontsize=7)
-        plt.grid(True, axis='x', alpha=0.2)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.ylabel("State")
         plt.tight_layout()
         self._save_fig(plt.gcf(), f"{self.gene}_sensitivity_changes.png")

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
 
 
-def map_optimization_results(file_path):
+def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Values'):
     """
     Reads the TF-mRNA optimization results from an Excel file and maps mRNA to each TF.
 
@@ -19,46 +19,43 @@ def map_optimization_results(file_path):
     is cleaned and formatted for further analysis.
 
     Args:
-        file_path (str): The path to the Excel file containing TF-mRNA optimization results.
+        tf_file_path: Path to the Excel file containing TF-mRNA optimization results.
+        kin_file_path: Path to the Excel file containing Kinase-Phosphorylation optimization results.
+        sheet_name: The name of the sheet in the Excel file to read from. Default is 'Alpha Values'.
 
     Returns:
         pd.DataFrame: A DataFrame containing the mapped TF, mRNA, Psite, and Kinase information.
     """
-    # Read the Excel file
-    tfopt_file = pd.ExcelFile(file_path)
+    # --- TF mapping ---
+    tfopt_file = pd.ExcelFile(tf_file_path)
+    df = pd.read_excel(tfopt_file, sheet_name=sheet_name)
+    non_zero_df = df[df['Value'] > 1e-3]
 
-    # Read the 'Alpha Values' sheet
-    df = pd.read_excel(tfopt_file, sheet_name='Alpha Values')
+    # Group TFs and their corresponding strengths for each mRNA
+    tf_grouped = non_zero_df.groupby('mRNA').agg({
+        'TF': lambda x: ', '.join(x.astype(str)),
+        'Value': lambda x: ', '.join(map(str, x))
+    }).reset_index().rename(columns={'Value': 'TF_strength'})
 
-    # Filter the DataFrame for non-zero values
-    non_zero_df = df[df['Value'] != 0]
+    # --- Kinase mapping ---
+    kin_xls = pd.ExcelFile(kin_file_path)
+    kin_df = pd.read_excel(kin_xls, sheet_name=sheet_name)
+    kin_df = kin_df[kin_df['Alpha'] > 1e-3]
 
-    # Extract the mRNA for each TF where Values was not zero
-    result = non_zero_df[['mRNA', 'TF']]
+    # Rename for consistency
+    kin_df = kin_df.rename(columns={'Gene': 'mRNA'})
 
-    result = result.groupby('mRNA').agg(lambda x: ', '.join(x)).reset_index()
+    kin_grouped = kin_df.groupby(['mRNA', 'Psite']).agg({
+        'Kinase': lambda x: ', '.join(x.astype(str)),
+        'Alpha': lambda x: ', '.join(map(str, x))
+    }).reset_index().rename(columns={'Alpha': 'Kinase_strength'})
 
-    # Read another csv file which has TF aka GeneID and Psites and Kinases to merge with the result
-    kinopt_file = pd.read_csv(BASE / "raw" / "input2.csv")
-    df2 = kinopt_file.rename(columns={'GeneID': 'mRNA'})
-    merged_df = pd.merge(result, df2, on='mRNA', how='left')
+    # --- Merge results ---
+    merged_df = pd.merge(kin_grouped, tf_grouped, on='mRNA', how='left')
 
-    # Remove {} from the Kinases column with format {kinase1, kinase2, kinase3}
-    merged_df['Kinase'] = merged_df['Kinase'].astype(str)
-    merged_df['Kinase'] = merged_df['Kinase'].str.replace(r'{', '', regex=True)
-    merged_df['Kinase'] = merged_df['Kinase'].str.replace(r'}', '', regex=True)
-
-    # Remove any extra spaces
-    merged_df['Kinase'] = merged_df['Kinase'].str.replace(r'\s+', '', regex=True)
-
-    # Delete the rows where Psite doesn't match Psite in input2
-    merged_df = merged_df[merged_df['Psite'].isin(df2['Psite'])]
-
-    # Empty cells in mRNA column if they are repeateed in the next row
+    # Hide repeated TF rows for readability
     merged_df['TF'] = merged_df['TF'].where(merged_df['TF'] != merged_df['TF'].shift(), '')
-
-    merged_df = merged_df.drop_duplicates()
-    merged_df = merged_df.reset_index(drop=True)
+    merged_df['TF_strength'] = merged_df['TF_strength'].where(merged_df['TF_strength'] != merged_df['TF_strength'].shift(), '')
 
     return merged_df
 
@@ -66,12 +63,14 @@ def map_optimization_results(file_path):
 def create_cytoscape_table(mapping_csv_path):
     """
     Creates a Cytoscape-compatible edge table from a mapping file.
+    Adds a 'Strength' column from TF_strength or Kinase_strength.
 
     Parameters:
-        mapping_csv_path (str): Path to the input CSV file with columns: TF, mRNA, Psite, Kinase
+        mapping_csv_path (str): Path to the input CSV file with columns:
+                                TF, TF_strength, mRNA, Psite, Kinase, Kinase_strength
 
     Returns:
-        pd.DataFrame: Edge table with columns [Source, Target, Interaction]
+        pd.DataFrame: Edge table with columns [Source, Target, Interaction, Strength]
     """
     df = pd.read_csv(mapping_csv_path)
 
@@ -80,59 +79,84 @@ def create_cytoscape_table(mapping_csv_path):
 
     for _, row in df.iterrows():
         mRNA = row["mRNA"]
+        psite = row.get("Psite", "")
 
-        # Add Kinase -> mRNA edges
+        # Kinase -> mRNA
         if pd.notna(row["Kinase"]):
-            for kinase in str(row["Kinase"]).split(","):
-                kinase_tf_edges.append((kinase.strip(), mRNA.strip(), "phosphorylates"))
+            kin_strengths = str(row.get("Kinase_strength", "")).split(",")
+            kinases = str(row["Kinase"]).split(",")
+            for i, kinase in enumerate(kinases):
+                strength = kin_strengths[i].strip() if i < len(kin_strengths) else ""
+                kinase_tf_edges.append({
+                    "Source": kinase.strip(),
+                    "Target": mRNA.strip(),
+                    "Interaction": "phosphorylates",
+                    "Strength": strength,
+                    "Psite": psite
+                })
 
-        # Add TF -> mRNA edges
+        # TF -> mRNA
         if pd.notna(row["TF"]):
-            for tf in str(row["TF"]).split(","):
-                tf_mrna_edges.append((tf.strip(), mRNA.strip(), "regulates"))
+            tf_strengths = str(row.get("TF_strength", "")).split(",")
+            tfs = str(row["TF"]).split(",")
+            for i, tf in enumerate(tfs):
+                strength = tf_strengths[i].strip() if i < len(tf_strengths) else ""
+                tf_mrna_edges.append({
+                    "Source": tf.strip(),
+                    "Target": mRNA.strip(),
+                    "Interaction": "regulates",
+                    "Strength": strength,
+                    "Psite": ""
+                })
 
-    edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges,
-                           columns=["Source", "Target", "Interaction"])
+    edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges)
     return edge_df
-
 
 def generate_nodes(edge_df):
     """
-    Infers node types for Cytoscape visualization:
-    - All nodes default to 'Kinase'
-    - Nodes that are only targets of 'regulates' are labeled 'mRNA'
+    Infers node types and aggregates all Psites per target node from phosphorylation edges.
 
     Parameters:
-        edge_df (pd.DataFrame): Must have columns ['Source', 'Target', 'Interaction']
+        edge_df (pd.DataFrame): Must have columns ['Source', 'Target', 'Interaction', 'Psite']
 
     Returns:
-        pd.DataFrame: DataFrame with columns ['Node', 'Type']
+        pd.DataFrame: DataFrame with columns ['Node', 'Type', 'Psite']
     """
-    node_roles = {}
+    node_info = {}
 
     for _, row in edge_df.iterrows():
         src, tgt, interaction = row["Source"], row["Target"], row["Interaction"]
+        psite = row.get("Psite", "")
 
+        # Source
         if interaction == "regulates":
-            node_roles[src] = "TF"
-            node_roles[tgt] = "Kinase" if src not in node_roles else node_roles[tgt]
-        else:
-            node_roles[src] = "Kinase"
-            node_roles[tgt] = "Kinase"
+            node_info.setdefault(src, {"Type": "TF", "Psite_set": set()})
+            node_info.setdefault(tgt, {"Type": "Kinase", "Psite_set": set()})
+        else:  # phosphorylates
+            node_info.setdefault(src, {"Type": "Kinase", "Psite_set": set()})
+            node_info.setdefault(tgt, {"Type": "Kinase", "Psite_set": set()})
+            if psite:
+                node_info[tgt]["Psite_set"].add(str(psite).strip())
 
-    return pd.DataFrame([
-        {"Node": node, "Type": node_type}
-        for node, node_type in node_roles.items()
-    ])
+    node_records = []
+    for node, info in node_info.items():
+        psite_list = sorted(info["Psite_set"])  # consistent order
+        node_records.append({
+            "Node": node,
+            "Type": info["Type"],
+            "Psite": ", ".join(psite_list) if psite_list else ""
+        })
 
+    return pd.DataFrame(node_records)
 
 if __name__ == "__main__":
 
     # Path to the Excel file of mRNA-TF optimization results
-    file_path = ROOT / "data" / "tfopt_results.xlsx"
+    tf_file_path = ROOT / "data" / "tfopt_results.xlsx"
+    kin_file_path = ROOT / "data" / "kinopt_results.xlsx"
 
     # Call the function to map optimization results
-    mapped_df = map_optimization_results(file_path)
+    mapped_df = map_optimization_results(tf_file_path, kin_file_path)
 
     # Save the mapped DataFrame to a CSV file
     mapped_df.to_csv('mapped_TF_mRNA_phospho.csv', index=False)
