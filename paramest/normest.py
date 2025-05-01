@@ -166,14 +166,14 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         upper_bounds_full = [
             bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]
         ]
-        # For phosphorylation parameters: use Ssite bounds.
-        lower_bounds_full += [bounds["Ssite"][0]] * num_psites
-        upper_bounds_full += [bounds["Ssite"][1]] * num_psites
-        # For dephosphorylation parameters: for each combination, use Dsite bounds.
+        # For phosphorylation parameters: use S(i) bounds.
+        lower_bounds_full += [bounds["S(i)"][0]] * num_psites
+        upper_bounds_full += [bounds["S(i)"][1]] * num_psites
+        # For dephosphorylation parameters: for each combination, use D(i) bounds.
         for i in range(1, num_psites + 1):
             for _ in combinations(range(1, num_psites + 1), i):
-                lower_bounds_full.append(bounds["Dsite"][0])
-                upper_bounds_full.append(bounds["Dsite"][1])
+                lower_bounds_full.append(bounds["D(i)"][0])
+                upper_bounds_full.append(bounds["D(i)"][1])
         # If using log scale, transform bounds (ensure lower bounds > 0)
         eps = 1e-8  # small epsilon to avoid log(0)
         lower_bounds_full = [np.log(max(b, eps)) for b in lower_bounds_full]
@@ -182,13 +182,13 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         # Existing approach for distributive or successive models.
         lower_bounds_full = (
                 [bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]] +
-                [bounds["Ssite"][0]] * num_psites +
-                [bounds["Dsite"][0]] * num_psites
+                [bounds["S(i)"][0]] * num_psites +
+                [bounds["D(i)"][0]] * num_psites
         )
         upper_bounds_full = (
                 [bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]] +
-                [bounds["Ssite"][1]] * num_psites +
-                [bounds["Dsite"][1]] * num_psites
+                [bounds["S(i)"][1]] * num_psites +
+                [bounds["D(i)"][1]] * num_psites
         )
 
     free_bounds = (lower_bounds_full, upper_bounds_full)

@@ -40,6 +40,7 @@ def main():
     """
     # Set up the logger
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
+    logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
     log_config(logger, config['bounds'], args)
 
     # Make output directory
@@ -89,6 +90,7 @@ def main():
         logger.info("  " + " ".join(f"[{gene}]" for gene in common_proteins))
         logger.info(f"Genes NOT found in both datasets: {len(non_common)}")
         logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
+        logger.info("--------------------------------")
 
     if DEV_TEST:
         # Load only gene 'X'
@@ -148,6 +150,7 @@ def main():
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
 
+    logger.info("--------------------------------")
     logger.info(f'Report & Results {location(str(OUT_DIR))}')
 
     # Click to open the report in a web browser.

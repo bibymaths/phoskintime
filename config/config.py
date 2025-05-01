@@ -141,8 +141,9 @@ def log_config(logger, bounds, args):
     """
     logger.info("Parameter Bounds:")
     for key, val in bounds.items():
-        logger.info(f"   {key}      : {val}")
-    logger.info(f"Bootstrapping Iterations: {args.bootstraps}")
+        logger.info(f"      {key}      : {val}")
+    logger.info(f"      Bootstrapping Iterations: {args.bootstraps}")
+    logger.info("--------------------------------")
     np.set_printoptions(suppress=True)
 
 
@@ -162,8 +163,8 @@ def extract_config(args):
         "B": args.B_bound,
         "C": args.C_bound,
         "D": args.D_bound,
-        "Ssite": args.Ssite_bound,
-        "Dsite": args.Dsite_bound
+        "S(i)": args.Ssite_bound,
+        "D(i)": args.Dsite_bound
     }
     config = {
         'bounds': bounds,
