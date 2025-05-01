@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = False
+DEV_TEST = True
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -21,7 +21,7 @@ DEV_TEST = False
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'distmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories

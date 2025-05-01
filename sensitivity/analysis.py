@@ -1,11 +1,10 @@
 import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
-from matplotlib import pyplot as plt
-from config.constants import OUT_DIR, ODE_MODEL, COLOR_PALETTE, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, \
-    PERTURBATIONS_VALUE
+from config.constants import ODE_MODEL, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, PERTURBATIONS_VALUE, OUT_DIR
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
+from plotting.plotting import Plotter
 from config.logconf import setup_logger
 
 logger = setup_logger()
@@ -97,6 +96,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     # Initialize list to collect all trajectories
     all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
+    all_protein_solutions = np.zeros((len(param_values), len(time_points)))
     all_mrna_solutions = np.zeros((len(param_values), len(time_points)))
     all_flat_mRNA = np.zeros((len(param_values), len(TIME_POINTS_RNA)))
     trajectories_with_params = []
@@ -131,12 +131,13 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         # Y[i] = np.linalg.norm(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
 
         mRNA = solution[:, 0]
+        protein = solution[:, 1]
         psite_data = np.vstack(solution[:, 2:2 + num_psites])
-        # Flatten and combine mRNA and psite_data into a 1D array
-        combined = np.hstack([mRNA, psite_data.flatten()])
+
         # Stack all collected solutions
         # (n_samples, n_timepoints, n_sites)
         all_mrna_solutions[i] = mRNA
+        all_protein_solutions[i] = protein
         all_model_psite_solutions[i] = psite_data
         all_flat_mRNA[i] = flat_psite_mRNA[:len(TIME_POINTS_RNA)]
         trajectories_with_params.append({
@@ -150,7 +151,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
                  scaled=True, print_to_console=False)
 
-    # --- Select the closest simulations to the data  ---
+    # Select the closest simulations to the data
     psite_data_ref = data
     rna_ref = rna_data.reshape(-1)
 
@@ -170,9 +171,8 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         trajectories_with_params[i]["rmse"] = rmse[i]
 
     # Select the top K-closest simulations
-
-    # Top 5% of the RMSE values
-    K = sum(rmse <= np.percentile(rmse, 5))
+    # Top percentile of the RMSE values
+    K = sum(rmse <= np.percentile(rmse, 1))
 
     # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]
@@ -180,226 +180,14 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # Restrict the trajectories to only the closest ones
     best_model_psite_solutions = all_model_psite_solutions[best_idxs]
     best_mrna_solutions = all_mrna_solutions[best_idxs]
-
-    # --- Plot all model_psite solutions ---
+    best_protein_solutions = all_protein_solutions[best_idxs]
     n_sites = best_model_psite_solutions.shape[2]
     # cut-off time point
     cutoff_idx = 8
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
-    # --- Left plot: Until 9th time point ---
-    ax = axes[0]
-    for site_idx in range(n_sites):
-        color = COLOR_PALETTE[site_idx]
-        for sim_idx in range(best_model_psite_solutions.shape[0]):
-            ax.plot(
-                time_points[:cutoff_idx],
-                best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
-                color=color,
-                alpha=0.01,
-                linewidth=0.5
-            )
-        mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
-        ax.plot(
-            time_points[:cutoff_idx],
-            mean_curve,
-            color=color,
-            linewidth=1
-        )
-        ax.plot(
-            time_points[:cutoff_idx],
-            data[site_idx, :cutoff_idx],
-            marker='s',
-            linestyle='--',
-            color=color,
-            markersize=5,
-            linewidth=0.75,
-            mew=0.5, mec='black',
-        )
-    for sim_idx in range(best_mrna_solutions.shape[0]):
-        ax.plot(
-            time_points[:cutoff_idx],
-            best_mrna_solutions[sim_idx, :cutoff_idx],
-            color='black',
-            alpha=0.01,
-            linewidth=0.5
-        )
-    mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
-    ax.plot(
-        time_points[:cutoff_idx],
-        mean_curve_mrna,
-        color='black',
-        linewidth=1
-    )
-    ax.plot(
-        TIME_POINTS_RNA[:3],
-        rna_ref[:3],
-        marker='s',
-        linestyle='--',
-        color='black',
-        markersize=5,
-        linewidth=0.75,
-        mew=0.5, mec='black',
-    )
+    # Plot all simulations
+    Plotter(gene, OUT_DIR).plot_model_pertrubations(problem, Si, cutoff_idx, time_points, n_sites, best_model_psite_solutions,
+                                     best_mrna_solutions, best_mrna_solutions, best_protein_solutions, psite_labels,
+                                     psite_data_ref, rna_ref)
 
-    ax.set_xlabel('Time (min)')
-    ax.set_xticks(time_points[:cutoff_idx])
-    ax.set_xticklabels(
-        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
-        rotation=45,
-        fontsize=6
-    )
-    ax.set_ylabel('FC')
-    ax.grid(True, alpha=0.05)
-
-    # --- Right plot: From 9th time point onwards ---
-    ax = axes[1]
-    for site_idx in range(n_sites):
-        color = COLOR_PALETTE[site_idx]
-        for sim_idx in range(best_model_psite_solutions.shape[0]):
-            ax.plot(
-                time_points[cutoff_idx - 1:],
-                best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
-                color=color,
-                alpha=0.01,
-                linewidth=0.5
-            )
-        mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
-        ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve,
-            color=color,
-            label=f'{psite_labels[site_idx]}',
-            linewidth=1
-        )
-        ax.plot(
-            time_points[cutoff_idx - 1:],
-            data[site_idx, cutoff_idx - 1:],
-            marker='s',
-            linestyle='--',
-            color=color,
-            markersize=5,
-            linewidth=0.75,
-            mew=0.5, mec='black'
-        )
-    for sim_idx in range(best_mrna_solutions.shape[0]):
-        ax.plot(
-            time_points[cutoff_idx - 1:],
-            best_mrna_solutions[sim_idx, cutoff_idx - 1:],
-            color='black',
-            alpha=0.01,
-            linewidth=0.5
-        )
-    mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
-    ax.plot(
-        time_points[cutoff_idx - 1:],
-        mean_curve_mrna,
-        color='black',
-        label='mRNA (R)',
-        linewidth=1
-    )
-    ax.plot(
-        TIME_POINTS_RNA[4:],
-        rna_ref[4:],
-        marker='s',
-        linestyle='--',
-        color='black',
-        markersize=5,
-        linewidth=0.75,
-        mew=0.5, mec='black',
-    )
-
-    ax.set_xlabel('Time (min)')
-    ax.set_xticks(time_points[cutoff_idx:])
-    ax.set_xticklabels(
-        [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
-        rotation=45,
-        fontsize=6
-    )
-    ax.grid(True, alpha=0.05)
-    ax.legend()
-
-    plt.suptitle(f'{gene}', fontsize=16)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_.png", format='png', dpi=300)
-    plt.close()
-
-    # Absolute Mean of Elementary Effects : represents the overall importance
-    # of each parameter, reflecting its sensitivity
-    ## Bar Plot of mu* ##
-    # Standard Deviation of Elementary Effects: High standard deviation suggests
-    # that the parameter has nonlinear effects or is involved in interactions
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax.bar(problem['names'], Si['mu_star'], yerr=Si['mu_star_conf'], color='skyblue')
-    ax.set_title(f'{gene}')
-    ax.set_ylabel('mu* (Importance)')
-    plt.grid(True, alpha=0.2)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_bar_plot_mu.png", format='png', dpi=300)
-    plt.close()
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax.bar(problem['names'], Si['sigma'], color='orange')
-    ax.set_title(f'{gene}')
-    ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True, alpha=0.2)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_bar_plot_sigma.png", format='png', dpi=300)
-    plt.close()
-
-    ## Bar Plot of sigma ##
-    # Distinguish between parameters with purely linear effects (low sigma) and
-    # those with nonlinear or interaction effects (high sigma).
-    # **--- Parameters with high mu* and high sigma ---**
-    #           <particularly important to watch>
-    ## Scatter Plot of mu* vs sigma ##
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax.scatter(Si['mu_star'], Si['sigma'], color='green', s=100)
-    for i, param in enumerate(problem['names']):
-        ax.text(Si['mu_star'][i], Si['sigma'][i], param, fontsize=12, ha='right', va='bottom')
-    ax.set_title(f'{gene}')
-    ax.set_xlabel('mu* (Mean Absolute Effect)')
-    ax.set_ylabel('σ (Standard Deviation)')
-    plt.grid(True, alpha=0.2)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_scatter_plot_musigma.png", format='png', dpi=300)
-    plt.close()
-
-    # A radial plot (also known as a spider or radar plot) can give a visual
-    # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for
-    # each parameter in a circular format.
-
-    # Each parameter gets a spoke, and the distance from the center represents
-    # the sensitivity for a given metric.
-    ## Radial Plot (Spider Plot) of Sensitivity Metrics ##
-    categories = problem['names']
-    N_cat = len(categories)
-    mu_star = Si['mu_star']
-    sigma = Si['sigma']
-    angles = np.linspace(0, 2 * np.pi, N_cat, endpoint=False).tolist()
-    mu_star = np.concatenate((mu_star, [mu_star[0]]))
-    sigma = np.concatenate((sigma, [sigma[0]]))
-    angles += angles[:1]
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-    ax.fill(angles, mu_star, color='skyblue', alpha=0.4, label='Mu*')
-    ax.fill(angles, sigma, color='orange', alpha=0.4, label='Sigma')
-    ax.set_yticklabels([])
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(categories)
-    ax.set_title(f'{gene}')
-    plt.legend(loc='upper right')
-    plt.grid(True, alpha=0.2)
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_radial_plot.png", format='png', dpi=300)
-    plt.close()
-
-    # Visualize the proportion of total sensitivity contributed by each
-    # parameter using a pie chart, showing the relative importance of each
-    # parameter's contribution to sensitivity.
-    ## Pie Chart for Sensitivity Contribution ##
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.pie(Si['mu_star'], labels=problem['names'], autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors,
-           textprops={'fontsize': 6})
-    ax.set_title(f'{gene}')
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/{gene}_sensitivity_pie_chart.png", format='png', dpi=300)
-    plt.close()
     return Si, trajectories_with_params
