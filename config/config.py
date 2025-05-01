@@ -162,8 +162,8 @@ def extract_config(args):
         "B": args.B_bound,
         "C": args.C_bound,
         "D": args.D_bound,
-        "S(i)": args.Ssite_bound,
-        "D(i)": args.Dsite_bound
+        "Ssite": args.Ssite_bound,
+        "Dsite": args.Dsite_bound
     }
     config = {
         'bounds': bounds,
