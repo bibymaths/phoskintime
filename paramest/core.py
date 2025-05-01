@@ -105,7 +105,7 @@ def process_gene(
     # Get the FC value for TIME_POINTS_RNA
     R_data = rna_data.iloc[:, 1:].values
 
-    logger.info(f"[{gene}] Fitting to data...")
+    logger.info(f"[{gene}]      Fitting to data...")
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
@@ -116,7 +116,7 @@ def process_gene(
     mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
 
-    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
+    logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Solve Full ODE with Final Params
     final_params = estimated_params[-1]

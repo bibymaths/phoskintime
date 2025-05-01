@@ -88,7 +88,7 @@ def worker_find_lambda(
             logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
 
     if best_weight_key:
-        logger.info(f"[{gene}] λ = {lam / len(p0):.3f} |  "
+        logger.info(f"[{gene}]      λ = {lam / len(p0):.3f} |  "
                     f"Best Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
                     f"Score = {best_score:.2f}")
     else:
@@ -205,12 +205,12 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
 
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
-    logger.info(f"[{gene}] Finding best regularization term λ...")
+    logger.info(f"[{gene}]      Finding best regularization term λ...")
 
     lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
                                                  p_data)
 
-    logger.info(f"[{gene}] Using λ = {lambda_reg / len(p0)}")
+    logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0)}")
 
     def model_func(tpts, *params):
         """
@@ -279,8 +279,8 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
-    logger.info(f"[{gene}] Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
-    logger.info(f"[{gene}] Fit Score: {best_score:.2f}")
+    logger.info(f"[{gene}]      Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
+    logger.info(f"[{gene}]      Fit Score: {best_score:.2f}")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
