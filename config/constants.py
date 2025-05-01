@@ -28,7 +28,7 @@ ODE_MODEL = 'distmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 1000
+NUM_TRAJECTORIES = 10000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
@@ -92,7 +92,7 @@ SENSITIVITY_ANALYSIS = True
 # during the optimization process, which can lead to more stable and reliable parameter estimates.
 # When set to False, the optimization process will not include this regularization term,
 # which may result in less stable solutions, especially in cases where the data is noisy or sparse.
-USE_REGULARIZATION = True
+USE_REGULARIZATION = False
 # Composite Scoring Function:
 # score = alpha * RMSE + beta * MAE + gamma * Var(residual) + delta * MSE + mu * L2 norm
 #

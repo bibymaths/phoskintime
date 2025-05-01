@@ -81,7 +81,8 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         gene (str): Name of the gene or protein being analyzed.
 
     Returns:
-        None: The function saves sensitivity analysis results and plots to the output directory.
+        - Si: Sensitivity indices computed from the Morris method.
+        - trajectories_with_params: List of dictionaries containing parameter sets and their corresponding solutions.
     """
 
     if ODE_MODEL == 'randmod':
@@ -116,13 +117,13 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         # Sensitivity metric (pick one):
 
         # Total signal (recommended default)
-        Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
+        # Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
 
         # # Mean level of total activity
         # Y[i] = np.mean(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
 
         # # Variance across time + sites
-        # Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
+        Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
 
         # # Dynamics: squared changes
         # Y[i] = np.sum(np.diff(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()])) ** 2)
@@ -182,12 +183,13 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     best_mrna_solutions = all_mrna_solutions[best_idxs]
     best_protein_solutions = all_protein_solutions[best_idxs]
     n_sites = best_model_psite_solutions.shape[2]
-    # cut-off time point
+
+    # cut-off time point for plotting
     cutoff_idx = 8
 
     # Plot all simulations
-    Plotter(gene, OUT_DIR).plot_model_pertrubations(problem, Si, cutoff_idx, time_points, n_sites, best_model_psite_solutions,
-                                     best_mrna_solutions, best_mrna_solutions, best_protein_solutions, psite_labels,
-                                     psite_data_ref, rna_ref)
+    Plotter(gene, OUT_DIR).plot_model_pertrubations(problem, Si, cutoff_idx, time_points, n_sites,
+                                                    best_model_psite_solutions, best_mrna_solutions,
+                                                    best_protein_solutions, psite_labels, psite_data_ref, rna_ref)
 
     return Si, trajectories_with_params

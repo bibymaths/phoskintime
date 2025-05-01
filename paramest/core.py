@@ -210,6 +210,7 @@ def process_gene(
 
     perturbation_analysis = None
     trajectories_w_params = None
+
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values

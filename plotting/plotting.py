@@ -576,14 +576,13 @@ class Plotter:
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_.png")
 
-    def plot_top_param_pairs(self, excel_path: str, top_n: int = 20):
+    def plot_top_param_pairs(self, excel_path: str):
         """
         For each gene's '_perturbations' sheet in the Excel file,
-        plot scatter plots for the top N parameter pairs with the highest correlation.
+        plot scatter plots for the parameter pairs with correlation.
 
         Args:
             excel_path (str): Path to the Excel file.
-            top_n (int): Number of top parameter pairs to plot.
         """
         xls = pd.ExcelFile(excel_path)
 
@@ -591,7 +590,7 @@ class Plotter:
             if not sheet.endswith("_perturbations"):
                 continue
 
-            gene = sheet.replace("_perturbations", "")
+            self.gene = sheet.replace("_perturbations", "")
             df = pd.read_excel(xls, sheet_name=sheet)
             df = df.nsmallest(50, "RMSE")
             param_cols = [col for col in df.columns if isinstance(col, str)
@@ -656,7 +655,7 @@ class Plotter:
                     time_points[:cutoff_idx],
                     best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                     color=color,
-                    alpha=0.01,
+                    alpha=0.005,
                     linewidth=0.5
                 )
             mean_curve = np.mean(best_model_psite_solutions[:, :cutoff_idx, site_idx], axis=0)
@@ -683,7 +682,7 @@ class Plotter:
                 time_points[:cutoff_idx],
                 best_mrna_solutions[sim_idx, :cutoff_idx],
                 color='black',
-                alpha=0.01,
+                alpha=0.005,
                 linewidth=0.5
             )
         mean_curve_mrna = np.mean(best_mrna_solutions[:, :cutoff_idx], axis=0)
@@ -710,7 +709,7 @@ class Plotter:
                 time_points[:cutoff_idx],
                 best_protein_solutions[sim_idx, :cutoff_idx],
                 color='red',
-                alpha=0.01,
+                alpha=0.005,
                 linewidth=0.5
             )
         mean_curve_protein = np.mean(best_protein_solutions[:, :cutoff_idx], axis=0)
@@ -742,7 +741,7 @@ class Plotter:
                     time_points[cutoff_idx - 1:],
                     best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
                     color=color,
-                    alpha=0.01,
+                    alpha=0.005,
                     linewidth=0.5
                 )
             mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
@@ -770,7 +769,7 @@ class Plotter:
                 time_points[cutoff_idx - 1:],
                 best_mrna_solutions[sim_idx, cutoff_idx - 1:],
                 color='black',
-                alpha=0.01,
+                alpha=0.005,
                 linewidth=0.5
             )
         mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
@@ -798,7 +797,7 @@ class Plotter:
                 time_points[cutoff_idx - 1:],
                 best_protein_solutions[sim_idx, cutoff_idx - 1:],
                 color='red',
-                alpha=0.01,
+                alpha=0.005,
                 linewidth=0.5
             )
         mean_curve_protein = np.mean(best_protein_solutions[:, cutoff_idx - 1:], axis=0)

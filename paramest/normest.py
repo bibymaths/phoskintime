@@ -88,7 +88,7 @@ def worker_find_lambda(
             logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
 
     if best_weight_key:
-        logger.info(f"[{gene}]      λ = {lam / len(p0):.3f} |  "
+        logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
                     f"Best Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
                     f"Score = {best_score:.2f}")
     else:
@@ -106,7 +106,7 @@ def find_best_lambda(
         init_cond: np.ndarray,
         num_psites: int,
         p_data: np.ndarray,
-        lambdas=np.linspace(1e-3, 1, 10),
+        lambdas=np.logspace(-2, 0, 100),
         max_workers: int = os.cpu_count(),
 ) -> Tuple[float, str]:
     """
@@ -193,10 +193,10 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
 
     free_bounds = (lower_bounds_full, upper_bounds_full)
 
-    # Set initial guess for all parameters (midpoint of bounds).
-    # p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
-
+    # Set seed for reproducibility.
     np.random.seed(42)
+
+    # Generate a random initial guess for the parameters.
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.

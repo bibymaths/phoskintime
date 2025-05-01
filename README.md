@@ -76,7 +76,53 @@ The package is designed with modularity in mind. It consists of several key comp
 ## Installation
 
 This guide provides clean setup instructions for running the `phoskintime` package on a new machine. Choose the scenario
-that best fits your environment and preferences.
+that best fits your environment and preferences. 
+ 
+Before proceeding, ensure you have the following prerequisites installed: 
+ 
+- graphviz (for generating diagrams)   
+
+```bash 
+# For Debian/Ubuntu
+sudo apt-get install graphviz   
+
+# For Fedora
+sudo dnf install graphviz    
+
+# For MacOS
+brew install graphviz 
+``` 
+
+- python 3.10 or higher 
+
+```bash  
+# Check python version 
+python3 --version  
+
+# If not installed, install python 3.10 or higher 
+
+# For Debian/Ubuntu  
+sudo apt-get install python3.10 
+ 
+# For Fedora 
+sudo dnf install python3.10 
+
+# For MacOS
+brew install python@3.10
+``` 
+
+- git (for cloning the repository) 
+ 
+```bash  
+# For Debian/Ubuntu 
+sudo apt-get install git  
+
+# For Fedora 
+sudo dnf install git  
+
+# For MacOS 
+brew install git 
+```
 
 ---
 
