@@ -1,5 +1,6 @@
 from kinopt.local.optcon.construct import (_build_K_data, _build_P_initial, _build_constraints,
-                                           _init_parameters, _compute_time_weights, _precompute_mappings, _convert_to_sparse)
+                                           _init_parameters, _compute_time_weights, _precompute_mappings,
+                                           _convert_to_sparse)
 
 # Define the functions to be imported
 build_K_data = _build_K_data

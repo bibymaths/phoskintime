@@ -15,6 +15,7 @@ from utils import latexit
 
 logger = setup_logger()
 
+
 def main():
     """
     Main function to run the mRNA-TF optimization problem.
@@ -46,7 +47,7 @@ def main():
 
     # STEP 2: Prepare data and build fixed arrays.
     fixed_arrays, T_use = prepare_data(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data,
-                                        tf_psite_labels, tf_time_cols, reg_map)
+                                       tf_psite_labels, tf_time_cols, reg_map)
     expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites = fixed_arrays
 
     # n_genes = expression_matrix.shape[0]
@@ -58,7 +59,7 @@ def main():
     # STEP 3: Set up optimization parameters.
     x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use = \
         get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_use,
-                                psite_labels_arr, num_psites, lb, ub)
+                                    psite_labels_arr, num_psites, lb, ub)
 
     # STEP 4: Run the optimization.
     result = run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
@@ -110,6 +111,7 @@ def main():
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ import os
 import logging
 from config.logconf import setup_logger, ColoredFormatter
 
+
 def logger_handles_empty_log_directory(tmp_path):
     """
     Test that the logger creates the log directory if it does not exist.

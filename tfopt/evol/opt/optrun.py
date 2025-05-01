@@ -26,7 +26,7 @@ def run_optimization(problem, total_dim, optimizer):
     """
     # Define algorithm settings.
     global algo
-    pop_size = total_dim*2
+    pop_size = total_dim * 2
     crossover = TwoPointCrossover(prob=0.9)
     mutation = PolynomialMutation(prob=1.0 / total_dim, eta=20)
     eliminate_duplicates = True
@@ -42,7 +42,7 @@ def run_optimization(problem, total_dim, optimizer):
         )
     elif optimizer == 1:
         # SMSEMOA settings.
-        algo= SMSEMOA(
+        algo = SMSEMOA(
             pop_size=pop_size,
             crossover=crossover,
             mutation=mutation,
@@ -70,7 +70,7 @@ def run_optimization(problem, total_dim, optimizer):
                          seed=1,
                          verbose=True)
 
-        # Log the captured pymoo progress
+    # Log the captured pymoo progress
     # pymoo_progress = buf.getvalue()
     # if pymoo_progress.strip():  # only log if there's actual text
     #     logger.info("--- Progress Output ---\n" + pymoo_progress)

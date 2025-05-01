@@ -2,11 +2,14 @@ import numpy as np
 from numba import njit
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
+
 TEST_MODEL = 'neg_feedback'  # Change this to the desired model type
-NEGATIVE_FEEDBACK_CONSTANT = 0.1 # Feedback constant for negative feedback model
-PROCESSIVITY = 0.1 # Processivity rate for semi-processive model
-HILL_N = 4 # Hill coefficient for cooperative model
-K_HALF = 0.5 # Half-maximal activation constant for cooperative model
+NEGATIVE_FEEDBACK_CONSTANT = 0.1  # Feedback constant for negative feedback model
+PROCESSIVITY = 0.1  # Processivity rate for semi-processive model
+HILL_N = 4  # Hill coefficient for cooperative model
+K_HALF = 0.5  # Half-maximal activation constant for cooperative model
+
+
 # Works well for hill_n =< 0.5 and K_half >= 2
 
 # ======================================================
@@ -46,10 +49,12 @@ def ode_core_semi_processive(y, A, B, C, D, S_rates, D_rates, p_proc):
             if i == 0:
                 dydt[2] = p_proc * S_rates[0] * P - (1.0 + p_proc * S_rates[1] + D_rates[0]) * y[2] + y[3]
             elif i < n - 1:
-                dydt[2+i] = p_proc * S_rates[i] * y[1+i] - (1.0 + p_proc * S_rates[i+1] + D_rates[i]) * y[2+i] + y[3+i]
+                dydt[2 + i] = p_proc * S_rates[i] * y[1 + i] - (1.0 + p_proc * S_rates[i + 1] + D_rates[i]) * y[2 + i] + \
+                              y[3 + i]
             else:
-                dydt[2+i] = p_proc * S_rates[i] * y[1+i] - (1.0 + D_rates[i]) * y[2+i]
+                dydt[2 + i] = p_proc * S_rates[i] * y[1 + i] - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 # ======================================================
 # 2. Site-specific Binding Affinity Model
@@ -87,10 +92,11 @@ def ode_core_site_affinity(y, A, B, C, D, S_rates, D_rates):
             if i == 0:
                 dydt[2] = S_rates[0] * P - (1.0 + S_rates[1] + D_rates[0]) * y[2] + y[3]
             elif i < n - 1:
-                dydt[2+i] = S_rates[i] * y[1+i] - (1.0 + S_rates[i+1] + D_rates[i]) * y[2+i] + y[3+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] - (1.0 + S_rates[i + 1] + D_rates[i]) * y[2 + i] + y[3 + i]
             else:
-                dydt[2+i] = S_rates[i] * y[1+i] - (1.0 + D_rates[i]) * y[2+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 # ======================================================
 # 7. Negative Feedback Phosphorylation Model
@@ -117,7 +123,7 @@ def ode_core_negative_feedback(y, A, B, C, D, S_rates, D_rates, k_fb):
     # Compute total phosphorylation to define feedback factor
     total = 0.0
     for i in range(n):
-        total += y[2+i]
+        total += y[2 + i]
     f = 1.0 / (1.0 + k_fb * total)
     dR = A - B * R
     dP = C * R - D * P - f * S_rates[0] * P + y[2]
@@ -131,10 +137,11 @@ def ode_core_negative_feedback(y, A, B, C, D, S_rates, D_rates, k_fb):
             if i == 0:
                 dydt[2] = f * S_rates[0] * P - (1.0 + f * S_rates[1] + D_rates[0]) * y[2] + y[3]
             elif i < n - 1:
-                dydt[2+i] = f * S_rates[i] * y[1+i] - (1.0 + f * S_rates[i+1] + D_rates[i]) * y[2+i] + y[3+i]
+                dydt[2 + i] = f * S_rates[i] * y[1 + i] - (1.0 + f * S_rates[i + 1] + D_rates[i]) * y[2 + i] + y[3 + i]
             else:
-                dydt[2+i] = f * S_rates[i] * y[1+i] - (1.0 + D_rates[i]) * y[2+i]
+                dydt[2 + i] = f * S_rates[i] * y[1 + i] - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 # ======================================================
 # 3. Crosstalk Between Sites Model
@@ -161,7 +168,7 @@ def ode_core_crosstalk(y, A, B, C, D, S_rates, D_rates):
     # Calculate average phosphorylation (feedback term)
     sum_P = 0.0
     for i in range(n):
-        sum_P += y[2+i]
+        sum_P += y[2 + i]
     mod_factor = sum_P / n if n > 0 else 0.0
     dR = A - B * R
     dP = C * R - D * P
@@ -176,12 +183,15 @@ def ode_core_crosstalk(y, A, B, C, D, S_rates, D_rates):
     elif n > 1:
         for i in range(n):
             if i == 0:
-                dydt[2] = S_rates[0] * P * (1.0 + mod_factor) - (1.0 + S_rates[1] * (1.0 + mod_factor) + D_rates[0]) * y[2] + y[3]
+                dydt[2] = S_rates[0] * P * (1.0 + mod_factor) - (1.0 + S_rates[1] * (1.0 + mod_factor) + D_rates[0]) * \
+                          y[2] + y[3]
             elif i < n - 1:
-                dydt[2+i] = S_rates[i] * y[1+i] * (1.0 + mod_factor) - (1.0 + S_rates[i+1] * (1.0 + mod_factor) + D_rates[i]) * y[2+i] + y[3+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] * (1.0 + mod_factor) - (
+                            1.0 + S_rates[i + 1] * (1.0 + mod_factor) + D_rates[i]) * y[2 + i] + y[3 + i]
             else:
-                dydt[2+i] = S_rates[i] * y[1+i] * (1.0 + mod_factor) - (1.0 + D_rates[i]) * y[2+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] * (1.0 + mod_factor) - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 # ======================================================
 # 10. Cooperative (Hill-type) Phosphorylation Model
@@ -208,7 +218,7 @@ def ode_core_cooperative(y, A, B, C, D, S_rates, D_rates, hill_n, K_half):
     sum_P = 0.0
     if n > 0:
         for i in range(n):
-            sum_P += y[2+i]
+            sum_P += y[2 + i]
     activation = (sum_P ** hill_n) / (K_half ** hill_n + sum_P ** hill_n + 1e-8)
     dR = A - B * R
     dP = C * R - D * P
@@ -225,10 +235,12 @@ def ode_core_cooperative(y, A, B, C, D, S_rates, D_rates, hill_n, K_half):
             if i == 0:
                 dydt[2] = S_rates[0] * P * activation - (1.0 + S_rates[1] * activation + D_rates[0]) * y[2] + y[3]
             elif i < n - 1:
-                dydt[2+i] = S_rates[i] * y[1+i] * activation - (1.0 + S_rates[i+1] * activation + D_rates[i]) * y[2+i] + y[3+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] * activation - (1.0 + S_rates[i + 1] * activation + D_rates[i]) * y[
+                    2 + i] + y[3 + i]
             else:
-                dydt[2+i] = S_rates[i] * y[1+i] * activation - (1.0 + D_rates[i]) * y[2+i]
+                dydt[2 + i] = S_rates[i] * y[1 + i] * activation - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 # ======================================================
 # Unified ode_system switch
@@ -266,6 +278,7 @@ def ode_system(y, t, params, num_psites, model_type=TEST_MODEL):
         return ode_core_negative_feedback(y, A, B, C, D, S_rates, D_rates, k_fb)
     else:
         raise ValueError("Unknown model_type: " + model_type)
+
 
 # ======================================================
 # ODE Solver Wrapper

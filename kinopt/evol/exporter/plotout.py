@@ -1,16 +1,17 @@
-
 import seaborn as sns
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
+
 mpl.use("Agg")
 
 from matplotlib.animation import PillowWriter
 from matplotlib.animation import FuncAnimation
 from pymoo.visualization.radar import Radar
 from kinopt.evol.config.constants import OUT_DIR, TIME_POINTS
+
 
 def plot_residuals_for_gene(gene, gene_data):
     """
@@ -110,11 +111,12 @@ def plot_residuals_for_gene(gene, gene_data):
     plt.savefig(f"{OUT_DIR}/qqplot_residuals_{gene}.png", format='png', dpi=300)
     plt.close('all')
 
+
 def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
-                approx_nadir, asf_i, pseudo_i, n_evals,
-                hv, hist, val, hist_cv_avg, k, igd, best_objectives,
-                waterfall_df, convergence_df, alpha_values,
-                beta_values):
+                     approx_nadir, asf_i, pseudo_i, n_evals,
+                     hv, hist, val, hist_cv_avg, k, igd, best_objectives,
+                     waterfall_df, convergence_df, alpha_values,
+                     beta_values):
     """
     Generates and saves various plots related to optimization results.
     This includes design space plots, objective space plots,
@@ -259,6 +261,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     # Set up the figure and axis for 3D plotting
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection="3d")
+
     def update_frame(frame):
         """
         Update the frame for the animation.
@@ -275,6 +278,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
         ax.set_xlim([min_f[0], max_f[0]])
         ax.set_ylim([min_f[1], max_f[1]])
         ax.set_zlim([min_f[2], max_f[2]])
+
     # Create the animation
     anim = FuncAnimation(fig, update_frame, frames=len(hist), repeat=False)
     # Save as GIF
@@ -449,6 +453,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/parameter_scatter.png", format="png", dpi=300)
     plt.close()
+
 
 def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
                    x_values, y_values, val):

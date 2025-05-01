@@ -1,6 +1,8 @@
 # local — Local Constrained Optimization Framework
 
-The `local` subpackage provides a constrained optimization backend for fitting transcriptional regulatory models to gene expression time-series data using local solvers like `SLSQP`. It is designed for precision optimization when global heuristics (e.g., genetic algorithms) are not necessary or for refinement after global search.
+The `local` subpackage provides a constrained optimization backend for fitting transcriptional regulatory models to gene
+expression time-series data using local solvers like `SLSQP`. It is designed for precision optimization when global
+heuristics (e.g., genetic algorithms) are not necessary or for refinement after global search.
 
 ---
 
@@ -25,9 +27,9 @@ local/
 
 - Uses **SLSQP** to fit transcriptional model parameters
 - Minimizes a multi-part objective:
-  - Fit error (MSE, MAE, etc.)
-  - α parameter constraints (sum to 1 across TFs)
-  - β parameter constraints (sum to 1 across protein + PSites)
+    - Fit error (MSE, MAE, etc.)
+    - α parameter constraints (sum to 1 across TFs)
+    - β parameter constraints (sum to 1 across protein + PSites)
 - Supports regularization (Elastic Net, Tikhonov)
 
 ### Parameter Estimation
@@ -42,10 +44,10 @@ local/
 - Saves α and β values to Excel
 - Computes and logs fit metrics (MSE, MAE, MAPE, R²)
 - Generates plots:
-  - Model fit curves (static & interactive)
-  - Residuals
-  - PCA, KLD, boxplots
-  - CDFs, heatmaps
+    - Model fit curves (static & interactive)
+    - Residuals
+    - PCA, KLD, boxplots
+    - CDFs, heatmaps
 
 - HTML report builder auto-organizes all output per mRNA
 
@@ -56,6 +58,7 @@ local/
 ### `__main__.py`
 
 The orchestrator script that:
+
 - Parses CLI args
 - Loads and filters input data
 - Builds optimization arrays and constraints
@@ -79,13 +82,13 @@ python -m phoskintime tfopt --mode local
 
 - `minfn.py`: Numba-accelerated loss and prediction functions
 - Supports loss types:
-  - 0: MSE
-  - 1: MAE
-  - 2: soft L1
-  - 3: Cauchy
-  - 4: Arctan
-  - 5: Elastic Net
-  - 6: Tikhonov
+    - 0: MSE
+    - 1: MAE
+    - 2: soft L1
+    - 3: Cauchy
+    - 4: Arctan
+    - 5: Elastic Net
+    - 6: Tikhonov
 
 ### `opt/`
 
@@ -112,16 +115,19 @@ python -m phoskintime tfopt --mode local
 
 - `tfopt_results.xlsx`: All α/β parameters, metrics, and errors
 - One folder per gene, containing:
-  - Fit plots (`.png`, `.html`)
-  - Residual plots
-  - Intermediate CSV/XLSX files
+    - Fit plots (`.png`, `.html`)
+    - Residual plots
+    - Intermediate CSV/XLSX files
 - Global HTML report aggregating all outputs
 
 ---
 
-## Acknowledgments 
+## Acknowledgments
 
-This module was developed by **Abhinav Mishra** as part of the PhosKinTime project, with base optimization ideas adapted  
-from early global frameworks. The local variant enables refined and faster convergence for small- to medium-scale systems.
-The base implementation of single-objective optimization was contributed by **Julius Normann** and adapted here with performance  
+This module was developed by **Abhinav Mishra** as part of the PhosKinTime project, with base optimization ideas
+adapted  
+from early global frameworks. The local variant enables refined and faster convergence for small- to medium-scale
+systems.
+The base implementation of single-objective optimization was contributed by **Julius Normann** and adapted here with
+performance  
 improvements tailored for local constrained optimization.

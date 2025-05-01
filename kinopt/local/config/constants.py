@@ -28,6 +28,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
                         16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 
+
 def parse_args():
     """
     Parses command-line arguments for the optimization script.

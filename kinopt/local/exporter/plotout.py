@@ -1,10 +1,10 @@
-
 import seaborn as sns
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
+
 mpl.use("Agg")
 
 from kinopt.local.config.constants import OUT_DIR
@@ -92,6 +92,7 @@ def plot_cumulative_residuals(gene, gene_data, real_timepoints):
     plt.savefig(filename, format='png', dpi=300)
     plt.close()
 
+
 def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     """
     Function to plot the autocorrelation of residuals for each psite of a gene.
@@ -106,7 +107,7 @@ def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     plt.figure(figsize=(8, 8))
     for i, psite in enumerate(gene_data["psites"]):
         plot_acf(gene_data["residuals"][i], lags=len(real_timepoints) - 1,
-                 alpha=0.03, ax=plt.gca(), label=f"{psite}",)
+                 alpha=0.03, ax=plt.gca(), label=f"{psite}", )
     plt.title(f"{gene}")
     plt.xlabel("Lags")
     plt.ylabel("Autocorrelation")
@@ -114,6 +115,7 @@ def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     filename = f"{OUT_DIR}/{gene}_autocorrelation_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
     plt.close()
+
 
 def plot_histogram_residuals(gene, gene_data, real_timepoints):
     """
@@ -140,8 +142,9 @@ def plot_histogram_residuals(gene, gene_data, real_timepoints):
     plt.tight_layout()
     filename = f"{OUT_DIR}/{gene}_histogram_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
-    plt.close() 
-    
+    plt.close()
+
+
 def plot_qqplot_residuals(gene, gene_data, real_timepoints):
     """
     Function to plot QQ plots of residuals for each psite of a gene.

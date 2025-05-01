@@ -7,9 +7,10 @@ from scipy.sparse import csr_matrix
 from typing import Tuple
 from numpy.typing import NDArray
 
-from kinopt.local.config.constants import INPUT2, INPUT1 
- 
+from kinopt.local.config.constants import INPUT2, INPUT1
+
 from kinopt.local.config.logconf import setup_logger
+
 logger = setup_logger()
 
 
@@ -42,6 +43,7 @@ def _build_P_initial(full_df, interact_df):
         # Store the gene, phosphorylation site, and kinases in the dictionary
         P_initial[(gene, psite)] = {'Kinases': kinases, 'TimeSeries': ts}
     return P_initial, np.array(P_list)
+
 
 def _build_K_data(full_df, interact_df, estimate_missing):
     """
@@ -101,6 +103,7 @@ def _build_K_data(full_df, interact_df, estimate_missing):
     K_array = np.array(K_list)
 
     return K_index, K_array, beta_counts
+
 
 def _convert_to_sparse(K_array):
     """
@@ -182,11 +185,12 @@ def _precompute_mappings(P_initial, K_index):
 
     return unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha, kinase_beta_counts, kinase_beta_starts
 
+
 def _init_parameters(
-    total_alpha: int,
-    lb: float,
-    ub: float,
-    kinase_beta_counts: list[int]
+        total_alpha: int,
+        lb: float,
+        ub: float,
+        kinase_beta_counts: list[int]
 ) -> Tuple[NDArray[np.float64], list[tuple[float, float]]]:
     """
     Function to initialize parameters for optimization.
@@ -229,6 +233,7 @@ def _compute_time_weights(P_array, loss_type):
         time_weights = np.ones(t_max, dtype=np.float64)
     return t_max, P_dense, time_weights
 
+
 def _eq_constraint(s, c):
     """
     Function to create an equality constraint for optimization.
@@ -237,6 +242,7 @@ def _eq_constraint(s, c):
     :param c:
     :return: linear constraint sum
     """
+
     def f(p):
         """
         Function to compute the equality constraint for optimization.
@@ -244,8 +250,10 @@ def _eq_constraint(s, c):
         :param p:
         :return: Sum of parameters in the range [s, s+c] minus 1
         """
-        return np.sum(p[s : s + c]) - 1
+        return np.sum(p[s: s + c]) - 1
+
     return f
+
 
 def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alpha, kinase_beta_counts, n_params):
     """
@@ -267,13 +275,13 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
         row = 0
         alpha_start = 0
         for count in gene_kinase_counts:
-            A[row, alpha_start:alpha_start+count] = 1.0
+            A[row, alpha_start:alpha_start + count] = 1.0
             row += 1
             alpha_start += count
         beta_start = total_alpha
         for k in range(len(unique_kinases)):
             cnt = kinase_beta_counts[k]
-            A[row, beta_start:beta_start+cnt] = 1.0
+            A[row, beta_start:beta_start + cnt] = 1.0
             row += 1
             beta_start += cnt
         return [LinearConstraint(A, lb=1, ub=1)]
@@ -295,8 +303,9 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
             })
             beta_start += bc
 
-        return cons 
-     
+        return cons
+
+
 def load_geneid_to_psites(input1_path=INPUT1):
     geneid_psite_map = defaultdict(set)
     with open(input1_path, newline='') as f:
@@ -307,6 +316,7 @@ def load_geneid_to_psites(input1_path=INPUT1):
             if geneid and psite:
                 geneid_psite_map[geneid].add(psite)
     return geneid_psite_map
+
 
 def get_unique_kinases(input2_path=INPUT2):
     kinases = set()
@@ -323,6 +333,7 @@ def get_unique_kinases(input2_path=INPUT2):
                 if k:
                     kinases.add(k)
     return kinases
+
 
 def check_kinases():
     geneid_to_psites = load_geneid_to_psites()

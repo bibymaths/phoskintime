@@ -215,6 +215,7 @@ def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, be
 
     return P_i_t_estimated
 
+
 # Function to calculate residuals
 def _residuals(P_initial_array, P_estimated):
     """

@@ -1,7 +1,7 @@
-
 from graphviz import Digraph
 from itertools import combinations
 from config.constants import OUT_DIR
+
 
 def powerset(iterable):
     """
@@ -16,6 +16,7 @@ def powerset(iterable):
             all_subsets.append(frozenset(combo))
     return all_subsets
 
+
 def state_label(state):
     """
     Convert a set of phosphorylation sites into a node label.
@@ -26,6 +27,7 @@ def state_label(state):
         return "P"
     sorted_sites = sorted(state, key=lambda x: int(x))
     return "P" + ''.join(sorted_sites)
+
 
 def create_random_diagram(x, num_sites, output_filename):
     """
@@ -102,6 +104,7 @@ def create_random_diagram(x, num_sites, output_filename):
 
     dot.render(f"{OUT_DIR}/{output_filename}", format='png', cleanup=True)
 
+
 def create_distributive_diagram(x, num_sites, output_filename):
     """
     Create a distributive phosphorylation diagram.
@@ -142,6 +145,7 @@ def create_distributive_diagram(x, num_sites, output_filename):
                  style='dotted', penwidth='1.5')
 
     dot.render(f"{OUT_DIR}/{output_filename}", format='png', cleanup=True)
+
 
 def create_successive_model(x, num_sites, output_filename):
     """

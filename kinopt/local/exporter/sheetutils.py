@@ -3,7 +3,9 @@ from kinopt.local.config.constants import TIME_POINTS, OUT_FILE
 from kinopt.local.exporter.helpers import build_genes_data
 from kinopt.local.exporter.plotout import *
 from kinopt.local.config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, mse, rmse, mae, mape, r_squared):

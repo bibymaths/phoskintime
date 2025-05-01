@@ -2,7 +2,9 @@ import numpy as np
 from scipy.optimize import minimize
 
 from config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def initial_condition(num_psites: int) -> list:
     """

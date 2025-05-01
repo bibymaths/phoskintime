@@ -3,7 +3,9 @@ import numpy as np
 from multiprocessing.pool import ThreadPool
 from pymoo.core.problem import StarmapParallelization
 from tfopt.evol.config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def create_no_psite_array(n_TF, num_psites, psite_labels_arr):
     """
@@ -21,6 +23,7 @@ def create_no_psite_array(n_TF, num_psites, psite_labels_arr):
     """
     return np.array([(num_psites[i] == 0) or all(label == "" for label in psite_labels_arr[i])
                      for i in range(n_TF)])
+
 
 def compute_beta_indices(num_psites, n_TF):
     """
@@ -43,6 +46,7 @@ def compute_beta_indices(num_psites, n_TF):
         beta_start_indices[i] = cum
         cum += 1 + num_psites[i]
     return beta_start_indices, cum
+
 
 def create_initial_guess(n_mRNA, n_reg, n_TF, num_psites, no_psite_tf):
     """
@@ -82,6 +86,7 @@ def create_initial_guess(n_mRNA, n_reg, n_TF, num_psites, no_psite_tf):
     x0 = np.concatenate([x0_alpha, x0_beta])
     return x0, n_alpha
 
+
 def create_bounds(n_alpha, n_beta_total, lb, ub):
     """
     Create the lower and upper bounds for the optimization variables.
@@ -104,6 +109,7 @@ def create_bounds(n_alpha, n_beta_total, lb, ub):
     xu = np.concatenate([np.ones(n_alpha), ub * np.ones(n_beta_total)])
     return xl, xu
 
+
 def get_parallel_runner():
     """
     Get a parallel runner for multi-threading.
@@ -119,6 +125,7 @@ def get_parallel_runner():
     pool = ThreadPool(n_threads)
     runner = StarmapParallelization(pool.starmap)
     return runner, pool
+
 
 def extract_best_solution(res, n_alpha, n_mRNA, n_reg, n_TF, num_psites, beta_start_indices):
     """
@@ -160,9 +167,10 @@ def extract_best_solution(res, n_alpha, n_mRNA, n_reg, n_TF, num_psites, beta_st
     for i in range(n_TF):
         start = beta_start_indices[i]
         length = 1 + num_psites[i]
-        final_beta.append(final_x[n_alpha + start : n_alpha + start + length])
+        final_beta.append(final_x[n_alpha + start: n_alpha + start + length])
     final_beta = np.array(final_beta, dtype=object)
     return final_alpha, final_beta, best_objectives, final_x
+
 
 def print_alpha_mapping(mRNA_ids, reg_map, TF_ids, final_alpha):
     """
@@ -183,6 +191,7 @@ def print_alpha_mapping(mRNA_ids, reg_map, TF_ids, final_alpha):
         for j, tf in enumerate(actual_tfs):
             logger.info(f"TF   {tf}: {final_alpha[i, j]:.4f}")
 
+
 def print_beta_mapping(TF_ids, final_beta, psite_labels_arr):
     """
     Print the mapping of transcription factors (TFs) to their beta parameters.
@@ -201,7 +210,7 @@ def print_beta_mapping(TF_ids, final_beta, psite_labels_arr):
         logger.info(f"{tf}:")
         logger.info(f"   TF {tf}: {beta_vec[0]:.4f}")
         for q in range(1, len(beta_vec)):
-            label = psite_labels_arr[idx][q-1]
+            label = psite_labels_arr[idx][q - 1]
             if label == "":
                 label = f"PSite{q}"
             logger.info(f"   {label}: {beta_vec[q]:.4f}")

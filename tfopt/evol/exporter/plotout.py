@@ -5,10 +5,12 @@ from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 from tfopt.evol.config.constants import OUT_DIR
 import matplotlib
+
 matplotlib.use('Agg')
 
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR, exist_ok=True)
+
 
 def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_points, regulators, tf_protein_matrix,
                                tf_ids, num_targets, save_path=OUT_DIR):
@@ -140,6 +142,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         )
         fig.write_html(f"{save_path}/{gene_ids[i]}_model_fit_.html")
 
+
 def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
     """
     Compute the predicted expression levels based on the optimization variables.
@@ -163,13 +166,13 @@ def compute_predictions(x, regulators, protein_mat, psite_tensor, n_reg, T_use, 
         R_pred = np.zeros(T_use)
         for r in range(n_reg):
             tf_idx = regulators[i, r]
-            if tf_idx == -1: # No valid TF for this regulator
+            if tf_idx == -1:  # No valid TF for this regulator
                 continue
             a = x[i * n_reg + r]
             protein = protein_mat[tf_idx, :T_use]
             beta_start = beta_start_indices[tf_idx]
             length = 1 + num_psites[tf_idx]
-            beta_vec = x[n_alpha + beta_start : n_alpha + beta_start + length]
+            beta_vec = x[n_alpha + beta_start: n_alpha + beta_start + length]
             tf_effect = beta_vec[0] * protein
             for k in range(num_psites[tf_idx]):
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]

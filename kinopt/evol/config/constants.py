@@ -27,6 +27,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # to account for rapid changes and broader intervals later up to 960.0 minutes.
 TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0,
                         16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+
+
 def _parse_arguments():
     """
     Parses command-line arguments for setting bounds, loss type,
@@ -77,4 +79,3 @@ def _parse_arguments():
     segment_points = list(map(int, args.segment_points.split(","))) if args.scaling_method == "segmented" else None
 
     return method, args.lower_bound, args.upper_bound, args.loss_type, include_regularization, estimate_missing_kinases, args.scaling_method, args.split_point, segment_points
-

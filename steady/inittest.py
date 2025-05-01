@@ -5,6 +5,7 @@ from models.testmod import TEST_MODEL, HILL_N, K_HALF, PROCESSIVITY, NEGATIVE_FE
 
 logger = setup_logger()
 
+
 def initial_condition(num_psites: int) -> list:
     """
     Compute steady-state conditions for the given model.
@@ -59,6 +60,7 @@ def initial_condition(num_psites: int) -> list:
 
     elif TEST_MODEL == 'neg_feedback':
         k_fb = NEGATIVE_FEEDBACK_CONSTANT
+
         def steady_state_equations(y):
             R, P, *P_sites = y
             # Compute the feedback factor: f = 1/(1 + k_fb * (P1 + P2 + ... + Pn))
@@ -73,8 +75,9 @@ def initial_condition(num_psites: int) -> list:
                 eq_P1 = f * S_rates[0] * P - (1 + f * S_rates[1] + D_rates[0]) * P_sites[0] + P_sites[1]
                 eqs.append(eq_P1)
                 for i in range(1, num_psites - 1):
-                    eq_pi = f * S_rates[i] * P_sites[i - 1] - (1 + f * S_rates[i + 1] + D_rates[i]) * P_sites[i] + P_sites[
-                        i + 1]
+                    eq_pi = f * S_rates[i] * P_sites[i - 1] - (1 + f * S_rates[i + 1] + D_rates[i]) * P_sites[i] + \
+                            P_sites[
+                                i + 1]
                     eqs.append(eq_pi)
                 eq_last = f * S_rates[-1] * P_sites[-2] - (1 + D_rates[-1]) * P_sites[-1]
                 eqs.append(eq_last)
@@ -132,7 +135,7 @@ def initial_condition(num_psites: int) -> list:
                 eqs.append(eq_P1)
                 for i in range(1, num_psites - 1):
                     eq_pi = S_rates[i] * P_sites[i - 1] * (1 + mod_factor) - (
-                                1 + S_rates[i + 1] * (1 + mod_factor) + D_rates[i]) * P_sites[i] + P_sites[i + 1]
+                            1 + S_rates[i + 1] * (1 + mod_factor) + D_rates[i]) * P_sites[i] + P_sites[i + 1]
                     eqs.append(eq_pi)
                 eq_last = S_rates[-1] * P_sites[-2] * (1 + mod_factor) - (1 + D_rates[-1]) * P_sites[-1]
                 eqs.append(eq_last)

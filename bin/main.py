@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
@@ -33,16 +32,6 @@ if not config:
     logger.error("Invalid configuration. Exiting.")
     exit(1)
 
-# Check if profiling is enabled
-if config['profile_start'] is None or config['profile_end'] is None or config['profile_step'] is None:
-    desired_times = None
-else:
-    desired_times = np.arange(
-        config['profile_start'],
-        config['profile_end'] + config['profile_step'],
-        config['profile_step']
-    )
-
 def main():
     """
     Main function to run the phosphorylation modelling process.
@@ -51,7 +40,7 @@ def main():
     """
     # Set up the logger
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
-    log_config(logger, config['bounds'], config['fixed_params'], config['time_fixed'], args)
+    log_config(logger, config['bounds'], args)
 
     # Make output directory
     ensure_output_directory(OUT_DIR)
@@ -102,7 +91,7 @@ def main():
         logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
 
     if DEV_TEST:
-    # Load only gene 'X'
+        # Load only gene 'X'
         _test = "ABL2"
         if _test in kinase_data["Gene"].values:
             genes = kinase_data[kinase_data["Gene"] == _test]["Gene"].unique().tolist()
@@ -125,9 +114,6 @@ def main():
             [mrna_data] * len(genes),
             [TIME_POINTS] * len(genes),
             [config['bounds']] * len(genes),
-            [config['fixed_params']] * len(genes),
-            [desired_times] * len(genes),
-            [config['time_fixed']] * len(genes),
             [config['bootstraps']] * len(genes)
         ))
 
@@ -163,6 +149,7 @@ def main():
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
 
 if __name__ == "__main__":
     main()

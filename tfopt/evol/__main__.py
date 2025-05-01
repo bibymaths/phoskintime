@@ -16,6 +16,7 @@ from utils import latexit
 
 logger = setup_logger()
 
+
 # -------------------------------
 # Main Routine
 # -------------------------------
@@ -159,6 +160,7 @@ def main():
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
 
 if __name__ == "__main__":
     main()

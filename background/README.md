@@ -10,7 +10,8 @@
 - **Input:** Cell culture, tissue, or primary cells
 - **Treatments:** Untreated vs drug- or cytokine-treated
 - **Steps:** Trypsin digestion, phosphopeptide enrichment (TiO₂/DHB or Ti⁴⁺-IMAC), anti-phosphotyrosine enrichment  
-*Adapted from Macek et al.,* [*Annu. Rev. Pharmacol. Toxicol.* (2009)](https://doi.org/10.1146/annurev.pharmtox.011008.145606)
+  *Adapted from Macek et al.,* [*Annu. Rev. Pharmacol.
+  Toxicol.* (2009)](https://doi.org/10.1146/annurev.pharmtox.011008.145606)
 
 ---
 
@@ -47,7 +48,7 @@
 
 ## Label-Free LC-MS/MS
 
-![Label-Free LC-MS](images/label_free_lcms.png) 
+![Label-Free LC-MS](images/label_free_lcms.png)
 ![Label-Free LC-MS](images/label_free_lcms2.png)
 
 - Comparison of control vs. treated conditions
@@ -75,7 +76,7 @@
 
 ## Orbitrap Fusion Mass Spectrometer Architecture
 
-![Orbitrap Architecture](images/orbitrap_architecture.png) 
+![Orbitrap Architecture](images/orbitrap_architecture.png)
 ![Orbitrap Architecture](images/orbitrap_architecture2.png)
 
 - Dual linear ion trap, HCD collision cell

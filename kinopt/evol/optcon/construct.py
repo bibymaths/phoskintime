@@ -8,16 +8,18 @@ from kinopt.evol.config.constants import INPUT2, INPUT1
 from kinopt.evol.utils.iodata import apply_scaling
 
 from kinopt.evol.config.logconf import setup_logger
+
 logger = setup_logger()
 
+
 def _load_and_scale_data(
-    input1_path: str,
-    input2_path: str,
-    time_series_columns: list[str],
-    scaling_method: str,
-    split_point: float,
-    segment_points: list[float],
-    estimate_missing_kinases: bool
+        input1_path: str,
+        input2_path: str,
+        time_series_columns: list[str],
+        scaling_method: str,
+        split_point: float,
+        segment_points: list[float],
+        estimate_missing_kinases: bool
 ):
     """
     Loads two CSV files, applies scaling to the time-series columns of `input1`, and subsets/merges them.
@@ -79,9 +81,9 @@ def _load_and_scale_data(
 
 
 def _build_p_initial(
-    interaction_df: pd.DataFrame,
-    full_hgnc_df: pd.DataFrame,
-    time_series_cols: list[str]
+        interaction_df: pd.DataFrame,
+        full_hgnc_df: pd.DataFrame,
+        time_series_cols: list[str]
 ):
     """
     Constructs the P_initial dictionary and the P_initial_array.
@@ -110,7 +112,7 @@ def _build_p_initial(
         observed_data = full_hgnc_df[
             (full_hgnc_df['GeneID'] == gene) &
             (full_hgnc_df['Psite'] == psite)
-        ]
+            ]
         # Grab the time series data for the gene and phosphorylation site
         # Check in observed_data if that (gene, psite) combination exists and get time series
         match = observed_data[(observed_data['GeneID'] == gene) & (observed_data['Psite'] == psite)]
@@ -130,11 +132,11 @@ def _build_p_initial(
 
 
 def _build_k_array(
-    interaction_df: pd.DataFrame,
-    full_hgnc_df: pd.DataFrame,
-    time: list[str],
-    estimate_missing_kinases: bool,
-    kinase_to_psites: dict[str, int]
+        interaction_df: pd.DataFrame,
+        full_hgnc_df: pd.DataFrame,
+        time: list[str],
+        estimate_missing_kinases: bool,
+        kinase_to_psites: dict[str, int]
 ):
     """
     Constructs the K_index and K_array for kinases.
@@ -159,7 +161,7 @@ def _build_k_array(
         # Subset rows in full_hgnc_df for that kinase
         kinase_psite_data = full_hgnc_df[
             full_hgnc_df['GeneID'] == kinase
-        ][['Psite'] + time]
+            ][['Psite'] + time]
 
         if not kinase_psite_data.empty:
             # Iterate over all psites for this kinase
@@ -192,14 +194,14 @@ def _build_k_array(
 
 
 def pipeline(
-    input1_path: str,
-    input2_path: str,
-    time_series_columns: list[str],
-    scaling_method: str,
-    split_point: float,
-    segment_points: list[float],
-    estimate_missing_kinases: bool,
-    kinase_to_psites: dict[str, int]
+        input1_path: str,
+        input2_path: str,
+        time_series_columns: list[str],
+        scaling_method: str,
+        split_point: float,
+        segment_points: list[float],
+        estimate_missing_kinases: bool,
+        kinase_to_psites: dict[str, int]
 ):
     """
     Constructs the pipeline for the optimization process.
@@ -259,17 +261,18 @@ def pipeline(
     gene_psite_counts = [len(data['Kinases']) for data in P_initial.values()]
 
     return (
-        full_hgnc_df,         # pd.DataFrame
-        interaction_df,       # pd.DataFrame
-        observed,             # pd.DataFrame
-        P_initial,            # dict
-        P_initial_array,      # np.ndarray
-        K_array,              # np.ndarray
-        K_index,              # dict
-        beta_counts,          # dict
-        gene_psite_counts,    # list
-        n                     # int
+        full_hgnc_df,  # pd.DataFrame
+        interaction_df,  # pd.DataFrame
+        observed,  # pd.DataFrame
+        P_initial,  # dict
+        P_initial_array,  # np.ndarray
+        K_array,  # np.ndarray
+        K_index,  # dict
+        beta_counts,  # dict
+        gene_psite_counts,  # list
+        n  # int
     )
+
 
 def load_geneid_to_psites(input1_path=INPUT1):
     geneid_psite_map = defaultdict(set)
@@ -281,6 +284,7 @@ def load_geneid_to_psites(input1_path=INPUT1):
             if geneid and psite:
                 geneid_psite_map[geneid].add(psite)
     return geneid_psite_map
+
 
 def get_unique_kinases(input2_path=INPUT2):
     kinases = set()
@@ -297,6 +301,7 @@ def get_unique_kinases(input2_path=INPUT2):
                 if k:
                     kinases.add(k)
     return kinases
+
 
 def check_kinases():
     geneid_to_psites = load_geneid_to_psites()

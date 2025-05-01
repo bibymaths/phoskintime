@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import LinearConstraint
 
+
 def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map):
     """
     Builds fixed-shape arrays from the input data.
@@ -63,6 +64,7 @@ def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite
 
     return expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, n_psite_max, psite_labels_arr, num_psites
 
+
 def constraint_alpha_func(x, n_genes, n_reg):
     """
     For each gene, the sum of its alpha parameters must equal 1.
@@ -90,6 +92,7 @@ def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_ps
             for q in range(1, length):
                 cons.append(beta_vec[q])
     return np.array(cons)
+
 
 def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf):
     """

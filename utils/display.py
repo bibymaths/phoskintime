@@ -14,6 +14,7 @@ def ensure_output_directory(directory):
     """
     os.makedirs(directory, exist_ok=True)
 
+
 def load_data(excel_file, sheet="Estimated Values"):
     """
     Load data from an Excel file. The default sheet is "Estimated Values".
@@ -24,6 +25,7 @@ def load_data(excel_file, sheet="Estimated Values"):
     :rtype: pd.DataFrame
     """
     return pd.read_excel(excel_file, sheet_name=sheet)
+
 
 def format_duration(seconds):
     """
@@ -42,6 +44,7 @@ def format_duration(seconds):
         return f"{seconds / 60:.2f} min"
     else:
         return f"{seconds / 3600:.2f} hr"
+
 
 def merge_obs_est(filename):
     """
@@ -83,6 +86,7 @@ def merge_obs_est(filename):
             all_data.append(row)
 
     return pd.DataFrame(all_data)
+
 
 def save_result(results, excel_filename):
     """
@@ -155,13 +159,13 @@ def save_result(results, excel_filename):
             ev = np.array(res["ev"])
             pca_df = pd.DataFrame(pca_arr, columns=[f"PC{i + 1}" for i in range(pca_arr.shape[1])])
             pca_df.insert(0, "Time(min)", TIME_POINTS)
-            ev_row = pd.DataFrame([["Explained Var"] + list(ev)],columns=pca_df.columns)
+            ev_row = pd.DataFrame([["Explained Var"] + list(ev)], columns=pca_df.columns)
             pca_df = pd.concat([pca_df, ev_row], ignore_index=True)
             pca_df.to_excel(writer, sheet_name=f"{sheet_prefix}_pca", index=False)
 
             # 9. Save t-SNE results
             tsne_arr = np.array(res["tsne_result"])
-            tsne_df = pd.DataFrame(tsne_arr, columns=[f"t-SNE{i+1}" for i in range(tsne_arr.shape[1])])
+            tsne_df = pd.DataFrame(tsne_arr, columns=[f"t-SNE{i + 1}" for i in range(tsne_arr.shape[1])])
             tsne_df.insert(0, "Time(min)", TIME_POINTS)
             tsne_df.to_excel(writer, sheet_name=f"{sheet_prefix}_tsne", index=False)
 
@@ -244,7 +248,7 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         "  display: grid;",
         "  grid-template-columns: repeat(2, 500px);",
         "  column-gap: 20px;",
-        "  row-gap: 40px;",  #// extra vertical gap
+        "  row-gap: 40px;",  # // extra vertical gap
         "  justify-content: left;",
         "  margin-bottom: 40px;",
         "}",

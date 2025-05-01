@@ -17,25 +17,27 @@ from .identifiability import confidence_intervals
 
 logger = setup_logger()
 
+
 def worker_find_lambda(
-    lam: float,
-    gene: str,
-    target: np.ndarray,
-    p0: np.ndarray,
-    time_points: np.ndarray,
-    free_bounds: Tuple[np.ndarray, np.ndarray],
-    init_cond: np.ndarray,
-    num_psites: int,
-    p_data: np.ndarray
+        lam: float,
+        gene: str,
+        target: np.ndarray,
+        p0: np.ndarray,
+        time_points: np.ndarray,
+        free_bounds: Tuple[np.ndarray, np.ndarray],
+        init_cond: np.ndarray,
+        num_psites: int,
+        p_data: np.ndarray
 ) -> Tuple[float, float, str]:
     """
     Worker function for a single lambda value.
     """
+
     def model_func(tpts, *params):
         param_vec = np.exp(np.asarray(params)) if ODE_MODEL == 'randmod' else np.asarray(params)
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
-        reg = lam/len(params) * np.square(params)
+        reg = lam / len(params) * np.square(params)
         return np.concatenate([y_model, reg])
 
     tf = np.concatenate([target, np.zeros(len(p0))])
@@ -85,26 +87,27 @@ def worker_find_lambda(
         except Exception as e:
             logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
 
-    if best_weight_key:
-        logger.info(f"[{gene}] λ = {lam/len(p0):.3f} |  "
-                    f"Best Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
-                    f"Score = {best_score:.2f}")
-    else:
-        logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
+    # if best_weight_key:
+    #     logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
+    #                 f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
+    #                 f"Score = {best_score:.2f}")
+    # else:
+    #     logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
 
     return lam, best_score, best_weight_key
 
+
 def find_best_lambda(
-    gene: str,
-    target: np.ndarray,
-    p0: np.ndarray,
-    time_points: np.ndarray,
-    free_bounds: Tuple[np.ndarray, np.ndarray],
-    init_cond: np.ndarray,
-    num_psites: int,
-    p_data: np.ndarray,
-    lambdas = np.linspace(1e-3, 1, 10),
-    max_workers: int = os.cpu_count(),
+        gene: str,
+        target: np.ndarray,
+        p0: np.ndarray,
+        time_points: np.ndarray,
+        free_bounds: Tuple[np.ndarray, np.ndarray],
+        init_cond: np.ndarray,
+        num_psites: int,
+        p_data: np.ndarray,
+        lambdas=np.logspace(-2, 0, 100),
+        max_workers: int = os.cpu_count(),
 ) -> Tuple[float, str]:
     """
     Finds best lambda_reg to use in model_func.
@@ -129,6 +132,7 @@ def find_best_lambda(
                 best_score_weight = weight
 
     return best_lambda, best_score_weight
+
 
 def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
@@ -177,23 +181,22 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     else:
         # Existing approach for distributive or successive models.
         lower_bounds_full = (
-            [bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]] +
-            [bounds["Ssite"][0]] * num_psites +
-            [bounds["Dsite"][0]] * num_psites
+                [bounds["A"][0], bounds["B"][0], bounds["C"][0], bounds["D"][0]] +
+                [bounds["Ssite"][0]] * num_psites +
+                [bounds["Dsite"][0]] * num_psites
         )
         upper_bounds_full = (
-            [bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]] +
-            [bounds["Ssite"][1]] * num_psites +
-            [bounds["Dsite"][1]] * num_psites
+                [bounds["A"][1], bounds["B"][1], bounds["C"][1], bounds["D"][1]] +
+                [bounds["Ssite"][1]] * num_psites +
+                [bounds["Dsite"][1]] * num_psites
         )
-
 
     free_bounds = (lower_bounds_full, upper_bounds_full)
 
-    # Set initial guess for all parameters (midpoint of bounds).
-    # p0 = np.array([(l + u) / 2 for l, u in zip(*free_bounds)])
-
+    # Set seed for reproducibility.
     np.random.seed(42)
+
+    # Generate a random initial guess for the parameters.
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
@@ -202,11 +205,12 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
 
     default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
 
-    logger.info(f"[{gene}] Finding best regularization term λ...")
+    logger.info(f"[{gene}]      Finding best regularization term λ...")
 
-    lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites, p_data)
+    lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
+                                                 p_data)
 
-    logger.info(f"[{gene}] Using λ = {lambda_reg/len(p0)}")
+    logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0)}")
 
     def model_func(tpts, *params):
         """
@@ -223,7 +227,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         _, p_fitted = solve_ode(param_vec, init_cond, num_psites, np.atleast_1d(tpts))
         y_model = p_fitted.flatten()
         if use_regularization:
-            reg =  lambda_reg/len(param_vec) * np.square(params)
+            reg = lambda_reg / len(param_vec) * np.square(params)
             return np.concatenate([y_model, reg])
         return y_model
 
@@ -231,8 +235,8 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         # Attempt to get a good initial estimate using curve_fit.
         result = cast(Tuple[np.ndarray, np.ndarray],
                       curve_fit(model_func, time_points, target_fit, x_scale='jac',
-                      p0=p0, bounds=free_bounds, sigma=default_sigma,
-                      absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
+                                p0=p0, bounds=free_bounds, sigma=default_sigma,
+                                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
         popt_init, _ = result
     except Exception as e:
         logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
@@ -275,8 +279,8 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
-    logger.info(f"[{gene}] Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
-    logger.info(f"[{gene}] Fit Score: {best_score:.2f}")
+    logger.info(f"[{gene}]      Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
+    logger.info(f"[{gene}]      Fit Score: {best_score:.2f}")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
@@ -358,5 +362,5 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     est_params.append(param_final)
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
-    error_vals.append(np.sum(np.abs(p_fit.flatten()-target) ** 2)/target.size)
+    error_vals.append(np.sum(np.abs(p_fit.flatten() - target) ** 2) / target.size)
     return est_params, model_fits, error_vals

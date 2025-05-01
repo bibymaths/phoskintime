@@ -5,13 +5,15 @@ import mygene, os, concurrent.futures
 from tqdm import tqdm
 from pathlib import Path
 from config.logconf import setup_logger
+
 logger = setup_logger()
 
-ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
-BASE = Path(__file__).parent                      # …/processing
+ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
+BASE = Path(__file__).parent  # …/processing
 
 # Directory where the raw data files should be located
 base_dir = BASE / "raw"
+
 
 def process_collecttri():
     """
@@ -53,6 +55,7 @@ def process_collecttri():
 
     logger.info("Saved TF-mRNA interactions to input4.csv")
 
+
 def format_site(site):
     """
     Formats a phosphorylation site string.
@@ -75,6 +78,7 @@ def format_site(site):
         return before.upper() + '_' + after
     else:
         return site.upper()
+
 
 def process_msgauss():
     """
@@ -192,6 +196,7 @@ def process_msgauss_std():
 
     logger.info("Saved MS Gaussian time-series with standard deviations to input1_wstd.csv")
 
+
 def process_routlimma():
     """
     Processes the Rout Limma table to generate time series data for mRNA.
@@ -243,6 +248,7 @@ def process_routlimma():
     df_new.to_csv("input3.csv", index=False)
 
     logger.info("Saved Rout Limma time series - mRNA to input3.csv")
+
 
 def update_gene_symbols(filename):
     """
@@ -303,6 +309,7 @@ def update_gene_symbols(filename):
     df["GeneID"] = results
     df.to_csv(filename, index=False)
     logger.info(f"Updated gene symbols in {filename}")
+
 
 def move_processed_files():
     """

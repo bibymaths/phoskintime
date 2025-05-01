@@ -1,7 +1,9 @@
 import numpy as np
 from kinopt.evol.objfn import estimated_series
 from kinopt.evol.config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def extract_parameters(P_initial, gene_psite_counts, K_index, optimized_params):
     """
@@ -49,6 +51,7 @@ def extract_parameters(P_initial, gene_psite_counts, K_index, optimized_params):
     for (kinase, psite), value in beta_values.items():
         logger.info(f"Kinase {kinase}, Psite {psite}: {value}")
     return alpha_values, beta_values
+
 
 def compute_metrics(optimized_params, P_initial, P_initial_array, K_index, K_array,
                     gene_psite_counts, beta_counts, n):

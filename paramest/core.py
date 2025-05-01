@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import pandas as pd
@@ -13,7 +12,9 @@ from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
 from config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 # ----------------------------------
 # Early-Weighted Scheme
@@ -41,17 +42,15 @@ def early_emphasis(P_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
+
 def process_gene(
-    gene,
-    kinase_data,
-    mrna_data,
-    time_points,
-    bounds,
-    fixed_params,
-    desired_times=None,
-    time_fixed=None,
-    bootstraps=0,
-    out_dir=OUT_DIR
+        gene,
+        kinase_data,
+        mrna_data,
+        time_points,
+        bounds,
+        bootstraps=0,
+        out_dir=OUT_DIR
 ):
     """
     Process a single gene by estimating its parameters and generating plots.
@@ -65,9 +64,6 @@ def process_gene(
     :param mrna_data:
     :param time_points:
     :param bounds:
-    :param fixed_params:
-    :param desired_times:
-    :param time_fixed:
     :param bootstraps:
     :param out_dir:
     :return:
@@ -103,7 +99,7 @@ def process_gene(
     # Get the FC value for TIME_POINTS_RNA
     R_data = rna_data.iloc[:, 1:].values
 
-    logger.info(f"[{gene}] Fitting to data...")
+    logger.info(f"[{gene}]      Fitting to data...")
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
@@ -114,7 +110,7 @@ def process_gene(
     mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
 
-    logger.info(f"[{gene}] MSE: {mse:.4f} | MAE: {mae:.4f}")
+    logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
 
     # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
@@ -208,10 +204,13 @@ def process_gene(
 
     perturbation_analysis = None
     trajectories_w_params = None
+
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points,
+                                                                            num_psites, psite_values, labels, init_cond,
+                                                                            gene)
 
     # Return Results
     return {
@@ -236,8 +235,8 @@ def process_gene(
         "knockout_results": knockout_results
     }
 
-def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixed_params,
-                         desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):
+
+def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
     """
     Wrapper function to process a gene. This function is a placeholder for
     any additional processing or modifications needed before calling the
@@ -248,9 +247,6 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixe
     :param mrna_data:
     :param time_points:
     :param bounds:
-    :param fixed_params:
-    :param desired_times:
-    :param time_fixed:
     :param bootstraps:
     :param out_dir:
     :return:
@@ -262,9 +258,6 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixe
         mrna_data=mrna_data,
         time_points=time_points,
         bounds=bounds,
-        fixed_params=fixed_params,
-        desired_times=desired_times,
-        time_fixed=time_fixed,
         bootstraps=bootstraps,
         out_dir=out_dir
     )

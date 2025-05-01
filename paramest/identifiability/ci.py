@@ -6,6 +6,7 @@ from config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     """
     Computes the confidence intervals for parameter estimates using a linearization approach.
@@ -51,7 +52,7 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     if USE_CUSTOM_WEIGHTS:
         se_lin = np.sqrt(np.diag(pcov))
     else:
-        se_lin = np.sqrt(np.diag(pcov*mse))
+        se_lin = np.sqrt(np.diag(pcov * mse))
 
     # t-statistics for each parameter estimate.
     t_stat = beta_hat / se_lin
@@ -69,11 +70,11 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     upr_ci = beta_hat + qt_lin * se_lin
 
     # Log the summary.
-    header = "Parameter\t Estimate\t SE\t\t Pr(>|t|)\t\t 95% CI"
-    logger.info(f"[{gene}] Confidence Intervals:")
+    header = f"[{gene}]         Parameter\t Estimate\t SE\t\t Pr(>|t|)\t\t 95% CI"
+    logger.info(f"[{gene}]      Confidence Intervals:")
     logger.info(header)
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
-        logger.info(f"Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
+        logger.info(f"[{gene}]      Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
 
     results = {
         'beta_hat': beta_hat,

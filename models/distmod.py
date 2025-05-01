@@ -1,8 +1,8 @@
-
 import numpy as np
 from numba import njit
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
+
 
 @njit
 def ode_core(y, A, B, C, D, S_rates, D_rates):
@@ -61,10 +61,11 @@ def ode_core(y, A, B, C, D, S_rates, D_rates):
     # dydt[1] is the rate of change of P
     dydt[1] = C * R - (D + sum_S) * P + sum_P_sites
     # Loop over the number of phosphorylation sites
-    for i in range(n): 
+    for i in range(n):
         # dydt[2 + i] is the rate of change of each P site
         dydt[2 + i] = S_rates[i] * P - (1.0 + D_rates[i]) * y[2 + i]
     return dydt
+
 
 def ode_system(y, t, params, num_psites):
     """
@@ -87,6 +88,7 @@ def ode_system(y, t, params, num_psites):
     # params[4 + num_psites + i] is the D_rate for site i
     D_rates = np.array([params[4 + num_psites + i] for i in range(num_psites)])
     return ode_core(y, A, B, C, D, S_rates, D_rates)
+
 
 def solve_ode(params, init_cond, num_psites, t):
     """

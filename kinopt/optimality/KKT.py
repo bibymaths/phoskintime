@@ -51,6 +51,7 @@ def print_primal_feasibility_results(primal_summary, alpha_violations, beta_viol
     for index, value in beta_violations.items():
         logger_obj.info(f"{index}: {value}")
 
+
 def print_sensitivity_and_active_constraints(sensitivity_summary, active_constraints_summary, logger_obj=None):
     """
     Logs the sensitivity summary and active constraints summary.
@@ -134,6 +135,7 @@ def plot_sensitivity_analysis(sensitivity_analysis, out_dir):
     plt.tight_layout()
     plt.savefig(str(Path(out_dir) / "sensitivity.png"), dpi=300)
     plt.close()
+
 
 def process_excel_results(file_path=OUT_FILE):
     """

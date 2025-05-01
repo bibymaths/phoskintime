@@ -10,7 +10,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 
 import matplotlib
+
 matplotlib.use('Agg')
+
 
 class Plotter:
     """
@@ -29,6 +31,7 @@ class Plotter:
     - CDF for alpha and beta values
     - Time-wise residuals
     """
+
     def __init__(self, filepath, savepath):
         """
         Initializes the Plotter instance by loading data from the Excel file.
@@ -46,7 +49,7 @@ class Plotter:
         self.df = pd.read_excel(self.filepath, sheet_name='Residuals', index_col=0)
         self.df_obs = pd.read_excel(self.filepath, sheet_name='Observed', index_col=0)
         self.df_est = pd.read_excel(self.filepath, sheet_name='Estimated', index_col=0)
-        self.df_alpha = pd.read_excel(self.filepath, sheet_name='Alpha Values', index_col=(0,1))
+        self.df_alpha = pd.read_excel(self.filepath, sheet_name='Alpha Values', index_col=(0, 1))
         self.df_beta = pd.read_excel(self.filepath, sheet_name='Beta Values')
 
     def plot_alpha_distribution(self):
@@ -131,8 +134,8 @@ class Plotter:
                 edgecolor='black',
                 linewidth=0.5
             )
-            plt.xlabel("Phosphorylation - Residue Position", fontsize = 7)
-            plt.ylabel("β", fontsize = 7)
+            plt.xlabel("Phosphorylation - Residue Position", fontsize=7)
+            plt.ylabel("β", fontsize=7)
             plt.title(f"Effect of Phosphorylation on Transcription Factor {tf} Activity", fontsize=7)
             plt.grid(True, alpha=0.2)
             plt.tight_layout()
@@ -172,7 +175,7 @@ class Plotter:
         # Flatten arrays
         obs_flat = self.df_obs.values.flatten()
         est_flat = self.df_est.values.flatten()
-        mRNAs    = self.df.index
+        mRNAs = self.df.index
 
         ax.scatter(self.df_obs, self.df_est, alpha=0.5)
 
@@ -187,8 +190,8 @@ class Plotter:
             )
 
         # compute residuals’ std and CI offsets
-        diffs       = est_flat - obs_flat
-        std_diff    = np.std(diffs, ddof=1)
+        diffs = est_flat - obs_flat
+        std_diff = np.std(diffs, ddof=1)
         ci_offset_95 = 1.96 * std_diff
         ci_offset_99 = 2.576 * std_diff
 

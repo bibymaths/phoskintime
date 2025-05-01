@@ -1,9 +1,10 @@
 import numpy as np
 import itertools
 
+
 def _apply_knockout(base_params: np.ndarray,
-                   knockout_targets: dict,
-                   num_psites: int) -> np.ndarray:
+                    knockout_targets: dict,
+                    num_psites: int) -> np.ndarray:
     """
     Return a modified parameter vector simulating in silico knockouts.
 
@@ -37,6 +38,7 @@ def _apply_knockout(base_params: np.ndarray,
                     params[start + idx] = 0.0
     return params
 
+
 def _generate_knockout_combinations(num_psites: int):
     """
     Generate all possible knockout combinations.
@@ -47,7 +49,8 @@ def _generate_knockout_combinations(num_psites: int):
     # Phosphorylation options: False (none), True (all), individual sites
     phosphorylation_options = [False, True] + [[i] for i in range(num_psites)]
 
-    for trans, transl, phospho in itertools.product(transcription_options, translation_options, phosphorylation_options):
+    for trans, transl, phospho in itertools.product(transcription_options, translation_options,
+                                                    phosphorylation_options):
         knockout = {
             'transcription': trans,
             'translation': transl,
@@ -55,4 +58,3 @@ def _generate_knockout_combinations(num_psites: int):
         }
         combinations.append(knockout)
     return combinations
-

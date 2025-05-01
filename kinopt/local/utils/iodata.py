@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from kinopt.local.config.constants import INPUT1, INPUT2
 
+
 def format_duration(seconds):
     """
     Formats a duration in seconds into a human-readable string.
@@ -21,6 +22,7 @@ def format_duration(seconds):
     else:
         return f"{seconds / 3600:.2f} hr"
 
+
 def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
     """
     Load and scale the data from the specified input files.
@@ -37,13 +39,16 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
     interaction_df = pd.read_csv(INPUT2, header=0)
     if estimate_missing:
         observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"])
-        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
+        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(
+            lambda x: [k.strip() for k in x.split(',')])
     else:
         interaction_df = interaction_df[interaction_df['Kinase'].apply(
             lambda k: all(kinase in set(full_hgnc_df['GeneID'][1:]) for kinase in k.strip('{}').split(',')))]
-        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(lambda x: [k.strip() for k in x.split(',')])
+        interaction_df['Kinase'] = interaction_df['Kinase'].str.strip('{}').apply(
+            lambda x: [k.strip() for k in x.split(',')])
         observed = full_hgnc_df.merge(interaction_df.iloc[:, :2], on=["GeneID", "Psite"])
     return full_hgnc_df, interaction_df, observed
+
 
 def apply_scaling(df, cols, method, split_point, seg_points):
     """
@@ -65,7 +70,9 @@ def apply_scaling(df, cols, method, split_point, seg_points):
     """
     if method == 'min_max':
         scaler = MinMaxScaler()
-        df[cols] = pd.DataFrame(df[cols].apply(lambda r: scaler.fit_transform(r.values.reshape(-1, 1)).flatten(), axis=1).tolist(), index=df.index)
+        df[cols] = pd.DataFrame(
+            df[cols].apply(lambda r: scaler.fit_transform(r.values.reshape(-1, 1)).flatten(), axis=1).tolist(),
+            index=df.index)
     elif method == 'log':
         df[cols] = df[cols].applymap(np.log)
     elif method == 'temporal':
@@ -76,13 +83,14 @@ def apply_scaling(df, cols, method, split_point, seg_points):
     elif method == 'segmented':
         if not seg_points:
             raise ValueError("Segment points must be provided.")
-        for seg in [cols[seg_points[i]:seg_points[i+1]] for i in range(len(seg_points)-1)]:
+        for seg in [cols[seg_points[i]:seg_points[i + 1]] for i in range(len(seg_points) - 1)]:
             df[seg] = MinMaxScaler().fit_transform(df[seg])
     elif method == 'slope':
         df[cols] = MinMaxScaler().fit_transform(df[cols].diff(axis=1).fillna(0))
     elif method == 'cumulative':
         df[cols] = MinMaxScaler().fit_transform(df[cols].cumsum(axis=1))
     return df
+
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
@@ -119,7 +127,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "  display: grid;",
         "  grid-template-columns: repeat(2, 500px);",
         "  column-gap: 20px;",
-        "  row-gap: 40px;", # /* extra vertical gap */
+        "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
         "  margin-bottom: 20px;",
         "}",
@@ -192,6 +200,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     output_path = os.path.join(results_dir, output_file)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_parts))
+
 
 def organize_output_files(*directories):
     """
