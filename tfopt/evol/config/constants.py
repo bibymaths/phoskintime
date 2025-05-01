@@ -36,6 +36,7 @@ TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
 # mRNAs and TFs in the order of 1000s.
 VECTORIZED_LOSS_FUNCTION = True
 
+
 def parse_args():
     """
     Parse command line arguments for the PhosKinTime optimization problem.

@@ -5,10 +5,12 @@ from matplotlib import pyplot as plt
 import plotly.graph_objects as go
 from tfopt.local.config.constants import OUT_DIR
 import matplotlib
+
 matplotlib.use('Agg')
 
 if not os.path.exists(OUT_DIR):
     os.makedirs(OUT_DIR, exist_ok=True)
+
 
 def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_points, regulators, tf_protein_matrix,
                                tf_ids, num_targets, save_path=OUT_DIR):
@@ -69,7 +71,7 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
             tf_name = tf_ids[r]
             if tf_name not in plotted_tfs:
                 protein_signal = tf_protein_matrix[r, :5]
-                ax.plot(time_vals_tf[:5], protein_signal, ':', label=f"{tf_name}", alpha = 0.3)
+                ax.plot(time_vals_tf[:5], protein_signal, ':', label=f"{tf_name}", alpha=0.3)
                 plotted_tfs.add(tf_name)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_vals_expr[:5])

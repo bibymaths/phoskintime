@@ -2,7 +2,9 @@ import pandas as pd
 from kinopt.evol.exporter.helpers import build_genes_data
 from kinopt.evol.exporter.plotout import plot_residuals_for_gene
 from kinopt.evol.config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, timepoints, OUT_FILE):

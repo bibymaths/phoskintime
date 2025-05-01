@@ -1,7 +1,7 @@
-
 # PhosKinTime Data Preprocessing & Mapping
 
-This workflow prepares and maps time-series data for kinase and transcription factor optimization models from raw proteomics and transcriptomics datasets.
+This workflow prepares and maps time-series data for kinase and transcription factor optimization models from raw
+proteomics and transcriptomics datasets.
 
 ---
 
@@ -27,27 +27,27 @@ phoskintime/
 Performs the following steps:
 
 1. **TF-mRNA Interaction Cleanup**
-   - Filters complex interactions in CollecTRI
-   - Keeps only TFs matching phospho-interactions in `input2.csv`
+    - Filters complex interactions in CollecTRI
+    - Keeps only TFs matching phospho-interactions in `input2.csv`
 
 2. **Proteomics Data Transformation**
-   - Transforms MS Gaussian predictions with `2^mean`
-   - Formats phosphorylation sites, saves to `input1.csv`
+    - Transforms MS Gaussian predictions with `2^mean`
+    - Formats phosphorylation sites, saves to `input1.csv`
 
 3. **Error Propagation**
-   - Computes std propagation:  
-     `σ_y = 2^x * ln(2) * σ_x`
-   - Saves to `input1_wstd.csv`
+    - Computes std propagation:  
+      `σ_y = 2^x * ln(2) * σ_x`
+    - Saves to `input1_wstd.csv`
 
 4. **Transcriptomics Cleanup**
-   - Transforms Rout Limma values with `2^x`
-   - Saves to `input3.csv`
+    - Transforms Rout Limma values with `2^x`
+    - Saves to `input3.csv`
 
 5. **Gene Symbol Mapping**
-   - Replaces Ensembl/Entrez IDs with gene symbols (using MyGeneInfo)
+    - Replaces Ensembl/Entrez IDs with gene symbols (using MyGeneInfo)
 
 6. **File Management**
-   - Moves cleaned files to `kinopt/data/` and `tfopt/data/`
+    - Moves cleaned files to `kinopt/data/` and `tfopt/data/`
 
 ### `map.py`
 
@@ -72,16 +72,16 @@ Place the following raw data in `processing/raw/`:
 
 ## Outputs
 
-| File                  | Description                             |
-|-----------------------|-----------------------------------------|
-| `input1.csv`          | Phospho time series (KinOpt, TFOpt)     |
-| `input1_wstd.csv`     | Same as above + standard deviation      |
-| `input2.csv`          | Phospho kinase-interaction metadata     |
-| `input3.csv`          | mRNA time series (TFOpt)                |
-| `input4.csv`          | Clean TF-mRNA interactions              |
-| `mapping.csv`         | Mapped TF → mRNA with Kinase + Psite    |
-| `mapping_.csv`        | Cytoscape-compatible edge list          |
-| `nodes.csv`           | Cytoscape node roles                    |
+| File              | Description                          |
+|-------------------|--------------------------------------|
+| `input1.csv`      | Phospho time series (KinOpt, TFOpt)  |
+| `input1_wstd.csv` | Same as above + standard deviation   |
+| `input2.csv`      | Phospho kinase-interaction metadata  |
+| `input3.csv`      | mRNA time series (TFOpt)             |
+| `input4.csv`      | Clean TF-mRNA interactions           |
+| `mapping.csv`     | Mapped TF → mRNA with Kinase + Psite |
+| `mapping_.csv`    | Cytoscape-compatible edge list       |
+| `nodes.csv`       | Cytoscape node roles                 |
 
 ---
 

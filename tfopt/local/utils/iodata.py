@@ -31,6 +31,7 @@ def min_max_normalize(df, custom_max=None):
 
     return df
 
+
 def load_expression_data(filename=INPUT3):
     """
     Loads gene expression (mRNA) data.
@@ -94,6 +95,7 @@ def load_tf_protein_data(filename=INPUT1):
 
     return tf_ids, tf_protein, tf_psite_data, tf_psite_labels, time_cols
 
+
 def load_regulation(filename=INPUT4):
     """
     Assumes the regulation file is reversed:
@@ -111,6 +113,7 @@ def load_regulation(filename=INPUT4):
         if tf not in reg_map[gene]:
             reg_map[gene].append(tf)
     return reg_map
+
 
 def summarize_stats(input3=INPUT3, input1=INPUT1, input4=INPUT4):
     """
@@ -175,6 +178,7 @@ def summarize_stats(input3=INPUT3, input1=INPUT1, input4=INPUT4):
     print("\nTime-wise stats:")
     print(prot_data_sub.agg(['min', 'max', 'std', 'var']).T)
 
+
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
@@ -210,7 +214,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "  display: grid;",
         "  grid-template-columns: repeat(2, 500px);",
         "  column-gap: 20px;",
-        "  row-gap: 40px;", # /* extra vertical gap */
+        "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
         "  margin-bottom: 20px;",
         "}",
@@ -284,6 +288,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_parts))
 
+
 def organize_output_files(*directories):
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
@@ -312,6 +317,7 @@ def organize_output_files(*directories):
             if os.path.isfile(file_path):
                 destination_path = os.path.join(general_folder, filename)
                 shutil.move(file_path, destination_path)
+
 
 def format_duration(seconds):
     if seconds < 60:

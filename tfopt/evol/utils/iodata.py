@@ -2,6 +2,7 @@ import os, re, shutil
 import pandas as pd
 from tfopt.evol.config.constants import INPUT3, INPUT1, INPUT4
 
+
 def load_mRNA_data(filename=INPUT3):
     """
     Load mRNA data from a CSV file.
@@ -23,6 +24,7 @@ def load_mRNA_data(filename=INPUT3):
     time_cols = [col for col in df.columns if col != "GeneID"]
     mRNA_mat = df[time_cols].to_numpy(dtype=float)
     return mRNA_ids, mRNA_mat, time_cols
+
 
 def load_TF_data(filename=INPUT1):
     """
@@ -74,6 +76,7 @@ def load_TF_data(filename=INPUT1):
     TF_ids = list(protein_dict.keys())
     return TF_ids, protein_dict, psite_dict, psite_labels_dict, time_cols
 
+
 def load_regulation(filename=INPUT4):
     """
     Load regulation data from a CSV file.
@@ -96,6 +99,7 @@ def load_regulation(filename=INPUT4):
         if tf not in reg_map[mrna]:
             reg_map[mrna].append(tf)
     return reg_map
+
 
 def create_report(results_dir: str, output_file: str = "report.html"):
     """
@@ -132,7 +136,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         "  display: grid;",
         "  grid-template-columns: repeat(2, 500px);",
         "  column-gap: 20px;",
-        "  row-gap: 40px;", # /* extra vertical gap */
+        "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
         "  margin-bottom: 20px;",
         "}",
@@ -206,6 +210,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_parts))
 
+
 def organize_output_files(*directories):
     """
     Organizes output files from multiple directories into separate folders for each protein.
@@ -241,6 +246,7 @@ def organize_output_files(*directories):
             if os.path.isfile(file_path):
                 destination_path = os.path.join(general_folder, filename)
                 shutil.move(file_path, destination_path)
+
 
 def format_duration(seconds):
     """

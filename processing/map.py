@@ -2,10 +2,12 @@ import os
 import pandas as pd
 from pathlib import Path
 from config.logconf import setup_logger
+
 logger = setup_logger()
 
-ROOT = Path(__file__).resolve().parent.parent     # …/phoskintime
-BASE = Path(__file__).parent                      # …/processing
+ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
+BASE = Path(__file__).parent  # …/processing
+
 
 def map_optimization_results(file_path):
     """
@@ -37,7 +39,7 @@ def map_optimization_results(file_path):
     result = result.groupby('mRNA').agg(lambda x: ', '.join(x)).reset_index()
 
     # Read another csv file which has TF aka GeneID and Psites and Kinases to merge with the result
-    kinopt_file = pd.read_csv(BASE/ "raw" / "input2.csv")
+    kinopt_file = pd.read_csv(BASE / "raw" / "input2.csv")
     df2 = kinopt_file.rename(columns={'GeneID': 'mRNA'})
     merged_df = pd.merge(result, df2, on='mRNA', how='left')
 
@@ -59,6 +61,7 @@ def map_optimization_results(file_path):
     merged_df = merged_df.reset_index(drop=True)
 
     return merged_df
+
 
 def create_cytoscape_table(mapping_csv_path):
     """
@@ -92,6 +95,7 @@ def create_cytoscape_table(mapping_csv_path):
                            columns=["Source", "Target", "Interaction"])
     return edge_df
 
+
 def generate_nodes(edge_df):
     """
     Infers node types for Cytoscape visualization:
@@ -121,6 +125,7 @@ def generate_nodes(edge_df):
         for node, node_type in node_roles.items()
     ])
 
+
 if __name__ == "__main__":
 
     # Path to the Excel file of mRNA-TF optimization results
@@ -147,14 +152,13 @@ if __name__ == "__main__":
     # Move the files to the data folder
     os.rename('nodes.csv', ROOT / "data" / 'nodes.csv')
     os.rename('mapped_TF_mRNA_phospho.csv', ROOT / "data" / 'mapping.csv')
-    os.rename('mapping_table.csv',  ROOT / "data" / 'mapping_.csv')
+    os.rename('mapping_table.csv', ROOT / "data" / 'mapping_.csv')
 
     logger.info(f"Mapping files for merging with ODE results & further use in Cytoscape")
     for fpath in [ROOT / "data" / 'nodes.csv',
                   ROOT / "data" / 'mapping.csv',
                   ROOT / "data" / 'mapping_.csv']:
         logger.info(f"{fpath.as_uri()}")
-
 
 # Note: The following comment is an example of how to handle missing data
 # PAK2 is not included in the mapping file because it doesn't exist in the input4.csv file.

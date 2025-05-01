@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from numba import njit
@@ -7,6 +6,7 @@ from pathlib import Path
 from config.constants import USE_CUSTOM_WEIGHTS
 
 current_dir = Path(__file__).resolve().parent
+
 
 @njit
 def early_emphasis(p_data, time_points, num_psites):
@@ -52,10 +52,11 @@ def early_emphasis(p_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
+
 def get_protein_weights(
-    gene,
-    input1_path=Path(__file__).resolve().parent.parent / 'processing' / 'input1_wstd.csv',
-    input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
+        gene,
+        input1_path=Path(__file__).resolve().parent.parent / 'processing' / 'input1_wstd.csv',
+        input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
 ):
     """
     Extracts x1_std to x14_std weights for a single GeneID.
@@ -100,11 +101,13 @@ def get_protein_weights(
 
     return weights
 
+
 def full_weight(p_data_weight, use_regularization, reg_len):
     base = np.concatenate([np.ones(9), p_data_weight])
     if use_regularization:
         base = np.concatenate([base, np.ones(reg_len)])
     return base
+
 
 def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights, ms_gauss_weights):
     """

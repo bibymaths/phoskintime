@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
@@ -42,6 +41,7 @@ else:
         config['profile_end'] + config['profile_step'],
         config['profile_step']
     )
+
 
 def main():
     """
@@ -102,7 +102,7 @@ def main():
         logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
 
     if DEV_TEST:
-    # Load only gene 'X'
+        # Load only gene 'X'
         _test = "ABL2"
         if _test in kinase_data["Gene"].values:
             genes = kinase_data[kinase_data["Gene"] == _test]["Gene"].unique().tolist()
@@ -163,6 +163,7 @@ def main():
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
 
 if __name__ == "__main__":
     main()

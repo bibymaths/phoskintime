@@ -41,6 +41,7 @@ class TFOptimizationMultiObjectiveProblem(Problem):
     - xu: Upper bounds for the decision variables.
     - kwargs: Additional keyword arguments.
     """
+
     def __init__(self, n_var, n_mRNA, n_TF, n_reg, n_psite_max, n_alpha,
                  mRNA_mat, regulators, protein_mat, psite_tensor, T_use,
                  beta_start_indices, num_psites, no_psite_tf, xl=None, xu=None,
@@ -105,7 +106,8 @@ class TFOptimizationMultiObjectiveProblem(Problem):
         for i in range(n_pop):
             xi = X[i]
             f1 = objective_(xi, self.mRNA_mat, self.regulators, self.protein_mat,
-                                       self.psite_tensor, self.n_reg, self.T_use, self.n_mRNA, self.beta_start_indices, self.num_psites, self.loss_type)
+                            self.psite_tensor, self.n_reg, self.T_use, self.n_mRNA, self.beta_start_indices,
+                            self.num_psites, self.loss_type)
             f2 = 0.0
             for m in range(self.n_mRNA):
                 s = 0.0
@@ -116,7 +118,7 @@ class TFOptimizationMultiObjectiveProblem(Problem):
             for tf in range(self.n_TF):
                 start = n_alpha + self.beta_start_indices[tf]
                 length = 1 + self.num_psites[tf]
-                beta_vec = xi[start : start + length]
+                beta_vec = xi[start: start + length]
                 f3 += (np.sum(beta_vec) - 1.0) ** 2
                 if self.no_psite_tf[tf]:
                     for q in range(1, length):
@@ -129,6 +131,7 @@ class TFOptimizationMultiObjectiveProblem(Problem):
             # f3 (beta violation)
             F[i, 2] = f3
         out["F"] = F
+
 
 """
 @njit(parallel=True)
@@ -154,6 +157,8 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
             total_error += diff * diff
     return total_error / (T_use * n_mRNA)
 """
+
+
 # Loss functions for objective function.
 # 0: MSE, 1: MAE, 2: soft L1 (pseudo-Huber), 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov.
 # The loss functions are implemented in the objective_ function.
@@ -161,7 +166,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
 # The default is MSE (0).
 @njit(cache=False, fastmath=False, parallel=True, nogil=False)
 def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA,
-                   beta_start_indices, num_psites, loss_type, lam1=1e-3, lam2=1e-3):
+               beta_start_indices, num_psites, loss_type, lam1=1e-3, lam2=1e-3):
     """
     Computes a loss value using one of several loss functions.
 
@@ -197,7 +202,7 @@ def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use,
         for r in range(n_reg):
             # Get the index of the TF for this regulator.
             tf_idx = regulators[i, r]
-            if tf_idx == -1: # No valid TF for this regulator
+            if tf_idx == -1:  # No valid TF for this regulator
                 continue
             # Get the TF activity, protein levels, and beta vector.
             a = x[i * n_reg + r]

@@ -1,6 +1,8 @@
 # evol — Evolutionary Optimization Framework
 
-The `evol` subpackage within **PhosKinTime** provides a modular and extensible framework for evolutionary optimization of transcriptional regulatory models. It supports multi-objective optimization via `pymoo` and integrates tightly with the broader modeling and estimation infrastructure of the project.
+The `evol` subpackage within **PhosKinTime** provides a modular and extensible framework for evolutionary optimization
+of transcriptional regulatory models. It supports multi-objective optimization via `pymoo` and integrates tightly with
+the broader modeling and estimation infrastructure of the project.
 
 ---
 
@@ -25,35 +27,35 @@ evol/
 
 - Multi-objective optimization for TF–mRNA modeling
 - Supports:
-  - NSGA2
-  - SMSEMOA
-  - AGEMOEA
+    - NSGA2
+    - SMSEMOA
+    - AGEMOEA
 - Parallel execution using `StarmapParallelization`
 
 ### Modular Inputs & Preprocessing
 
 - Preprocessing pipelines to load, clean, and format:
-  - mRNA time-series data
-  - TF protein signals
-  - Phosphorylation sites (PSites)
-  - Regulation networks
+    - mRNA time-series data
+    - TF protein signals
+    - Phosphorylation sites (PSites)
+    - Regulation networks
 - Handles inconsistent and missing regulatory mappings
 
 ### Objective Functions
 
 - Minimizes 3 objective terms:
-  - Prediction error (MSE, MAE, Huber, etc.)
-  - Alpha constraint violation (regulatory weights)
-  - Beta constraint violation (TF + PSite effects)
+    - Prediction error (MSE, MAE, Huber, etc.)
+    - Alpha constraint violation (regulatory weights)
+    - Beta constraint violation (TF + PSite effects)
 - Loss types include MSE, MAE, soft L1, Cauchy, Arctan, Elastic Net, Tikhonov
 
 ### Output & Reporting
 
 - Automatically plots model fits and residuals
 - Produces Excel reports with:
-  - α (regulator strength)
-  - β (TF/PSite effect)
-  - Residuals, metrics, diagnostics
+    - α (regulator strength)
+    - β (TF/PSite effect)
+    - Residuals, metrics, diagnostics
 - Organizes output by gene folders
 - Generates summary HTML report
 
@@ -64,6 +66,7 @@ evol/
 ### `__main__.py`
 
 Orchestrates the full optimization pipeline:
+
 - Argument parsing
 - Data loading and filtering
 - Optimization execution
@@ -71,24 +74,30 @@ Orchestrates the full optimization pipeline:
 - Reporting and plot generation
 
 ### `config/`
+
 - `constants.py`: Paths, time points, input/output file setup
 - `logconf.py`: Logging configuration
 
 ### `exporter/`
+
 - `sheetutils.py`: Save results to multi-sheet Excel
 - `plotout.py`: Matplotlib + Plotly plots for expression fits
 
 ### `objfn/`
+
 - `minfn.py`: Numba-accelerated multi-objective loss + pymoo `Problem` subclass
 
 ### `opt/`
+
 - `optrun.py`: Configures and launches NSGA2, AGEMOEA, SMSEMOA runs
 
 ### `optcon/`
+
 - `construct.py`: Builds tensors and fixed-shape matrices for optimization
 - `filter.py`: Pre-filters genes and TFs, syncs time axes
 
 ### `utils/`
+
 - `params.py`: Parameter layout, initial guess, bounds, index mapping
 - `iodata.py`: File parsing, output file organization, and HTML report generation
 
@@ -116,4 +125,5 @@ python -m phoskintime tfopt --mode evol
 ## Acknowledgment
 
 Original structure by **Abhinav Mishra**.  
-The base implementation of multi-objective optimization was contributed by **Julius Normann** and adapted here with performance improvements.
+The base implementation of multi-objective optimization was contributed by **Julius Normann** and adapted here with
+performance improvements.

@@ -46,6 +46,7 @@ def define_sensitivity_problem_rand(num_psites, values):
         'bounds': _bounds
     }
 
+
 def define_sensitivity_problem_ds(num_psites, values):
     """
     Defines the Morris sensitivity analysis problem for the dynamic-site model.
@@ -64,6 +65,7 @@ def define_sensitivity_problem_ds(num_psites, values):
         'names': param_names,
         'bounds': _bounds
     }
+
 
 def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, init_cond, gene):
     """
@@ -96,7 +98,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # Initialize list to collect all trajectories
     all_model_psite_solutions = np.zeros((len(param_values), len(time_points), num_psites))
     all_mrna_solutions = np.zeros((len(param_values), len(time_points)))
-    all_flat_mRNA= np.zeros((len(param_values), len(TIME_POINTS_RNA)))
+    all_flat_mRNA = np.zeros((len(param_values), len(TIME_POINTS_RNA)))
     trajectories_with_params = []
 
     # Loop through each parameter set and solve the ODE
@@ -156,8 +158,8 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     psite_preds = all_model_psite_solutions[:, :, :]
     rna_preds = all_mrna_solutions[:, -len(TIME_POINTS_RNA):]
 
-    rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :])/rna_ref.size
-    psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :])/psite_data_ref.size
+    rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :]) / rna_ref.size
+    psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :]) / psite_data_ref.size
 
     rna_mse = np.mean(rna_diff ** 2, axis=1)
     psite_mse = np.mean(psite_diff ** 2, axis=(1, 2))

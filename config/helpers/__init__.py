@@ -1,6 +1,7 @@
 from itertools import combinations
 from math import comb
 
+
 # Parameter Name Generators
 def get_param_names_rand(num_psites: int) -> list:
     """
@@ -16,6 +17,7 @@ def get_param_names_rand(num_psites: int) -> list:
             param_names.append(f"D{''.join(map(str, combo))}")
     return param_names
 
+
 def get_param_names_ds(num_psites: int) -> list:
     """
     Generate parameter names for distributive or successive models.
@@ -24,6 +26,7 @@ def get_param_names_ds(num_psites: int) -> list:
             ['D1', 'D2', ..., 'D<num_psites>'].
     """
     return ['A', 'B', 'C', 'D'] + [f'S{i + 1}' for i in range(num_psites)] + [f'D{i + 1}' for i in range(num_psites)]
+
 
 def generate_labels_rand(num_psites: int) -> list:
     """
@@ -38,6 +41,7 @@ def generate_labels_rand(num_psites: int) -> list:
             subsets.append("P" + "".join(map(str, comb)))
     return labels + subsets
 
+
 def generate_labels_ds(num_psites: int) -> list:
     """
     Generates labels for the states based on the number of phosphorylation sites for the distributive or successive models.
@@ -45,6 +49,7 @@ def generate_labels_ds(num_psites: int) -> list:
     Example for num_psites=2: ["R", "P", "P1", "P2"]
     """
     return ["R", "P"] + [f"P{i}" for i in range(1, num_psites + 1)]
+
 
 def location(path: str, label: str = None) -> str:
     """
@@ -65,6 +70,7 @@ def location(path: str, label: str = None) -> str:
     # ANSI escape sequence format: ESC ] 8 ; ; <URL> ESC \ <label> ESC ] 8 ; ; ESC \
     return f"\033]8;;{path}\033\\{label}\033]8;;\033\\"
 
+
 def get_number_of_params_rand(num_psites):
     """
     Calculate the number of parameters required for the ODE system based on the number of phosphorylation sites.
@@ -81,7 +87,8 @@ def get_number_of_params_rand(num_psites):
     total_params = base_params + phosphorylation_params + dephosphorylation_params
     return total_params
 
-def get_bounds_rand(num_psites, ub= 0, lower=0):
+
+def get_bounds_rand(num_psites, ub=0, lower=0):
     """
     Generate bounds for the ODE parameters based on the number of phosphorylation sites.
 

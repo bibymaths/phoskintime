@@ -122,5 +122,6 @@ def main():
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
 
+
 if __name__ == "__main__":
     main()

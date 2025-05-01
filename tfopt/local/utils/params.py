@@ -1,8 +1,9 @@
 import numpy as np
 from tfopt.local.optcon.construct import build_linear_constraints, constraint_alpha_func, constraint_beta_func
-from tfopt.local.config.logconf import setup_logger 
-  
+from tfopt.local.config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 def get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_use,
                                 psite_labels_arr, num_psites, lb, ub):
@@ -80,6 +81,7 @@ def get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_u
 
     return x0, n_alpha, beta_start_indices, bounds, no_psite_tf, n_genes, n_TF, num_psites, lin_cons, T_use
 
+
 def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num_psites, reg_map, gene_ids, tf_ids,
                         psite_labels_arr):
     """
@@ -134,7 +136,7 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
         logger.info(f"{tf}:")
         logger.info(f"   TF {tf}: {beta_vec[0]:.4f}")
         for q in range(1, len(beta_vec)):
-            label = psite_labels_arr[idx][q-1]
+            label = psite_labels_arr[idx][q - 1]
             if label == "":
                 label = f"PSite{q}"
             logger.info(f"   {label}: {beta_vec[q]:.4f}")

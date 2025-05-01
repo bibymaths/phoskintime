@@ -1,6 +1,8 @@
 # ODE Estimation - Entry Point
 
-This tool performs parallelized parameter estimation for phosphorylation dynamics models using time series data. It reads input from an Excel sheet, processes each gene using a custom ODE-based fitting routine, and outputs results, organized files, and an HTML report.
+This tool performs parallelized parameter estimation for phosphorylation dynamics models using time series data. It
+reads input from an Excel sheet, processes each gene using a custom ODE-based fitting routine, and outputs results,
+organized files, and an HTML report.
 
 ## Features
 

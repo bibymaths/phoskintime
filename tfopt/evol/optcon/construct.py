@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psite_labels_dict, reg_map):
     """
     Builds fixed-shape arrays from the input data.

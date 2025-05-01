@@ -9,14 +9,15 @@ from tfopt.local.utils.iodata import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {
-    "DEBUG": "\033[92m",    # Green
-    "INFO": "\033[94m",     # Blue
+    "DEBUG": "\033[92m",  # Green
+    "INFO": "\033[94m",  # Blue
     "WARNING": "\033[93m",  # Yellow
-    "ERROR": "\033[91m",    # Red
-    "CRITICAL": "\033[95m", # Magenta
+    "ERROR": "\033[91m",  # Red
+    "CRITICAL": "\033[95m",  # Magenta
     "ELAPSED": "\033[96m",  # Cyan (right-aligned clock)
-    "ENDC": "\033[0m",      # Reset
+    "ENDC": "\033[0m",  # Reset
 }
+
 
 class ColoredFormatter(logging.Formatter):
     def __init__(self, fmt=None, datefmt=None, width=150):
@@ -45,14 +46,15 @@ class ColoredFormatter(logging.Formatter):
         ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', s)
 
+
 def setup_logger(
-    name="phoskintime",
-    log_file=None,
-    level=logging.DEBUG,
-    log_dir=LOG_DIR,
-    rotate=True,
-    max_bytes=2 * 1024 * 1024,
-    backup_count=5
+        name="phoskintime",
+        log_file=None,
+        level=logging.DEBUG,
+        log_dir=LOG_DIR,
+        rotate=True,
+        max_bytes=2 * 1024 * 1024,
+        backup_count=5
 ):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)

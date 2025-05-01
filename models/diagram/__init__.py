@@ -1,6 +1,7 @@
 from models.diagram.helpers import create_random_diagram, create_distributive_diagram, create_successive_model
 from config.constants import model_type
 
+
 def illustrate(gene, num_sites):
     """
     Generate a phosphorylation diagram for the given gene and number of sites,

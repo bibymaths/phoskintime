@@ -154,7 +154,6 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
         return tsne_result
 
-
     def plot_param_series(self, estimated_params: list, param_names: list, time_points: np.ndarray):
         """
         Plots the time series of estimated parameters over the given time points.
@@ -177,7 +176,6 @@ class Plotter:
         ax.legend(loc="best")
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_series_.png")
-
 
     def plot_profiles(self, data: pd.DataFrame):
         """
@@ -215,14 +213,15 @@ class Plotter:
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
         ax = axes[0]
-        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth = 1)
-        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth=1)
+        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--', marker='s', markersize=5, mew=0.5, mec='black',
                 color='black', alpha=0.7, linewidth=0.75)
-        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth = 1)
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth=1)
         for i in range(num_psites):
-            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
-                    color=self.color_palette[i], linewidth = 0.75)
-            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
+                    mec='black',
+                    color=self.color_palette[i], linewidth=0.75)
+            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth=1)
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("FC")
         ax.set_xticks(time_points[:cutoff_idx])
@@ -233,14 +232,14 @@ class Plotter:
         )
         ax.grid(True, alpha=0.05)
         ax = axes[1]
-        ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth = 1)
-        ax.plot(TIME_POINTS_RNA[4:], R_data[4:], '--',  marker='s', markersize = 5, mew = 0.5, mec = 'black',
+        ax.plot(time_points, sol[:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth=1)
+        ax.plot(TIME_POINTS_RNA[4:], R_data[4:], '--', marker='s', markersize=5, mew=0.5, mec='black',
                 color='black', alpha=0.7, linewidth=0.75)
-        ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth = 1)
+        ax.plot(time_points, sol[:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth=1)
         for i in range(num_psites):
-            ax.plot(time_points, P_data[i, :], '--', marker='s', markersize = 5, mew = 0.5, mec = 'black',
-                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth = 0.75)
-            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth = 1)
+            ax.plot(time_points, P_data[i, :], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth=0.75)
+            ax.plot(time_points, model_fit[i, :], '-', color=self.color_palette[i], linewidth=1)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_points[cutoff_idx:])
         ax.set_xticklabels(
@@ -528,12 +527,12 @@ class Plotter:
             marker = next(marker_cycle)
             # -- Full time range plots
             ax_rp_full.plot(t, sol[:, 0], label=f"{label} (R)", linewidth=0.5, marker=marker,
-                            markeredgecolor='black', markersize=6, mew = 0.5)
+                            markeredgecolor='black', markersize=6, mew=0.5)
             ax_rp_full.plot(t, sol[:, 1], label=f"{label} (P)", linewidth=0.5, marker=marker,
-                            markeredgecolor='black', markersize=6, mew = 0.5)
+                            markeredgecolor='black', markersize=6, mew=0.5)
             for i in range(num_psites):
                 ax_ph_full.plot(t, p_fit[i, :], label=f"{label} ({psite_labels[i]})", linewidth=0.5, marker=marker,
-                                markeredgecolor='black', markersize=6, mew = 0.5)
+                                markeredgecolor='black', markersize=6, mew=0.5)
 
             # -- First 'n' points only
             t_early = t[:time_cutoff]
@@ -541,12 +540,12 @@ class Plotter:
             p_fit_early = p_fit[:, :time_cutoff]
 
             ax_rp_zoom.plot(t_early, sol_early[:, 0], linewidth=0.5, marker=marker,
-                            markeredgecolor='black', markersize=6, mew = 0.5)
+                            markeredgecolor='black', markersize=6, mew=0.5)
             ax_rp_zoom.plot(t_early, sol_early[:, 1], linewidth=0.5, marker=marker,
-                            markeredgecolor='black', markersize=6, mew = 0.5)
+                            markeredgecolor='black', markersize=6, mew=0.5)
             for i in range(num_psites):
                 ax_ph_zoom.plot(t_early, p_fit_early[i, :], linewidth=0.5, marker=marker,
-                               markeredgecolor='black', markersize=6, mew = 0.5)
+                                markeredgecolor='black', markersize=6, mew=0.5)
 
         ax_rp_full.legend(loc='upper right', fontsize=8)
         ax_rp_full.grid(True, alpha=0.1)

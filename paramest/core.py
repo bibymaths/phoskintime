@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import pandas as pd
@@ -13,7 +12,9 @@ from models import solve_ode
 from steady import initial_condition
 from plotting import Plotter
 from config.logconf import setup_logger
+
 logger = setup_logger()
+
 
 # ----------------------------------
 # Early-Weighted Scheme
@@ -41,17 +42,18 @@ def early_emphasis(P_data, time_points, num_psites):
 
     return custom_weights.ravel()
 
+
 def process_gene(
-    gene,
-    kinase_data,
-    mrna_data,
-    time_points,
-    bounds,
-    fixed_params,
-    desired_times=None,
-    time_fixed=None,
-    bootstraps=0,
-    out_dir=OUT_DIR
+        gene,
+        kinase_data,
+        mrna_data,
+        time_points,
+        bounds,
+        fixed_params,
+        desired_times=None,
+        time_fixed=None,
+        bootstraps=0,
+        out_dir=OUT_DIR
 ):
     """
     Process a single gene by estimating its parameters and generating plots.
@@ -211,7 +213,8 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points, num_psites, psite_values, init_cond, gene)
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points,
+                                                                            num_psites, psite_values, init_cond, gene)
 
     # Return Results
     return {
@@ -235,6 +238,7 @@ def process_gene(
         "perturbation_curves_params": trajectories_w_params if SENSITIVITY_ANALYSIS else None,
         "knockout_results": knockout_results
     }
+
 
 def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, fixed_params,
                          desired_times, time_fixed, bootstraps, out_dir=OUT_DIR):

@@ -1,5 +1,6 @@
 from kinopt.evol.optcon.construct import pipeline
-from kinopt.evol.config import scaling_method, split_point, segment_points, estimate_missing_kinases, kinase_to_psites, time_series_columns
+from kinopt.evol.config import scaling_method, split_point, segment_points, estimate_missing_kinases, kinase_to_psites, \
+    time_series_columns
 from kinopt.evol.config.constants import INPUT1, INPUT2
 
 # The pipeline function is responsible for constructing the necessary data structures and performing
@@ -19,6 +20,6 @@ from kinopt.evol.config.constants import INPUT1, INPUT2
 # - n: Number of decision variables in the optimization problem.
 
 (full_hgnc_df, interaction_df, observed, P_initial, P_initial_array,
-  K_index, K_array, beta_counts, gene_psite_counts, n) =  (
+ K_index, K_array, beta_counts, gene_psite_counts, n) = (
     pipeline(INPUT1, INPUT2, time_series_columns, scaling_method, split_point,
-           segment_points, estimate_missing_kinases, kinase_to_psites))
+             segment_points, estimate_missing_kinases, kinase_to_psites))

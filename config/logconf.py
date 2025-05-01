@@ -9,14 +9,15 @@ from utils.display import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {
-    "DEBUG": "\033[92m",    # Green
-    "INFO": "\033[94m",     # Blue
+    "DEBUG": "\033[92m",  # Green
+    "INFO": "\033[94m",  # Blue
     "WARNING": "\033[93m",  # Yellow
-    "ERROR": "\033[91m",    # Red
-    "CRITICAL": "\033[95m", # Magenta
+    "ERROR": "\033[91m",  # Red
+    "CRITICAL": "\033[95m",  # Magenta
     "ELAPSED": "\033[96m",  # Cyan (right-aligned clock)
-    "ENDC": "\033[0m",      # Reset
+    "ENDC": "\033[0m",  # Reset
 }
+
 
 class ColoredFormatter(logging.Formatter):
     """
@@ -34,6 +35,7 @@ class ColoredFormatter(logging.Formatter):
     The logger is set to the specified logging level, and the log file is created in the specified directory.
     The log file is rotated based on size, and old log files are backed up.
     """
+
     def __init__(self, fmt=None, datefmt=None, width=200):
         super().__init__(fmt, datefmt)
         self.start_time = datetime.now()
@@ -68,14 +70,15 @@ class ColoredFormatter(logging.Formatter):
         ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', s)
 
+
 def setup_logger(
-    name="phoskintime",
-    log_file=None,
-    level=logging.DEBUG,
-    log_dir=LOG_DIR,
-    rotate=True,
-    max_bytes=2 * 1024 * 1024,
-    backup_count=5
+        name="phoskintime",
+        log_file=None,
+        level=logging.DEBUG,
+        log_dir=LOG_DIR,
+        rotate=True,
+        max_bytes=2 * 1024 * 1024,
+        backup_count=5
 ):
     """
     Setup a logger with colored output and file logging.

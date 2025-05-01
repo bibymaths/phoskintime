@@ -6,6 +6,7 @@ from config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     """
     Computes the confidence intervals for parameter estimates using a linearization approach.
@@ -51,7 +52,7 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     if USE_CUSTOM_WEIGHTS:
         se_lin = np.sqrt(np.diag(pcov))
     else:
-        se_lin = np.sqrt(np.diag(pcov*mse))
+        se_lin = np.sqrt(np.diag(pcov * mse))
 
     # t-statistics for each parameter estimate.
     t_stat = beta_hat / se_lin

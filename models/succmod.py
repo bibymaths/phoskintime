@@ -86,6 +86,7 @@ def ode_core(y, A, B, C, D, S_rates, D_rates):
                 dydt[2 + i] = S_rates[i] * y[1 + i] - (1 + D_rates[i]) * y[2 + i]
     return dydt
 
+
 def ode_system(y, t, params, num_psites):
     """
     The ODE system for the successive ODE model.
@@ -100,6 +101,7 @@ def ode_system(y, t, params, num_psites):
     S_rates = np.array([params[4 + i] for i in range(num_psites)])
     D_rates = np.array([params[4 + num_psites + i] for i in range(num_psites)])
     return ode_core(y, A, B, C, D, S_rates, D_rates)
+
 
 def solve_ode(params, init_cond, num_psites, t):
     """

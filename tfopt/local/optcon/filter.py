@@ -1,6 +1,7 @@
 from tfopt.local.optcon.construct import build_fixed_arrays
 from tfopt.local.utils.iodata import load_regulation, load_expression_data, load_tf_protein_data
 
+
 def load_and_filter_data():
     """
     Load and filter data for the optimization problem.
@@ -81,5 +82,6 @@ def prepare_data(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data, tf_ps
     """
     T_use = min(expr_matrix.shape[1], len(tf_time_cols))
     expr_matrix = expr_matrix[:, :T_use]
-    fixed_arrays = build_fixed_arrays(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map)
+    fixed_arrays = build_fixed_arrays(gene_ids, expr_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels,
+                                      reg_map)
     return fixed_arrays, T_use

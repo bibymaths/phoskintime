@@ -35,8 +35,8 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.arithmatex:
-      inline_syntax: ['$', '$']
-      block_syntax: ['$$', '$$']
+      inline_syntax: [ '$', '$' ]
+      block_syntax: [ '$$', '$$' ]
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.extra
@@ -58,7 +58,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: ["."]
+          paths: [ "." ]
           options:
             show_source: false
             show_root_heading: true

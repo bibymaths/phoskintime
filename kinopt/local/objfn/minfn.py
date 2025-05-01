@@ -4,10 +4,10 @@ from numba import njit, prange
 
 @njit(parallel=True)
 def _objective(params, P_init, t_max, n,
-              gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
-              total_alpha, kinase_beta_starts, kinase_beta_counts,
-              K_data, K_indices, K_indptr,
-              time_weights, loss_flag):
+               gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
+               total_alpha, kinase_beta_starts, kinase_beta_counts,
+               K_data, K_indices, K_indptr,
+               time_weights, loss_flag):
     """
     Objective function for optimization.
     This function computes the loss value based on the predicted and actual values.
@@ -103,10 +103,11 @@ def _objective(params, P_init, t_max, n,
         # Normalize the loss value by the number of genes
         return loss_val / n
 
+
 @njit(parallel=True)
 def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
-                         total_alpha, kinase_beta_starts, kinase_beta_counts,
-                         K_data, K_indices, K_indptr):
+                      total_alpha, kinase_beta_starts, kinase_beta_counts,
+                      K_data, K_indices, K_indptr):
     """
     Compute the estimated series based on the parameters and the sparse matrix representation of the data.
     This function computes the predicted values for each gene at each time point based on the parameters
@@ -173,9 +174,10 @@ def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, g
     # Return the predicted values for each gene at each time point
     return pred
 
+
 def _objective_wrapper(params, P_init_dense, t_max, gene_alpha_starts, gene_kinase_counts,
-                      gene_kinase_idx, total_alpha, kinase_beta_starts, kinase_beta_counts,
-                      K_data, K_indices, K_indptr, time_weights, loss_type):
+                       gene_kinase_idx, total_alpha, kinase_beta_starts, kinase_beta_counts,
+                       K_data, K_indices, K_indptr, time_weights, loss_type):
     """
     Wrapper function for the objective function.
     This function calls the _objective function with the appropriate parameters
@@ -206,6 +208,6 @@ def _objective_wrapper(params, P_init_dense, t_max, gene_alpha_starts, gene_kina
     mapping = {"base": 0, "weighted": 1, "softl1": 2, "cauchy": 3, "arctan": 4}
     flag = mapping.get(loss_type, 0)
     return _objective(params, P_init_dense, t_max, P_init_dense.shape[0],
-                     gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
-                     total_alpha, kinase_beta_starts, kinase_beta_counts,
-                     K_data, K_indices, K_indptr, time_weights, flag)
+                      gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
+                      total_alpha, kinase_beta_starts, kinase_beta_counts,
+                      K_data, K_indices, K_indptr, time_weights, flag)

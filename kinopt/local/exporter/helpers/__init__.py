@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 def build_genes_data(P_initial, P_init_dense, P_estimated, residuals):
     """
     Given the dictionary P_initial (with keys (gene, psite)), and the matrices

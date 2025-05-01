@@ -25,6 +25,7 @@ from kinopt.optimality.KKT import post_optimization_results
 
 logger = setup_logger()
 
+
 def main():
     """
     Main function to run the optimization process.
@@ -124,8 +125,10 @@ def main():
     if METHOD == "DE":
         opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs, x_values, y_values, val)
     else:
-        opt_analyze_nsga(problem, result, F, pairs, approx_ideal, approx_nadir, asf_i, pseudo_i, n_evals, hist_hv, hist, val,
-                    hist_cv_avg, k, hist_igd, best_objectives, waterfall_df, convergence_df, alpha_values, beta_values)
+        opt_analyze_nsga(problem, result, F, pairs, approx_ideal, approx_nadir, asf_i, pseudo_i, n_evals, hist_hv, hist,
+                         val,
+                         hist_cv_avg, k, hist_igd, best_objectives, waterfall_df, convergence_df, alpha_values,
+                         beta_values)
 
     # Copy the output file to the ODE data directory.
     shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
@@ -151,6 +154,7 @@ def main():
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
 
 if __name__ == "__main__":
     main()

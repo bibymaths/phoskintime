@@ -1,5 +1,6 @@
 from scipy.optimize import minimize
 
+
 def run_optimization(obj_fun, params_initial, opt_method, bounds, constraints):
     """
     Run optimization using the specified method.

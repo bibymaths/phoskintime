@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
@@ -98,17 +97,17 @@ def goodnessoffit(estimated, observed):
 
     # Expand the axes limits slightly to include all points without clipping
     x_min = merged_data.loc[:, 'x1_obs':'x14_obs'].values.min() - 0.1 * (
-                merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
-                                                                      'x1_obs':'x14_obs'].values.min())
+            merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
+                                                                  'x1_obs':'x14_obs'].values.min())
     x_max = merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() + 0.1 * (
-                merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
-                                                                      'x1_obs':'x14_obs'].values.min())
+            merged_data.loc[:, 'x1_obs':'x14_obs'].values.max() - merged_data.loc[:,
+                                                                  'x1_obs':'x14_obs'].values.min())
     y_min = merged_data.loc[:, 'x1_est':'x14_est'].values.min() - 0.1 * (
-                merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
-                                                                      'x1_est':'x14_est'].values.min())
+            merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
+                                                                  'x1_est':'x14_est'].values.min())
     y_max = merged_data.loc[:, 'x1_est':'x14_est'].values.max() + 0.1 * (
-                merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
-                                                                      'x1_est':'x14_est'].values.min())
+            merged_data.loc[:, 'x1_est':'x14_est'].values.max() - merged_data.loc[:,
+                                                                  'x1_est':'x14_est'].values.min())
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
 

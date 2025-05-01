@@ -1,4 +1,3 @@
-
 import os
 import json
 import argparse
@@ -16,7 +15,9 @@ from config.constants import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 from config.logconf import setup_logger
+
 logging = setup_logger()
+
 
 def parse_bound_pair(val):
     """
@@ -42,6 +43,7 @@ def parse_bound_pair(val):
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Invalid bound pair '{val}': {e}")
 
+
 def parse_fix_value(val):
     """
     Parse a fixed value or a list of fixed values from a string.
@@ -66,12 +68,14 @@ def parse_fix_value(val):
         except Exception as e:
             raise argparse.ArgumentTypeError(f"Invalid fixed value '{val}': {e}")
 
+
 def ensure_output_directory(directory):
     """
     :param directory:
     :type directory: str
     """
     os.makedirs(directory, exist_ok=True)
+
 
 def parse_args():
     """
@@ -137,6 +141,7 @@ def parse_args():
                         help="Path to the estimated optimized mRNA-TF file")
     return parser.parse_args()
 
+
 def log_config(logger, bounds, fixed_params, time_fixed, args):
     """
     Log the configuration settings for the PhosKinTime script.
@@ -172,6 +177,7 @@ def log_config(logger, bounds, fixed_params, time_fixed, args):
     logger.info(f"   End:   {args.profile_end} min")
     logger.info(f"   Step:  {args.profile_step} min")
     np.set_printoptions(suppress=True)
+
 
 def extract_config(args):
     """
@@ -215,6 +221,7 @@ def extract_config(args):
         'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
     return config
+
 
 def score_fit(gene, params, weight, target, prediction,
               alpha=ALPHA_WEIGHT,
@@ -263,7 +270,7 @@ def score_fit(gene, params, weight, target, prediction,
     l2_norm = np.linalg.norm(params, ord=2) / len(params)
 
     # Calculate weighted total score combining errors
-    score = delta * mse + alpha * rmse + beta * mae  + gamma * variance + mu * l2_norm
+    score = delta * mse + alpha * rmse + beta * mae + gamma * variance + mu * l2_norm
 
     # Log all calculated metrics for each weighting schema.
     # logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")

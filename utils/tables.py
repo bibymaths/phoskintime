@@ -5,7 +5,9 @@ from pandas import MultiIndex, concat
 from config.constants import OUT_DIR
 from kinopt.evol.config.constants import OUT_FILE
 from config.logconf import setup_logger
+
 logger = setup_logger(__name__)
+
 
 def generate_tables(xlsx_file_path):
     """
@@ -104,6 +106,7 @@ def save_tables(tables, output_dir):
         # Save as CSV
         table.to_csv(f"{base_filename}.csv")
 
+
 def save_master_table(folder="latex", output_file="latex/all_tables.tex"):
     """
     Save a master LaTeX file that includes all individual LaTeX files from the specified folder.
@@ -124,6 +127,7 @@ def save_master_table(folder="latex", output_file="latex/all_tables.tex"):
             out.write(f"\\input{{{folder}/{file}}}\n")
 
     print(f"Generated {output_file} with {len(files)} entries.")
+
 
 if __name__ == "__main__":
     # Define the input and output paths

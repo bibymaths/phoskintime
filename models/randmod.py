@@ -1,8 +1,8 @@
-
 import numpy as np
 from numba import njit
 from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
+
 
 @njit
 def ode_system(y, t,
@@ -44,7 +44,7 @@ def ode_system(y, t,
     m = (1 << n) - 1
 
     # unpack rates
-    S    = np.empty(n)
+    S = np.empty(n)
     Ddeg = np.empty(m)
     # phosphorylation rates
     for j in range(n):
@@ -67,9 +67,9 @@ def ode_system(y, t,
     # 1) P → X_j (mono-phospho)
     for j in range(n):
         rate = S[j] * P
-        idx  = (1 << j) - 1
+        idx = (1 << j) - 1
         dX[idx] += rate
-        dP     -= rate
+        dP -= rate
 
     # 2) transitions among X's + dephosphorylation (unit rate)
     for state in range(1, m + 1):
@@ -80,14 +80,14 @@ def ode_system(y, t,
             if (state & (1 << j)) == 0:
                 tgt = state | (1 << j)
                 rate = S[j] * xi
-                dX[tgt - 1]      += rate
-                dX[state - 1]    -= rate
+                dX[tgt - 1] += rate
+                dX[state - 1] -= rate
 
         # b) dephosphorylation at unit rate
         for j in range(n):
             if (state & (1 << j)) != 0:
                 lower = state & ~(1 << j)
-                rate  = xi
+                rate = xi
                 if lower == 0:
                     dP += rate
                 else:
@@ -105,6 +105,7 @@ def ode_system(y, t,
         dydt[2 + i] = dX[i]
 
     return dydt
+
 
 def solve_ode(popt, y0, num_sites, t):
     """
@@ -124,7 +125,7 @@ def solve_ode(popt, y0, num_sites, t):
 
     A, B, C, D = popt[:4]
     # should be length num_sites + (2^n -1)
-    rest       = popt[4:]
+    rest = popt[4:]
 
     sol = np.asarray(odeint(ode_system, y0, t, args=(A, B, C, D, num_sites, *rest)))
 
@@ -136,8 +137,8 @@ def solve_ode(popt, y0, num_sites, t):
 
     if NORMALIZE_MODEL_OUTPUT:
         ic = np.array(y0, dtype=sol.dtype)
-        sol    *=  (1.0/ic)[None, :]
-        sol_15 *=  (1.0/ic)[None, :]
+        sol *= (1.0 / ic)[None, :]
+        sol_15 *= (1.0 / ic)[None, :]
         sol[7] = sol_15[0]
 
     OFFSET = 5

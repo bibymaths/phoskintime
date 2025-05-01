@@ -3,6 +3,7 @@ from pymoo.core.problem import ElementwiseProblem
 from kinopt.evol.config import include_regularization, lb, ub, loss_type
 from kinopt.evol.optcon import n, P_initial_array
 
+
 class PhosphorylationOptimizationProblem(ElementwiseProblem):
     """
     Custom optimization problem for phosphorylation analysis.
@@ -223,6 +224,7 @@ def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, be
         P_i_t_estimated[i, :] = gene_psite_prediction
 
     return P_i_t_estimated
+
 
 # Function to calculate residuals
 def _residuals(P_initial_array, P_estimated):
