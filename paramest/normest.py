@@ -1,10 +1,11 @@
-from concurrent.futures import ProcessPoolExecutor, as_completed
+
 import os
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 from itertools import combinations
 from typing import cast, Tuple
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from config.config import score_fit
 from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
@@ -56,43 +57,40 @@ def worker_find_lambda(
     best_weight_key = None
 
     for weight_key, sigma in weight_options.items():
-        try:
-            result = cast(Tuple[np.ndarray, np.ndarray], curve_fit(
-                model_func,
-                time_points,
-                tf,
-                p0=p0,
-                bounds=free_bounds,
-                sigma=sigma,
-                x_scale='jac',
-                absolute_sigma=not USE_CUSTOM_WEIGHTS,
-                maxfev=20000
-            ))
 
-            popt_try, _ = result
+        result = cast(Tuple[np.ndarray, np.ndarray], curve_fit(
+            model_func,
+            time_points,
+            tf,
+            p0=p0,
+            bounds=free_bounds,
+            sigma=sigma,
+            x_scale='jac',
+            absolute_sigma=not USE_CUSTOM_WEIGHTS,
+            maxfev=20000
+        ))
 
-            _, pred = solve_ode(
-                np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
-                init_cond,
-                num_psites,
-                time_points
-            )
+        popt_try, _ = result
 
-            score = score_fit(gene, popt_try, f"{weight_key}_lambda_{lam}", target, pred)
+        _, pred = solve_ode(
+            np.exp(popt_try) if ODE_MODEL == 'randmod' else popt_try,
+            init_cond,
+            num_psites,
+            time_points
+        )
 
-            if score < best_score:
-                best_score = score
-                best_weight_key = weight_key
+        score = score_fit(gene, popt_try, f"{weight_key}_lambda_{lam}", target, pred)
 
-        except Exception as e:
-            logger.warning(f"[{gene}] Fit failed for {weight_key}: {e}")
+        if score < best_score:
+            best_score = score
+            best_weight_key = weight_key
 
-    # if best_weight_key:
-    #     logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
-    #                 f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
-    #                 f"Score = {best_score:.2f}")
-    # else:
-    #     logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
+    if best_weight_key:
+        logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
+                    f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
+                    f"Score = {best_score:.2f}")
+    else:
+        logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
 
     return lam, best_score, best_weight_key
 

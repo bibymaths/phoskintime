@@ -28,17 +28,17 @@ ODE_MODEL = 'distmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 1000
+NUM_TRAJECTORIES = 100
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 100
+PARAMETER_SPACE = 40
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
-PERTURBATIONS_VALUE = 0.5  # 50% perturbation
+PERTURBATIONS_VALUE = 0.2  # 20% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
@@ -159,6 +159,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Plotting Style Configuration
+PERTURBATIONS_TRACE_OPACITY = 0.05
 COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 available_markers = [
     m for m in mmarkers.MarkerStyle.markers

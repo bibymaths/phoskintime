@@ -15,7 +15,8 @@ from scipy.interpolate import CubicSpline
 from scipy.stats import gaussian_kde, entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA
+from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA, \
+    PERTURBATIONS_TRACE_OPACITY
 
 
 class Plotter:
@@ -649,6 +650,7 @@ class Plotter:
             psite_data_ref: The reference data for the phosphorylation sites.
             rna_ref: The reference data for mRNA.
         """
+        simulations_trace_intensity = PERTURBATIONS_TRACE_OPACITY
 
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
 
@@ -663,7 +665,7 @@ class Plotter:
                     time_points[:cutoff_idx],
                     best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
                     color=color,
-                    alpha=0.005,
+                    alpha=simulations_trace_intensity,
                     linewidth=0.5
                 )
             ax.plot(
@@ -689,7 +691,7 @@ class Plotter:
                 time_points[:cutoff_idx],
                 best_mrna_solutions[sim_idx, :cutoff_idx],
                 color='black',
-                alpha=0.005,
+                alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
         ax.plot(
@@ -715,7 +717,7 @@ class Plotter:
                 time_points[:cutoff_idx],
                 best_protein_solutions[sim_idx, :cutoff_idx],
                 color='red',
-                alpha=0.005,
+                alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
         ax.plot(
@@ -746,7 +748,7 @@ class Plotter:
                     time_points[cutoff_idx - 1:],
                     best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
                     color=color,
-                    alpha=0.005,
+                    alpha=simulations_trace_intensity,
                     linewidth=0.5
                 )
             mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
@@ -774,7 +776,7 @@ class Plotter:
                 time_points[cutoff_idx - 1:],
                 best_mrna_solutions[sim_idx, cutoff_idx - 1:],
                 color='black',
-                alpha=0.005,
+                alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
         mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
@@ -802,7 +804,7 @@ class Plotter:
                 time_points[cutoff_idx - 1:],
                 best_protein_solutions[sim_idx, cutoff_idx - 1:],
                 color='red',
-                alpha=0.005,
+                alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
         mean_curve_protein = np.mean(best_protein_solutions[:, cutoff_idx - 1:], axis=0)
