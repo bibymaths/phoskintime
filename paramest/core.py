@@ -126,6 +126,8 @@ def process_gene(
     # Generate Labels
     labels = generate_labels(num_psites)
 
+    logger.info(f"[{gene}]      Generating plots...")
+
     # Generate phosphorylation ODE diagram
     illustrate(gene, num_psites)
 

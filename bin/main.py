@@ -1,11 +1,9 @@
-import numpy as np
 import pandas as pd
-from concurrent.futures import ProcessPoolExecutor
-
+from tqdm import tqdm
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
 from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST
-from config.logconf import setup_logger
+from config.logconf import setup_logger, TqdmToLogger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
 from utils import latexit
@@ -40,6 +38,7 @@ def main():
     """
     # Set up the logger
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
+    logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
     log_config(logger, config['bounds'], args)
 
     # Make output directory
@@ -89,6 +88,7 @@ def main():
         logger.info("  " + " ".join(f"[{gene}]" for gene in common_proteins))
         logger.info(f"Genes NOT found in both datasets: {len(non_common)}")
         logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
+        logger.info("--------------------------------")
 
     if DEV_TEST:
         # Load only gene 'X'
@@ -106,16 +106,27 @@ def main():
         logger.error("No genes found in the input data.")
         return
 
-    # Initiate the process pool and run the processing function for each gene
-    with ProcessPoolExecutor(max_workers=config['max_workers']) as executor:
-        results = list(executor.map(
-            process_gene_wrapper, genes,
-            [kinase_data] * len(genes),
-            [mrna_data] * len(genes),
-            [TIME_POINTS] * len(genes),
-            [config['bounds']] * len(genes),
-            [config['bootstraps']] * len(genes)
-        ))
+    progress_logger = TqdmToLogger(logger)
+
+    progress_bar = tqdm(
+        total=len(genes),
+        desc="Progress",
+        file=progress_logger,
+        ncols=80,
+        leave=True,
+        dynamic_ncols=True
+    )
+    results = []
+    for gene in genes:
+        logger.info(f"[{gene}]      Processing...")
+        result = process_gene_wrapper(
+            gene, kinase_data, mrna_data, TIME_POINTS,
+            config['bounds'], config['bootstraps']
+        )
+        results.append(result)
+        progress_bar.update(1)
+
+    progress_bar.close()
 
     # Check if the results are empty
     if not results:
@@ -137,14 +148,20 @@ def main():
     # Plot parameter relationships - profiles
     Plotter("", OUT_DIR).plot_top_param_pairs(OUT_RESULTS_DIR)
 
+    logger.info("Plotting completed.")
+
     # LateX the results
     latexit.main(OUT_DIR)
+
+    logger.info(f"LateX generated.")
 
     # Organize output files and create a report
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
 
-    logger.info(f'Report & Results {location(str(OUT_DIR))}')
+    logger.info("--------------------------------")
+
+    logger.info(f"Report & Results {location(str(OUT_DIR))}")
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:

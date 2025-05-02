@@ -92,7 +92,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
-    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True) + popt
+    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
     Y = np.zeros(len(param_values))
 
     # Initialize list to collect all trajectories
@@ -148,7 +148,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         })
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
-    logger.info(f"[{gene}] Sensitivity Analysis completed")
+    logger.info(f"[{gene}]      Sensitivity Analysis completed")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
                  scaled=True, print_to_console=False)
 
@@ -192,6 +192,9 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # cut-off time point for plotting
     cutoff_idx = 8
 
+    # True model fit with estimated parameters
+    model_fit, _ = solve_ode(popt, init_cond, num_psites, time_points)
+
     # Plot time wise changes for each state for parameter perturbations
     Plotter(gene, OUT_DIR).plot_time_state_grid(all_states, time_points, state_labels)
 
@@ -200,6 +203,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # Plot best simulations
     Plotter(gene, OUT_DIR).plot_model_perturbations(problem, Si, cutoff_idx, time_points, n_sites,
                                                     best_model_psite_solutions, best_mrna_solutions,
-                                                    best_protein_solutions, psite_labels, psite_data_ref, rna_ref)
+                                                    best_protein_solutions, psite_labels, psite_data_ref,
+                                                    rna_ref, model_fit)
 
     return Si, trajectories_with_params

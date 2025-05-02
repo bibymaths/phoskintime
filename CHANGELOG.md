@@ -79,3 +79,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Outdated module references and unused code.
 - Removed julia implementation of kinopt
 - Removed Project.toml for Julia dependency management.
+ 
+## [0.4.0] - Unreleased
+
+Added  
+- Phase space plots and strip plots for state distributions in sensitivity analysis.  
+- Time-state grid visualization replacing old time-wise plots.  
+- Enhanced logging format for parameter bounds and model configuration.  
+- Increased number of trajectories to 10,000 for improved sensitivity resolution.  
+- Support for parameter relationship plots and top parameter pair visualizations.  
+
+Changed  
+- Refactored sensitivity analysis functions and configuration parameters.  
+- Updated site parameter labels and adjusted development mode flags.  
+- Improved aesthetics of phase space and strip plots.  
+- Adjusted ODE model references (`ODE_MODEL`) and refined output normalization logic.  
+- Replaced hardcoded values with computed perturbations for sensitivity analysis.  
+
+Fixed  
+- Markdown formatting in README and PYPI_README.  
+- Sheet name bug in Excel export for estimated values.  
+
+Removed  
+- Deprecated analysis modes and unused constants.  
+- Combined time-weight calculation from data preprocessing.
