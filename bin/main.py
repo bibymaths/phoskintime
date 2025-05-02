@@ -151,14 +151,14 @@ def main():
     organize_output_files(OUT_DIR)
     create_report(OUT_DIR)
 
-    logger.info("--------------------------------")
-
+    logger.info("           --------------------------------")
     logger.info(f"Report & Results {location(str(OUT_DIR))}")
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
 
+    logger.info("           --------------------------------")
 
 if __name__ == "__main__":
     main()

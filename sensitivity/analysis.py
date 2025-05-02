@@ -219,6 +219,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}]      Sensitivity Analysis completed")
+    logger.info("           --------------------------------")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
                  scaled=True, print_to_console=False)
 
