@@ -3,10 +3,8 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-
-from config.config import future_times
 from knockout import apply_knockout, generate_knockout_combinations
-from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS
+from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
 from models.diagram import illustrate
 from paramest.toggle import estimate_parameters
 from sensitivity import sensitivity_analysis
@@ -56,10 +54,6 @@ def process_gene(
 ):
     """
     Process a single gene by estimating its parameters and generating plots.
-    This function extracts gene-specific data, estimates parameters using the
-    specified estimation mode, and generates plots for the estimated parameters
-    and the model fits. It also calculates error metrics and saves the results
-    to Excel files.
 
     :param gene:
     :param kinase_data:
@@ -68,6 +62,7 @@ def process_gene(
     :param bounds:
     :param bootstraps:
     :param out_dir:
+
     :return:
         - gene: The gene being processed.
         - estimated_params: Estimated parameters for the gene.
@@ -75,10 +70,17 @@ def process_gene(
         - seq_model_fit: Sequential model fit for the gene.
         - errors: Error metrics (MSE, MAE).
         - final_params: Final estimated parameters.
-        - profiles: Adaptive profile estimates (if applicable).
-        - profiles_df: DataFrame of adaptive profile estimates (if applicable).
         - param_df: DataFrame of estimated parameters.
         - gene_psite_data: Dictionary of gene-specific data.
+        - psite_labels: Labels for phosphorylation sites.
+        - pca_result: PCA result for the gene.
+        - ev: Explained variance for PCA.
+        - tsne_result: t-SNE result for the gene.
+        - perturbation_analysis: Sensitivity analysis results.
+        - perturbation_curves_params: Trajectories with parameters for sensitivity analysis.
+        - knockout_results: Dictionary of knockout results.
+        - regularization: Regularization value used in parameter estimation.
+
     """
     # Extract protein-group data
     gene_data = kinase_data[kinase_data['Gene'] == gene]
@@ -92,14 +94,14 @@ def process_gene(
     # Get the residue and position values
     psite_values = gene_data['Psite'].values
 
-    # Get initial conditions
-    init_cond = initial_condition(num_psites)
-
     # Get the FC value for TIME_POINTS
     P_data = gene_data.iloc[:, 2:].values
 
     # Get the FC value for TIME_POINTS_RNA
     R_data = rna_data.iloc[:, 1:].values
+
+    # Get initial conditions
+    init_cond = initial_condition(num_psites)
 
     logger.info(f"[{gene}]      Fitting to data...")
 
@@ -226,7 +228,7 @@ def process_gene(
         "psite_labels": psite_values,
         "estimated_params": estimated_params,
         "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, 14),
+        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, len(TIME_POINTS)),
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,

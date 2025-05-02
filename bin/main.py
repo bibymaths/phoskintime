@@ -94,7 +94,7 @@ def main():
 
     if DEV_TEST:
         # Load only gene 'X'
-        _test = "EGFR"
+        _test = "ABL2"
         if _test in kinase_data["Gene"].values:
             genes = kinase_data[kinase_data["Gene"] == _test]["Gene"].unique().tolist()
         else:

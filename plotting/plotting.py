@@ -51,7 +51,7 @@ class Plotter:
         """
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
-        fig, ax = plt.subplots(figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(16, 10))
         parallel_coordinates(df, class_column='Time',
                              colormap=plt.get_cmap("tab20"),
                              ax=ax)
@@ -490,36 +490,56 @@ class Plotter:
         lwr_ci = ci_results['lwr_ci']
         upr_ci = ci_results['upr_ci']
         num_params = len(beta_hat)
-        x = np.arange(num_params)
         if param_labels is None:
             param_labels = [f"{i + 1}" for i in range(num_params)]
+
+        valid_indices = [
+            i for i, label in enumerate(param_labels)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", label)
+        ]
+
+        if not valid_indices:
+            return
+
+        beta_hat = beta_hat[valid_indices]
+        p_values = p_values[valid_indices]
+        lwr_ci = lwr_ci[valid_indices]
+        upr_ci = upr_ci[valid_indices]
+        param_labels = [param_labels[i] for i in valid_indices]
+
         lower_error = beta_hat - lwr_ci
         upper_error = upr_ci - beta_hat
         errors = np.vstack((lower_error, upper_error))
+
+        x = np.arange(len(beta_hat))
+
         fig, ax = plt.subplots(figsize=(12, 8))
+
         colors = []
         s_counter = 0
         for label in param_labels:
-            if re.fullmatch(r"S\d", label):
+            if re.fullmatch(r"S\\d", label):
                 color = self.color_palette[s_counter % len(self.color_palette)]
                 colors.append(color)
                 s_counter += 1
             else:
                 colors.append('lightgray')
-        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.7, edgecolor='black', color=colors)
+
+        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center',
+               alpha=0.7, edgecolor='black', color=colors)
+
         for i, (xi, yi, pval) in enumerate(zip(x, beta_hat, p_values)):
-            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat), f"p={pval:.1e}",
-                    ha='center', va='bottom', fontsize=6, fontweight='bold')
+            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat),
+                    f"p={pval:.1e}", ha='center', va='bottom',
+                    fontsize=6, fontweight='bold')
+
         ax.set_xticks(x)
         ax.set_xticklabels(param_labels, ha='right')
         ax.set_ylabel('Estimate')
         ax.set_title(self.gene)
         ax.grid(True, axis='y', linestyle='--', alpha=0.2)
         plt.tight_layout()
-        if time is not None:
-            self._save_fig(fig, f"{self.gene}_params_{time}_min.png")
-        else:
-            self._save_fig(fig, f"{self.gene}_params_bar_.png")
+        self._save_fig(fig, f"{self.gene}_params_bar_.png")
 
     def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
@@ -603,6 +623,7 @@ class Plotter:
             df = df.nsmallest(50, "RMSE")
             param_cols = [col for col in df.columns if isinstance(col, str)
                           and col not in ["RMSE"] and not col.startswith("(")]
+            param_cols = [col for col in param_cols if re.match(r'^[a-zA-Z]+[0-9]*$', col)]
 
             if len(param_cols) < 2:
                 continue
@@ -918,22 +939,40 @@ class Plotter:
             time_points: array of time points
             state_names: list of state names
         """
-        n_samples, n_timepoints, n_states = samples.shape
-        data = []
+        # Identify valid state indices (e.g., 'P', 'P1', 'X2')
+        valid_indices = [
+            idx for idx, name in enumerate(state_names)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", name)
+        ]
 
+        # Skip plotting if no valid states remain
+        if len(valid_indices) == 0:
+            print("Skipping time-state grid: no valid state names.")
+            return
+
+        # Filter state names and corresponding sample data
+        filtered_names = [state_names[i] for i in valid_indices]
+        filtered_samples = samples[:, :, valid_indices]
+
+        # Prepare time labels
         time_labels = [f"{int(t)}" if t > 1 else f"{t}" for t in time_points]
 
-        for state_idx in range(n_states):
+        # Build long-form DataFrame
+        data = []
+        for state_idx, state in enumerate(filtered_names):
             for t_idx, label in enumerate(time_labels):
-                for v in samples[:, t_idx, state_idx]:
-                    data.append({'Value': v, 'Time': label, 'State': state_names[state_idx]})
+                for v in filtered_samples[:, t_idx, state_idx]:
+                    data.append({'Value': v, 'Time': label, 'State': state})
         df = pd.DataFrame(data)
 
+        # Ensure time is treated as categorical for consistent ordering
         df['Time'] = pd.Categorical(df['Time'], categories=time_labels, ordered=True)
 
-        full_palette = list(itertools.islice(itertools.cycle(self.color_palette), len(state_names)))
-        palette_dict = dict(zip(state_names, full_palette))
+        # Assign consistent colors to each state
+        full_palette = list(itertools.islice(itertools.cycle(self.color_palette), len(filtered_names)))
+        palette_dict = dict(zip(filtered_names, full_palette))
 
+        # Create strip plots for each state across time
         g = sns.catplot(
             data=df,
             x="Time",
@@ -975,19 +1014,34 @@ class Plotter:
         n_samples, n_timepoints, n_states = samples.shape
         assert n_states >= 2, "Need at least two states for phase space plots."
 
+        # Identify valid state name indices
+        valid_indices = [
+            idx for idx, name in enumerate(state_names)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", name)
+        ]
+
+        # If fewer than two valid states, skip plotting
+        if len(valid_indices) < 2:
+            return
+
+        # Filter state names and sample dimensions
+        filtered_names = [state_names[i] for i in valid_indices]
+        filtered_samples = samples[:, :, valid_indices]
+
         # Assign one color per simulation
         cmap = cm.get_cmap("tab20", n_samples)
         sim_colors = [cmap(i) for i in range(n_samples)]
 
-        for i, j in combinations(range(n_states), 2):
-            x_state = state_names[i]
-            y_state = state_names[j]
+        # Generate pairwise plots
+        for i, j in combinations(range(len(filtered_names)), 2):
+            x_state = filtered_names[i]
+            y_state = filtered_names[j]
 
             fig, ax = plt.subplots(figsize=(6, 6))
             for sim in range(n_samples):
                 ax.plot(
-                    samples[sim, :, i],
-                    samples[sim, :, j],
+                    filtered_samples[sim, :, i],
+                    filtered_samples[sim, :, j],
                     alpha=0.5,
                     linewidth=0.5,
                     color=sim_colors[sim]

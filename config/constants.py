@@ -32,13 +32,13 @@ ODE_MODEL = 'randmod'
 # This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
 # A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
 # The current value of 10,000 is chosen to balance sensitivity resolution and performance.
-NUM_TRAJECTORIES = 10000
+NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 400
+PARAMETER_SPACE = 40
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
