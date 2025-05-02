@@ -28,7 +28,11 @@ ODE_MODEL = 'randmod'
 # to accurately sample the parameter space and compute sensitivity indices.
 # A higher number of trajectories can lead to more reliable results,
 # but it also increases computational time
-NUM_TRAJECTORIES = 100
+# The number of trajectories to be generated for the Morris method.
+# This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
+# A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
+# The current value of 10,000 is chosen to balance sensitivity resolution and performance.
+NUM_TRAJECTORIES = 10000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
