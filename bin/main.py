@@ -110,7 +110,7 @@ def main():
 
     progress_bar = tqdm(
         total=len(genes),
-        desc="Processing Proteins",
+        desc="Progress",
         file=progress_logger,
         ncols=80,
         leave=True,
@@ -118,7 +118,7 @@ def main():
     )
     results = []
     for gene in genes:
-        logger.info(f"[{gene}] Processing...")
+        logger.info(f"[{gene}]      Processing...")
         result = process_gene_wrapper(
             gene, kinase_data, mrna_data, TIME_POINTS,
             config['bounds'], config['bootstraps']

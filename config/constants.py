@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = True
+DEV_TEST = False
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
