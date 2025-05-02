@@ -12,7 +12,7 @@ from config.constants import ODE_MODEL, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
 from plotting.plotting import Plotter
-from config.logconf import setup_logger, TqdmToLogger
+from config.logconf import setup_logger
 
 logger = setup_logger()
 
@@ -138,7 +138,6 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
                 norm_acc += solution[t, 2 + s] ** 2
         return math.sqrt(norm_acc)
 
-    # fallback
     raise ValueError("Unknown Y_METRIC")
 
 def _perturb_solve(i_X_tuple):
@@ -197,15 +196,6 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     ]
 
     logger.info(f"Sensitivity Analysis started...")
-    progress_logger = TqdmToLogger(logger)
-    progress_bar = tqdm(
-        total=len(tasks),
-        desc="Perturbations",
-        ncols=80,
-        file=progress_logger,
-        leave=True,
-        dynamic_ncols=True
-    )
 
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = {executor.submit(_perturb_solve, t): t[0] for t in tasks}
@@ -226,10 +216,6 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
                 "solution": solution,
                 "rmse": None
             })
-            # update the progress bar
-            progress_bar.update(1)
-    # close the progress bar
-    progress_bar.close()
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}]      Sensitivity Analysis completed")

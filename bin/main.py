@@ -3,7 +3,7 @@ from tqdm import tqdm
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
 from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST
-from config.logconf import setup_logger, TqdmToLogger
+from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
 from utils import latexit
@@ -106,16 +106,6 @@ def main():
         logger.error("No genes found in the input data.")
         return
 
-    progress_logger = TqdmToLogger(logger)
-
-    progress_bar = tqdm(
-        total=len(genes),
-        desc="Progress",
-        file=progress_logger,
-        ncols=80,
-        leave=True,
-        dynamic_ncols=True
-    )
     results = []
     for gene in genes:
         logger.info(f"[{gene}]      Processing...")
@@ -124,9 +114,6 @@ def main():
             config['bounds'], config['bootstraps']
         )
         results.append(result)
-        progress_bar.update(1)
-
-    progress_bar.close()
 
     # Check if the results are empty
     if not results:

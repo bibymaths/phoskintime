@@ -661,14 +661,25 @@ class Plotter:
         # Plot the true psite curve with all simulations
         for site_idx in range(n_sites):
             color = COLOR_PALETTE[site_idx]
-            for sim_idx in range(best_model_psite_solutions.shape[0]):
-                ax.plot(
-                    time_points[:cutoff_idx],
-                    best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
-                    color=color,
-                    alpha=simulations_trace_intensity,
-                    linewidth=0.5
-                )
+            # draw envelope of min→max across all sims
+            ps_data = best_model_psite_solutions[:, :cutoff_idx, site_idx]
+            min_curve = ps_data.min(axis=0)
+            max_curve = ps_data.max(axis=0)
+            ax.fill_between(
+                time_points[:cutoff_idx],
+                min_curve,
+                max_curve,
+                color=color,
+                alpha=simulations_trace_intensity
+            )
+            # for sim_idx in range(best_model_psite_solutions.shape[0]):
+            #     ax.plot(
+            #         time_points[:cutoff_idx],
+            #         best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
+            #         color=color,
+            #         alpha=simulations_trace_intensity,
+            #         linewidth=0.5
+            #     )
             ax.plot(
                 time_points[:cutoff_idx],
                 model_fit_sol[:cutoff_idx, 2+site_idx],
@@ -687,14 +698,22 @@ class Plotter:
             )
 
         # Plot the true mRNA curve with all simulations
-        for sim_idx in range(best_mrna_solutions.shape[0]):
-            ax.plot(
-                time_points[:cutoff_idx],
-                best_mrna_solutions[sim_idx, :cutoff_idx],
-                color='gray',
-                alpha=simulations_trace_intensity,
-                linewidth=0.5
-            )
+        # for sim_idx in range(best_mrna_solutions.shape[0]):
+        #     ax.plot(
+        #         time_points[:cutoff_idx],
+        #         best_mrna_solutions[sim_idx, :cutoff_idx],
+        #         color='gray',
+        #         alpha=simulations_trace_intensity,
+        #         linewidth=0.5
+        #     )
+        mrna_data = best_mrna_solutions[:, :cutoff_idx]
+        ax.fill_between(
+            time_points[:cutoff_idx],
+            mrna_data.min(axis=0),
+            mrna_data.max(axis=0),
+            color='gray',
+            alpha=simulations_trace_intensity
+        )
         ax.plot(
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 0],
@@ -713,14 +732,22 @@ class Plotter:
         )
 
         # Plot the true protein curve with all simulations
-        for sim_idx in range(best_protein_solutions.shape[0]):
-            ax.plot(
-                time_points[:cutoff_idx],
-                best_protein_solutions[sim_idx, :cutoff_idx],
-                color='red',
-                alpha=simulations_trace_intensity,
-                linewidth=0.5
-            )
+        # for sim_idx in range(best_protein_solutions.shape[0]):
+        #     ax.plot(
+        #         time_points[:cutoff_idx],
+        #         best_protein_solutions[sim_idx, :cutoff_idx],
+        #         color='red',
+        #         alpha=simulations_trace_intensity,
+        #         linewidth=0.5
+        #     )
+        prot_data = best_protein_solutions[:, :cutoff_idx]
+        ax.fill_between(
+            time_points[:cutoff_idx],
+            prot_data.min(axis=0),
+            prot_data.max(axis=0),
+            color='red',
+            alpha=simulations_trace_intensity
+        )
         ax.plot(
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 1],
@@ -1005,7 +1032,7 @@ class Plotter:
     def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
         """
-        Plots the model fit for the given data.
+        Plots the model fit for the future time points.
 
         :param model_fit: Estimated model fit values.
         :param P_data: Observed data for phosphorylation levels.

@@ -127,7 +127,6 @@ def unpack_params(params, num_sites):
         S[i] = params[4 + i]
     for i in range(m):
         Ddeg[i] = params[4 + n + i]
-
     return A, B, C, D, S, Ddeg
 
 def solve_ode(popt, y0, num_sites, t):
