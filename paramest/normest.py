@@ -86,7 +86,7 @@ def worker_find_lambda(
             best_weight_key = weight_key
 
     if best_weight_key:
-        logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
+        logger.info(f"[{gene}]      λ = {lam / len(p0): .4f} |  "
                     f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
                     f"Score = {best_score:.2f}")
     else:

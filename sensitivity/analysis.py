@@ -173,10 +173,14 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     # Select the top K-closest simulations
     # Top percentile of the RMSE values
-    K = sum(rmse <= np.percentile(rmse, 1))
+    # K = sum(rmse <= np.percentile(rmse, 1))
+    K = int(np.ceil(NUM_TRAJECTORIES / PARAMETER_SPACE))
 
     # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]
+
+    # Get the best trajectories to save
+    best_trajectories = [trajectories_with_params[i] for i in best_idxs]
 
     # Restrict the trajectories to only the closest ones 
     # Best phosphorylation site solutions
@@ -206,4 +210,4 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
                                                     best_protein_solutions, psite_labels, psite_data_ref,
                                                     rna_ref, model_fit)
 
-    return Si, trajectories_with_params
+    return Si, best_trajectories

@@ -21,7 +21,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -32,13 +32,13 @@ ODE_MODEL = 'distmod'
 # This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
 # A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
 # The current value of 10,000 is chosen to balance sensitivity resolution and performance.
-NUM_TRAJECTORIES = 100
+NUM_TRAJECTORIES = 10000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 40
+PARAMETER_SPACE = 400
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)

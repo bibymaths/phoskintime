@@ -106,6 +106,30 @@ def ode_system(y, t,
 
     return dydt
 
+@njit(cache=True)
+def unpack_params(params, num_sites):
+    """
+    Unpack parameters for the Random model.
+    Returns: A, B, C, D, S (phosphorylation rates), Ddeg (degradation rates)
+    """
+    params = np.asarray(params)
+    A = params[0]
+    B = params[1]
+    C = params[2]
+    D = params[3]
+    n = num_sites
+    m = (1 << n) - 1
+    S = np.empty(n)
+    Ddeg = np.empty(m)
+
+    # should be length num_sites + (2^n -1)
+    for i in range(n):
+        S[i] = params[4 + i]
+    for i in range(m):
+        Ddeg[i] = params[4 + n + i]
+
+    return A, B, C, D, S, Ddeg
+
 def solve_ode(popt, y0, num_sites, t):
     """
     Solve the Random ODE system using the provided parameters and initial conditions.
@@ -121,28 +145,25 @@ def solve_ode(popt, y0, num_sites, t):
         sol (array): Solution of the ODE system.
         mono (array): Solution of phosphorylation states for each site.
     """
+    A, B, C, D, S, Ddeg = unpack_params(popt, num_sites)
 
-    A, B, C, D = popt[:4]
-    # should be length num_sites + (2^n -1)
-    rest = popt[4:]
-
-    sol = np.asarray(odeint(ode_system, y0, t, args=(A, B, C, D, num_sites, *rest)))
+    sol = np.asarray(odeint(ode_system, y0, t, args=(A, B, C, D, num_sites, *S, *Ddeg)))
 
     np.clip(sol, 0, None, out=sol)
 
-    sol_15 = np.asarray(odeint(ode_system, y0, [15.0], args=(A, B, C, D, num_sites, *rest)))
-
-    np.clip(sol_15, 0, None, out=sol_15)
+    # sol_15 = np.asarray(odeint(ode_system, y0, [15.0], args=(A, B, C, D, num_sites, *S, *Ddeg)))
+    #
+    # np.clip(sol_15, 0, None, out=sol_15)
 
     if NORMALIZE_MODEL_OUTPUT:
         ic = np.array(y0, dtype=sol.dtype)
         sol *= (1.0 / ic)[None, :]
-        sol_15 *= (1.0 / ic)[None, :]
-        sol[7] = sol_15[0]
+        # sol_15 *= (1.0 / ic)[None, :]
+        # sol[7] = sol_15[0]
 
     OFFSET = 5
     R_fitted = sol[OFFSET:, 0].copy()
-    R_fitted[2] = sol_15[0, 0]  # Replace 3rd point (index 2)
+    # R_fitted[2] = sol_15[0, 0]  # Replace 3rd point (index 2)
 
     if num_sites > 1:
         P_fitted = sol[:, 2:2 + num_sites].T

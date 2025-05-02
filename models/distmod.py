@@ -67,6 +67,7 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
 
 @njit(cache=True)
 def unpack_params(params, num_psites):
+    params = np.asarray(params)
     A = params[0]
     B = params[1]
     C = params[2]
@@ -95,10 +96,10 @@ def solve_ode(params, init_cond, num_psites, t):
     np.clip(sol, 0, None, out=sol)
 
     # Solve separately at 15.0 minutes
-    sol_15 = np.asarray(odeint(ode_core, init_cond, [15.0], args=(A, B, C, D, S_rates, D_rates)))
+    # sol_15 = np.asarray(odeint(ode_core, init_cond, [15.0], args=(A, B, C, D, S_rates, D_rates)))
 
     # Clip the solution to be non-negative
-    np.clip(sol_15, 0, None, out=sol_15)
+    # np.clip(sol_15, 0, None, out=sol_15)
 
     # Normalize the solution if NORMALIZE_MODEL_OUTPUT is True
     if NORMALIZE_MODEL_OUTPUT:
@@ -109,14 +110,14 @@ def solve_ode(params, init_cond, num_psites, t):
         # Normalize the solution by multiplying by the reciprocal of the norm_init
         sol *= recip[np.newaxis, :]
         # Now, replace the 8th value (index 7) with the solution at 15
-        sol_15 *= recip[np.newaxis, :]
+        # sol_15 *= recip[np.newaxis, :]
         # Now, replace the 8th value of sol (index 7) with the solution at 15
-        sol[7] = sol_15[0]
+        # sol[7] = sol_15[0]
 
     # Extract the mRNA from the solution
     R_fitted = sol[5:, 0].T
     # Now replace the 8th value of R_fitted (index 7 after slicing at 5:)
-    R_fitted[2] = sol_15[0, 0]
+    # R_fitted[2] = sol_15[0, 0]
     # Extract the phosphorylated sites from the solution
     P_fitted = sol[:, 2:].T
 
