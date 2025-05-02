@@ -21,7 +21,7 @@ DEV_TEST = False
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
