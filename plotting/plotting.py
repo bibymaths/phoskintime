@@ -661,30 +661,20 @@ class Plotter:
         # Plot the true psite curve with all simulations
         for site_idx in range(n_sites):
             color = COLOR_PALETTE[site_idx]
-            # draw envelope of min→max across all sims
-            ps_data = best_model_psite_solutions[:, :cutoff_idx, site_idx]
-            min_curve = ps_data.min(axis=0)
-            max_curve = ps_data.max(axis=0)
-            ax.fill_between(
-                time_points[:cutoff_idx],
-                min_curve,
-                max_curve,
-                color=color,
-                alpha=simulations_trace_intensity
-            )
-            # for sim_idx in range(best_model_psite_solutions.shape[0]):
-            #     ax.plot(
-            #         time_points[:cutoff_idx],
-            #         best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
-            #         color=color,
-            #         alpha=simulations_trace_intensity,
-            #         linewidth=0.5
-            #     )
+            for sim_idx in range(best_model_psite_solutions.shape[0]):
+                ax.plot(
+                    time_points[:cutoff_idx],
+                    best_model_psite_solutions[sim_idx, :cutoff_idx, site_idx],
+                    color=color,
+                    alpha=simulations_trace_intensity,
+                    linewidth=0.5
+                )
             ax.plot(
                 time_points[:cutoff_idx],
                 model_fit_sol[:cutoff_idx, 2+site_idx],
                 color=color,
-                linewidth=1
+                linewidth=1,
+                label=psite_labels[site_idx]
             )
             ax.plot(
                 time_points[:cutoff_idx],
@@ -698,27 +688,20 @@ class Plotter:
             )
 
         # Plot the true mRNA curve with all simulations
-        # for sim_idx in range(best_mrna_solutions.shape[0]):
-        #     ax.plot(
-        #         time_points[:cutoff_idx],
-        #         best_mrna_solutions[sim_idx, :cutoff_idx],
-        #         color='gray',
-        #         alpha=simulations_trace_intensity,
-        #         linewidth=0.5
-        #     )
-        mrna_data = best_mrna_solutions[:, :cutoff_idx]
-        ax.fill_between(
-            time_points[:cutoff_idx],
-            mrna_data.min(axis=0),
-            mrna_data.max(axis=0),
-            color='gray',
-            alpha=simulations_trace_intensity
-        )
+        for sim_idx in range(best_mrna_solutions.shape[0]):
+            ax.plot(
+                time_points[:cutoff_idx],
+                best_mrna_solutions[sim_idx, :cutoff_idx],
+                color='gray',
+                alpha=simulations_trace_intensity,
+                linewidth=0.5
+            )
         ax.plot(
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 0],
             color='black',
-            linewidth=1
+            linewidth=1,
+            label='mRNA (R)'
         )
         ax.plot(
             TIME_POINTS_RNA[:3],
@@ -732,27 +715,20 @@ class Plotter:
         )
 
         # Plot the true protein curve with all simulations
-        # for sim_idx in range(best_protein_solutions.shape[0]):
-        #     ax.plot(
-        #         time_points[:cutoff_idx],
-        #         best_protein_solutions[sim_idx, :cutoff_idx],
-        #         color='red',
-        #         alpha=simulations_trace_intensity,
-        #         linewidth=0.5
-        #     )
-        prot_data = best_protein_solutions[:, :cutoff_idx]
-        ax.fill_between(
-            time_points[:cutoff_idx],
-            prot_data.min(axis=0),
-            prot_data.max(axis=0),
-            color='red',
-            alpha=simulations_trace_intensity
-        )
+        for sim_idx in range(best_protein_solutions.shape[0]):
+            ax.plot(
+                time_points[:cutoff_idx],
+                best_protein_solutions[sim_idx, :cutoff_idx],
+                color='red',
+                alpha=simulations_trace_intensity,
+                linewidth=0.5
+            )
         ax.plot(
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 1],
             color='red',
-            linewidth=1
+            linewidth=1,
+            label='Protein (P)'
         )
 
         ax.set_xlabel('Time (min)')
@@ -768,28 +744,26 @@ class Plotter:
         # --- Right plot: From 9th time point onwards ---
         ax = axes[1]
 
-        # Plot the mean psite curve with all simulations
+        # Plot the true psite curve with all simulations
         for site_idx in range(n_sites):
             color = COLOR_PALETTE[site_idx]
             for sim_idx in range(best_model_psite_solutions.shape[0]):
                 ax.plot(
-                    time_points[cutoff_idx - 1:],
-                    best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
+                    time_points[cutoff_idx:],
+                    best_model_psite_solutions[sim_idx, cutoff_idx:, site_idx],
                     color=color,
                     alpha=simulations_trace_intensity,
                     linewidth=0.5
                 )
-            mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                mean_curve,
+                time_points[cutoff_idx:],
+                model_fit_sol[cutoff_idx:, 2+site_idx],
                 color=color,
-                label=f'{psite_labels[site_idx]}',
                 linewidth=1
             )
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                psite_data_ref[site_idx, cutoff_idx - 1:],
+                time_points[cutoff_idx:],
+                psite_data_ref[site_idx, cutoff_idx:],
                 marker='s',
                 linestyle='--',
                 color=color,
@@ -798,21 +772,19 @@ class Plotter:
                 mew=0.5, mec='black'
             )
 
-        # Plot the mean mRNA curve with all simulations
+        # Plot the true mRNA curve with all simulations
         for sim_idx in range(best_mrna_solutions.shape[0]):
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                best_mrna_solutions[sim_idx, cutoff_idx - 1:],
-                color='black',
+                time_points[cutoff_idx:],
+                best_mrna_solutions[sim_idx, cutoff_idx:],
+                color='gray',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
-        mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
         ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve_mrna,
+            time_points[cutoff_idx:],
+            model_fit_sol[cutoff_idx:, 0],
             color='black',
-            label='mRNA (R)',
             linewidth=1
         )
         ax.plot(
@@ -826,21 +798,20 @@ class Plotter:
             mew=0.5, mec='black',
         )
 
-        # Plot the mean protein curve with all simulations
+        # Plot the true protein curve with all simulations
         for sim_idx in range(best_protein_solutions.shape[0]):
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                best_protein_solutions[sim_idx, cutoff_idx - 1:],
+                time_points[cutoff_idx:],
+                best_protein_solutions[sim_idx, cutoff_idx:],
                 color='red',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
-        mean_curve_protein = np.mean(best_protein_solutions[:, cutoff_idx - 1:], axis=0)
+
         ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve_protein,
+            time_points[cutoff_idx:],
+            model_fit_sol[cutoff_idx:, 1],
             color='red',
-            label='Protein (P)',
             linewidth=1
         )
 
