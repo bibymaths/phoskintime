@@ -691,7 +691,7 @@ class Plotter:
             ax.plot(
                 time_points[:cutoff_idx],
                 best_mrna_solutions[sim_idx, :cutoff_idx],
-                color='black',
+                color='gray',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )

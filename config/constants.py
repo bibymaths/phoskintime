@@ -143,7 +143,21 @@ model_names = {
     "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
+# Choose which scalar metric to use for sensitivity (Y) calculation.
+# Options:
+#   'total_signal'   – Sum of all mRNA and site values across time.
+#                      (Captures overall signal magnitude.)
+#   'mean_activity'  – Mean of all mRNA and site values across time.
+#                      (Normalizes by count; captures average activity.)
+#   'variance'       – Variance of all mRNA and site values across time.
+#                      (Captures temporal/spatial variability.)
+#   'dynamics'       – Sum of squared successive differences of the flattened values.
+#                      (Captures how “dynamic” or rapidly changing the signal is.)
+#   'l2_norm'        – Euclidean norm of the flattened values.
+#                      (Captures overall magnitude like total_signal but in L2 sense.)
+Y_METRIC = 'total_signal'
 
+FUTURE_TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.
@@ -163,7 +177,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Plotting Style Configuration
-PERTURBATIONS_TRACE_OPACITY = 0.05
+PERTURBATIONS_TRACE_OPACITY = 0.01
 COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 available_markers = [
     m for m in mmarkers.MarkerStyle.markers
