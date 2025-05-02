@@ -57,7 +57,7 @@ def ode_system(y, t,
     R = y[0]
     P = y[1]
     # X lives in y[2..2+m)
-    # we will index as X[i] = y[2+i]
+    # index as X[i] = y[2+i]
 
     # initialize derivatives
     dR = A - B * R
@@ -71,11 +71,11 @@ def ode_system(y, t,
         dX[idx] += rate
         dP -= rate
 
-    # 2) transitions among X's + dephosphorylation (unit rate)
+    # transitions among X's + dephosphorylation (unit rate)
     for state in range(1, m + 1):
         xi = y[2 + state - 1]
 
-        # a) forward phospho on each unmodified bit
+        # forward phospho on each unmodified bit
         for j in range(n):
             if (state & (1 << j)) == 0:
                 tgt = state | (1 << j)
@@ -83,7 +83,7 @@ def ode_system(y, t,
                 dX[tgt - 1] += rate
                 dX[state - 1] -= rate
 
-        # b) dephosphorylation at unit rate
+        # dephosphorylation at unit rate
         for j in range(n):
             if (state & (1 << j)) != 0:
                 lower = state & ~(1 << j)
@@ -94,7 +94,7 @@ def ode_system(y, t,
                     dX[lower - 1] += rate
                 dX[state - 1] -= rate
 
-        # c) pure degradation of this X[state-1]
+        # ure degradation of this X[state-1]
         dX[state - 1] -= Ddeg[state - 1] * xi
 
     # pack into dydt
