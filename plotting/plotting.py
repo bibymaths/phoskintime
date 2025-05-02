@@ -357,6 +357,7 @@ class Plotter:
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
             contourf = ax.contourf(param_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
+            # Use a fixed value of 100 for contour levels to maintain consistency in density visualization.
             ax.contour(param_grid, S_grid, density, levels=100, colors='white', linewidths=0.5)
             ax.set_xlabel(f"{label}")
             ax.set_ylabel("S")
