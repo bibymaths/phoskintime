@@ -37,7 +37,9 @@ def main():
     It also handles logging and output organization.
     """
     # Set up the logger
+    logger.info("           --------------------------------")
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
+    logger.info("           --------------------------------")
     logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
     log_config(logger, config['bounds'], args)
 
@@ -88,7 +90,7 @@ def main():
         logger.info("  " + " ".join(f"[{gene}]" for gene in common_proteins))
         logger.info(f"Genes NOT found in both datasets: {len(non_common)}")
         logger.info("  " + " ".join(f"[{gene}]" for gene in non_common))
-        logger.info("--------------------------------")
+        logger.info("           --------------------------------")
 
     if DEV_TEST:
         # Load only gene 'X'
@@ -134,6 +136,9 @@ def main():
 
     # Plot parameter relationships - profiles
     Plotter("", OUT_DIR).plot_top_param_pairs(OUT_RESULTS_DIR)
+
+    # Plot regularization term values.
+    Plotter("", OUT_DIR).plot_regularization(OUT_RESULTS_DIR)
 
     logger.info("Plotting completed.")
 

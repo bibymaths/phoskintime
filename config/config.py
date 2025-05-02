@@ -143,7 +143,7 @@ def log_config(logger, bounds, args):
     for key, val in bounds.items():
         logger.info(f"      {key}      : {val}")
     logger.info(f"      Bootstrapping Iterations: {args.bootstraps}")
-    logger.info("--------------------------------")
+    logger.info("           --------------------------------")
     np.set_printoptions(suppress=True)
 
 

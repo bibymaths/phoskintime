@@ -117,13 +117,8 @@ def save_result(results, excel_filename):
             if "errors" in res:
                 param_df["MSE"] = pd.Series(res["errors"][:len(param_df)])
             param_df.insert(0, "Gene", gene)
+            param_df['Regularization'] = res["regularization"]
             param_df.to_excel(writer, sheet_name=f"{sheet_prefix}_params", index=False)
-
-            # 2. Save Profiled Estimates if available
-            if "profiles_df" in res and res["profiles_df"] is not None:
-                prof_df = res["profiles_df"].copy()
-                prof_df.insert(0, "Gene", gene)
-                prof_df.to_excel(writer, sheet_name=f"{sheet_prefix}_profiles", index=False)
 
             # 4. Save errors summary
             error_summary = {

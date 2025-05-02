@@ -674,7 +674,6 @@ class Plotter:
                 model_fit_sol[:cutoff_idx, 2+site_idx],
                 color=color,
                 linewidth=1,
-                label=psite_labels[site_idx]
             )
             ax.plot(
                 time_points[:cutoff_idx],
@@ -701,7 +700,6 @@ class Plotter:
             model_fit_sol[:cutoff_idx, 0],
             color='black',
             linewidth=1,
-            label='mRNA (R)'
         )
         ax.plot(
             TIME_POINTS_RNA[:3],
@@ -728,7 +726,6 @@ class Plotter:
             model_fit_sol[:cutoff_idx, 1],
             color='red',
             linewidth=1,
-            label='Protein (P)'
         )
 
         ax.set_xlabel('Time (min)')
@@ -759,7 +756,8 @@ class Plotter:
                 time_points[cutoff_idx:],
                 model_fit_sol[cutoff_idx:, 2+site_idx],
                 color=color,
-                linewidth=1
+                linewidth=1,
+                label=psite_labels[site_idx]
             )
             ax.plot(
                 time_points[cutoff_idx:],
@@ -785,7 +783,8 @@ class Plotter:
             time_points[cutoff_idx:],
             model_fit_sol[cutoff_idx:, 0],
             color='black',
-            linewidth=1
+            linewidth=1,
+            label='mRNA (R)'
         )
         ax.plot(
             TIME_POINTS_RNA[3:],
@@ -812,7 +811,8 @@ class Plotter:
             time_points[cutoff_idx:],
             model_fit_sol[cutoff_idx:, 1],
             color='red',
-            linewidth=1
+            linewidth=1,
+            label='Protein (P)'
         )
 
         ax.set_xlabel('Time (min)')
@@ -1056,3 +1056,35 @@ class Plotter:
         plt.suptitle(f'{self.gene}', fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_future_fit_.png")
+
+    def plot_regularization(self, excel_path: str):
+        """
+        Read every '<gene>_params' sheet in the Excel file, pull the Regularization value,
+        and plot a horizontal bar chart of regularization vs. gene.
+        """
+        xls = pd.ExcelFile(excel_path)
+        genes = []
+        regs = []
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_params"):
+                break
+            gene = sheet[:-7]
+            df = pd.read_excel(xls, sheet_name=sheet)
+            if 'Regularization' not in df.columns:
+                break
+            reg_value = df['Regularization'].iloc[0]
+            genes.append(gene)
+            regs.append(reg_value)
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(genes)*0.5)))
+        ax.barh(genes, regs)
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Protein')
+        ax.set_title(
+            r"Tikhnov Regularization (L2): "
+            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$"
+        )
+        plt.tight_layout()
+        self._save_fig(fig, "_regularization.png")
+

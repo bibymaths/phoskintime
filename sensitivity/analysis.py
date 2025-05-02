@@ -195,7 +195,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         for i, X in enumerate(param_values)
     ]
 
-    logger.info(f"Sensitivity Analysis started...")
+    logger.info(f"[{gene}]      Sensitivity Analysis started...")
 
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = {executor.submit(_perturb_solve, t): t[0] for t in tasks}

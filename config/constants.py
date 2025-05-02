@@ -175,7 +175,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Plotting Style Configuration
-PERTURBATIONS_TRACE_OPACITY = 0.07
+PERTURBATIONS_TRACE_OPACITY = 0.02
 COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 available_markers = [
     m for m in mmarkers.MarkerStyle.markers
