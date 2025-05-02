@@ -37,36 +37,64 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
     """
     # y[0] is the concentration of the mRNA
     R = y[0]
+
     # y[1] is the concentration of the protein
     P = y[1]
+
     # Number of phosphorylation sites
     n = S_rates.shape[0]
+
     # Derivative of y
     dydt = np.empty_like(y)
+
     # dydt[0] is the rate of change of R
+
     dydt[0] = A - B * R
     # S_rates
+
     sum_S = 0.0
     # sum_S is the sum of S_rates
+
     for i in range(n):
         # S_rates[i] is the rate of phosphorylation of site i
         sum_S += S_rates[i]
+
     # sum_P_sites is the sum of P sites
     sum_P_sites = 0.0
+
     # Loop over the number of phosphorylation sites
     for i in range(n):
         # y[2:] are the concentrations of the phosphorylated sites
         sum_P_sites += y[2 + i]
+
     # dydt[1] is the rate of change of P
     dydt[1] = C * R - (D + sum_S) * P + sum_P_sites
+
     # Loop over the number of phosphorylation sites
     for i in range(n):
+
         # dydt[2 + i] is the rate of change of each P site
         dydt[2 + i] = S_rates[i] * P - (1.0 + D_rates[i]) * y[2 + i]
+
     return dydt
 
 @njit(cache=True)
 def unpack_params(params, num_psites):
+    """
+    Function to unpack the parameters for the ODE system.
+    The parameters are expected to be in the following order:
+    A, B, C, D, S_rates, D_rates
+    where:
+    A: mRNA production rate
+    B: mRNA degradation rate
+    C: protein production rate
+    D: protein degradation rate
+    S_rates: phosphorylation rates for each site
+    D_rates: dephosphorylation rates for each site
+    :param params: array of parameters
+    :param num_psites: number of phosphorylation sites
+    :return: A, B, C, D, S_rates, D_rates
+    """
     params = np.asarray(params)
     A = params[0]
     B = params[1]
@@ -86,20 +114,13 @@ def solve_ode(params, init_cond, num_psites, t):
     :param t:
     :return: solution of the ODE system, solution of phosphorylated sites
     """
+
     # Unpack the parameters
     A, B, C, D, S_rates, D_rates = unpack_params(params, num_psites)
 
     # Call the odeint function to solve the ODE system
-    sol = np.asarray(odeint(ode_core, init_cond, t, args=(A, B, C, D, S_rates, D_rates)))
-
-    # Clip the solution to be non-negative
-    np.clip(sol, 0, None, out=sol)
-
-    # Solve separately at 15.0 minutes
-    # sol_15 = np.asarray(odeint(ode_core, init_cond, [15.0], args=(A, B, C, D, S_rates, D_rates)))
-
-    # Clip the solution to be non-negative
-    # np.clip(sol_15, 0, None, out=sol_15)
+    sol = np.clip(np.asarray(odeint(ode_core, init_cond, t,
+                                    args=(A, B, C, D, S_rates, D_rates))),  0, None)
 
     # Normalize the solution if NORMALIZE_MODEL_OUTPUT is True
     if NORMALIZE_MODEL_OUTPUT:
@@ -109,15 +130,10 @@ def solve_ode(params, init_cond, num_psites, t):
         recip = 1.0 / norm_init
         # Normalize the solution by multiplying by the reciprocal of the norm_init
         sol *= recip[np.newaxis, :]
-        # Now, replace the 8th value (index 7) with the solution at 15
-        # sol_15 *= recip[np.newaxis, :]
-        # Now, replace the 8th value of sol (index 7) with the solution at 15
-        # sol[7] = sol_15[0]
 
     # Extract the mRNA from the solution
     R_fitted = sol[5:, 0].T
-    # Now replace the 8th value of R_fitted (index 7 after slicing at 5:)
-    # R_fitted[2] = sol_15[0, 0]
+
     # Extract the phosphorylated sites from the solution
     P_fitted = sol[:, 2:].T
 
