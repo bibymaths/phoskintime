@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = False
+DEV_TEST = True
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -21,7 +21,7 @@ DEV_TEST = False
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'distmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -32,7 +32,7 @@ ODE_MODEL = 'randmod'
 # This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
 # A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
 # The current value of 10,000 is chosen to balance sensitivity resolution and performance.
-NUM_TRAJECTORIES = 10000
+NUM_TRAJECTORIES = 100
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.

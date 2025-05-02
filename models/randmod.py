@@ -4,7 +4,7 @@ from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
 
 
-@njit
+@njit(cache=True)
 def ode_system(y, t,
                A, B, C, D,
                num_sites,
@@ -105,7 +105,6 @@ def ode_system(y, t,
         dydt[2 + i] = dX[i]
 
     return dydt
-
 
 def solve_ode(popt, y0, num_sites, t):
     """
