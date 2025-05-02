@@ -104,7 +104,7 @@ def find_best_lambda(
         init_cond: np.ndarray,
         num_psites: int,
         p_data: np.ndarray,
-        lambdas=np.logspace(-1, 1, 10),
+        lambdas=np.logspace(-2, 0, 10),
         max_workers: int = os.cpu_count(),
 ) -> Tuple[float, str]:
     """

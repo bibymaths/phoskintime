@@ -51,21 +51,33 @@ class Plotter:
         """
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
-        fig, ax = plt.subplots(figsize=(16, 10))
-        parallel_coordinates(df, class_column='Time',
-                             colormap=plt.get_cmap("tab20"),
-                             ax=ax)
+
+        n_states = len(labels)
+
+        fig_width = min(max(1.2 * n_states, 8), 24)
+        fig_height = 6 if n_states <= 20 else 8
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        parallel_coordinates(
+            df, class_column='Time',
+            colormap=plt.get_cmap("tab20"),
+            ax=ax
+        )
+
         ax.set_title(self.gene)
         ax.set_xlabel("States")
         ax.set_ylabel("Values")
         ax.minorticks_on()
-        ax.grid(which='major', linestyle='--', linewidth=0.8,
-                color='gray', alpha=0.5)
-        ax.grid(which='minor', linestyle=':', linewidth=0.5,
-                color='gray', alpha=0.2)
-        ax.legend(title="Time Points",
-                  loc="upper right",
-                  labels=df['Time'].astype(str).tolist())
+        ax.grid(which='major', linestyle='--', linewidth=0.8, color='gray', alpha=0.5)
+        ax.grid(which='minor', linestyle=':', linewidth=0.5, color='gray', alpha=0.2)
+
+        # Hide or rotate x-tick labels if too many
+        if len(labels) > 40:
+            ax.set_xticks([])  # hide ticks
+        else:
+            ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=6)
+        plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_parallel_coordinates_.png")
 
     def pca_components(self, solution: np.ndarray, target_variance: float = 0.99):
@@ -519,7 +531,7 @@ class Plotter:
         s_counter = 0
         for label in param_labels:
             if re.fullmatch(r"S\\d", label):
-                color = self.color_palette[s_counter % len(self.color_palette)]
+                color = self.color_palette[s_counter]
                 colors.append(color)
                 s_counter += 1
             else:
@@ -620,10 +632,13 @@ class Plotter:
 
             self.gene = sheet.replace("_perturbations", "")
             df = pd.read_excel(xls, sheet_name=sheet)
-            df = df.nsmallest(50, "RMSE")
-            param_cols = [col for col in df.columns if isinstance(col, str)
-                          and col not in ["RMSE"] and not col.startswith("(")]
-            param_cols = [col for col in param_cols if re.match(r'^[a-zA-Z]+[0-9]*$', col)]
+            param_cols = [
+                col for col in df.columns
+                if isinstance(col, str)
+                   and col != "RMSE"
+                   and not col.startswith("(")
+                   and re.fullmatch(r"[A-Za-z]\d?$", col)
+            ]
 
             if len(param_cols) < 2:
                 continue
