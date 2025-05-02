@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+from config.config import future_times
 from knockout import apply_knockout, generate_knockout_combinations
 from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS
 from models.diagram import illustrate
@@ -102,7 +104,7 @@ def process_gene(
     logger.info(f"[{gene}]      Fitting to data...")
 
     # Estimate parameters
-    model_fits, estimated_params, seq_model_fit, errors = estimate_parameters(
+    model_fits, estimated_params, seq_model_fit, errors, regularization_val = estimate_parameters(
         gene, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
@@ -110,7 +112,9 @@ def process_gene(
     mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
     mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
 
+    logger.info("           --------------------------------")
     logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
+    logger.info("           --------------------------------")
 
     # Solve Full ODE with Final Params
     final_params = estimated_params[-1]
@@ -201,6 +205,7 @@ def process_gene(
     # Save Parameters
     df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
+    df_params['Regularization'] = regularization_val
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")
     df_params.to_excel(param_path, index=False)
 
@@ -234,7 +239,8 @@ def process_gene(
         "tsne_result": tsne_result,
         "perturbation_analysis": perturbation_analysis if SENSITIVITY_ANALYSIS else None,
         "perturbation_curves_params": trajectories_w_params if SENSITIVITY_ANALYSIS else None,
-        "knockout_results": knockout_results
+        "knockout_results": knockout_results,
+        "regularization": regularization_val
     }
 
 

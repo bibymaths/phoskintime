@@ -25,14 +25,15 @@ def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points
         - estimated_params: List with the full estimated parameter vector.
         - seq_model_fit: Sequential model fit for the gene.
         - errors: Error metrics (MSE, MAE).
+        - reg_term: Regularization term.
     """
 
     # For normal estimation, we use the provided bounds and fixed parameters
-    estimated_params, model_fits, errors = normest(
+    estimated_params, model_fits, errors, reg_term = normest(
         gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))
     seq_model_fit = model_fits[0][1]
 
-    return model_fits, estimated_params, seq_model_fit, errors
+    return model_fits, estimated_params, seq_model_fit, errors, reg_term

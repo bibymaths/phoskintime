@@ -1,7 +1,14 @@
+import math
+import os
+from concurrent.futures import as_completed, ProcessPoolExecutor
+from tqdm import tqdm
 import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
-from config.constants import ODE_MODEL, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, PERTURBATIONS_VALUE, OUT_DIR
+from numba import njit
+
+from config.constants import ODE_MODEL, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, PERTURBATIONS_VALUE, \
+    OUT_DIR, Y_METRIC
 from config.helpers import get_number_of_params_rand, get_param_names_rand
 from models import solve_ode
 from plotting.plotting import Plotter
@@ -65,6 +72,86 @@ def define_sensitivity_problem_ds(num_psites, values):
         'bounds': _bounds
     }
 
+@njit(cache=True)
+def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
+    """
+    Compute the scalar Y based on the global Y_METRIC flag.
+    """
+    n_t = solution.shape[0]
+    # compute sum of mRNA and sites, and build flattened length
+    sum_mRNA = 0.0
+    sum_sites = 0.0
+    length = n_t + n_t * num_psites
+
+    for t in range(n_t):
+        sum_mRNA += solution[t, 0]
+        for s in range(num_psites):
+            sum_sites += solution[t, 2 + s]
+
+    if Y_METRIC == 'total_signal':
+        return sum_mRNA + sum_sites
+
+    # mean
+    if Y_METRIC == 'mean_activity':
+        return (sum_mRNA + sum_sites) / length
+
+    # variance
+    if Y_METRIC == 'variance':
+        mean = (sum_mRNA + sum_sites) / length
+        var_acc = 0.0
+        # variance over all entries
+        for t in range(n_t):
+            var_acc += (solution[t, 0] - mean) ** 2
+            for s in range(num_psites):
+                var_acc += (solution[t, 2 + s] - mean) ** 2
+        return var_acc / length
+
+    # dynamics (sum of squared diffs)
+    if Y_METRIC == 'dynamics':
+        # flatten index i = t for mRNA
+        # i = n_t + t * num_psites + s for sites
+        prev = solution[0, 0]
+        # first the mRNA chain
+        dyn_acc = 0.0
+        for t in range(1, n_t):
+            cur = solution[t, 0]
+            dyn_acc += (cur - prev) ** 2
+            prev = cur
+        # then site chains in sequence
+        for s in range(num_psites):
+            prev = solution[0, 2 + s]
+            for t in range(1, n_t):
+                cur = solution[t, 2 + s]
+                dyn_acc += (cur - prev) ** 2
+                prev = cur
+        return dyn_acc
+
+    # L2 norm
+    if Y_METRIC == 'l2_norm':
+        norm_acc = 0.0
+        # mRNA
+        for t in range(n_t):
+            norm_acc += solution[t, 0] ** 2
+        # sites
+        for t in range(n_t):
+            for s in range(num_psites):
+                norm_acc += solution[t, 2 + s] ** 2
+        return math.sqrt(norm_acc)
+
+    raise ValueError("Unknown Y_METRIC")
+
+def _perturb_solve(i_X_tuple):
+    """
+    Worker: solve ODE for one parameter set.
+    """
+    i, X, init_cond, num_psites, time_points = i_X_tuple
+    A, B, C, D, *rest = X
+    S_list = rest[:num_psites]
+    D_list = rest[num_psites:]
+    params = (A, B, C, D, *S_list, *D_list)
+    solution, flat_psite_mRNA = solve_ode(params, init_cond, num_psites, time_points)
+    Y_val = _compute_Y(solution, num_psites)
+    return i, solution, flat_psite_mRNA, Y_val
 
 def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, state_labels, init_cond, gene):
     """
@@ -102,53 +189,37 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     all_flat_mRNA = np.zeros((len(param_values), len(TIME_POINTS_RNA)))
     trajectories_with_params = []
 
-    # Loop through each parameter set and solve the ODE
-    for i, X in enumerate(param_values):
-        A, B, C, D, *rest = X
-        S_list = rest[:num_psites]
-        D_list = rest[num_psites:]
-        params = (A, B, C, D, *S_list, *D_list)
+    # Build the iterable of arguments for the workers
+    tasks = [
+        (i, X, init_cond, num_psites, time_points)
+        for i, X in enumerate(param_values)
+    ]
 
-        solution, flat_psite_mRNA = solve_ode(params, init_cond, num_psites, time_points)
+    logger.info(f"[{gene}]      Sensitivity Analysis started...")
 
-        # Y represents the scalar model output (observable) used
-        # to compute sensitivity to parameter perturbations
-        # Total phosphorylation across all sites
-        # Sensitivity metric (pick one):
-
-        # Total signal (recommended default)
-        Y[i] = np.sum(solution[:, 0]) + np.sum(solution[:, 2:2 + num_psites])
-
-        # # Mean level of total activity
-        # Y[i] = np.mean(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
-
-        # # Variance across time + sites
-        # Y[i] = np.var(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
-
-        # # Dynamics: squared changes
-        # Y[i] = np.sum(np.diff(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()])) ** 2)
-
-        # # L2 norm (magnitude)
-        # Y[i] = np.linalg.norm(np.hstack([solution[:, 0], solution[:, 2:2 + num_psites].flatten()]))
-
-        mRNA = solution[:, 0]
-        protein = solution[:, 1]
-        psite_data = np.vstack(solution[:, 2:2 + num_psites])
-
-        # Stack all collected solutions
-        # (n_samples, n_timepoints, n_sites)
-        all_mrna_solutions[i] = mRNA
-        all_protein_solutions[i] = protein
-        all_model_psite_solutions[i] = psite_data
-        all_flat_mRNA[i] = flat_psite_mRNA[:len(TIME_POINTS_RNA)]
-        trajectories_with_params.append({
-            "params": X,
-            "solution": solution,
-            "rmse": None
-        })
+    with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = {executor.submit(_perturb_solve, t): t[0] for t in tasks}
+        for fut in as_completed(futures):
+            i, solution, flat_psite_mRNA, Y_val = fut.result()
+            # Y represents the scalar model output (observable) used
+            # to compute sensitivity to parameter perturbations
+            # Total phosphorylation across all sites
+            Y[i] = Y_val
+            # Stack all collected solutions
+            # (n_samples, n_timepoints, n_sites)
+            all_mrna_solutions[i] = solution[:, 0]
+            all_protein_solutions[i] = solution[:, 1]
+            all_model_psite_solutions[i] = np.vstack(solution[:, 2:2 + num_psites])
+            all_flat_mRNA[i] = flat_psite_mRNA[:len(TIME_POINTS_RNA)]
+            trajectories_with_params.append({
+                "params": param_values[i],
+                "solution": solution,
+                "rmse": None
+            })
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}]      Sensitivity Analysis completed")
+    logger.info("           --------------------------------")
     Si = analyze(problem, param_values, Y, num_levels=num_levels, conf_level=0.99,
                  scaled=True, print_to_console=False)
 
@@ -171,12 +242,14 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     for i in range(len(param_values)):
         trajectories_with_params[i]["rmse"] = rmse[i]
 
-    # Select the top K-closest simulations
-    # Top percentile of the RMSE values
-    K = sum(rmse <= np.percentile(rmse, 1))
+    # Select the top K-closest simulations ~ 250 curves
+    K = int(np.ceil(NUM_TRAJECTORIES * 10 / PARAMETER_SPACE))
 
     # Sort the RMSE values and get the indices of the best K
     best_idxs = np.argsort(rmse)[:K]
+
+    # Get the best trajectories to save
+    best_trajectories = [trajectories_with_params[i] for i in best_idxs]
 
     # Restrict the trajectories to only the closest ones 
     # Best phosphorylation site solutions
@@ -206,4 +279,4 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
                                                     best_protein_solutions, psite_labels, psite_data_ref,
                                                     rna_ref, model_fit)
 
-    return Si, trajectories_with_params
+    return Si, best_trajectories

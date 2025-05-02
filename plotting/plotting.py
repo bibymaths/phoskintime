@@ -673,7 +673,7 @@ class Plotter:
                 time_points[:cutoff_idx],
                 model_fit_sol[:cutoff_idx, 2+site_idx],
                 color=color,
-                linewidth=1
+                linewidth=1,
             )
             ax.plot(
                 time_points[:cutoff_idx],
@@ -691,7 +691,7 @@ class Plotter:
             ax.plot(
                 time_points[:cutoff_idx],
                 best_mrna_solutions[sim_idx, :cutoff_idx],
-                color='black',
+                color='gray',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
@@ -699,7 +699,7 @@ class Plotter:
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 0],
             color='black',
-            linewidth=1
+            linewidth=1,
         )
         ax.plot(
             TIME_POINTS_RNA[:3],
@@ -725,7 +725,7 @@ class Plotter:
             time_points[:cutoff_idx],
             model_fit_sol[:cutoff_idx, 1],
             color='red',
-            linewidth=1
+            linewidth=1,
         )
 
         ax.set_xlabel('Time (min)')
@@ -741,28 +741,27 @@ class Plotter:
         # --- Right plot: From 9th time point onwards ---
         ax = axes[1]
 
-        # Plot the mean psite curve with all simulations
+        # Plot the true psite curve with all simulations
         for site_idx in range(n_sites):
             color = COLOR_PALETTE[site_idx]
             for sim_idx in range(best_model_psite_solutions.shape[0]):
                 ax.plot(
-                    time_points[cutoff_idx - 1:],
-                    best_model_psite_solutions[sim_idx, cutoff_idx - 1:, site_idx],
+                    time_points[cutoff_idx:],
+                    best_model_psite_solutions[sim_idx, cutoff_idx:, site_idx],
                     color=color,
                     alpha=simulations_trace_intensity,
                     linewidth=0.5
                 )
-            mean_curve = np.mean(best_model_psite_solutions[:, cutoff_idx - 1:, site_idx], axis=0)
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                mean_curve,
+                time_points[cutoff_idx:],
+                model_fit_sol[cutoff_idx:, 2+site_idx],
                 color=color,
-                label=f'{psite_labels[site_idx]}',
-                linewidth=1
+                linewidth=1,
+                label=psite_labels[site_idx]
             )
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                psite_data_ref[site_idx, cutoff_idx - 1:],
+                time_points[cutoff_idx:],
+                psite_data_ref[site_idx, cutoff_idx:],
                 marker='s',
                 linestyle='--',
                 color=color,
@@ -771,22 +770,21 @@ class Plotter:
                 mew=0.5, mec='black'
             )
 
-        # Plot the mean mRNA curve with all simulations
+        # Plot the true mRNA curve with all simulations
         for sim_idx in range(best_mrna_solutions.shape[0]):
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                best_mrna_solutions[sim_idx, cutoff_idx - 1:],
-                color='black',
+                time_points[cutoff_idx:],
+                best_mrna_solutions[sim_idx, cutoff_idx:],
+                color='gray',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
-        mean_curve_mrna = np.mean(best_mrna_solutions[:, cutoff_idx - 1:], axis=0)
         ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve_mrna,
+            time_points[cutoff_idx:],
+            model_fit_sol[cutoff_idx:, 0],
             color='black',
-            label='mRNA (R)',
-            linewidth=1
+            linewidth=1,
+            label='mRNA (R)'
         )
         ax.plot(
             TIME_POINTS_RNA[3:],
@@ -799,22 +797,22 @@ class Plotter:
             mew=0.5, mec='black',
         )
 
-        # Plot the mean protein curve with all simulations
+        # Plot the true protein curve with all simulations
         for sim_idx in range(best_protein_solutions.shape[0]):
             ax.plot(
-                time_points[cutoff_idx - 1:],
-                best_protein_solutions[sim_idx, cutoff_idx - 1:],
+                time_points[cutoff_idx:],
+                best_protein_solutions[sim_idx, cutoff_idx:],
                 color='red',
                 alpha=simulations_trace_intensity,
                 linewidth=0.5
             )
-        mean_curve_protein = np.mean(best_protein_solutions[:, cutoff_idx - 1:], axis=0)
+
         ax.plot(
-            time_points[cutoff_idx - 1:],
-            mean_curve_protein,
+            time_points[cutoff_idx:],
+            model_fit_sol[cutoff_idx:, 1],
             color='red',
-            label='Protein (P)',
-            linewidth=1
+            linewidth=1,
+            label='Protein (P)'
         )
 
         ax.set_xlabel('Time (min)')
@@ -1001,4 +999,92 @@ class Plotter:
             ax.grid(True, alpha=0.05)
             plt.tight_layout()
             self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
+
+    def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
+                       num_psites: int, psite_labels: list, time_points: np.ndarray):
+        """
+        Plots the model fit for the future time points.
+
+        :param model_fit: Estimated model fit values.
+        :param P_data: Observed data for phosphorylation levels.
+        :param R_data: Observed data for mRNA levels.
+        :param sol: ODE solution for mRNA and protein levels.
+        :param num_psites: number of phosphorylation sites.
+        :param psite_labels: labels for the phosphorylation sites.
+        :param time_points: time points for the data.
+        :return:
+        """
+        cutoff_idx = 8
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+        ax = axes[0]
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth=1)
+        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                color='black', alpha=0.7, linewidth=0.75)
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth=1)
+        for i in range(num_psites):
+            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
+                    mec='black',
+                    color=self.color_palette[i], linewidth=0.75)
+            ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, i+1], '-', color=self.color_palette[i], linewidth=1)
+        ax.set_xlabel("Time (minutes)")
+        ax.set_ylabel("FC")
+        ax.set_xticks(time_points[:cutoff_idx])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
+            rotation=45,
+            fontsize=6
+        )
+        ax.grid(True, alpha=0.05)
+        ax = axes[1]
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth=1)
+        ax.plot(TIME_POINTS_RNA[3:], R_data[3:], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                color='black', alpha=0.7, linewidth=0.75)
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth=1)
+        for i in range(num_psites):
+            ax.plot(time_points[cutoff_idx:cutoff_idx+6], P_data[i, cutoff_idx:], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth=0.75)
+            ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, i+1], '-', color=self.color_palette[i], linewidth=1)
+        ax.set_xlabel("Time (minutes)")
+        ax.set_xticks(time_points[cutoff_idx:])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
+            rotation=45,
+            fontsize=6
+        )
+        ax.legend()
+        ax.grid(True, alpha=0.05)
+        plt.suptitle(f'{self.gene}', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        self._save_fig(fig, f"{self.gene}_future_fit_.png")
+
+    def plot_regularization(self, excel_path: str):
+        """
+        Read every '<gene>_params' sheet in the Excel file, pull the Regularization value,
+        and plot a horizontal bar chart of regularization vs. gene.
+        """
+        xls = pd.ExcelFile(excel_path)
+        genes = []
+        regs = []
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_params"):
+                break
+            gene = sheet[:-7]
+            df = pd.read_excel(xls, sheet_name=sheet)
+            if 'Regularization' not in df.columns:
+                break
+            reg_value = df['Regularization'].iloc[0]
+            genes.append(gene)
+            regs.append(reg_value)
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(genes)*0.5)))
+        ax.barh(genes, regs)
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Protein')
+        ax.set_title(
+            r"Tikhnov Regularization (L2): "
+            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$"
+        )
+        plt.tight_layout()
+        self._save_fig(fig, "_regularization.png")
 

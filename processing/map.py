@@ -7,7 +7,8 @@ logger = setup_logger()
 
 ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
-
+MAPPING = ROOT / "mapping"
+os.mkdir(MAPPING)
 
 def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Values'):
     """
@@ -112,6 +113,44 @@ def create_cytoscape_table(mapping_csv_path):
     edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges)
     return edge_df
 
+def add_kinetic_strength_columns(mapping_path, mapping__path, excel_path, suffix):
+    """
+    Adds kinetic strength columns to the mapping files based on the provided Excel file.
+    The function reads the mapping files and the Excel file, extracts the kinetic strength values,
+    and updates the mapping files with the new columns.
+    The updated mapping files are saved with a specified suffix of the model.
+    """
+    mapping = pd.read_csv(mapping_path)
+    mapping_ = pd.read_csv(mapping__path)
+    all_sheets = pd.read_excel(excel_path, sheet_name=None)
+
+    def build_psite_order(df, gene_col):
+        return df.groupby(gene_col)["Psite"].apply(lambda x: list(dict.fromkeys(x))).to_dict()
+
+    def get_strength(gene, psite, psite_order):
+        sheet = all_sheets.get(f"{gene}_params")
+        if sheet is None:
+            return None
+        try:
+            idx = psite_order[gene].index(psite) + 1
+            return sheet.at[0, f"S{idx}"] if f"S{idx}" in sheet.columns else None
+        except Exception:
+            return None
+
+    def enrich(df, gene_col, psite_order):
+        df = df.copy()
+        df["Kinetic_strength"] = df.apply(lambda row: get_strength(row[gene_col], row["Psite"], psite_order), axis=1)
+        return df
+
+    order_map = build_psite_order(mapping, "mRNA")
+    order_map_ = build_psite_order(mapping_, "Target")
+
+    updated = enrich(mapping, "mRNA", order_map)
+    updated_ = enrich(mapping_, "Target", order_map_)
+
+    updated.to_csv(ROOT / MAPPING / f"mapping_{suffix}.csv", index=False)
+    updated_.to_csv(ROOT / MAPPING / f"mapping_{suffix}_.csv", index=False)
+
 def generate_nodes(edge_df):
     """
     Infers node types and aggregates all Psites per target node from phosphorylation edges.
@@ -149,6 +188,7 @@ def generate_nodes(edge_df):
 
     return pd.DataFrame(node_records)
 
+
 if __name__ == "__main__":
 
     # Path to the Excel file of mRNA-TF optimization results
@@ -174,14 +214,31 @@ if __name__ == "__main__":
     nodes_df.to_csv('nodes.csv', index=False)
 
     # Move the files to the data folder
-    os.rename('nodes.csv', ROOT / "data" / 'nodes.csv')
-    os.rename('mapped_TF_mRNA_phospho.csv', ROOT / "data" / 'mapping.csv')
-    os.rename('mapping_table.csv', ROOT / "data" / 'mapping_.csv')
+    os.rename('nodes.csv', ROOT / MAPPING / 'nodes.csv')
+    os.rename('mapped_TF_mRNA_phospho.csv', ROOT / MAPPING / 'mapping.csv')
+    os.rename('mapping_table.csv', ROOT / MAPPING / 'mapping_.csv')
+
+    for mod in ["distmod", "succmod", "randmod"]:
+        mod_path = ROOT / f"{mod}_results" / mod / f"{mod}_results.xlsx"
+        if mod_path.exists():
+            add_kinetic_strength_columns(
+                mapping_path=ROOT / MAPPING / 'mapping.csv',
+                mapping__path=ROOT / MAPPING / 'mapping_.csv',
+                excel_path=mod_path,
+                suffix=mod
+            )
 
     logger.info(f"Mapping files for merging with ODE results & further use in Cytoscape")
-    for fpath in [ROOT / "data" / 'nodes.csv',
-                  ROOT / "data" / 'mapping.csv',
-                  ROOT / "data" / 'mapping_.csv']:
+
+    for suffix in ['distmod', 'succmod', 'randmod']:
+        for fname in [f"mapping_{suffix}.csv", f"mapping_{suffix}_.csv"]:
+            fpath = ROOT / MAPPING / fname
+            if fpath.exists():
+                logger.info(f"{fpath.as_uri()}")
+
+    for fpath in [ROOT / MAPPING / 'nodes.csv',
+                  ROOT / MAPPING / 'mapping.csv',
+                  ROOT / MAPPING / 'mapping_.csv']:
         logger.info(f"{fpath.as_uri()}")
 
 # Note: The following comment is an example of how to handle missing data

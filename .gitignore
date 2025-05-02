@@ -36,6 +36,9 @@ __pycache__/
 # Ignore network definitions or outputs
 /network/
 
+# Ignore mapping files
+/mapping/
+
 # Ignore any lock files
 #*.lock
 

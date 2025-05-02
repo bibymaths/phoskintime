@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = False
+DEV_TEST = True
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -21,7 +21,7 @@ DEV_TEST = False
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -38,7 +38,7 @@ NUM_TRAJECTORIES = 10000
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 40
+PARAMETER_SPACE = 400
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
@@ -143,7 +143,19 @@ model_names = {
     "testmod": "Test",
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
-
+# Choose which scalar metric to use for sensitivity (Y) calculation.
+# Options:
+#   'total_signal'   – Sum of all mRNA and site values across time.
+#                      (Captures overall signal magnitude.)
+#   'mean_activity'  – Mean of all mRNA and site values across time.
+#                      (Normalizes by count; captures average activity.)
+#   'variance'       – Variance of all mRNA and site values across time.
+#                      (Captures temporal/spatial variability.)
+#   'dynamics'       – Sum of squared successive differences of the flattened values.
+#                      (Captures how “dynamic” or rapidly changing the signal is.)
+#   'l2_norm'        – Euclidean norm of the flattened values.
+#                      (Captures overall magnitude like total_signal but in L2 sense.)
+Y_METRIC = 'total_signal'
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.
@@ -163,7 +175,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Plotting Style Configuration
-PERTURBATIONS_TRACE_OPACITY = 0.05
+PERTURBATIONS_TRACE_OPACITY = 0.02
 COLOR_PALETTE = [mcolors.to_hex(plt.get_cmap('tab20')(i)) for i in range(0, 20, 2)]
 available_markers = [
     m for m in mmarkers.MarkerStyle.markers

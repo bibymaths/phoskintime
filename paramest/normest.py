@@ -86,7 +86,7 @@ def worker_find_lambda(
             best_weight_key = weight_key
 
     if best_weight_key:
-        logger.info(f"[{gene}]      λ = {lam / len(p0)} |  "
+        logger.info(f"[{gene}]      λ = {lam / len(p0): .4f} |  "
                     f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
                     f"Score = {best_score:.2f}")
     else:
@@ -104,7 +104,7 @@ def find_best_lambda(
         init_cond: np.ndarray,
         num_psites: int,
         p_data: np.ndarray,
-        lambdas=np.logspace(-2, 0, 100),
+        lambdas=np.logspace(-2, 0, 10),
         max_workers: int = os.cpu_count(),
 ) -> Tuple[float, str]:
     """
@@ -153,6 +153,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
       - est_params: List with the full estimated parameter vector.
       - model_fits: List with the ODE solution and model predictions.
       - error_vals: List with the squared error (data vs. model prediction).
+      - regularization_term: Regularization term.
     """
     est_params, model_fits, error_vals = [], [], []
 
@@ -208,6 +209,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
                                                  p_data)
 
+    logger.info("           --------------------------------")
     logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0)}")
 
     def model_func(tpts, *params):
@@ -279,6 +281,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     pcov_best = pcovs[best_weight]
     logger.info(f"[{gene}]      Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
     logger.info(f"[{gene}]      Fit Score: {best_score:.2f}")
+    logger.info("           --------------------------------")
 
     # Get confidence intervals for the best parameters.
     ci_results = confidence_intervals(
@@ -360,5 +363,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     est_params.append(param_final)
     sol, p_fit = solve_ode(param_final, init_cond, num_psites, time_points)
     model_fits.append((sol, p_fit))
-    error_vals.append(np.sum(np.abs(p_fit.flatten() - target) ** 2) / target.size)
-    return est_params, model_fits, error_vals
+    error_vals.append(np.sum(np.abs(p_fit.flatten() - target) ** 2) / target.size) 
+    # average-per-parameter L2 penalty
+    regularization_term = lambda_reg / len(popt_best) * np.sum(np.square(popt_best))
+    return est_params, model_fits, error_vals, regularization_term
