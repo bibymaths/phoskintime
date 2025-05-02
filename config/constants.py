@@ -156,8 +156,6 @@ model_type = model_names.get(ODE_MODEL, "Unknown")
 #   'l2_norm'        – Euclidean norm of the flattened values.
 #                      (Captures overall magnitude like total_signal but in L2 sense.)
 Y_METRIC = 'total_signal'
-
-FUTURE_TIME_POINTS = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
 # - OUT_DIR: Directory to store all output results.

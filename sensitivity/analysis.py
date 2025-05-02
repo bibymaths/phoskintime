@@ -196,20 +196,20 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
         for i, X in enumerate(param_values)
     ]
 
-    logger.info(f"Senstivity Analysis started...")
+    logger.info(f"Sensitivity Analysis started...")
     progress_logger = TqdmToLogger(logger)
+    progress_bar = tqdm(
+        total=len(tasks),
+        desc="Perturbations",
+        ncols=80,
+        file=progress_logger,
+        leave=True,
+        dynamic_ncols=True
+    )
 
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = {executor.submit(_perturb_solve, t): t[0] for t in tasks}
-        for fut in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Perturbations",
-                file=progress_logger,
-                ncols=80,
-                leave=True,
-                dynamic_ncols=True
-        ):
+        for fut in as_completed(futures):
             i, solution, flat_psite_mRNA, Y_val = fut.result()
             # Y represents the scalar model output (observable) used
             # to compute sensitivity to parameter perturbations
@@ -226,6 +226,10 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
                 "solution": solution,
                 "rmse": None
             })
+            # update the progress bar
+            progress_bar.update(1)
+    # close the progress bar
+    progress_bar.close()
 
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     logger.info(f"[{gene}]      Sensitivity Analysis completed")

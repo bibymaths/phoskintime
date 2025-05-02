@@ -1002,3 +1002,59 @@ class Plotter:
             plt.tight_layout()
             self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
 
+    def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
+                       num_psites: int, psite_labels: list, time_points: np.ndarray):
+        """
+        Plots the model fit for the given data.
+
+        :param model_fit: Estimated model fit values.
+        :param P_data: Observed data for phosphorylation levels.
+        :param R_data: Observed data for mRNA levels.
+        :param sol: ODE solution for mRNA and protein levels.
+        :param num_psites: number of phosphorylation sites.
+        :param psite_labels: labels for the phosphorylation sites.
+        :param time_points: time points for the data.
+        :return:
+        """
+        cutoff_idx = 8
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+        ax = axes[0]
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth=1)
+        ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                color='black', alpha=0.7, linewidth=0.75)
+        ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth=1)
+        for i in range(num_psites):
+            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
+                    mec='black',
+                    color=self.color_palette[i], linewidth=0.75)
+            ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, i+1], '-', color=self.color_palette[i], linewidth=1)
+        ax.set_xlabel("Time (minutes)")
+        ax.set_ylabel("FC")
+        ax.set_xticks(time_points[:cutoff_idx])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
+            rotation=45,
+            fontsize=6
+        )
+        ax.grid(True, alpha=0.05)
+        ax = axes[1]
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth=1)
+        ax.plot(TIME_POINTS_RNA[3:], R_data[3:], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                color='black', alpha=0.7, linewidth=0.75)
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth=1)
+        for i in range(num_psites):
+            ax.plot(time_points[cutoff_idx:cutoff_idx+6], P_data[i, cutoff_idx:], '--', marker='s', markersize=5, mew=0.5, mec='black',
+                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth=0.75)
+            ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, i+1], '-', color=self.color_palette[i], linewidth=1)
+        ax.set_xlabel("Time (minutes)")
+        ax.set_xticks(time_points[cutoff_idx:])
+        ax.set_xticklabels(
+            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
+            rotation=45,
+            fontsize=6
+        )
+        ax.legend()
+        ax.grid(True, alpha=0.05)
+        plt.suptitle(f'{self.gene}', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        self._save_fig(fig, f"{self.gene}_future_fit_.png")

@@ -9,7 +9,7 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA
+    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -234,3 +234,16 @@ def score_fit(gene, params, weight, target, prediction,
     # logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
 
     return score
+
+def future_times(n_new: int, ratio: float = None, tp: np.ndarray = TIME_POINTS) -> np.ndarray:
+    """
+    Extend ttime points by n_new points, each spaced by multiplying the previous interval by ratio.
+    If ratio is None, it is inferred from the last two points.
+    """
+    times = tp.tolist()
+    if ratio is None:
+        # avoid divide-by-zero if the last point is zero
+        ratio = times[-1] / times[-2]
+    for _ in range(n_new):
+        times.append(times[-1] * ratio)
+    return np.array(times)
