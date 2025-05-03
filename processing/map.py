@@ -1,4 +1,6 @@
 import os
+from os.path import exists
+
 import pandas as pd
 from pathlib import Path
 from config.logconf import setup_logger
@@ -8,7 +10,7 @@ logger = setup_logger()
 ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
 MAPPING = ROOT / "mapping"
-os.mkdir(MAPPING)
+os.makedirs(MAPPING, exist_ok=True)
 
 def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Values'):
     """

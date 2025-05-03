@@ -45,7 +45,7 @@ BOOTSTRAPS = 0
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
 # A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
-NUM_TRAJECTORIES = 100
+NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.

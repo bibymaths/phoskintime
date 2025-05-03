@@ -85,24 +85,11 @@ def parse_args():
     profile estimation, and input file paths.
     The function returns the parsed arguments as a Namespace object.
     The arguments include:
-        --A-bound: Bounds for parameter A (default: "0,3")
-        --B-bound: Bounds for parameter B (default: "0,3")
-        --C-bound: Bounds for parameter C (default: "0,3")
-        --D-bound: Bounds for parameter D (default: "0,3")
-        --Ssite-bound: Bounds for Ssite (default: "0,3")
-        --Dsite-bound: Bounds for Dsite (default: "0,3")
-        --fix-A: Fixed value for parameter A
-        --fix-B: Fixed value for parameter B
-        --fix-C: Fixed value for parameter C
-        --fix-D: Fixed value for parameter D
-        --fix-Ssite: Fixed value for Ssite
-        --fix-Dsite: Fixed value for Dsite
-        --fix-t: JSON string mapping time points to fixed param values
-        --bootstraps: Number of bootstrapping iterations (default: 0)
-        --profile-start: Start time for profile estimation (default: None)
-        --profile-end: End time for profile estimation (default: 1)
-        --profile-step: Step size for profile estimation (default: 0.5)
-        --input-excel: Path to the input Excel file (default: INPUT_EXCEL)
+    --A-bound, --B-bound, --C-bound, --D-bound,
+    --Ssite-bound, --Dsite-bound, --bootstraps,
+    --input-excel, --input-excel-rna.
+    Args:
+        None
     Returns:
         argparse.Namespace: The parsed command-line arguments.
     """
@@ -128,9 +115,8 @@ def parse_args():
 def log_config(logger, bounds, args):
     """
     Log the configuration settings for the PhosKinTime script.
-    This function logs the parameter bounds, fixed parameters,
-    bootstrapping iterations, time-specific fixed parameters,
-    and profile estimation settings.
+    This function logs the parameter bounds
+    bootstrapping iterations.
     It uses the provided logger to output the information.
     :param logger:
     :param bounds:
@@ -150,10 +136,7 @@ def log_config(logger, bounds, args):
 def extract_config(args):
     """
     Extract configuration settings from command-line arguments.
-    This function creates a dictionary containing the parameter bounds,
-    fixed parameters, bootstrapping iterations, time-specific fixed parameters,
-    and profile estimation settings. It also sets the maximum number of workers
-    for parallel processing.
+    This function creates a dictionary containing the parameter bounds, bootstrapping iterations.
     The function returns the configuration dictionary.
     :param args:
     :return:
@@ -191,15 +174,19 @@ def score_fit(gene, params, weight, target, prediction,
     alpha, beta, gamma, and delta.
     The regularization penalty is controlled by the reg_penalty parameter.
     The function returns the calculated score.
-    :param target:
-    :param prediction:
-    :param params:
-    :param alpha:
-    :param beta:
-    :param gamma:
-    :param delta:
-    :param reg_penalty:
-    :return:
+    Args:
+        gene (str): The name of the gene.
+        params (np.ndarray): The model parameters.
+        weight (str): The weighting schema.
+        target (np.ndarray): The target data.
+        prediction (np.ndarray): The predicted data.
+        alpha (float): Weight for RMSE.
+        beta (float): Weight for MAE.
+        gamma (float): Weight for variance.
+        delta (float): Weight for MSE.
+        mu (float): Regularization penalty weight.
+    Returns:
+        float: The calculated score.
     """
     # Format the weight
     weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
