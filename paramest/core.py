@@ -192,8 +192,8 @@ def process_gene(
             "p_fit_ko": p_fit_ko,
         }
 
-        # Update the file names dynamically
-        plotter.gene = f"{gene}_" + "_".join(knockout_name)
+        # Update the file names based on KO
+        plotter.gene = f"{gene}_knockouts_" + "_".join(knockout_name)
 
         # Create the dictionary to pass
         knockout_dict = {

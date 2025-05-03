@@ -665,7 +665,7 @@ class Plotter:
                 ax.set_ylabel(b, fontsize=10)
                 ax.set_title(f"{self.gene}: {a} vs {b}\nCorrelation = {score:.2f}", fontsize=11)
                 plt.tight_layout()
-                self._save_fig(fig, f"{self.gene}_{a}_vs_{b}.png")
+                self._save_fig(fig, f"{self.gene}_param_scatter_{a}_vs_{b}.png")
 
     def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
                                  best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
@@ -1016,7 +1016,7 @@ class Plotter:
 
         g.fig.suptitle(f"{self.gene}", fontsize=12)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
-        self._save_fig(g.fig, f"{self.gene}_state_time_grid.png")
+        self._save_fig(g.fig, f"{self.gene}_sensitivity_state_grid.png")
 
     def plot_phase_space(self, samples: np.ndarray, state_names: list):
         """
@@ -1067,7 +1067,7 @@ class Plotter:
             ax.set_title(f"{self.gene}", fontsize=10)
             ax.grid(True, alpha=0.05)
             plt.tight_layout()
-            self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
+            self._save_fig(fig, f"{self.gene}_sensitivity_phase_space_{x_state}_vs_{y_state}.png")
 
     def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
@@ -1136,8 +1136,8 @@ class Plotter:
         regs = []
 
         for sheet in xls.sheet_names:
-            if sheet.endswith("_params"):
-                continue
+            if not sheet.endswith("_params"):
+                continue  # Only process *_params sheets
             gene = sheet[:-7]
             df = pd.read_excel(xls, sheet_name=sheet)
             if 'Regularization' not in df.columns:
@@ -1146,7 +1146,13 @@ class Plotter:
             genes.append(gene)
             regs.append(reg_value)
 
-        fig, ax = plt.subplots(figsize=(8, max(4, len(genes)*0.5)))
+        if not genes:
+            return
+
+        sorted_pairs = sorted(zip(regs, genes), reverse=True)
+        regs, genes = zip(*sorted_pairs)
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(genes) * 0.5)))
         ax.barh(genes, regs)
         ax.set_xlabel('Value')
         ax.set_ylabel('Protein')
