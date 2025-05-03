@@ -151,7 +151,7 @@ def main():
     logger.info(f"LateX generated.")
 
     # Organize output files and create a report
-    organize_output_files(OUT_DIR)
+    organize_output_files([OUT_DIR])
     create_report(OUT_DIR)
 
     logger.info("           --------------------------------")
