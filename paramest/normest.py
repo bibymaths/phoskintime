@@ -79,15 +79,16 @@ def worker_find_lambda(
             time_points
         )
 
-        score = score_fit(gene, popt_try, f"{weight_key}_lambda_{lam}", target, pred)
+        score = score_fit(gene, np.exp(popt_try) if ODE_MODEL == 'randmod'
+        else popt_try,f"{weight_key}_lambda_{lam}", target, pred)
 
         if score < best_score:
             best_score = score
             best_weight_key = weight_key
 
     if best_weight_key:
-        logger.info(f"[{gene}]      λ = {lam / len(p0): .4f} |  "
-                    f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}' |  "
+        logger.info(f"[{gene}]      λ = {lam / len(p0) * np.sum(np.square(p0)): .2f}    |"
+                    f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}'  |"
                     f"Score = {best_score:.2f}")
     else:
         logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
@@ -202,15 +203,13 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     target = np.concatenate([r_data.flatten(), p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
-    default_sigma = 1 / np.maximum(np.abs(target_fit), 1e-5)
-
     logger.info(f"[{gene}]      Finding best regularization term λ...")
 
     lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
                                                  p_data)
 
     logger.info("           --------------------------------")
-    logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0)}")
+    logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0) * np.sum(np.square(p0)): .4f}")
 
     def model_func(tpts, *params):
         """
@@ -231,17 +230,6 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
             return np.concatenate([y_model, reg])
         return y_model
 
-    try:
-        # Attempt to get a good initial estimate using curve_fit.
-        result = cast(Tuple[np.ndarray, np.ndarray],
-                      curve_fit(model_func, time_points, target_fit, x_scale='jac',
-                                p0=p0, bounds=free_bounds, sigma=default_sigma,
-                                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
-        popt_init, _ = result
-    except Exception as e:
-        logger.warning(f"[{gene}] Normal initial estimation failed: {e}")
-        popt_init = p0
-
     # Get weights for the model fitting.
     early_weights = early_emphasis(p_data, time_points, num_psites)
     ms_gauss_weights = get_protein_weights(gene)
@@ -255,13 +243,13 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     scores, popts, pcovs = {}, {}, {}
     try:
         result = cast(Tuple[np.ndarray, np.ndarray],
-                      curve_fit(model_func, time_points, target_fit, p0=popt_init,
+                      curve_fit(model_func, time_points, target_fit, p0=p0,
                                 bounds=free_bounds, sigma=sigma, x_scale='jac',
                                 absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
         popt, pcov = result
     except Exception as e:
         logger.warning(f"[{gene}] Final fit failed for {wname}: {e}")
-        popt = popt_init
+        popt = p0
         pcov = None
 
     popts[wname] = popt
@@ -274,13 +262,12 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
-    best_score = scores[best_weight]
 
     # Get the best parameters and covariance matrix.
     popt_best = popts[best_weight]
     pcov_best = pcovs[best_weight]
     logger.info(f"[{gene}]      Using '{' '.join(w.capitalize() for w in best_weight.split('_'))}' as weights")
-    logger.info(f"[{gene}]      Fit Score: {best_score:.2f}")
+    logger.info(f"[{gene}]      Fit Score: {scores[wname]:.2f}")
     logger.info("           --------------------------------")
 
     # Get confidence intervals for the best parameters.
@@ -365,5 +352,5 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     model_fits.append((sol, p_fit))
     error_vals.append(np.sum(np.abs(p_fit.flatten() - target) ** 2) / target.size) 
     # average-per-parameter L2 penalty
-    regularization_term = lambda_reg / len(popt_best) * np.sum(np.square(popt_best))
+    regularization_term = lambda_reg / len(param_final) * np.sum(np.square(param_final))
     return est_params, model_fits, error_vals, regularization_term
