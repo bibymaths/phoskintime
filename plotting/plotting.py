@@ -1136,12 +1136,12 @@ class Plotter:
         regs = []
 
         for sheet in xls.sheet_names:
-            if not sheet.endswith("_params"):
-                break
+            if sheet.endswith("_params"):
+                continue
             gene = sheet[:-7]
             df = pd.read_excel(xls, sheet_name=sheet)
             if 'Regularization' not in df.columns:
-                break
+                continue
             reg_value = df['Regularization'].iloc[0]
             genes.append(gene)
             regs.append(reg_value)
