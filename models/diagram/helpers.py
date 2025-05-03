@@ -38,6 +38,12 @@ def create_random_diagram(x, num_sites, output_filename):
     """
     dot = Digraph(engine='neato')
     dot.attr(rankdir='LR')
+    total_states = 2 ** num_sites + 2
+    width = max(8, total_states * 0.4)
+    height = max(4, total_states * 0.15)
+    nodesep = min(0.5 + 0.05 * num_sites, 1.5)
+    ranksep = min(0.6 + 0.05 * num_sites, 1.5)
+    dot.attr(size=f"{width},{height}!", nodesep=str(nodesep), ranksep=str(ranksep))
     # Global graph attributes: title and overall styling.
     dot.attr(label="Random", labelloc="t", fontsize="15",
              fontname="Helvetica", fontcolor="black")

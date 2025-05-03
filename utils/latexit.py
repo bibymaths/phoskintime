@@ -2,8 +2,10 @@ import os
 import re
 import pandas as pd
 
+from config.constants import model_type
+
 # Directory where Excel and PNG files are located
-output_file = "_latex.tex"
+output_file = f"{model_type}_model_latex.tex"
 
 # Regular expression for matching GeneSymbol_Something
 sheet_pattern = re.compile(r"^[A-Z0-9]+_[a-zA-Z0-9]+$")

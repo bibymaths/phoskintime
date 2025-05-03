@@ -140,6 +140,9 @@ def main():
     # Plot regularization term values.
     Plotter("", OUT_DIR).plot_regularization(OUT_RESULTS_DIR)
 
+    # Plot model protein wise errors.
+    Plotter("", OUT_DIR).plot_model_error(OUT_RESULTS_DIR)
+
     logger.info("Plotting completed.")
 
     # LateX the results

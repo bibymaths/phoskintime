@@ -280,11 +280,13 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         alpha_val=ALPHA_CI
     )
 
-    # Bootstrapping
+    # Bootstrapping with gaussian noise added to the target data.
     boot_estimates = []
     boot_covariances = []
     if bootstraps > 0:
-        logger.info(f"[{gene}] Performing bootstrapping with {bootstraps} iterations")
+        logger.info("           --------------------------------")
+        logger.info(f"[{gene}]      Performing bootstrapping with {bootstraps} iterations")
+        logger.info("           --------------------------------")
         for _ in range(bootstraps):
             noise = np.random.normal(0, 0.05, size=target_fit.shape)
             noisy_target = target_fit * (1 + noise)
@@ -292,7 +294,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
                 # Attempt to fit the model using the noisy target.
                 result = cast(Tuple[np.ndarray, np.ndarray],
                               curve_fit(model_func, time_points, noisy_target,
-                                        p0=popt_best, bounds=free_bounds, sigma=default_sigma,
+                                        p0=popt_best, bounds=free_bounds, sigma=sigma,
                                         absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
                 popt_bs, pcov_bs = result
             except Exception as e:

@@ -489,7 +489,7 @@ class Plotter:
         ax.barh(kl_by_gene.index, kl_by_gene.values, color=colors)
         ax.set_xlabel("KL Divergence")
         ax.set_ylabel("Protein")
-        ax.set_title("")
+        ax.set_title(f"{model_type} Model")
         plt.tight_layout()
         self._save_fig(fig, f"_kld_.png")
 
@@ -1152,14 +1152,65 @@ class Plotter:
         sorted_pairs = sorted(zip(regs, genes), reverse=True)
         regs, genes = zip(*sorted_pairs)
 
-        fig, ax = plt.subplots(figsize=(8, max(4, len(genes) * 0.5)))
-        ax.barh(genes, regs)
-        ax.set_xlabel('Value')
-        ax.set_ylabel('Protein')
+        fig, ax = plt.subplots(figsize=(8, max(8, len(genes) * 0.5)))
+        bars = ax.barh(genes, regs, color='skyblue', edgecolor='black', height=0.6)
+        ax.set_xlabel('Value', fontsize=7)
+        ax.set_ylabel('Protein', fontsize=9)
+        ax.tick_params(axis='x', labelsize=6)
+        ax.tick_params(axis='y', labelsize=8)
         ax.set_title(
+            f"{model_type} Model"
             r"Tikhnov Regularization (L2): "
-            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$"
+            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$",
+            fontsize=8
         )
+        for bar in bars:
+            ax.text(bar.get_width() + max(regs) * 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{bar.get_width():.2f}", va='center', ha='left', fontsize=6)
         plt.tight_layout()
-        self._save_fig(fig, "_regularization.png")
+        self._save_fig(fig, f"{model_type}_model_regularization.png")
 
+    def plot_model_error(self, excel_path: str):
+        """
+        Read every '<gene>_params' sheet in the Excel file, pull the RMSE value,
+        and plot a horizontal bar chart of RMSE vs. gene.
+        """
+        xls = pd.ExcelFile(excel_path)
+        genes = []
+        mses = []
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_params"):
+                continue
+            gene = sheet[:-7]
+            df = pd.read_excel(xls, sheet_name=sheet)
+            if 'MSE' not in df.columns:
+                continue
+            error_val = df['MSE'].iloc[0]
+            genes.append(gene)
+            mses.append(error_val)
+
+        if not genes:
+            return
+
+        sorted_pairs = sorted(zip(mses, genes), reverse=True)
+        mses, genes = zip(*sorted_pairs)
+
+        fig, ax = plt.subplots(figsize=(8, max(8, len(genes) * 0.5)))
+        bars = ax.barh(genes, mses, color='coral', edgecolor='black', height=0.6)
+        ax.set_xlabel('Value', fontsize=7)
+        ax.set_ylabel('Protein', fontsize=9)
+        ax.tick_params(axis='x', labelsize=6)
+        ax.tick_params(axis='y', labelsize=8)
+        ax.set_title(
+            f"{model_type} Model"
+            r"$\mathrm{MSE} = \frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2$",
+            fontsize=8
+        )
+
+        for bar in bars:
+            ax.text(bar.get_width() + max(mses) * 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{bar.get_width():.2f}", va='center', ha='left', fontsize=6)
+
+        plt.tight_layout()
+        self._save_fig(fig, f"{model_type}_model_error.png")

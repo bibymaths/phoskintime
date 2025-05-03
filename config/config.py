@@ -8,7 +8,8 @@ from config.constants import (
     BETA_WEIGHT,
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
-    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS
+    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
+    UB_Protein_prod, UB_Protein_deg, UB_Phospho_prod
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -108,13 +109,13 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Cell Signalling Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default="0,20")
-    parser.add_argument("--bootstraps", type=int, default=0)
+    parser.add_argument("--A-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_prod}")
+    parser.add_argument("--B-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_deg}")
+    parser.add_argument("--C-bound", type=parse_bound_pair, default=f"0, {UB_Protein_prod}")
+    parser.add_argument("--D-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=f"0, {UB_Phospho_prod}")
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
+    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS)
     parser.add_argument("--input-excel", type=str,
                         default=INPUT_EXCEL,
                         help="Path to the estimated optimized phosphorylation-residue file")
