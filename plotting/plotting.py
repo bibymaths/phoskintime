@@ -469,7 +469,7 @@ class Plotter:
         ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"_Goodness_of_Fit_.png")
+        self._save_fig(fig, f"{model_type}_Goodness_of_Fit_.png")
 
     def plot_kld(self, merged_data: pd.DataFrame):
         """
@@ -491,7 +491,7 @@ class Plotter:
         ax.set_ylabel("Protein")
         ax.set_title(f"{model_type} Model")
         plt.tight_layout()
-        self._save_fig(fig, f"_kld_.png")
+        self._save_fig(fig, f"{model_type}_kld_.png")
 
     def plot_params_bar(self, ci_results: dict, param_labels: list = None, time: str = None):
         """

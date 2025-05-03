@@ -218,7 +218,7 @@ if __name__ == "__main__":
     os.rename('mapped_TF_mRNA_phospho.csv', ROOT / MAPPING / 'mapping.csv')
     os.rename('mapping_table.csv', ROOT / MAPPING / 'mapping_.csv')
 
-    for mod in ["distmod", "succmod", "randmod"]:
+    for mod in ["Distributive", "Successive", "Random"]:
         mod_path = ROOT / f"{mod}_results" / mod / f"{mod}_results.xlsx"
         if mod_path.exists():
             add_kinetic_strength_columns(
@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
     logger.info(f"Mapping files for merging with ODE results & further use in Cytoscape")
 
-    for suffix in ['distmod', 'succmod', 'randmod']:
+    for suffix in ["Distributive", "Successive", "Random"]:
         for fname in [f"mapping_{suffix}.csv", f"mapping_{suffix}_.csv"]:
             fpath = ROOT / MAPPING / fname
             if fpath.exists():

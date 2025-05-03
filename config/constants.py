@@ -35,7 +35,7 @@ UB_Phospho_deg = 20
 # This parameter determines how many times the parameter estimation process
 # will be repeated with Gaussian noise (mean=0, std=0.05) to simulate measurement
 # variability for bootstrapping
-BOOTSTRAPS = 10
+BOOTSTRAPS = 0
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -178,12 +178,12 @@ Y_METRIC = 'total_signal'
 # - LOG_DIR: Directory to store log files.
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'
-OUT_RESULTS_DIR = OUT_DIR / f'{ODE_MODEL}_results.xlsx'
+OUT_DIR = PROJECT_ROOT / f'{model_type}_results'
+OUT_RESULTS_DIR = OUT_DIR / f'{model_type}_results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
 INPUT_EXCEL_RNA = DATA_DIR / 'tfopt_results.xlsx'
-LOG_DIR = OUT_DIR / f'{ODE_MODEL}_logs'
+LOG_DIR = OUT_DIR / f'{model_type}_logs'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 

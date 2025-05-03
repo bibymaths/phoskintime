@@ -1,5 +1,7 @@
 import os, re, shutil
 from pathlib import Path
+from typing import Iterable, Union
+
 import numpy as np
 import pandas as pd
 
@@ -207,7 +209,7 @@ def save_result(results, excel_filename):
                 combined_df.to_excel(writer, sheet_name=f"{sheet_prefix}_perturbations", index=False)
 
 
-def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
+def create_report(results_dir: str, output_file: str = f"{model_type}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
@@ -342,40 +344,37 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         f.write("\n".join(html_parts))
 
 
-def organize_output_files(*directories):
+def organize_output_files(directories: Iterable[Union[str, Path]]):
     """
     Organize output files into protein-specific folders and a general folder.
-    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx}"
+    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx,tex}"
     will be moved to a folder named after the protein.
     Remaining files will be moved to a "General" folder within the same directory.
 
     :param directories: List of directories to organize.
     :type directories: list
     """
-    protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
+    protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx|tex)$')
 
-    for directory in directories:
-        if not os.path.isdir(directory):
+    for directory in map(Path, directories):
+        if not directory.is_dir():
             print(f"Warning: '{directory}' is not a valid directory. Skipping.")
             continue
 
-        # Move files matching the protein pattern.
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            if os.path.isfile(file_path):
-                match = protein_regex.search(filename)
+        # Move files matching the protein pattern
+        for file_path in directory.iterdir():
+            if file_path.is_file():
+                match = protein_regex.search(file_path.name)
                 if match:
                     protein = match.group(1)
-                    protein_folder = os.path.join(directory, protein)
-                    os.makedirs(protein_folder, exist_ok=True)
-                    destination_path = os.path.join(protein_folder, filename)
-                    shutil.move(file_path, destination_path)
+                    protein_folder = directory / protein
+                    protein_folder.mkdir(exist_ok=True)
+                    shutil.move(str(file_path), str(protein_folder / file_path.name))
 
-        # After protein files have been moved, move remaining files to a "General" folder.
-        general_folder = os.path.join(directory, "General")
-        os.makedirs(general_folder, exist_ok=True)
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            if os.path.isfile(file_path):
-                destination_path = os.path.join(general_folder, filename)
-                shutil.move(file_path, destination_path)
+        # Identify remaining files
+        remaining_files = [f for f in directory.iterdir() if f.is_file()]
+        if remaining_files:
+            general_folder = directory / "General"
+            general_folder.mkdir(exist_ok=True)
+            for file_path in remaining_files:
+                shutil.move(str(file_path), str(general_folder / file_path.name))
