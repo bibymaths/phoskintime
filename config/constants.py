@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = True
+DEV_TEST = False
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -21,7 +21,21 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'randmod'
+ODE_MODEL = 'succmod'
+# Upper bounds for mRNA production and degradation rates
+UB_mRNA_prod = 20
+UB_mRNA_deg = 20
+# Upper bounds for protein production and degradation rates
+UB_Protein_prod = 20
+UB_Protein_deg = 20
+# Upper bounds for phosphorylation sites
+UB_Phospho_prod = 20
+UB_Phospho_deg = 20
+# Select the number of bootstrap iterations for parameter estimation.
+# This parameter determines how many times the parameter estimation process
+# will be repeated with Gaussian noise (mean=0, std=0.05) to simulate measurement
+# variability for bootstrapping
+BOOTSTRAPS = 0
 # Trajectories for profiling
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for the Morris method, which requires a sufficient number of trajectories
@@ -31,18 +45,17 @@ ODE_MODEL = 'randmod'
 # The number of trajectories to be generated for the Morris method.
 # This parameter is crucial for accurately sampling the parameter space and computing sensitivity indices.
 # A higher number of trajectories (e.g., 10,000) provides more reliable results but increases computational cost.
-# The current value of 10,000 is chosen to balance sensitivity resolution and performance.
-NUM_TRAJECTORIES = 10000
+NUM_TRAJECTORIES = 1000
 # Spread of parameters (has to be even number) -> SALib.morris()
 # The number of intervals to divide the parameter space for the Morris method.
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 400
+PARAMETER_SPACE = 40
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
-PERTURBATIONS_VALUE = 0.2  # 20% perturbation
+PERTURBATIONS_VALUE = 0.5  # 20% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.
@@ -155,6 +168,13 @@ model_type = model_names.get(ODE_MODEL, "Unknown")
 #                      (Captures how “dynamic” or rapidly changing the signal is.)
 #   'l2_norm'        – Euclidean norm of the flattened values.
 #                      (Captures overall magnitude like total_signal but in L2 sense.)
+Y_METRIC_DESCRIPTIONS = {
+    'total_signal': "Sum of all mRNA and site values across time (captures overall signal magnitude).",
+    'mean_activity': "Mean of all mRNA and site values across time (captures average activity).",
+    'variance': "Variance of all mRNA and site values across time (captures temporal/spatial variability).",
+    'dynamics': "Sum of squared successive differences (captures how dynamic the signal is).",
+    'l2_norm': "Euclidean norm of the flattened values (captures overall magnitude in L2 sense)."
+}
 Y_METRIC = 'total_signal'
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
@@ -165,12 +185,12 @@ Y_METRIC = 'total_signal'
 # - LOG_DIR: Directory to store log files.
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = PROJECT_ROOT / f'{ODE_MODEL}_results'
-OUT_RESULTS_DIR = OUT_DIR / f'{ODE_MODEL}_results.xlsx'
+OUT_DIR = PROJECT_ROOT / f'{model_type}_results'
+OUT_RESULTS_DIR = OUT_DIR / f'{model_type}_results.xlsx'
 DATA_DIR = PROJECT_ROOT / 'data'
 INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
 INPUT_EXCEL_RNA = DATA_DIR / 'tfopt_results.xlsx'
-LOG_DIR = OUT_DIR / f'{ODE_MODEL}_logs'
+LOG_DIR = OUT_DIR / f'{model_type}_logs'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 

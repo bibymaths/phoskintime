@@ -1,5 +1,7 @@
 import os, re, shutil
 from pathlib import Path
+from typing import Iterable, Union
+
 import numpy as np
 import pandas as pd
 
@@ -207,7 +209,7 @@ def save_result(results, excel_filename):
                 combined_df.to_excel(writer, sheet_name=f"{sheet_prefix}_perturbations", index=False)
 
 
-def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html"):
+def create_report(results_dir: str, output_file: str = f"{model_type}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
@@ -220,10 +222,9 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         results_dir (str): Path to the root result's directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
-    # Gather gene folders (skip "General" and "logs")
     gene_folders = [
         d for d in os.listdir(results_dir)
-        if os.path.isdir(os.path.join(results_dir, d)) and d not in ("General", f"{ODE_MODEL}_logs")
+        if os.path.isdir(os.path.join(results_dir, d))
     ]
 
     # Build HTML content with updated CSS for spacing.
@@ -241,7 +242,7 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
         "  display: grid;",
-        "  grid-template-columns: repeat(2, 500px);",
+        "  grid-template-columns: repeat(4, 500px);",
         "  column-gap: 20px;",
         "  row-gap: 40px;",  # // extra vertical gap
         "  justify-content: left;",
@@ -275,7 +276,7 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
         "</style>",
         "</head>",
         "<body>",
-        f"<h1>{model_type.upper()} Modelling & Parameter Estimation Report</h1>"
+        f"<h1>{model_type.upper()} Model - Parameter Estimation Report</h1>"
     ]
     html_parts += [
         "<pre style=\"font-size: 0.9em; color: #444; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #ccc;\">",
@@ -290,92 +291,89 @@ def create_report(results_dir: str, output_file: str = f"{ODE_MODEL}_report.html
     # For each gene folder, create a section in the report.
     for gene in sorted(gene_folders):
         gene_folder = os.path.join(results_dir, gene)
-        html_parts.append(f"<h2>Protein Group: {gene}</h2>")
+        html_parts.append(f"<h2>{gene}</h2>")
 
         # Create grid container for fixed-size plots.
         html_parts.append('<div class="plot-container">')
         files = sorted(os.listdir(gene_folder))
+
         for filename in files:
             file_path = os.path.join(gene_folder, filename)
+
+            # PNG plots
             if os.path.isfile(file_path) and filename.endswith(".png"):
-                uri_path = Path(os.path.join(gene_folder, filename)).resolve().as_uri()
-                # Remove the extension and split on '_'
+                uri_path = Path(file_path).resolve().as_uri()
                 base_name = os.path.splitext(filename)[0]
                 tokens = [token for token in base_name.split('_') if token]
-                # Remove the gene name if it matches (case-insensitive)
                 if tokens and tokens[0].upper() == gene.upper():
                     tokens = tokens[1:]
-                # Join remaining tokens with space and convert to upper case
                 title = " ".join(tokens).upper()
                 html_parts.append(
                     f'<div class="plot-item"><h3>{title}</h3><img src="{uri_path}" alt="{filename}"></div>'
                 )
+
         html_parts.append('</div>')  # End of plot container
 
-        # Data tables: display XLSX or CSV files from the gene folder, one per row.
+        # Process data tables and logs in a second loop
         for filename in files:
             file_path = os.path.join(gene_folder, filename)
-            if os.path.isfile(file_path) and filename.endswith(".xlsx"):
+
+            # LOG files
+            if os.path.isfile(file_path) and filename.endswith(".log"):
                 try:
-                    df = pd.read_excel(file_path)
-                    table_html = df.to_html(index=False, border=0)
-                    # Remove the extension and split on '_'
-                    base_name = os.path.splitext(filename)[0]
-                    tokens = [token for token in base_name.split('_') if token]
-                    # Remove the gene name if it matches (case-insensitive)
-                    if tokens and tokens[0].upper() == gene.upper():
-                        tokens = tokens[1:]
-                    # Join remaining tokens with space and convert to upper case
-                    title = " ".join(tokens).upper()
-                    html_parts.append(f'<div class="data-table"><h3>Data Table: {title}</h3>{table_html}</div>')
+                    with open(file_path, "r", encoding="utf-8") as log_file:
+                        log_content = log_file.read()
+                    html_parts.append(f'<div class="data-table"><h3>Log File: {filename}</h3>')
+                    html_parts.append(
+                        '<pre style="font-size: 0.8em; background-color: #f4f4f4; border: 1px solid #ccc; padding: 10px; overflow-x: auto;">'
+                    )
+                    html_parts.append(log_content)
+                    html_parts.append('</pre></div>')
                 except Exception as e:
                     html_parts.append(
-                        f'<div class="data-table"><h3>Data Table: {filename}</h3><p>Error reading {filename}: {e}</p></div>'
+                        f'<div class="data-table"><h3>Log File: {filename}</h3><p>Error reading log file: {e}</p></div>'
                     )
 
     html_parts.append("</body>")
     html_parts.append("</html>")
 
-    # Write the report into the results directory.
+    # Write the report into the result's directory.
     output_path = os.path.join(results_dir, output_file)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html_parts))
 
 
-def organize_output_files(*directories):
+def organize_output_files(directories: Iterable[Union[str, Path]]):
     """
     Organize output files into protein-specific folders and a general folder.
-    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx}"
+    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx,tex}"
     will be moved to a folder named after the protein.
     Remaining files will be moved to a "General" folder within the same directory.
 
     :param directories: List of directories to organize.
     :type directories: list
     """
-    protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
+    protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx|tex)$')
 
-    for directory in directories:
-        if not os.path.isdir(directory):
+    for directory in map(Path, directories):
+        if not directory.is_dir():
             print(f"Warning: '{directory}' is not a valid directory. Skipping.")
             continue
 
-        # Move files matching the protein pattern.
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            if os.path.isfile(file_path):
-                match = protein_regex.search(filename)
+        # Move files matching the protein pattern
+        for file_path in directory.iterdir():
+            if file_path.is_file():
+                match = protein_regex.search(file_path.name)
                 if match:
                     protein = match.group(1)
-                    protein_folder = os.path.join(directory, protein)
-                    os.makedirs(protein_folder, exist_ok=True)
-                    destination_path = os.path.join(protein_folder, filename)
-                    shutil.move(file_path, destination_path)
+                    protein_folder = directory / protein
+                    protein_folder.mkdir(exist_ok=True)
+                    shutil.move(str(file_path), str(protein_folder / file_path.name))
 
-        # After protein files have been moved, move remaining files to a "General" folder.
-        general_folder = os.path.join(directory, "General")
-        os.makedirs(general_folder, exist_ok=True)
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            if os.path.isfile(file_path):
-                destination_path = os.path.join(general_folder, filename)
-                shutil.move(file_path, destination_path)
+        # Identify remaining files
+        remaining_files = [f for f in directory.iterdir() if f.is_file()]
+        if remaining_files:
+            general_folder = directory / "General"
+            general_folder.mkdir(exist_ok=True)
+            for file_path in remaining_files:
+                shutil.move(str(file_path), str(general_folder / file_path.name))

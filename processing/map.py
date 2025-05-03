@@ -1,4 +1,6 @@
 import os
+from os.path import exists
+
 import pandas as pd
 from pathlib import Path
 from config.logconf import setup_logger
@@ -8,7 +10,7 @@ logger = setup_logger()
 ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
 MAPPING = ROOT / "mapping"
-os.mkdir(MAPPING)
+os.makedirs(MAPPING, exist_ok=True)
 
 def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Values'):
     """
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     os.rename('mapped_TF_mRNA_phospho.csv', ROOT / MAPPING / 'mapping.csv')
     os.rename('mapping_table.csv', ROOT / MAPPING / 'mapping_.csv')
 
-    for mod in ["distmod", "succmod", "randmod"]:
+    for mod in ["Distributive", "Successive", "Random"]:
         mod_path = ROOT / f"{mod}_results" / mod / f"{mod}_results.xlsx"
         if mod_path.exists():
             add_kinetic_strength_columns(
@@ -230,7 +232,7 @@ if __name__ == "__main__":
 
     logger.info(f"Mapping files for merging with ODE results & further use in Cytoscape")
 
-    for suffix in ['distmod', 'succmod', 'randmod']:
+    for suffix in ["Distributive", "Successive", "Random"]:
         for fname in [f"mapping_{suffix}.csv", f"mapping_{suffix}_.csv"]:
             fpath = ROOT / MAPPING / fname
             if fpath.exists():

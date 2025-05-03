@@ -51,21 +51,33 @@ class Plotter:
         """
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        parallel_coordinates(df, class_column='Time',
-                             colormap=plt.get_cmap("tab20"),
-                             ax=ax)
+
+        n_states = len(labels)
+
+        fig_width = min(max(1.2 * n_states, 8), 24)
+        fig_height = 6 if n_states <= 20 else 8
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        parallel_coordinates(
+            df, class_column='Time',
+            colormap=plt.get_cmap("tab20"),
+            ax=ax
+        )
+
         ax.set_title(self.gene)
         ax.set_xlabel("States")
         ax.set_ylabel("Values")
         ax.minorticks_on()
-        ax.grid(which='major', linestyle='--', linewidth=0.8,
-                color='gray', alpha=0.5)
-        ax.grid(which='minor', linestyle=':', linewidth=0.5,
-                color='gray', alpha=0.2)
-        ax.legend(title="Time Points",
-                  loc="upper right",
-                  labels=df['Time'].astype(str).tolist())
+        ax.grid(which='major', linestyle='--', linewidth=0.8, color='gray', alpha=0.5)
+        ax.grid(which='minor', linestyle=':', linewidth=0.5, color='gray', alpha=0.2)
+
+        # Hide or rotate x-tick labels if too many
+        if len(labels) > 40:
+            ax.set_xticks([])  # hide ticks
+        else:
+            ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=6)
+        plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_parallel_coordinates_.png")
 
     def pca_components(self, solution: np.ndarray, target_variance: float = 0.99):
@@ -457,7 +469,7 @@ class Plotter:
         ax.grid(True, alpha=0.2)
         plt.tight_layout()
         adjust_text(text_annotations, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
-        self._save_fig(fig, f"_Goodness_of_Fit_.png")
+        self._save_fig(fig, f"{model_type}_Goodness_of_Fit_.png")
 
     def plot_kld(self, merged_data: pd.DataFrame):
         """
@@ -477,9 +489,9 @@ class Plotter:
         ax.barh(kl_by_gene.index, kl_by_gene.values, color=colors)
         ax.set_xlabel("KL Divergence")
         ax.set_ylabel("Protein")
-        ax.set_title("")
+        ax.set_title(f"{model_type} Model")
         plt.tight_layout()
-        self._save_fig(fig, f"_kld_.png")
+        self._save_fig(fig, f"{model_type}_kld_.png")
 
     def plot_params_bar(self, ci_results: dict, param_labels: list = None, time: str = None):
         """
@@ -490,36 +502,56 @@ class Plotter:
         lwr_ci = ci_results['lwr_ci']
         upr_ci = ci_results['upr_ci']
         num_params = len(beta_hat)
-        x = np.arange(num_params)
         if param_labels is None:
             param_labels = [f"{i + 1}" for i in range(num_params)]
+
+        valid_indices = [
+            i for i, label in enumerate(param_labels)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", label)
+        ]
+
+        if not valid_indices:
+            return
+
+        beta_hat = beta_hat[valid_indices]
+        p_values = p_values[valid_indices]
+        lwr_ci = lwr_ci[valid_indices]
+        upr_ci = upr_ci[valid_indices]
+        param_labels = [param_labels[i] for i in valid_indices]
+
         lower_error = beta_hat - lwr_ci
         upper_error = upr_ci - beta_hat
         errors = np.vstack((lower_error, upper_error))
+
+        x = np.arange(len(beta_hat))
+
         fig, ax = plt.subplots(figsize=(12, 8))
+
         colors = []
         s_counter = 0
         for label in param_labels:
-            if re.fullmatch(r"S\d", label):
-                color = self.color_palette[s_counter % len(self.color_palette)]
+            if re.fullmatch(r"S\d+", label):
+                color = self.color_palette[s_counter]
                 colors.append(color)
                 s_counter += 1
             else:
                 colors.append('lightgray')
-        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center', alpha=0.7, edgecolor='black', color=colors)
+
+        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center',
+               alpha=0.7, edgecolor='black', color=colors)
+
         for i, (xi, yi, pval) in enumerate(zip(x, beta_hat, p_values)):
-            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat), f"p={pval:.1e}",
-                    ha='center', va='bottom', fontsize=6, fontweight='bold')
+            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat),
+                    f"p={pval:.1e}", ha='center', va='bottom',
+                    fontsize=6, fontweight='bold')
+
         ax.set_xticks(x)
         ax.set_xticklabels(param_labels, ha='right')
         ax.set_ylabel('Estimate')
         ax.set_title(self.gene)
         ax.grid(True, axis='y', linestyle='--', alpha=0.2)
         plt.tight_layout()
-        if time is not None:
-            self._save_fig(fig, f"{self.gene}_params_{time}_min.png")
-        else:
-            self._save_fig(fig, f"{self.gene}_params_bar_.png")
+        self._save_fig(fig, f"{self.gene}_params_bar_.png")
 
     def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
@@ -600,9 +632,13 @@ class Plotter:
 
             self.gene = sheet.replace("_perturbations", "")
             df = pd.read_excel(xls, sheet_name=sheet)
-            df = df.nsmallest(50, "RMSE")
-            param_cols = [col for col in df.columns if isinstance(col, str)
-                          and col not in ["RMSE"] and not col.startswith("(")]
+            param_cols = [
+                col for col in df.columns
+                if isinstance(col, str)
+                   and col != "RMSE"
+                   and not col.startswith("(")
+                   and re.fullmatch(r"[A-Za-z]\d?$", col)
+            ]
 
             if len(param_cols) < 2:
                 continue
@@ -629,7 +665,7 @@ class Plotter:
                 ax.set_ylabel(b, fontsize=10)
                 ax.set_title(f"{self.gene}: {a} vs {b}\nCorrelation = {score:.2f}", fontsize=11)
                 plt.tight_layout()
-                self._save_fig(fig, f"{self.gene}_{a}_vs_{b}.png")
+                self._save_fig(fig, f"{self.gene}_param_scatter_{a}_vs_{b}.png")
 
     def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
                                  best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
@@ -918,22 +954,40 @@ class Plotter:
             time_points: array of time points
             state_names: list of state names
         """
-        n_samples, n_timepoints, n_states = samples.shape
-        data = []
+        # Identify valid state indices (e.g., 'P', 'P1', 'X2')
+        valid_indices = [
+            idx for idx, name in enumerate(state_names)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", name)
+        ]
 
+        # Skip plotting if no valid states remain
+        if len(valid_indices) == 0:
+            print("Skipping time-state grid: no valid state names.")
+            return
+
+        # Filter state names and corresponding sample data
+        filtered_names = [state_names[i] for i in valid_indices]
+        filtered_samples = samples[:, :, valid_indices]
+
+        # Prepare time labels
         time_labels = [f"{int(t)}" if t > 1 else f"{t}" for t in time_points]
 
-        for state_idx in range(n_states):
+        # Build long-form DataFrame
+        data = []
+        for state_idx, state in enumerate(filtered_names):
             for t_idx, label in enumerate(time_labels):
-                for v in samples[:, t_idx, state_idx]:
-                    data.append({'Value': v, 'Time': label, 'State': state_names[state_idx]})
+                for v in filtered_samples[:, t_idx, state_idx]:
+                    data.append({'Value': v, 'Time': label, 'State': state})
         df = pd.DataFrame(data)
 
+        # Ensure time is treated as categorical for consistent ordering
         df['Time'] = pd.Categorical(df['Time'], categories=time_labels, ordered=True)
 
-        full_palette = list(itertools.islice(itertools.cycle(self.color_palette), len(state_names)))
-        palette_dict = dict(zip(state_names, full_palette))
+        # Assign consistent colors to each state
+        full_palette = list(itertools.islice(itertools.cycle(self.color_palette), len(filtered_names)))
+        palette_dict = dict(zip(filtered_names, full_palette))
 
+        # Create strip plots for each state across time
         g = sns.catplot(
             data=df,
             x="Time",
@@ -962,7 +1016,7 @@ class Plotter:
 
         g.fig.suptitle(f"{self.gene}", fontsize=12)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
-        self._save_fig(g.fig, f"{self.gene}_state_time_grid.png")
+        self._save_fig(g.fig, f"{self.gene}_sensitivity_state_grid.png")
 
     def plot_phase_space(self, samples: np.ndarray, state_names: list):
         """
@@ -975,19 +1029,34 @@ class Plotter:
         n_samples, n_timepoints, n_states = samples.shape
         assert n_states >= 2, "Need at least two states for phase space plots."
 
+        # Identify valid state name indices
+        valid_indices = [
+            idx for idx, name in enumerate(state_names)
+            if re.fullmatch(r"[A-Za-z][0-9]?$", name)
+        ]
+
+        # If fewer than two valid states, skip plotting
+        if len(valid_indices) < 2:
+            return
+
+        # Filter state names and sample dimensions
+        filtered_names = [state_names[i] for i in valid_indices]
+        filtered_samples = samples[:, :, valid_indices]
+
         # Assign one color per simulation
         cmap = cm.get_cmap("tab20", n_samples)
         sim_colors = [cmap(i) for i in range(n_samples)]
 
-        for i, j in combinations(range(n_states), 2):
-            x_state = state_names[i]
-            y_state = state_names[j]
+        # Generate pairwise plots
+        for i, j in combinations(range(len(filtered_names)), 2):
+            x_state = filtered_names[i]
+            y_state = filtered_names[j]
 
             fig, ax = plt.subplots(figsize=(6, 6))
             for sim in range(n_samples):
                 ax.plot(
-                    samples[sim, :, i],
-                    samples[sim, :, j],
+                    filtered_samples[sim, :, i],
+                    filtered_samples[sim, :, j],
                     alpha=0.5,
                     linewidth=0.5,
                     color=sim_colors[sim]
@@ -998,7 +1067,7 @@ class Plotter:
             ax.set_title(f"{self.gene}", fontsize=10)
             ax.grid(True, alpha=0.05)
             plt.tight_layout()
-            self._save_fig(fig, f"{self.gene}_phase_space_{x_state}_vs_{y_state}.png")
+            self._save_fig(fig, f"{self.gene}_sensitivity_phase_space_{x_state}_vs_{y_state}.png")
 
     def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
                        num_psites: int, psite_labels: list, time_points: np.ndarray):
@@ -1068,23 +1137,80 @@ class Plotter:
 
         for sheet in xls.sheet_names:
             if not sheet.endswith("_params"):
-                break
+                continue  # Only process *_params sheets
             gene = sheet[:-7]
             df = pd.read_excel(xls, sheet_name=sheet)
             if 'Regularization' not in df.columns:
-                break
+                continue
             reg_value = df['Regularization'].iloc[0]
             genes.append(gene)
             regs.append(reg_value)
 
-        fig, ax = plt.subplots(figsize=(8, max(4, len(genes)*0.5)))
-        ax.barh(genes, regs)
-        ax.set_xlabel('Value')
-        ax.set_ylabel('Protein')
-        ax.set_title(
-            r"Tikhnov Regularization (L2): "
-            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$"
-        )
-        plt.tight_layout()
-        self._save_fig(fig, "_regularization.png")
+        if not genes:
+            return
 
+        sorted_pairs = sorted(zip(regs, genes), reverse=True)
+        regs, genes = zip(*sorted_pairs)
+
+        fig, ax = plt.subplots(figsize=(8, max(8, len(genes) * 0.5)))
+        bars = ax.barh(genes, regs, color='skyblue', edgecolor='black', height=0.6)
+        ax.set_xlabel('Value', fontsize=7)
+        ax.set_ylabel('Protein', fontsize=9)
+        ax.tick_params(axis='x', labelsize=6)
+        ax.tick_params(axis='y', labelsize=8)
+        ax.set_title(
+            f"{model_type} Model  "
+            r"Tikhnov Regularization (L2): "
+            r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$",
+            fontsize=8
+        )
+        for bar in bars:
+            ax.text(bar.get_width() + max(regs) * 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{bar.get_width():.2f}", va='center', ha='left', fontsize=6)
+        plt.tight_layout()
+        self._save_fig(fig, f"{model_type}_model_regularization.png")
+
+    def plot_model_error(self, excel_path: str):
+        """
+        Read every '<gene>_params' sheet in the Excel file, pull the RMSE value,
+        and plot a horizontal bar chart of RMSE vs. gene.
+        """
+        xls = pd.ExcelFile(excel_path)
+        genes = []
+        mses = []
+
+        for sheet in xls.sheet_names:
+            if not sheet.endswith("_params"):
+                continue
+            gene = sheet[:-7]
+            df = pd.read_excel(xls, sheet_name=sheet)
+            if 'MSE' not in df.columns:
+                continue
+            error_val = df['MSE'].iloc[0]
+            genes.append(gene)
+            mses.append(error_val)
+
+        if not genes:
+            return
+
+        sorted_pairs = sorted(zip(mses, genes), reverse=True)
+        mses, genes = zip(*sorted_pairs)
+
+        fig, ax = plt.subplots(figsize=(8, max(8, len(genes) * 0.5)))
+        bars = ax.barh(genes, mses, color='coral', edgecolor='black', height=0.6)
+        ax.set_xlabel('Value', fontsize=7)
+        ax.set_ylabel('Protein', fontsize=9)
+        ax.tick_params(axis='x', labelsize=6)
+        ax.tick_params(axis='y', labelsize=8)
+        ax.set_title(
+            f"{model_type} Model  "
+            r"$\mathrm{MSE} = \frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2$",
+            fontsize=8
+        )
+
+        for bar in bars:
+            ax.text(bar.get_width() + max(mses) * 0.01, bar.get_y() + bar.get_height() / 2,
+                    f"{bar.get_width():.2f}", va='center', ha='left', fontsize=6)
+
+        plt.tight_layout()
+        self._save_fig(fig, f"{model_type}_model_error.png")

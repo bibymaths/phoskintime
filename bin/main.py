@@ -2,7 +2,10 @@ import pandas as pd
 from tqdm import tqdm
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
-from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST
+from config.constants import (model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST,
+                              NUM_TRAJECTORIES, PARAMETER_SPACE, PERTURBATIONS_VALUE, ALPHA_CI,
+                              SENSITIVITY_ANALYSIS, USE_REGULARIZATION, Y_METRIC, Y_METRIC_DESCRIPTIONS,
+                              DELTA_WEIGHT, ALPHA_WEIGHT, BETA_WEIGHT, GAMMA_WEIGHT, MU_WEIGHT)
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
@@ -40,9 +43,38 @@ def main():
     logger.info("           --------------------------------")
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
     logger.info("           --------------------------------")
-    logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
     log_config(logger, config['bounds'], args)
-
+    logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
+    logger.info(f"      L2 Regularization: {USE_REGULARIZATION}")
+    logger.info(f"      Confidence Interval: {ALPHA_CI*100}")
+    logger.info("           --------------------------------")
+    logger.info("       Composite Scoring Function:")
+    logger.info("       score = α * RMSE + β * MAE + γ * Var(residuals) + δ * MSE + μ * L2 norm")
+    logger.info("           --------------------------------")
+    logger.info("       Definitions:")
+    logger.info("       - RMSE: Root Mean Squared Error")
+    logger.info("       - MAE: Mean Absolute Error")
+    logger.info("       - Var(residuals): Variance of residuals")
+    logger.info("       - MSE: Mean Squared Error")
+    logger.info("       - L2 norm: L2 norm of parameter estimates")
+    logger.info("           --------------------------------")
+    logger.info("       Weights:")
+    logger.info(f"      - α (RMSE): {ALPHA_WEIGHT}")
+    logger.info(f"      - β (MAE): {BETA_WEIGHT}")
+    logger.info(f"      - γ (Var): {GAMMA_WEIGHT}")
+    logger.info(f"      - δ (MSE): {DELTA_WEIGHT}")
+    logger.info(f"      - μ (L2 norm): {MU_WEIGHT}")
+    logger.info("           --------------------------------")
+    logger.info("       Lower score indicates a better fit.")
+    logger.info("           --------------------------------")
+    logger.info(f"      Sensitivity Analysis: {SENSITIVITY_ANALYSIS}")
+    if SENSITIVITY_ANALYSIS:
+        logger.info(f"      - Metric: {' '.join(part.upper() for part in Y_METRIC.split('_'))}")
+        logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, "No description available.")}")
+        logger.info(f"      - Number of Trajectories: {NUM_TRAJECTORIES}")
+        logger.info(f"      - Parameter Space: {PARAMETER_SPACE}")
+        logger.info(f"      - Perturbations: {PERTURBATIONS_VALUE}")
+    logger.info("           --------------------------------")
     # Make output directory
     ensure_output_directory(OUT_DIR)
 
@@ -140,6 +172,9 @@ def main():
     # Plot regularization term values.
     Plotter("", OUT_DIR).plot_regularization(OUT_RESULTS_DIR)
 
+    # Plot model protein wise errors.
+    Plotter("", OUT_DIR).plot_model_error(OUT_RESULTS_DIR)
+
     logger.info("Plotting completed.")
 
     # LateX the results
@@ -148,15 +183,15 @@ def main():
     logger.info(f"LateX generated.")
 
     # Organize output files and create a report
-    organize_output_files(OUT_DIR)
+    organize_output_files([OUT_DIR])
     create_report(OUT_DIR)
 
     logger.info("           --------------------------------")
-    logger.info(f"Report & Results {location(str(OUT_DIR))}")
+    logger.info(f"          Report & Results {location(str(OUT_DIR))}")
 
     # Click to open the report in a web browser.
     for fpath in [OUT_DIR / 'report.html']:
-        logger.info(f"{fpath.as_uri()}")
+        logger.info(f"          {fpath.as_uri()}")
 
     logger.info("           --------------------------------")
 

@@ -69,7 +69,8 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     # Upper bound of confidence interval.
     upr_ci = beta_hat + qt_lin * se_lin
 
-    logger.info(f"[{gene}]      Parameter\t\t Estimate\t SE\t\t Pr(>|t|)\t\t 95% CI")
+    logger.info(f"[{gene}]      Parameter\t\t Estimate\t  SE\t\t Pr(>|t|)\t\t   95% CI")
+    logger.info(f"            -----------\t\t --------\t  --\t\t --------\t\t   ------")
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
         logger.info(f"[{gene}]      Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
 
