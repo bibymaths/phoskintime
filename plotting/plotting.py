@@ -1159,7 +1159,7 @@ class Plotter:
         ax.tick_params(axis='x', labelsize=6)
         ax.tick_params(axis='y', labelsize=8)
         ax.set_title(
-            f"{model_type} Model"
+            f"{model_type} Model  "
             r"Tikhnov Regularization (L2): "
             r"$R = \frac{\lambda_{\mathrm{reg}}}{m}\sum_{j=1}^m p_j^2$",
             fontsize=8
@@ -1203,7 +1203,7 @@ class Plotter:
         ax.tick_params(axis='x', labelsize=6)
         ax.tick_params(axis='y', labelsize=8)
         ax.set_title(
-            f"{model_type} Model"
+            f"{model_type} Model  "
             r"$\mathrm{MSE} = \frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2$",
             fontsize=8
         )
