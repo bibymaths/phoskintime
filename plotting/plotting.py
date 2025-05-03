@@ -530,7 +530,7 @@ class Plotter:
         colors = []
         s_counter = 0
         for label in param_labels:
-            if re.fullmatch(r"S\\d", label):
+            if re.fullmatch(r"S\d+", label):
                 color = self.color_palette[s_counter]
                 colors.append(color)
                 s_counter += 1
