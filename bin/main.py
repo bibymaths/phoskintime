@@ -2,7 +2,10 @@ import pandas as pd
 from tqdm import tqdm
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
-from config.constants import model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST
+from config.constants import (model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST,
+                              NUM_TRAJECTORIES, PARAMETER_SPACE, PERTURBATIONS_VALUE, ALPHA_CI,
+                              SENSITIVITY_ANALYSIS, USE_REGULARIZATION, Y_METRIC, Y_METRIC_DESCRIPTIONS,
+                              DELTA_WEIGHT, ALPHA_WEIGHT, BETA_WEIGHT, GAMMA_WEIGHT, MU_WEIGHT)
 from config.logconf import setup_logger
 from paramest.core import process_gene_wrapper
 from plotting import Plotter
@@ -41,6 +44,13 @@ def main():
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")
     logger.info("           --------------------------------")
     logger.info(f"      i = Number of phosphorylation sites (Residue_Position) in the model")
+    logger.info(f"      Confidence Interval: {ALPHA_CI*100}")
+    logger.info(f"      Sensitivity Analysis: {SENSITIVITY_ANALYSIS}")
+    logger.info(f"      - Metric: {' '.join(part.upper() for part in Y_METRIC.split('_'))}")
+    logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, "No description available.")}")
+    logger.info(f"      - Number of Trajectories: {NUM_TRAJECTORIES}")
+    logger.info(f"      - Parameter Space: {PARAMETER_SPACE}")
+    logger.info(f"      - Perturbations: {PERTURBATIONS_VALUE}")
     log_config(logger, config['bounds'], args)
 
     # Make output directory

@@ -168,6 +168,13 @@ model_type = model_names.get(ODE_MODEL, "Unknown")
 #                      (Captures how “dynamic” or rapidly changing the signal is.)
 #   'l2_norm'        – Euclidean norm of the flattened values.
 #                      (Captures overall magnitude like total_signal but in L2 sense.)
+Y_METRIC_DESCRIPTIONS = {
+    'total_signal': "Sum of all mRNA and site values across time (captures overall signal magnitude).",
+    'mean_activity': "Mean of all mRNA and site values across time (captures average activity).",
+    'variance': "Variance of all mRNA and site values across time (captures temporal/spatial variability).",
+    'dynamics': "Sum of squared successive differences (captures how dynamic the signal is).",
+    'l2_norm': "Euclidean norm of the flattened values (captures overall magnitude in L2 sense)."
+}
 Y_METRIC = 'total_signal'
 # Top-Level Directory Configuration:
 # - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
