@@ -80,7 +80,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Removed julia implementation of kinopt
 - Removed Project.toml for Julia dependency management.
  
-## [0.4.0] - Unreleased
+## [0.4.0] - alpha
 
 Added  
 - Phase space plots and strip plots for state distributions in sensitivity analysis.  
@@ -102,4 +102,33 @@ Fixed
 
 Removed  
 - Deprecated analysis modes and unused constants.  
-- Combined time-weight calculation from data preprocessing.
+- Combined time-weight calculation from data preprocessing. 
+
+## [0.4.0] – Unreleased
+
+### Added
+
+* Model error plotting in the visualization pipeline.
+* Detailed descriptions for new `Y_METRIC` options in metric reports.
+
+### Changed
+
+* Streamlined argument parsing and enhanced logging details (now logs additional configuration parameters).
+* Updated default ODE model constant from `randmod` to `succmod` for improved simulation accuracy.
+* Disabled development mode by default; enhanced HTML‐report structure and log‐file handling.
+* Refactored output‐directory parameter to a list format and reorganized output files with improved naming conventions across display and plotting modules.
+* Updated upper bound ranges and default values for key parameters in config files.
+* Adjusted figure sizing and label management in plotting functions; updated regex for parameter‐label matching to support multi‐digit labels.
+* Improved plotting file naming and handling of perturbation values.
+* Enhanced Excel sheet processing for parameter imports and added regularization checks during data import.
+* Improved confidence‐interval logging format and enhanced regularization‐term computation in `normest.py`.
+* Updated lambda‐range handling in `normest.py`.
+
+### Fixed
+
+*None yet.*
+
+### Removed
+
+*None.*
+ 
