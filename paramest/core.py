@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-from numba import njit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from knockout import apply_knockout, generate_knockout_combinations
 from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
@@ -14,34 +13,6 @@ from plotting import Plotter
 from config.logconf import setup_logger
 
 logger = setup_logger()
-
-
-# ----------------------------------
-# Early-Weighted Scheme
-# ----------------------------------
-@njit
-def early_emphasis(P_data, time_points, num_psites):
-    if P_data.ndim == 1:
-        P_data = P_data.reshape(1, P_data.size)
-
-    n_times = len(time_points)
-    custom_weights = np.ones((num_psites, n_times))
-    time_diffs = np.empty(n_times)
-    time_diffs[0] = 0.0
-    for j in range(1, n_times):
-        time_diffs[j] = time_points[j] - time_points[j - 1]
-
-    for i in range(num_psites):
-        limit = min(5, n_times)
-        for j in range(1, limit):
-            data_based_weight = 1.0 / (abs(P_data[i, j]) + 1e-5)
-            time_based_weight = 1.0 / (time_diffs[j] + 1e-5)
-            custom_weights[i, j] = data_based_weight * time_based_weight
-        for j in range(5, n_times):
-            custom_weights[i, j] = 1.0
-
-    return custom_weights.ravel()
-
 
 def process_gene(
         gene,

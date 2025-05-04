@@ -6,7 +6,7 @@ from pathlib import Path
 from config.helpers import *
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = False
+DEV_TEST = True
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
@@ -152,8 +152,7 @@ MU_WEIGHT = 1.0
 model_names = {
     "distmod": "Distributive",
     "succmod": "Successive",
-    "randmod": "Random",
-    "testmod": "Test",
+    "randmod": "Random"
 }
 model_type = model_names.get(ODE_MODEL, "Unknown")
 # Choose which scalar metric to use for sensitivity (Y) calculation.
