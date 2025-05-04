@@ -11,6 +11,7 @@ from config.config import score_fit
 from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
     USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
+from mcmc_test import run_mcmc_on_estimates
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options, get_protein_weights
 from plotting import Plotter
@@ -355,4 +356,5 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     error_vals.append(np.sum(np.abs(p_fit.flatten() - target) ** 2) / target.size) 
     # average-per-parameter L2 penalty
     regularization_term = lambda_reg / len(param_final) * np.sum(np.square(param_final))
+
     return est_params, model_fits, error_vals, regularization_term
