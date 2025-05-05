@@ -24,15 +24,14 @@ The config module is composed of several submodules:
         - Directory paths such as `PROJECT_ROOT`, `OUT_DIR`, `DATA_DIR`, `INPUT_EXCEL`, and `LOG_DIR`.
     - **Plotting and Regularization Settings:**
         - `COLOR_PALETTE`: A list of colors for plotting.
-        - `USE_REGULARIZATION` and `LAMBDA_REG`: Settings to enable and control Tikhonov (L2) regularization during
-          model fitting.
+        - `USE_REGULARIZATION`: A boolean flag to enable or disable regularization.
     - **Scoring Weights:**  
       Weights for the composite scoring function (`ALPHA_WEIGHT`, `BETA_WEIGHT`, `GAMMA_WEIGHT`, `DELTA_WEIGHT`,
       `MU_REG`) that combine error metrics such as RMSE, MAE, variance, MSE, and the L2 norm of parameters.
 
 - **`config.py`**  
   This file handles command-line argument parsing and configuration extraction. It provides:
-    - Custom parsers (e.g., `parse_bound_pair` and `parse_fix_value`) to validate and convert command-line inputs.
+
     - The `parse_args` function to define and parse the necessary CLI arguments (such as parameter bounds, fixed
       parameter values, bootstrapping iterations, and input file paths).
     - Utility functions like `ensure_output_directory` to create necessary directories.
@@ -58,9 +57,7 @@ The config module is composed of several submodules:
 ### Global Configuration
 
 The constants defined in `constants.py` control major aspects of the modeling and estimation processes. For example, to
-switch between different kinetic models, update the `ODE_MODEL` value. Similarly, change `ESTIMATION_MODE` to "
-sequential" or "normal" depending on whether you want time-point-by-time-point estimation or a global fit over all time
-points.
+switch between different kinetic models, update the `ODE_MODEL` value. 
 
 ### Logging
 
