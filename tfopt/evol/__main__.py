@@ -17,28 +17,9 @@ from utils import latexit
 logger = setup_logger()
 
 
-# -------------------------------
-# Main Routine
-# -------------------------------
 def main():
     """
     Main function to run the mRNA-TF optimization problem.
-
-    This function performs the following steps:
-    1. Parse command line arguments.
-    2. Load raw input data (mRNA, TF, and regulation maps).
-    3. Filter mRNA and TF data based on regulations.
-    4. Determine common time series length.
-    5. Build fixed shape arrays for optimization.
-    6. Create initial guess vector and define bounds.
-    7. Setup parallel runner for optimization.
-    8. Create multi-objective optimization problem instance.
-    9. Run the optimization using the specified optimizer.
-    10. Extract the best solution and display mappings.
-    11. Perform post-processing (prediction, plotting, and Excel output).
-    12. Generate plots and organize output files.
-    13. Create a report of the results.
-    14. Log the completion of the optimization process.
     """
     logger.info("[Global Optimization] mRNA-TF Optimization Problem started")
 

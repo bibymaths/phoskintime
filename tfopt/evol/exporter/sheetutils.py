@@ -4,7 +4,6 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from tfopt.evol.config.constants import OUT_FILE
 
 
-# Save results to Excel file.
 def save_results_to_excel(
         gene_ids, tf_ids,
         final_alpha, final_beta, psite_labels_arr,
@@ -15,23 +14,18 @@ def save_results_to_excel(
 ):
     """
     Save the optimization results to an Excel file.
-    This function creates multiple sheets in the Excel file to store different types of data,
-    including alpha values, beta values, residuals, observed values, estimated values,
-    and optimization results.
-    Each sheet is formatted with appropriate column names and data types.
-    The function also calculates various metrics (MSE, MAE, MAPE, R^2)
-    to evaluate the performance of the optimization.
 
-    :param gene_ids:
-    :param tf_ids:
-    :param final_alpha:
-    :param final_beta:
-    :param psite_labels_arr:
-    :param expression_matrix:
-    :param predictions:
-    :param objective_value:
-    :param reg_map:
-    :param filename:
+    Args:
+        gene_ids (list): List of gene identifiers.
+        tf_ids (list): List of TF identifiers.
+        final_alpha (np.ndarray): Final alpha values.
+        final_beta (np.ndarray): Final beta values.
+        psite_labels_arr (list): List of phosphorylation site labels.
+        expression_matrix (np.ndarray): Observed expression levels.
+        predictions (np.ndarray): Predicted expression levels.
+        objective_value (float): Objective value from optimization.
+        reg_map (dict): Mapping of genes to regulators.
+        filename (str): Path to the output Excel file.
     """
     # --- Alpha Values ---
     alpha_rows = []

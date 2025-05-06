@@ -16,13 +16,14 @@ logger = setup_logger()
 def run_optimization(problem, total_dim, optimizer):
     """
     Run the optimization using the specified algorithm and problem.
-    This function sets up the algorithm parameters, initializes the optimizer,
-    and runs the optimization process.
 
-    :param problem:
-    :param total_dim:
-    :param optimizer:
-    :return: result
+    Args:
+        problem (Problem): The optimization problem to solve.
+        total_dim (int): Total number of dimensions in the problem.
+        optimizer (int): The optimizer to use (0 for NSGA2, 1 for SMSEMOA, 2 for AGEMOEA).
+
+    Returns:
+        res (Result): The result of the optimization.
     """
     # Define algorithm settings.
     global algo

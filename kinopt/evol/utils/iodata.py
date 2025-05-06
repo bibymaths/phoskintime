@@ -156,7 +156,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
         "  display: grid;",
-        "  grid-template-columns: repeat(2, 500px);",
+        "  grid-template-columns: repeat(4, 500px);",
         "  column-gap: 20px;",
         "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",

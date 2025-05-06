@@ -8,7 +8,7 @@ def min_max_normalize(df, custom_max=None):
     """
     Row-wise (per-sample) min-max normalize time-series columns starting with 'x'.
 
-    Parameters:
+    Args:
         df (pd.DataFrame): Input DataFrame with time-series columns (x1-xN).
         custom_max (float, optional): If given, used as max for all rows.
 
@@ -35,7 +35,14 @@ def min_max_normalize(df, custom_max=None):
 def load_expression_data(filename=INPUT3):
     """
     Loads gene expression (mRNA) data.
-    Expects a CSV with a 'GeneID' column and time-point columns.
+
+    Args:
+        filename (str): Path to the CSV file containing mRNA data.
+
+    Returns:
+        - gene_ids: List of gene identifiers (strings).
+        - expression_matrix: Matrix of gene expression data (numpy array).
+        - time_cols: List of time columns (excluding "GeneID").
     """
     df = pd.read_csv(filename)
     # Normalize for high unscaled variability
@@ -50,8 +57,15 @@ def load_expression_data(filename=INPUT3):
 def load_tf_protein_data(filename=INPUT1):
     """
     Loads TF protein data along with PSite information.
-    Expects a CSV with 'GeneID' and 'Psite' columns.
-    For rows without a valid PSite, the entire row is considered as the protein signal.
+
+    Args:
+        filename (str): Path to the CSV file containing TF protein data.
+    Returns:
+        - tf_ids: List of TF identifiers (strings).
+        - tf_protein: Dictionary mapping TF identifiers to their protein data (numpy array).
+        - tf_psite_data: Dictionary mapping TF identifiers to their phosphorylation site data (list of numpy arrays).
+        - tf_psite_labels: Dictionary mapping TF identifiers to their phosphorylation site labels (list of strings).
+        - time_cols: List of time columns (excluding "GeneID" and "Psite").
     """
     expr_gene_ids, expression_matrix, expr_time_cols = load_expression_data()
     df = pd.read_csv(filename)
@@ -98,10 +112,12 @@ def load_tf_protein_data(filename=INPUT1):
 
 def load_regulation(filename=INPUT4):
     """
-    Assumes the regulation file is reversed:
-      - The 'Source' column holds gene (mRNA) identifiers.
-      - The 'Target' column holds TF identifiers.
     Returns a mapping from gene (source) to a list of TFs (targets).
+
+    Args:
+        filename (str): Path to the CSV file containing regulation data.
+    Returns:
+        - reg_map: Dictionary mapping gene identifiers to lists of TF identifiers.
     """
     df = pd.read_csv(filename)
     reg_map = {}
@@ -118,13 +134,7 @@ def load_regulation(filename=INPUT4):
 def summarize_stats(input3=INPUT3, input1=INPUT1, input4=INPUT4):
     """
     Summarizes statistics for the expression data (input3) and TF protein data (input1).
-    It also summarizes the data after filtering based on the mapping file (input4).
 
-    The function prints the following statistics:
-        - Global min, max, std, var for the full dataset.
-        - Time-wise min, max, std, var for each time point.
-        - Global min, max, std, var for the subset data (filtered by input4).
-        - Time-wise min, max, std, var for the subset data.
     Args:
         input3 (str): Path to the expression data CSV file.
         input1 (str): Path to the TF protein data CSV file.
@@ -183,15 +193,11 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
-    For each gene folder (e.g. "ABL2"), the report will include:
-      - All PNG plots and interactive HTML plots displayed in a grid with three plots per row.
-      - Each plot is confined to a fixed size of 900px by 900px.
-      - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
-
     Args:
         results_dir (str): Path to the root results directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
     """
+
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
         d for d in os.listdir(results_dir)
@@ -212,7 +218,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
         "  display: grid;",
-        "  grid-template-columns: repeat(2, 500px);",
+        "  grid-template-columns: repeat(4, 500px);",
         "  column-gap: 20px;",
         "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
@@ -290,6 +296,12 @@ def create_report(results_dir: str, output_file: str = "report.html"):
 
 
 def organize_output_files(*directories):
+    """
+    Function to organize output files into protein-specific folders.
+
+    Args:
+        directories (str): List of directories to organize.
+    """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 
     for directory in directories:

@@ -14,25 +14,18 @@ def save_results_to_excel(
 ):
     """
     Save the optimization results to an Excel file.
-    This function creates multiple sheets in the Excel file, each containing different
-    aspects of the optimization results, including alpha values, beta values,
-    residuals, observed values, estimated values, and optimization metrics.
-    Each sheet is formatted with appropriate column names and data types.
-    The function also computes various metrics such as Mean Squared Error (MSE),
-    Mean Absolute Error (MAE), Mean Absolute Percentage Error (MAPE), and R-squared
-    score to evaluate the performance of the optimization.
 
-    :param gene_ids: List of gene identifiers.
-    :param tf_ids: List of TF identifiers.
-    :param final_alpha: 2D numpy array of alpha values.
-    :param final_beta: 2D numpy array of beta values.
-    :param psite_labels_arr: List of post-translational modification labels.
-    :param expression_matrix: 2D numpy array of observed values.
-    :param predictions: 2D numpy array of predicted values.
-    :param objective_value: Objective value of the optimization.
-    :param reg_map: Dictionary mapping genes to their regulators.
-    :param filename: Path to the output Excel file.
-    :type filename: str
+    Args:
+        gene_ids (list): List of gene identifiers.
+        tf_ids (list): List of TF identifiers.
+        final_alpha (np.ndarray): Final alpha values.
+        final_beta (np.ndarray): Final beta values.
+        psite_labels_arr (list): List of phosphorylation site labels.
+        expression_matrix (np.ndarray): Observed expression levels.
+        predictions (np.ndarray): Predicted expression levels.
+        objective_value (float): Objective value from optimization.
+        reg_map (dict): Mapping of genes to regulators.
+        filename (str): Path to the output Excel file.
     """
     # --- Alpha Values ---
     alpha_rows = []

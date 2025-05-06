@@ -6,18 +6,13 @@ from tfopt.evol.config.constants import INPUT3, INPUT1, INPUT4
 def load_mRNA_data(filename=INPUT3):
     """
     Load mRNA data from a CSV file.
-    The file is expected to have a "GeneID" column and time columns for expression data.
-    The function returns a list of mRNA gene identifiers, a matrix of expression data,
-    and the time columns.
-    The mRNA_ids are converted to strings, and the expression data is converted to a numpy array of floats.
-    The time columns are extracted from the DataFrame, excluding the "GeneID" column.
-    The function returns:
-        - mRNA_ids: List of mRNA gene identifiers (strings).
-        - mRNA_mat: Numpy array of expression data (floats).
-        - time_cols: List of time columns (excluding "GeneID").
 
-    :param filename: str
-    :return: mRNA_ids, mRNA_mat, time_cols
+    Args:
+        filename (str): Path to the CSV file containing mRNA data.
+    Returns:
+        - mRNA_ids: List of mRNA gene identifiers (strings).
+        - mRNA_mat: Matrix of mRNA expression data (numpy array).
+        - time_cols: List of time columns (excluding "GeneID").
     """
     df = pd.read_csv(filename)
     mRNA_ids = df["GeneID"].astype(str).tolist()
@@ -29,22 +24,15 @@ def load_mRNA_data(filename=INPUT3):
 def load_TF_data(filename=INPUT1):
     """
     Load TF data from a CSV file.
-    The file is expected to have a "GeneID" column, a "Psite" column, and time columns for protein data.
-    The function returns a list of TF gene identifiers, a dictionary mapping TF_ids to their protein data,
-    a dictionary mapping TF_ids to their phosphorylation site data, a dictionary mapping TF_ids to their phosphorylation site labels,
-    and the time columns.
-    The TF_ids are converted to strings, and the protein data is stored in a dictionary with TF_ids as keys.
-    The phosphorylation site data is stored in a list for each TF_id, and the phosphorylation site labels are also stored in a list.
-    The time columns are being extracted from the DataFrame, excluding the "GeneID" and "Psite" columns.
-    The function returns:
-        - TF_ids: List of TF gene identifiers (strings).
-        - protein_dict: Dictionary mapping TF_ids to their protein data (numpy arrays).
-        - psite_dict: Dictionary mapping TF_ids to their phosphorylation site data (lists of numpy arrays).
-        - psite_labels_dict: Dictionary mapping TF_ids to their phosphorylation site labels (lists of strings).
-        - time_cols: List of time columns (excluding "GeneID" and "Psite").
 
-    :param filename: str
-    :return: TF_ids, protein_dict, psite_dict, psite_labels_dict, time_cols
+    Args:
+        filename (str): Path to the CSV file containing TF data.
+    Returns:
+        - TF_ids: List of TF identifiers (strings).
+        - protein_dict: Dictionary mapping TF identifiers to their protein data (numpy array).
+        - psite_dict: Dictionary mapping TF identifiers to their phosphorylation site data (list of numpy arrays).
+        - psite_labels_dict: Dictionary mapping TF identifiers to their phosphorylation site labels (list of strings).
+        - time_cols: List of time columns (excluding "GeneID" and "Psite").
     """
     expr_gene_ids, expression_matrix, expr_time_cols = load_mRNA_data()
     df = pd.read_csv(filename)
@@ -80,14 +68,11 @@ def load_TF_data(filename=INPUT1):
 def load_regulation(filename=INPUT4):
     """
     Load regulation data from a CSV file.
-    The file is expected to have "Source" and "Target" columns.
-    The function returns a dictionary mapping mRNA gene identifiers to their regulators (TFs).
-    The mRNA gene identifiers and TF identifiers are converted to strings and stripped of whitespace.
-    The function returns:
-        - reg_map: Dictionary mapping mRNA gene identifiers to their regulators (TFs).
 
-    :param filename: str
-    :return: reg_map
+    Args:
+        filename (str): Path to the CSV file containing regulation data.
+    Returns:
+        - reg_map: Dictionary mapping mRNA genes to their regulators (list of TF identifiers).
     """
     df = pd.read_csv(filename)
     reg_map = {}
@@ -105,14 +90,8 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
-    For each gene folder (e.g. "ABL2"), the report will include:
-      - All PNG plots and interactive HTML plots displayed in a grid with three plots per row.
-      - Each plot is confined to a fixed size of 900px by 900px.
-      - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
-
     Args:
-        results_dir (str): Path to the root results directory.
-        output_file (str): Name of the generated global report file (placed inside results_dir).
+        results_dir (str): Path to the directory containing gene folders.
     """
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
@@ -134,7 +113,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
         "  display: grid;",
-        "  grid-template-columns: repeat(2, 500px);",
+        "  grid-template-columns: repeat(4, 500px);",
         "  column-gap: 20px;",
         "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
@@ -214,8 +193,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
 def organize_output_files(*directories):
     """
     Organizes output files from multiple directories into separate folders for each protein.
-    Files are moved into folders named after the protein identifier extracted from the filename.
-    Remaining files are moved to a "General" folder.
+
     Args:
         directories (str): List of directories to organize.
     """
@@ -251,8 +229,7 @@ def organize_output_files(*directories):
 def format_duration(seconds):
     """
     Format a duration in seconds into a human-readable string.
-    The function converts the duration into hours, minutes, or seconds,
-    depending on the length of the duration.
+
     Args:
         seconds (float): Duration in seconds.
     Returns:

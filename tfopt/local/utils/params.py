@@ -9,34 +9,25 @@ def get_optimization_parameters(expression_matrix, tf_protein_matrix, n_reg, T_u
                                 psite_labels_arr, num_psites, lb, ub):
     """
     Prepare the optimization parameters for the optimization problem.
-    This function initializes the alpha and beta parameters, sets up the bounds,
-    and constructs the linear constraints for the optimization problem.
-    It returns the initial guess for the optimization variables, the number of
-    alpha parameters, the starting indices for beta parameters, the bounds,
-    the boolean array indicating TFs without phosphorylation sites, and the
-    number of genes and TFs.
 
-    Parameters:
-    expression_matrix (np.ndarray): Gene expression matrix.
-    tf_protein_matrix (np.ndarray): TF protein matrix.
-    n_reg (int): Number of regulators.
-    T_use (int): Number of time points used in the expression matrix.
-    psite_labels_arr (list): List of lists containing phosphorylation site labels.
-    num_psites (np.ndarray): Array containing the number of phosphorylation sites for each TF.
-    lb (float): Lower bound for beta parameters.
-    ub (float): Upper bound for beta parameters.
-
+    Args:
+        expression_matrix (np.ndarray): Gene expression matrix.
+        tf_protein_matrix (np.ndarray): TF protein matrix.
+        n_reg (int): Number of regulators.
+        T_use (int): Number of time points to use.
+        psite_labels_arr (list): List of phosphorylation site labels for each TF.
+        num_psites (np.ndarray): Array containing the number of phosphorylation sites for each TF.
+        lb (float): Lower bound for beta parameters.
+        ub (float): Upper bound for beta parameters.
     Returns:
-    x0 (np.ndarray): Initial guess for the optimization variables.
-    n_alpha (int): Number of alpha parameters.
-    beta_start_indices (np.ndarray): Starting indices for beta parameters.
-    bounds (list): List of tuples specifying the bounds for each optimization variable.
-    no_psite_tf (np.ndarray): Boolean array indicating TFs without phosphorylation sites.
-    n_genes (int): Number of genes.
-    n_TF (int): Number of TFs.
-    num_psites (np.ndarray): Array containing the number of phosphorylation sites for each TF.
-    lin_cons (LinearConstraint): Linear constraints for the optimization problem.
-    T_use (int): Number of time points used in the expression matrix.
+        x0 (np.ndarray): Initial guess for the optimization variables.
+        n_alpha (int): Number of alpha parameters.
+        beta_start_indices (np.ndarray): Starting indices for beta parameters.
+        bounds (list): List of bounds for the optimization variables.
+        no_psite_tf (np.ndarray): Array indicating whether each TF has no phosphorylation sites.
+        n_genes (int): Number of genes.
+        n_TF (int): Number of transcription factors.
+
     """
     n_genes = expression_matrix.shape[0]
     n_TF = tf_protein_matrix.shape[0]
@@ -86,9 +77,6 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
                         psite_labels_arr):
     """
     Post-process the optimization results to extract the final alpha and beta parameters.
-    This function reshapes the optimization result into the final alpha and beta matrices,
-    and builds the mapping of TFs to mRNAs and phosphorylation sites.
-    It also logs the mappings for debugging purposes.
 
     Args:
         result (OptimizeResult): The result of the optimization.
@@ -116,7 +104,6 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
         final_beta.append(final_x[n_alpha + start: n_alpha + start + length])
     final_beta = np.array(final_beta, dtype=object)
 
-    # Build and logger.info α mapping.
     alpha_mapping = {}
     for i, gene in enumerate(gene_ids):
         actual_tfs = [tf for tf in reg_map[gene] if tf in tf_ids]
@@ -141,21 +128,4 @@ def postprocess_results(result, n_alpha, n_genes, n_reg, beta_start_indices, num
                 label = f"PSite{q}"
             logger.info(f"   {label}: {beta_vec[q]:.4f}")
 
-    # Build and logger.info β mapping.
-    # beta_mapping = {}
-    # for idx, tf in enumerate(tf_ids):
-    #     beta_mapping[tf] = {}
-    #     beta_vec = final_beta[idx]
-    #     logger.info(f"{tf}:")
-    #     beta_mapping[tf][f"mRNA {tf}"] = beta_vec[0]
-    #     for q in range(1, len(beta_vec)):
-    #         label = psite_labels_arr[idx][q - 1]
-    #         if label == "":
-    #             label = f"PSite{q}"
-    #         beta_mapping[tf][label] = beta_vec[q]
-    # logger.info("Mapping of phosphorylation sites to TFs (β parameters):")
-    # for tf, mapping in beta_mapping.items():
-    #     logger.info(f"{tf}:")
-    #     for label, b_val in mapping.items():
-    #         logger.info(f"   {label}: {b_val:.4f}")
     return final_x, final_alpha, final_beta

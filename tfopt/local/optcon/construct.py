@@ -5,15 +5,25 @@ from scipy.optimize import LinearConstraint
 def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map):
     """
     Builds fixed-shape arrays from the input data.
+
+    Args:
+        - gene_ids: list of mRNA identifiers.
+        - expression_matrix: array of shape (n_genes, T) with mRNA expression levels.
+        - tf_ids: list of TF identifiers.
+        - tf_protein: dict mapping TFs to their protein levels.
+        - tf_psite_data: dict mapping TFs to their phosphorylation sites.
+        - tf_psite_labels: dict mapping TFs to their phosphorylation site labels.
+        - reg_map: mapping of genes to their regulators (TFs).
+
     Returns:
-      - expression_matrix: array of shape (n_genes, T)
-      - regulators: array of shape (n_genes, n_reg) with indices into tf_ids.
-      - tf_protein_matrix: array of shape (n_TF, T)
-      - psite_tensor: array of shape (n_TF, n_psite_max, T), padded with zeros.
-      - n_reg: maximum number of regulators per gene.
-      - n_psite_max: maximum number of PSites among TFs.
-      - psite_labels_arr: list (length n_TF) of lists of PSite names (padded with empty strings).
-      - num_psites: array of length n_TF with the actual number of PSites for each TF.
+        - expression_matrix: array of shape (n_genes, T) with mRNA expression levels.
+        - regulators: array of shape (n_genes, n_reg) with TF indices.
+        - tf_protein_matrix: array of shape (n_TF, T) with TF protein levels.
+        - psite_tensor: array of shape (n_TF, n_psite_max, T) with phosphorylation sites.
+        - n_reg: number of regulators.
+        - n_psite_max: maximum number of phosphorylation sites across all TFs.
+        - psite_labels_arr: list of labels for each TF's phosphorylation sites.
+        - num_psites: array indicating the number of phosphorylation sites for each TF.
     """
     n_genes, T = expression_matrix.shape
 
@@ -68,6 +78,14 @@ def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite
 def constraint_alpha_func(x, n_genes, n_reg):
     """
     For each gene, the sum of its alpha parameters must equal 1.
+
+    Args:
+        x (np.ndarray): Decision vector.
+        n_genes (int): Number of genes.
+        n_reg (int): Number of regulators.
+
+    Returns:
+        np.ndarray: Array of constraints.
     """
     cons = []
     for i in range(n_genes):
@@ -81,6 +99,17 @@ def constraint_alpha_func(x, n_genes, n_reg):
 def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_psite_tf):
     """
     For each TF, the sum of its beta parameters must equal 1.
+
+    Args:
+        x (np.ndarray): Decision vector.
+        n_alpha (int): Number of alpha parameters.
+        n_TF (int): Number of transcription factors.
+        beta_start_indices (list): List of starting indices for beta parameters.
+        num_psites (list): List of number of phosphorylation sites for each TF.
+        no_psite_tf (list): List indicating if a TF has no phosphorylation site.
+
+    Returns:
+        np.ndarray: Array of constraints.
     """
     cons = []
     for tf in range(n_TF):
@@ -96,11 +125,19 @@ def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_ps
 
 def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf):
     """
-    Build linear constraints for the optimization problem.
+    Build linear constraints for the transcription factor optimization problem.
 
-    The constraints are:
-    1. For each mRNA, the sum of its alpha parameters must equal 1.
-    2. For each TF, the sum of its beta parameters must equal 1.
+    Args:
+        n_genes (int): Number of genes.
+        n_TF (int): Number of transcription factors.
+        n_reg (int): Number of regulators.
+        n_alpha (int): Number of alpha parameters.
+        beta_start_indices (list): List of starting indices for beta parameters.
+        num_psites (list): List of number of phosphorylation sites for each TF.
+        no_psite_tf (list): List indicating if a TF has no phosphorylation site.
+
+    Returns:
+        list: List of linear constraints.
     """
     total_vars = n_alpha + sum(1 + num_psites[i] for i in range(n_TF))
 
