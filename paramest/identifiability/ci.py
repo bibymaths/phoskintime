@@ -9,24 +9,18 @@ logger = setup_logger()
 
 def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     """
-    Computes the confidence intervals for parameter estimates using a linearization approach.
+    Computes the confidence intervals for parameter estimates using Wald Intervals approach.
 
-    Parameters:
-      - popt: 1D numpy array of best-fit parameter estimates.
-      - pcov: Square covariance matrix (numpy array) corresponding to popt.
-      - target: 1D numpy array of observed data (used to compute degrees of freedom).
-      - alpha_val: Significance level (default 0.05 for a 95% confidence interval).
+    Args:
+        gene (str): Gene name.
+        popt (np.ndarray): Optimized parameter estimates.
+        pcov (np.ndarray): Covariance matrix of the optimized parameters.
+        target (np.ndarray): Target data.
+        model (np.ndarray): Model predictions.
+        alpha_val (float, optional): Significance level for confidence intervals. Defaults to 0.05.
 
     Returns:
-      A dictionary with the following keys:
-        'beta_hat': Best-fit parameter estimates.
-        'se_lin': Standard errors (sqrt of diagonal of pcov).
-        'df_lin': Degrees of freedom (n_obs - n_params).
-        't_stat': t-statistics for each parameter.
-        'pval': Two-sided p-values for each parameter.
-        'qt_lin': t critical value for the given alpha and degrees of freedom.
-        'lwr_ci': Lower 95% confidence intervals.
-        'upr_ci': Upper 95% confidence intervals.
+        dict: A dictionary containing the confidence intervals and other statistics.
     """
     if pcov is None:
         msg = "No covariance matrix available; cannot compute confidence intervals using linearization."

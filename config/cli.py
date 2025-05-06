@@ -41,6 +41,10 @@ PY = sys.executable
 def _run(cmd: list[str]) -> None:
     """
     Echo + run from the package root.
+    Args:
+        cmd: List of command line arguments.
+    Returns:
+        None
     """
     typer.echo(f"$ {' '.join(cmd)}")
     sp.check_call([PY, "-m", *cmd], cwd=ROOT)
@@ -49,6 +53,12 @@ def _run(cmd: list[str]) -> None:
 def _python_module(module: str, cfg: Path | None) -> list[str]:
     """
     Return `python module [--conf path]`.
+
+    Args:
+        module: Python module to run.
+        cfg: Path to the configuration file (optional).
+    Returns:
+        List of command line arguments.
     """
     cmd = [module]
     if cfg is not None:
@@ -77,6 +87,12 @@ def tfopt(
 ):
     """
     Transcription-Factor-mRNA Optimisation.
+
+    Args:
+        mode: local | evol
+        conf: Path to TOML/YAML config. Uses defaults if omitted.
+    Returns:
+        None
     """
     module = f"tfopt.{mode}"
     _run(_python_module(module, conf))
@@ -92,6 +108,12 @@ def kinopt(
 ):
     """
     Kinase-Phosphorylation Optimization.
+
+    Args:
+        mode: local | evol
+        conf: Path to TOML/YAML config. Uses defaults if omitted.
+    Returns:
+        None
     """
     module = f"kinopt.{mode}"
     _run(_python_module(module, conf))
@@ -106,6 +128,11 @@ def model(
 ):
     """
     Run the model (bin.main).
+
+    Args:
+        conf: Path to model config file. Uses defaults if omitted.
+    Returns:
+        None
     """
     _run(_python_module("bin.main", conf))
 
@@ -121,6 +148,16 @@ def all(
 ):
     """
     Run every stage in sequence.
+    Preprocessing -> TF optimisation -> Kinase optimisation -> Model.
+
+    Args:
+        tf_mode: tfopt mode: local | evol
+        kin_mode: kinopt mode: local | evol
+        tf_conf: Path to TOML/YAML config. Uses defaults if omitted.
+        kin_conf: Path to TOML/YAML config. Uses defaults if omitted.
+        model_conf: Path to model config file. Uses defaults if omitted.
+    Returns:
+        None
     """
     prep()
     tfopt.callback(mode=tf_mode, conf=tf_conf)

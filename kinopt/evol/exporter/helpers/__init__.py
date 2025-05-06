@@ -3,13 +3,15 @@ from collections import defaultdict
 
 def build_genes_data(P_initial, P_init_dense, P_estimated, residuals):
     """
-    Given the dictionary P_initial (with keys (gene, psite)), and the matrices
-    P_init_dense, P_estimated, and residuals (with rows in the same order as list(P_initial.keys())),
-    build a dictionary keyed by gene where each value is a dict with:
-      - "psites": list of psite labels
-      - "observed": list of observed time-series (as arrays)
-      - "estimated": list of estimated time-series (as arrays)
-      - "residuals": list of residuals (as arrays)
+    Function to build a dictionary containing data for each gene.
+
+    Args:
+        P_initial (dict): Dictionary with initial parameters.
+        P_init_dense (ndarray): Dense matrix of initial parameters.
+        P_estimated (ndarray): Dense matrix of estimated parameters.
+        residuals (ndarray): Dense matrix of residuals.
+    Returns:
+        genes_data (dict): Dictionary with gene data.
     """
     genes_data = defaultdict(lambda: {"psites": [], "observed": [], "estimated": [], "residuals": []})
     keys = list(P_initial.keys())

@@ -57,6 +57,9 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         Args:
             x (np.ndarray): Decision variable vector.
             out (dict): Dictionary to store objective function value and constraint values.
+
+        Returns:
+            None
         """
         # Calculate the residuals for the objective function
         error = self.objective_function(x)

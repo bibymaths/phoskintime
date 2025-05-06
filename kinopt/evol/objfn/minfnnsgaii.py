@@ -53,6 +53,9 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         Args:
             x (np.ndarray): Decision variable vector.
             out (dict): Dictionary to store objective function values.
+
+        Returns:
+            None
         """
         # Primary objective: sum of squared residuals
         error = self.objective_function(x)

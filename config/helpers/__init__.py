@@ -2,13 +2,17 @@ from itertools import combinations
 from math import comb
 
 
-# Parameter Name Generators
 def get_param_names_rand(num_psites: int) -> list:
     """
     Generate parameter names for the random model.
     Format: ['A', 'B', 'C', 'D'] +
             ['S1', 'S2', ..., 'S<num_psites>'] +
             [parameter names for all combinations of dephosphorylation sites].
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        list: List of parameter names.
     """
     param_names = ['A', 'B', 'C', 'D']
     param_names += [f'S{i}' for i in range(1, num_psites + 1)]
@@ -24,6 +28,11 @@ def get_param_names_ds(num_psites: int) -> list:
     Format: ['A', 'B', 'C', 'D'] +
             ['S1', 'S2', ..., 'S<num_psites>'] +
             ['D1', 'D2', ..., 'D<num_psites>'].
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        list: List of parameter names.
     """
     return ['A', 'B', 'C', 'D'] + [f'S{i + 1}' for i in range(num_psites)] + [f'D{i + 1}' for i in range(num_psites)]
 
@@ -32,7 +41,11 @@ def generate_labels_rand(num_psites: int) -> list:
     """
     Generates labels for the states based on the number of phosphorylation sites for the random model.
     Returns a list with the base labels "R" and "P", followed by labels for all combinations of phosphorylated sites.
-    Example for num_psites=2: ["R", "P", "P1", "P2", "P12"]
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        list: List of state labels.
     """
     labels = ["R", "P"]
     subsets = []
@@ -46,7 +59,11 @@ def generate_labels_ds(num_psites: int) -> list:
     """
     Generates labels for the states based on the number of phosphorylation sites for the distributive or successive models.
     Returns a list with the base labels "R" and "P", followed by labels for each individual phosphorylated state.
-    Example for num_psites=2: ["R", "P", "P1", "P2"]
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        list: List of state labels.
     """
     return ["R", "P"] + [f"P{i}" for i in range(1, num_psites + 1)]
 

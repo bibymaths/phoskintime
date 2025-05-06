@@ -6,8 +6,11 @@ from config.constants import OUT_DIR
 def powerset(iterable):
     """
     Return the list of all subsets (as frozensets) of the given iterable.
-    For example, for [1,2] returns:
-      [frozenset(), frozenset({1}), frozenset({2}), frozenset({1,2})]
+
+    Args:
+        iterable: An iterable (e.g., list, set) to generate subsets from.
+    Returns:
+        A list of frozensets representing all subsets of the input iterable.
     """
     s = list(iterable)
     all_subsets = []
@@ -20,8 +23,11 @@ def powerset(iterable):
 def state_label(state):
     """
     Convert a set of phosphorylation sites into a node label.
-    The unphosphorylated state (empty set) is labeled "P".
-    For nonempty states the label is "P" concatenated with the sorted site numbers.
+
+    Args:
+        state: A frozenset representing the phosphorylation state.
+    Returns:
+        A string representing the label for the node.
     """
     if not state:
         return "P"
@@ -32,9 +38,12 @@ def state_label(state):
 def create_random_diagram(x, num_sites, output_filename):
     """
     Create a random phosphorylation diagram.
-    The diagram displays mRNA production/degradation, protein production,
-    phosphorylation transitions (addition) and dephosphorylation transitions,
-    as well as degradation edges for each state.
+
+    Args:
+        x: Placeholder parameter, not used in this function.
+        num_sites: The number of phosphorylation sites.
+        output_filename: The name of the output file for the diagram.
+
     """
     dot = Digraph(engine='neato')
     dot.attr(rankdir='LR')
@@ -114,8 +123,12 @@ def create_random_diagram(x, num_sites, output_filename):
 def create_distributive_diagram(x, num_sites, output_filename):
     """
     Create a distributive phosphorylation diagram.
-    This model shows single-step phosphorylation and dephosphorylation transitions
-    for each site, along with production/degradation edges.
+
+    Args:
+        x: Placeholder parameter, not used in this function.
+        num_sites: The number of phosphorylation sites.
+        output_filename: The name of the output file for the diagram.
+
     """
     dot = Digraph(engine='neato')
     dot.attr(rankdir='LR')
@@ -156,8 +169,11 @@ def create_distributive_diagram(x, num_sites, output_filename):
 def create_successive_model(x, num_sites, output_filename):
     """
     Create a successive phosphorylation diagram.
-    In this model, phosphorylation occurs in a sequential order from P to P1 to P2, etc.,
-    with corresponding dephosphorylation and degradation transitions.
+
+    Args:
+        x: Placeholder parameter, not used in this function.
+        num_sites: The number of phosphorylation sites.
+        output_filename: The name of the output file for the diagram.
     """
     dot = Digraph(engine='neato')
     dot.attr(rankdir='LR')

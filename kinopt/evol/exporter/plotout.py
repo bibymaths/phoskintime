@@ -118,30 +118,32 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
                      waterfall_df, convergence_df, alpha_values,
                      beta_values):
     """
-    Generates and saves various plots related to optimization results.
-    This includes design space plots, objective space plots,
-    convergence plots, and parameter trend plots.
+    Function to generate and save various plots related to optimization results.
 
-    :param problem:
-    :param result:
-    :param F:
-    :param pairs:
-    :param approx_ideal:
-    :param approx_nadir:
-    :param asf_i:
-    :param pseudo_i:
-    :param n_evals:
-    :param hv:
-    :param hist:
-    :param val:
-    :param hist_cv_avg:
-    :param k:
-    :param igd:
-    :param best_objectives:
-    :param waterfall_df:
-    :param convergence_df:
-    :param alpha_values:
-    :param beta_values:
+    Args:
+        problem: The optimization problem instance.
+        result: The result of the optimization run.
+        F: Objective function values.
+        pairs: Pairs of objectives to plot.
+        approx_ideal: Approximate ideal point in objective space.
+        approx_nadir: Approximate nadir point in objective space.
+        asf_i: Index of the best solution in terms of the augmented weighted sum.
+        pseudo_i: Index of the pseudo weights.
+        n_evals: Number of evaluations at each generation.
+        hv: Hypervolume values.
+        hist: History of the optimization process.
+        val: Values for convergence plot.
+        hist_cv_avg: Average constraint violation history.
+        k: Number of generations.
+        igd: Inverted generational distance values.
+        best_objectives: Best objectives found during the optimization process.
+        waterfall_df: DataFrame containing waterfall plot data.
+        convergence_df: DataFrame containing convergence data.
+        alpha_values: Dictionary containing alpha values for parameters.
+        beta_values: Dictionary containing beta values for parameters.
+
+    Returns:
+        None
     """
     xl, xu = problem.bounds()
     plt.figure(figsize=(8, 8))
@@ -458,16 +460,18 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
 def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
                    x_values, y_values, val):
     """
-    Generates and saves various plots related to optimization results.
-    This includes waterfall plots, convergence plots, parameter trend plots,
-    and parameter scan plots.
+    Function to generate and save various plots related to optimization results.
 
-    :param long_df:
-    :param convergence_df:
-    :param ordered_optimizer_runs:
-    :param x_values:
-    :param y_values:
-    :param val:
+    Args:
+        long_df (DataFrame): DataFrame containing parameter values and objective function values.
+        convergence_df (DataFrame): DataFrame containing convergence data.
+        ordered_optimizer_runs (DataFrame): DataFrame containing ordered optimizer runs.
+        x_values (list): X-axis values for the waterfall plot.
+        y_values (list): Y-axis values for the waterfall plot.
+        val (list): Values for the convergence plot.
+
+    Returns:
+        None
     """
     # Waterfall plot
     plt.figure(figsize=(8, 8))

@@ -8,7 +8,16 @@ from functools import lru_cache
 @lru_cache(maxsize=None)
 def _precompute_indices(num_sites):
     """
-    Precompute and cache all bitwise state transition indices needed for the ODE system.
+    Precompute and cache all bitwise state transition indices needed for the random ODE system.
+
+    Args:
+        num_sites (int): Number of phosphorylation sites.
+    Returns:
+        mono_idx (np.array): Precomputed indices for mono-phosphorylated states.
+        forward (np.array): Forward phosphorylation target states.
+        drop (np.array): Dephosphorylation target states.
+        fcounts (np.array): Number of valid forward transitions for each state.
+        dcounts (np.array): Number of valid dephosphorylation transitions for each state.
     """
 
     # Determine number of phosphorylation sites
@@ -78,7 +87,18 @@ def _precompute_indices(num_sites):
 def unpack_params(params, num_sites):
     """
     Unpack parameters for the Random model.
-    Returns: A, B, C, D, S (phosphorylation rates), Ddeg (degradation rates)
+
+    Args:
+        params (np.array): Parameter vector containing A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m.
+        num_sites (int): Number of phosphorylation sites.
+
+    Returns:
+        A (float): mRNA production rate.
+        B (float): mRNA degradation rate.
+        C (float): protein production rate.
+        D (float): protein degradation rate.
+        S (np.array): Phosphorylation rates for each site.
+        Ddeg (np.array): Degradation rates for phosphorylated states.
     """
     params = np.asarray(params)
     A = params[0]
@@ -111,23 +131,23 @@ def ode_system(y, t,
     precomputed transition indices to optimize speed.
 
     Args:
-        y (array): Current state vector [R, P, X_1, ..., X_m].
+        y (np.array): Current state vector [R, P, X_1, ..., X_m].
         t (float): Time (unused; present for compatibility with ODE solvers).
         A (float): mRNA production rate.
         B (float): mRNA degradation rate.
         C (float): protein production rate.
         D (float): protein degradation rate.
         num_sites (int): Number of phosphorylation sites.
-        S (array): Phosphorylation rates for each site.
-        Ddeg (array): Degradation rates for phosphorylated states.
-        mono_idx (array): Precomputed indices for mono-phosphorylated states.
-        forward (2D array): Forward phosphorylation target states.
-        drop (2D array): Dephosphorylation target states.
-        fcounts (array): Number of valid forward transitions for each state.
-        dcounts (array): Number of valid dephosphorylation transitions for each state.
+        S (np.array): Phosphorylation rates for each site.
+        Ddeg (np.array): Degradation rates for phosphorylated states.
+        mono_idx (np.array): Precomputed indices for mono-phosphorylated states.
+        forward (np.array): Forward phosphorylation target states.
+        drop (np.array): Dephosphorylation target states.
+        fcounts (np.array): Number of valid forward transitions for each state.
+        dcounts (np.array): Number of valid dephosphorylation transitions for each state.
 
     Returns:
-        out (array): Derivatives [dR, dP, dX_1, ..., dX_m].
+        out (np.array): Derivatives [dR, dP, dX_1, ..., dX_m].
     """
 
     # Compute number of states (2^n - 1)
@@ -209,7 +229,7 @@ def ode_system(y, t,
         # Apply degradation to this phosphorylated state
         dX[base] -= Ddeg[base] * xi
 
-    # Allocate output array for all derivatives
+    # Allocate output np.array for all derivatives
     out = np.empty(2 + m)
 
     # Store derivative of R
@@ -228,11 +248,12 @@ def ode_system(y, t,
 def solve_ode(popt, y0, num_sites, t):
     """
     Integrate the ODE system for phosphorylation dynamics in random phosphorylation model.
+
     Args:
-        popt (array): Optimized parameter vector [A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m].
-        y0 (array): Initial condition vector [R0, P0, X1_0, ..., Xm_0].
+        popt (np.array): Optimized parameter vector [A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m].
+        y0 (np.array): Initial condition vector [R0, P0, X1_0, ..., Xm_0].
         num_sites (int): Number of phosphorylation sites.
-        t (array): Time points to integrate over.
+        t (np.array): Time points to integrate over.
 
     Returns:
         sol (ndarray): Full ODE solution of shape (len(t), len(y0)).

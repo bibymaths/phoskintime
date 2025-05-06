@@ -32,6 +32,20 @@ def worker_find_lambda(
 ) -> Tuple[float, float, str]:
     """
     Worker function for a single lambda value.
+
+    Args:
+        lam: Regularization parameter.
+        gene: Gene name.
+        target: Target data.
+        p0: Initial parameter guess.
+        time_points: Time points for the model fitting.
+        free_bounds: Parameter bounds for the optimization.
+        init_cond: Initial conditions for the ODE solver.
+        num_psites: Number of phosphorylation sites.
+        p_data: Measurement data.
+
+    Returns:
+        Tuple containing the lambda value, score, and weight key.
     """
 
     def model_func(tpts, *params):
@@ -137,25 +151,21 @@ def find_best_lambda(
 def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
     """
-    Perform normal parameter estimation using all provided time points at once.
-    Uses the provided bounds and supports bootstrapping if specified.
+    Function to estimate parameters for a given gene using ODE models.
 
-    Parameters:
-      - p_data: Measurement data (DataFrame or numpy array). Assumes data starts at column index 2.
-      - r_data: mRNA data (DataFrame or numpy array). Assumes data starts at column index 1.
-      - init_cond: Initial condition for the ODE solver.
-      - num_psites: Number of phosphorylation sites.
-      - time_points: Array of time points to use.
-      - bounds: Dictionary of parameter bounds.
-      - bootstraps: Number of bootstrapping iterations.
-      - use_regularization: Flag to apply Tikhonov regularization.
-      - lambda_reg: Regularization strength.
+    Args:
+        gene: Gene name.
+        p_data: Phosphorylation data.
+        r_data: Reference data.
+        init_cond: Initial conditions for the ODE solver.
+        num_psites: Number of phosphorylation sites.
+        time_points: Time points for the model fitting.
+        bounds: Parameter bounds for the optimization.
+        bootstraps: Number of bootstrap iterations.
+        use_regularization: Whether to use regularization in the fitting process.
 
     Returns:
-      - est_params: List with the full estimated parameter vector.
-      - model_fits: List with the ODE solution and model predictions.
-      - error_vals: List with the squared error (data vs. model prediction).
-      - regularization_term: Regularization term.
+        Tuple containing estimated parameters, model fits, error values, and regularization term.
     """
     est_params, model_fits, error_vals = [], [], []
 
@@ -216,9 +226,12 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         """
         Define the model function for curve fitting.
 
-        :param tpts:
-        :param params:
-        :return: model predictions
+        Args:
+            tpts: Time points.
+            params: Parameters for the model.
+
+        Returns:
+            y_model: Model predictions.
         """
         if ODE_MODEL == 'randmod':
             param_vec = np.exp(np.asarray(params))

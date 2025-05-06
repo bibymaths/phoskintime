@@ -26,15 +26,16 @@ def process_gene(
     """
     Process a single gene by estimating its parameters and generating plots.
 
-    :param gene:
-    :param kinase_data:
-    :param mrna_data:
-    :param time_points:
-    :param bounds:
-    :param bootstraps:
-    :param out_dir:
+    Args:
+        gene (str): Gene name.
+        kinase_data (pd.DataFrame): DataFrame containing kinase data.
+        mrna_data (pd.DataFrame): DataFrame containing mRNA data.
+        time_points (list): List of time points for the experiment.
+        bounds (tuple): Bounds for parameter estimation.
+        bootstraps (int, optional): Number of bootstrap iterations. Defaults to 0.
+        out_dir (str, optional): Output directory for saving results. Defaults to OUT_DIR.
 
-    :return:
+    Returns:
         - gene: The gene being processed.
         - estimated_params: Estimated parameters for the gene.
         - model_fits: Model fits for the gene.
@@ -219,19 +220,19 @@ def process_gene(
 
 def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
     """
-    Wrapper function to process a gene. This function is a placeholder for
-    any additional processing or modifications needed before calling the
-    main processing function.
+    Wrapper function to process a gene.
 
-    :param gene:
-    :param kinase_data:
-    :param mrna_data:
-    :param time_points:
-    :param bounds:
-    :param bootstraps:
-    :param out_dir:
-    :return:
-        - result: Dictionary containing the results of the gene processing.
+    Args:
+        gene (str): Gene name.
+        kinase_data (pd.DataFrame): DataFrame containing kinase data.
+        mrna_data (pd.DataFrame): DataFrame containing mRNA data.
+        time_points (list): List of time points for the experiment.
+        bounds (tuple): Bounds for parameter estimation.
+        bootstraps (int, optional): Number of bootstrap iterations. Defaults to 0.
+        out_dir (str, optional): Output directory for saving results. Defaults to OUT_DIR.
+
+    Returns:
+        dict: A dictionary containing the results of the gene processing.
     """
     return process_gene(
         gene=gene,

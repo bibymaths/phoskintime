@@ -47,8 +47,9 @@ class Plotter:
         """
         Plots a parallel coordinates plot for the given solution.
 
-        :param solution: 2D numpy array of shape (sampels, features)
-        :param labels: list of labels
+        Args:
+            solution (np.ndarray): 2D numpy array of shape (samples, features) representing the data.
+            labels (list): List of labels for the features in the solution.
         """
         df = pd.DataFrame(solution, columns=labels)
         df['Time'] = range(1, len(df) + 1)
@@ -85,9 +86,9 @@ class Plotter:
         """
         Plots a scree plot showing the explained variance ratio for PCA components.
 
-        :param solution: 2D numpy array of shape (samples, features) representing the data.
-        :param target_variance: The target cumulative explained variance to determine the required number of components.
-        :return: A tuple containing the number of required components and the explained variance ratio.
+        Args:
+            solution (np.ndarray): 2D numpy array of shape (samples, features) representing the data.
+            target_variance (float): The target variance to explain. Defaults to 0.99.
         """
 
         pca = PCA(n_components=min(solution.shape))
@@ -115,8 +116,12 @@ class Plotter:
         """
         Plots the PCA results for the given solution.
 
-        :param solution: 2D numpy array of shape (samples, features) representing the data.
-        :param components: Number of PCA components to plot. Defaults to 3.
+        Args:
+            solution (np.ndarray): 2D numpy array of shape (samples, features) representing the data.
+            components (int): Number of PCA components to plot. Defaults to 3.
+
+        Returns:
+            tuple: PCA result and explained variance ratio.
         """
         pca = PCA(n_components=components)
         pca_result = pca.fit_transform(solution)
@@ -146,8 +151,12 @@ class Plotter:
         """
         Plots a t-SNE visualization of the given solution.
 
-        :param solution: 2D numpy array of shape (samples, features) representing the data.
-        :param perplexity: Perplexity parameter for t-SNE. Defaults to 30.
+        Args:
+            solution (np.ndarray): 2D numpy array of shape (samples, features) representing the data.
+            perplexity (int): The perplexity parameter for t-SNE. Defaults to 30.
+
+        Returns:
+            np.ndarray: The t-SNE result.
         """
         perplexity = min(perplexity, len(solution) - 1)
         tsne_result = TSNE(n_components=2, perplexity=perplexity, random_state=42).fit_transform(solution)
@@ -172,12 +181,10 @@ class Plotter:
         """
         Plots the time series of estimated parameters over the given time points.
 
-        This method visualizes the evolution of kinetic rates or parameters
-        over time for a specific gene.
-
-        :param estimated_params: List of estimated parameter values at each time point.
-        :param param_names: List of parameter names corresponding to the estimated parameters.
-        :param time_points: 1D numpy array of time points.
+        Args:
+            estimated_params (list): List of estimated parameters.
+            param_names (list): List of parameter names.
+            time_points (np.ndarray): Array of time points.
         """
         arr = np.array(estimated_params)
         fig, ax = plt.subplots(figsize=(8, 8))
@@ -195,7 +202,9 @@ class Plotter:
         """
         Plots the profiles of estimated parameters over time.
 
-        :param data: DataFrame containing the estimated parameters and time points.
+        Args:
+            data (pd.DataFrame): DataFrame containing the time series data.
+
         """
         fig, ax = plt.subplots(figsize=(8, 8))
         for col in data.columns:
@@ -214,14 +223,14 @@ class Plotter:
         """
         Plots the model fit for the given data.
 
-        :param model_fit: Estimated model fit values.
-        :param P_data: Observed data for phosphorylation levels.
-        :param R_data: Observed data for mRNA levels.
-        :param sol: ODE solution for mRNA and protein levels.
-        :param num_psites: number of phosphorylation sites.
-        :param psite_labels: labels for the phosphorylation sites.
-        :param time_points: time points for the data.
-        :return:
+        Args:
+            model_fit (np.ndarray): The model fit data.
+            P_data (np.ndarray): The phosphorylation data.
+            R_data (np.ndarray): The mRNA data.
+            sol (np.ndarray): The solution data.
+            num_psites (int): The number of phosphorylation sites.
+            psite_labels (list): The labels for the phosphorylation sites.
+            time_points (np.ndarray): The time points for the data.
         """
         model_fit = model_fit[9:].reshape(num_psites, 14)
         cutoff_idx = 8
@@ -313,11 +322,12 @@ class Plotter:
 
     def plot_param_scatter(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
         """
-        Plots scatter and density plots for (A, S), (B, S), (C, S), (D, S).
+        Plots scatter and density plots for parameters.
 
-        :param est_arr: Estimated parameters array.
-        :param num_psites: Number of phosphorylation sites.
-        :param time_vals: Time values for the data.
+        Args:
+            est_arr (np.ndarray): 2D numpy array of estimated parameters.
+            num_psites (int): Number of phosphorylation sites.
+            time_vals (np.ndarray): Array of time values.
         """
         est_arr = np.array(est_arr)
         cmap = plt.get_cmap("viridis")
@@ -382,7 +392,8 @@ class Plotter:
 
     def plot_heatmap(self, param_value_df: pd.DataFrame):
         """
-        Expects param_value_df to have a 'Protein' column.
+        Args:
+            param_value_df (pd.DataFrame): DataFrame containing parameter values with 'Protein' as one of the columns.
         """
         df = param_value_df.copy()
         if 'Protein' in df.columns:
@@ -396,7 +407,8 @@ class Plotter:
 
     def plot_error_distribution(self, error_df: pd.DataFrame):
         """
-        Expects error_df to have a 'MAE' column.
+        Args:
+            error_df (pd.DataFrame): DataFrame containing errors with 'MAE' as one of the columns.
         """
         fig, ax = plt.subplots(figsize=(8, 8))
         sns.histplot(error_df['MAE'], kde=True, color='blue', label='MSE', ax=ax)
@@ -411,6 +423,9 @@ class Plotter:
     def plot_gof(self, merged_data: pd.DataFrame):
         """
         Plot the goodness of fit for the model.
+
+        Args:
+            merged_data (pd.DataFrame): Dataframe containing merged data.
         """
         overall_std = merged_data.loc[:, 'x1_obs':'x14_obs'].values.std()
         ci_offset_95 = 1.96 * overall_std
@@ -475,6 +490,9 @@ class Plotter:
     def plot_kld(self, merged_data: pd.DataFrame):
         """
         Plots the Kullback-Divergence for the model.
+
+        Args:
+            merged_data (pd.DataFrame): Dataframe containing merged data.
         """
         obs_data = merged_data.loc[:, 'x1_obs':'x14_obs']
         est_data = merged_data.loc[:, 'x1_est':'x14_est']
@@ -494,7 +512,7 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{model_type}_kld_.png")
 
-    def plot_params_bar(self, ci_results: dict, param_labels: list = None, time: str = None):
+    def plot_params_bar(self, ci_results: dict, param_labels: list = None):
         """
         Plots bar plot for estimated parameter with 95% Confidence Interval.
         """

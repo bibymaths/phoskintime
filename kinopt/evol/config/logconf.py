@@ -26,6 +26,14 @@ class ColoredFormatter(logging.Formatter):
         self.width = width
 
     def format(self, record):
+        """
+        Format the log record with ANSI color codes and elapsed time.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+        Returns:
+            str: The formatted log message with ANSI color codes.
+        """
         elapsed = (datetime.now() - self.start_time).total_seconds()
         elapsed_str = f"{LOG_COLORS['ELAPSED']}⏱ {format_duration(elapsed)}{LOG_COLORS['ENDC']}"
 
@@ -43,6 +51,14 @@ class ColoredFormatter(logging.Formatter):
 
     @staticmethod
     def remove_ansi(s):
+        """
+        Remove ANSI escape codes from a string.
+
+        Args:
+            s (str): The string from which to remove ANSI escape codes.
+        Returns:
+            str: The string without ANSI escape codes.
+        """
         ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
         return ansi_escape.sub('', s)
 
@@ -56,6 +72,21 @@ def setup_logger(
         max_bytes=2 * 1024 * 1024,
         backup_count=5
 ):
+    """
+    Function to set up a logger with both file and console handlers.
+
+    Args:
+        name (str): Name of the logger.
+        log_file (str): Path to the log file. If None, a default path is generated.
+        level (int): Logging level (e.g., logging.DEBUG, logging.INFO).
+        log_dir (str): Directory where log files are stored.
+        rotate (bool): Whether to use rotating file handler.
+        max_bytes (int): Maximum size of log file before rotation.
+        backup_count (int): Number of backup files to keep.
+
+    Returns:
+        logger (logging.Logger): Configured logger instance.
+    """
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 

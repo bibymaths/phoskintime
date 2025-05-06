@@ -7,22 +7,17 @@ logger = setup_logger()
 
 def extract_parameters(P_initial, gene_psite_counts, K_index, optimized_params):
     """
-    Extracts the optimized alpha and beta values from the optimized parameters.
-    The function organizes the values into dictionaries for easy access and
-    interpretation. The alpha values are associated with gene-psite pairs and
-    their corresponding kinases, while the beta values are associated with
-    kinase-psite pairs. The function also logs the optimized values for
-    transparency and debugging purposes.
+    Function to extract alpha and beta values from the optimized parameters.
 
-    The function takes the following parameters:
-    :param P_initial:
-    :param gene_psite_counts:
-    :param K_index:
-    :param optimized_params:
+    Args:
+        P_initial (dict): Dictionary containing initial parameters for each gene-psite pair.
+        gene_psite_counts (list): List of counts for each gene-psite pair.
+        K_index (dict): Dictionary mapping kinases to their respective psite pairs.
+        optimized_params (list): List of optimized parameters.
 
-    :return:
-    - alpha_values: Dictionary mapping (gene, psite) to a dictionary of kinases and their alpha values.
-    - beta_values: Dictionary mapping (kinase, psite) to their corresponding beta values.
+    Returns:
+        alpha_values (dict): Dictionary containing alpha values for each gene-psite pair.
+        beta_values (dict): Dictionary containing beta values for each kinase-psite pair.
     """
     alpha_values = {}
     alpha_start = 0
@@ -53,32 +48,30 @@ def extract_parameters(P_initial, gene_psite_counts, K_index, optimized_params):
     return alpha_values, beta_values
 
 
-def compute_metrics(optimized_params, P_initial, P_initial_array, K_index, K_array,
-                    gene_psite_counts, beta_counts, n):
+def compute_metrics(optimized_params: np.ndarray, P_initial: dict, P_initial_array: np.ndarray,
+                    K_index: dict, K_array: np.ndarray,
+                    gene_psite_counts: list, beta_counts: dict, n: int):
     """
-    Computes various error metrics to evaluate the performance of the optimization process.
-    The function calculates the Mean Squared Error (MSE), Root Mean Squared Error (RMSE),
-    Mean Absolute Error (MAE), Mean Absolute Percentage Error (MAPE), and R-squared value.
-    These metrics provide insights into the accuracy of the estimated time series compared to the observed data.
+    Function to compute error metrics for the estimated series.
 
-    The function takes the following parameters:
-    :param optimized_params:
-    :param P_initial:
-    :param P_initial_array:
-    :param K_index:
-    :param K_array:
-    :param gene_psite_counts:
-    :param beta_counts:
-    :param n:
+    Args:
+        optimized_params (list): List of optimized parameters.
+        P_initial (dict): Dictionary containing initial parameters for each gene-psite pair.
+        P_initial_array (np.ndarray): Array of initial parameters.
+        K_index (dict): Dictionary mapping kinases to their respective psite pairs.
+        K_array (np.ndarray): Array of kinases.
+        gene_psite_counts (list): List of counts for each gene-psite pair.
+        beta_counts (dict): List of counts for each kinase-psite pair.
+        n (int): Number of samples.
 
-    :return:
-    - P_estimated: Estimated time series matrix for all gene-psite combinations.
-    - residuals: Residuals between observed and estimated values.
-    - mse: Mean Squared Error.
-    - rmse: Root Mean Squared Error.
-    - mae: Mean Absolute Error.
-    - mape: Mean Absolute Percentage Error.
-    - r_squared: R-squared value.
+    Returns:
+        P_estimated (np.ndarray): Estimated series.
+        residuals (np.ndarray): Residuals between initial and estimated series.
+        mse (float): Mean Squared Error.
+        rmse (float): Root Mean Squared Error.
+        mae (float): Mean Absolute Error.
+        mape (float): Mean Absolute Percentage Error.
+        r_squared (float): R-squared value.
     """
     P_estimated = estimated_series(
         optimized_params, P_initial, K_index, K_array, gene_psite_counts, beta_counts
