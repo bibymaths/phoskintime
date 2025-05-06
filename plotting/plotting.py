@@ -2,6 +2,7 @@ import itertools
 import matplotlib.cm as cm
 import os, re
 import seaborn as sns
+import matplotlib
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -17,7 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA, \
     PERTURBATIONS_TRACE_OPACITY
-
+matplotlib.use('Agg')
 
 class Plotter:
     """

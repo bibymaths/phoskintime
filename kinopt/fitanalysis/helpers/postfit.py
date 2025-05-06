@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.cm as cm
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -11,9 +12,8 @@ import seaborn as sns
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-
 from kinopt.evol.config.constants import OUT_DIR
-
+matplotlib.use('Agg')
 
 def goodnessoffit(estimated, observed):
     """
