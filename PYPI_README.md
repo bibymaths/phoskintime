@@ -1,4 +1,6 @@
 # PhosKinTime
+ 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
 ![NumPy](https://img.shields.io/badge/NumPy-*-red.svg)

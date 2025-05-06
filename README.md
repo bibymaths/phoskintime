@@ -1,41 +1,10 @@
 # PhosKinTime
-
-<img src="static/images/logo_3.png" alt="Package Logo" width="200"/> 
-
-
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
-![NumPy](https://img.shields.io/badge/NumPy-*-red.svg)
-![Pandas](https://img.shields.io/badge/Pandas-*-yellowgreen.svg)
-![Matplotlib](https://img.shields.io/badge/Matplotlib-*-blueviolet.svg)
-![SciPy](https://img.shields.io/badge/SciPy-*-orange.svg)
-![Plotly](https://img.shields.io/badge/Plotly-*-brightgreen.svg)
-![Openpyxl](https://img.shields.io/badge/Openpyxl-*-lightgrey.svg)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-*-lightgrey.svg)
-![tqdm](https://img.shields.io/badge/tqdm-*-informational.svg)
-![Numba](https://img.shields.io/badge/Numba-*-yellowgreen.svg)
-![XlsxWriter](https://img.shields.io/badge/XlsxWriter-*-success.svg)
-![statsmodels](https://img.shields.io/badge/statsmodels-*-blue.svg)
-![pymoo](https://img.shields.io/badge/pymoo-*-orange.svg)
-![adjustText](https://img.shields.io/badge/adjustText-*-yellow.svg)
-![SALib](https://img.shields.io/badge/SALib-*-lightgrey.svg)
-![Graphviz](https://img.shields.io/badge/Graphviz-*-purple.svg)
-![mygene](https://img.shields.io/badge/mygene-*-green.svg)
-![python-dotenv](https://img.shields.io/badge/python--dotenv-*-blue.svg)
-![cobyqa](https://img.shields.io/badge/cobyqa-*-orange.svg)
-
-[![CI/CD](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml/badge.svg)](https://github.com/bibymaths/phoskintime/actions/workflows/test.yml)
-
-<!-- [![codecov](https://codecov.io/gh/bibymaths/phoskintime/branch/master/graph/badge.svg?token=JVCFNL8VLZ)](https://codecov.io/gh/bibymaths/phoskintime) --> 
+ 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
 parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers
 explore kinase-substrate interactions in a temporal context.
-
-<p align="center">
-  <img src="static/gif/optimization_run.gif" alt="NSGA-2 Run" style="width:300px;"/>
-  <br/>
-  <em>NSGA-2 Optimization Run</em>
-</p>
 
 ## Acknowledgments
 
