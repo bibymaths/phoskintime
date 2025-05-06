@@ -71,7 +71,32 @@ kinopt/
   Provides additional tools to evaluate the fit and performance of the optimized model.
 
 ---
+ 
+## Model Equation 
 
+$$
+P_i(t) = \sum_{j} Q_{i,j} \, \alpha_{i,j} \left( \sum_{k} \beta_{k,j} \cdot P^k_j(t) \right)
+$$
+
+**Subject to:**
+
+$$
+0 \leq \alpha_{i,j} \leq 1, \quad \sum_{j} \alpha_{i,j} = 1
+$$
+
+$$
+-2 \leq \beta_{k,j} \leq 2, \quad \sum_{k} \beta_{k,j} = 1
+$$
+
+**Where:**
+
+- $P_i(t)$: predicted phosphorylation level of protein $i$ at time $t$  
+- $Q_{i,j}$: binary indicator (1 if kinase $j$ targets protein $i$, 0 otherwise)  
+- $\alpha_{i,j}$: effect of kinase $j$ on protein $i$ (non-negative, normalized per protein)  
+- $\beta_{k,j}$: effect of phosphorylation site $k$ on kinase $j$ (can be positive or negative, normalized per kinase)  
+- $P^k_j(t)$: observed phosphorylation level of site $k$ on kinase $j$ at time $t$
+
+---
 ## Features
 
 - **Modular Architecture:**  

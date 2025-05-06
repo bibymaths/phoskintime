@@ -41,15 +41,6 @@ These contributions are modulated by two sets of parameters:
 
 Here, $ \beta_{0,j} $ multiplies the raw TF protein signal, and the remaining terms multiply phosphorylation site
 contributions.
-
-The full predicted mRNA time series is then:
-
-$$
-\hat{R}_i(t) = \sum_{j\in \mathcal{J}_i} \alpha_{i,j} \cdot TF_{i,j}(t) \left( \beta_{0,j} + \sum_{k=1}^{K_j} PSite_{k,j}(t) \cdot \beta_{k,j} \right)
-$$
-
-where $ \mathcal{J}_i $ is the set of TFs regulating gene *i* (according to the interaction data).
-
 ---
 
 ## Objective Function
@@ -70,7 +61,7 @@ This formulation supports multiple loss types (MSE, MAE, soft L1, Cauchy, etc.) 
 ### α-constraints (for each mRNA *i*):
 
 $$
-\sum_{j\in \mathcal{J}_i} \alpha_{i,j} = 1, \quad 0 \le \alpha_{i,j} \le 1
+\sum_{j \in J_i} \alpha_{i,j} = 1, \quad 0 \le \alpha_{i,j} \le 1
 $$
 
 ### β-constraints (for each TF *j*):
@@ -88,7 +79,7 @@ This ensures that weights are interpretable and stable.
 The final optimization problem is:
 
 $$
-\min_{\{\alpha,\beta\}} \sum_i \sum_t \left( R_i(t) - \sum_{j\in \mathcal{J}_i} \alpha_{i,j} \cdot TF_{i,j}(t) \left( \beta_{0,j} + \sum_{k=1}^{K_j} PSite_{k,j}(t) \cdot \beta_{k,j} \right) \right)^2
+\min_{\{\alpha,\beta\}} \sum_i \sum_t \left( R_i(t) - \sum_{j\in J_i} \alpha_{i,j} \cdot TF_{i,j}(t) \cdot \left( \beta_{0,j} + \sum_k PSite_{k,j}(t) \cdot \beta_{k,j} \right) \right)^2
 $$
 
 subject to the constraints above. This enables estimation of regulatory influences in a biologically meaningful and

@@ -14,9 +14,6 @@ def ensure_output_directory(directory):
 
     Args:
         directory (str): Path to the output directory.
-
-    Returns:
-        None
     """
     os.makedirs(directory, exist_ok=True)
 
@@ -58,6 +55,7 @@ def merge_obs_est(filename):
 
     Args:
         filename (str): Path to the Excel file containing observed and estimated data.
+
     Returns:
         pd.DataFrame: Merged DataFrame containing observed and estimated values for each gene and Psite.
     """

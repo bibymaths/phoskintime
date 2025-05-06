@@ -6,7 +6,7 @@ site_author: Abhinav Mishra
 repo_url: https://github.com/bibymaths/phoskintime
 
 theme:
-  name: material
+  name: readthedocs
   palette:
     - scheme: default
       primary: deep purple

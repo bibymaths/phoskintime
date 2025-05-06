@@ -12,6 +12,7 @@ def _precompute_indices(num_sites):
 
     Args:
         num_sites (int): Number of phosphorylation sites.
+
     Returns:
         mono_idx (np.array): Precomputed indices for mono-phosphorylated states.
         forward (np.array): Forward phosphorylation target states.

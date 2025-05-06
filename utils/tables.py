@@ -17,7 +17,7 @@ def generate_tables(xlsx_file_path):
         xlsx_file_path (str): Path to the XLSX file containing alpha and beta values.
 
     Returns:
-        List of tuples containing protein, psite, and the corresponding table.
+        tuple: containing protein, psite, and the corresponding table.
     """
     # Load alpha and beta values from the XLSX file
     alpha_values = pd.read_excel(xlsx_file_path, sheet_name="Alpha Values")

@@ -38,31 +38,64 @@ equations $f(\mathbf{y}) = 0$.
 You solve a nonlinear system:
 
 $$
-\begin{aligned}
-A - B R &= 0 \\
-C R - (D + \sum S_i) P + \sum P_i &= 0 \\
-S_i P - (1 + D_i) P_i &= 0 \quad \forall i
-\end{aligned}
+A - B R = 0  
+$$ 
+ 
+$$
+C R - (D + \sum S_i) P + \sum P_i = 0  
+$$ 
+ 
+$$
+S_i P - (1 + D_i) P_i = 0 \quad \forall i
 $$
 
 ---
 
 ### 2. **Successive Model**
 
-- Sites are phosphorylated in sequence
-- Initial condition requires that **flow through the chain** is at equilibrium:
-    - $P \rightarrow P_0 \rightarrow P_1 \rightarrow \dots \rightarrow P_n$
-
-Steady-state means each conversion step:
-
-- Has equal incoming and outgoing rates
-- Balances intermediate accumulations
+- Sites are phosphorylated in a fixed order:
+  $P \to P_0 \to P_1 \to \dots \to P_n$
+- Steady-state requires:
+    - mRNA and protein production/degradation balance
+    - Each intermediate state receives and passes flux without accumulation
 
 You solve:
 
 $$
-\text{Same logic, but with additional internal terms involving adjacent states}
+A - B \cdot R = 0
 $$
+
+$$
+C \cdot R - S_0 \cdot P + D_0 \cdot P_0 = 0
+$$
+
+$$
+S_0 \cdot P - (S_1 + D_0) \cdot P_0 + D_1 \cdot P_1 = 0
+$$
+
+$$
+S_1 \cdot P_0 - (S_2 + D_1) \cdot P_1 + D_2 \cdot P_2 = 0
+$$
+
+$$
+\vdots
+$$
+
+$$
+S_{n-1} \cdot P_{n-2} - (S_n + D_{n-1}) \cdot P_{n-1} + D_n \cdot P_n = 0
+$$
+
+$$
+S_n \cdot P_{n-1} - D_n \cdot P_n = 0
+$$
+
+**Where:**
+
+- $R$: mRNA concentration  
+- $P$: unphosphorylated protein  
+- $P_i$: protein with $i$ sites phosphorylated in sequence  
+- $S_i$: phosphorylation rate from $P_{i-1} \to P_i$  
+- $D_i$: degradation rate of $P_i$
 
 ---
 
@@ -77,13 +110,19 @@ You construct a system:
 - One for each state $X_j$ (each subset of phosphorylated sites)
 - For each state, compute net phosphorylation in/out, and degradation
 
-Mathematically:
+At steady state, each phosphorylated state $X_j$ satisfies:
 
 $$
-\text{Each state } X_j: \quad \text{gain from P or other } X_k \quad - \quad \text{loss by phosphorylation, degradation, etc.} = 0
+\frac{dX_j}{dt} = \sum_{k \in N_j^{\text{in}}} S_{k \to j} \cdot X_k \sum_{l \in N_j^{\text{out}}} S_{j \to l} \cdot X_j D_j \cdot X_j = 0
 $$
 
-This is a **sparse, coupled nonlinear system** where each subset has dynamic transitions with others.
+**Where:**
+
+- $X_j$: concentration of phosphorylation state $j$  
+- $N_j^{\text{in}}$: set of states $k$ that transition into $X_j$  
+- $N_j^{\text{out}}$: set of states $l$ that $X_j$ can transition into  
+- $S_{a \rightarrow b}$: rate constant for transition from state $a$ to $b$ (e.g., phosphorylation/dephosphorylation)  
+- $D_j$: degradation rate of state $X_j$ (depends on its phosphorylation pattern)
 
 ---
 

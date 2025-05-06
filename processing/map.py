@@ -67,7 +67,7 @@ def create_cytoscape_table(mapping_csv_path):
                                 TF, TF_strength, mRNA, Psite, Kinase, Kinase_strength
 
     Returns:
-        pd.DataFrame: Edge table with columns [Source, Target, Interaction, Strength]
+        table (pd.DataFrame): Edge table with columns [Source, Target, Interaction, Strength]
     """
     df = pd.read_csv(mapping_csv_path)
 

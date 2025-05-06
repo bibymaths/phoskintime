@@ -68,9 +68,11 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
 def unpack_params(params, num_psites):
     """
     Function to unpack the parameters for the distributive ODE system.
+
     Args:
         params(np.array): Parameter vector containing A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m.
         num_psites(int): Number of phosphorylation sites.
+
     Returns:
         A (float): mRNA production rate.
         B (float): mRNA degradation rate.
