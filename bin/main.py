@@ -38,6 +38,11 @@ def main():
     Main function to run the phosphorylation modelling process.
     It reads the configuration, loads the data, and processes each gene in parallel.
     It also handles logging and output organization.
+
+    Args:
+        None
+    Returns:
+        None
     """
     # Set up the logger
     logger.info("           --------------------------------")

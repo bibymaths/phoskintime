@@ -8,15 +8,12 @@ def _apply_knockout(base_params: np.ndarray,
     """
     Return a modified parameter vector simulating in silico knockouts.
 
-    knockout_targets can include keys:
-      - 'transcription': bool (zero A)
-      - 'translation': bool (zero C)
-      - 'phosphorylation': bool or list of site indices (zero S_rates)
-
-    :param base_params: original parameters (A,B,C,D, S_rates..., D_rates...)
-    :param knockout_targets: dict specifying which processes to knock out
-    :param num_psites: number of phosphorylation sites
-    :return: new params array with specified knockouts
+    Args:
+        base_params (np.ndarray): Original parameter vector.
+        knockout_targets (dict): Dictionary with knockout targets.
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        np.ndarray: Modified parameter vector with knockouts applied.
     """
     params = base_params.copy()
     # Transcription knockout
@@ -42,6 +39,11 @@ def _apply_knockout(base_params: np.ndarray,
 def _generate_knockout_combinations(num_psites: int):
     """
     Generate all possible knockout combinations.
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+    Returns:
+        list: List of dictionaries representing knockout combinations.
     """
     combinations = []
     transcription_options = [False, True]

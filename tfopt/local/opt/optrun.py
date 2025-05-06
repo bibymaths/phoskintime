@@ -7,7 +7,7 @@ def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protei
     """
     Runs the optimization algorithm to minimize the objective function.
 
-    Parameters:
+    Args:
       x0                  : Initial guess for the optimization variables.
       bounds              : Bounds for the optimization variables.
       lin_cons            : Linear constraints for the optimization problem.

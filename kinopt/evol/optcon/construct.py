@@ -22,14 +22,20 @@ def _load_and_scale_data(
         estimate_missing_kinases: bool
 ):
     """
-    Loads two CSV files, applies scaling to the time-series columns of `input1`, and subsets/merges them.
-    The first file is the full HGNC data, and the second file contains kinase interactions.
-    The function also handles the conversion of kinases from string format to list format.
+    Function to load and scale data from two CSV files.
 
+    Args:
+        input1_path (str): Path to the first CSV file (HGNC data).
+        input2_path (str): Path to the second CSV file (kinase interactions).
+        time_series_columns (list[str]): List of time series columns to extract.
+        scaling_method (str): Method for scaling the data.
+        split_point (float): Split point for scaling.
+        segment_points (list[float]): Segment points for scaling.
+        estimate_missing_kinases (bool): Flag to estimate missing kinases.
     Returns:
-        full_hgnc_df (pd.DataFrame): The scaled data from input1
-        interaction_df (pd.DataFrame): The subset/merged DataFrame from input2
-        observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df
+        full_hgnc_df (pd.DataFrame): The scaled data from input1.
+        interaction_df (pd.DataFrame): The subset/merged DataFrame from input2.
+        observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df.
     """
     # 1) Load the data
     full_hgnc_df = pd.read_csv(input1_path)
@@ -86,17 +92,16 @@ def _build_p_initial(
         time_series_cols: list[str]
 ):
     """
-    Constructs the P_initial dictionary and the P_initial_array.
-    P_initial is a dictionary with keys as (gene, psite) tuples and values
-    as dictionaries containing 'Kinases' and 'TimeSeries'.
-    P_initial_array is a numpy array of the time series data.
-    Each row corresponds to a gene-psite pair and each column corresponds
-    to a time point.
+    Function to build the P_initial structure.
 
-    :param interaction_df: DataFrame containing kinase interactions
-    :param full_hgnc_df: DataFrame containing full HGNC data
-    :param time_series_cols: List of time series columns to extract
-    :return: P_initial (dict), P_initial_array (np.ndarray)
+    Args:
+        interaction_df (pd.DataFrame): DataFrame containing kinase interactions.
+        full_hgnc_df (pd.DataFrame): DataFrame containing scaled HGNC data.
+        time_series_cols (list[str]): List of time series columns to extract.
+
+    Returns:
+        P_initial (dict): Dictionary mapping gene-psite pairs to kinase relationships and time-series data.
+        P_initial_array (np.ndarray): Array containing observed time-series data for gene-psite pairs.
     """
     P_initial = {}
     P_initial_array = []
@@ -139,13 +144,20 @@ def _build_k_array(
         kinase_to_psites: dict[str, int]
 ):
     """
-    Constructs the K_index and K_array for kinases.
-    K_index is a dictionary mapping each kinase to its corresponding psite and time series data.
-    K_array is a numpy array of the time series data for each kinase-psite combination.
-    Each row corresponds to a kinase-psite pair and each column corresponds
-    to a time point.
-    The function also handles the case where kinases are missing
-    and creates placeholder zeros to be ignored in the optimization.
+    Function to build the Kinase time series structure.
+
+    Args:
+        interaction_df (pd.DataFrame): DataFrame containing kinase interactions.
+        full_hgnc_df (pd.DataFrame): DataFrame containing scaled HGNC data.
+        time (list[str]): List of time series columns to extract.
+        estimate_missing_kinases (bool): Flag to estimate missing kinases.
+        kinase_to_psites (dict[str, int]): Dictionary mapping kinases to their respective psites.
+
+    Returns:
+        K_index (dict): Mapping of kinases to their respective psite data.
+        K_array (np.ndarray): Array containing time-series data for kinase-psite combinations.
+        beta_counts (dict): Mapping of kinase indices to the number of associated psites.
+
     """
     K_index = {}
     K_array = []
@@ -204,32 +216,29 @@ def pipeline(
         kinase_to_psites: dict[str, int]
 ):
     """
-    Constructs the pipeline for the optimization process.
-    This function orchestrates the loading of data, scaling,
-    and the construction of the P_initial and K_array structures.
-    It returns the necessary data structures for the optimization process.
-    The function takes the following parameters:
+    Function to run the entire pipeline for loading and processing data.
 
-    :param input1_path: Path to the first CSV file (HGNC data)
-    :param input2_path: Path to the second CSV file (kinase interactions)
-    :param time_series_columns: List of time series columns to extract
-    :param scaling_method: Method for scaling the data
-    :param split_point: Split point for scaling
-    :param segment_points: Segment points for scaling
-    :param estimate_missing_kinases: Boolean flag for estimating missing kinases
-    :param kinase_to_psites: Dictionary mapping kinases to their respective psites
+    Args:
+        input1_path (str): Path to the first CSV file (HGNC data).
+        input2_path (str): Path to the second CSV file (kinase interactions).
+        time_series_columns (list[str]): List of time series columns to extract.
+        scaling_method (str): Method for scaling the data.
+        split_point (float): Split point for scaling.
+        segment_points (list[float]): Segment points for scaling.
+        estimate_missing_kinases (bool): Flag to estimate missing kinases.
+        kinase_to_psites (dict[str, int]): Dictionary mapping kinases to their respective psites.
 
-    :return: Tuple containing:
-        - full_hgnc_df (pd.DataFrame): The scaled data from input1
-        - interaction_df (pd.DataFrame): The subset/merged DataFrame from input2
-        - observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df
-        - P_initial (dict): Initial mapping of gene-psite pairs to kinase relationships and time-series data
-        - P_initial_array (np.ndarray): Array containing observed time-series data for gene-psite pairs
-        - K_index (dict): Mapping of kinases to their respective psite data
-        - K_array (np.ndarray): Array containing time-series data for kinase-psite combinations
-        - beta_counts (dict): Mapping of kinase indices to the number of associated psites
-        - gene_psite_counts (list): Number of kinases per gene-psite combination
-        - n (int): Number of decision variables in the optimization problem
+    Returns:
+        full_hgnc_df (pd.DataFrame): The scaled data from input1.
+        interaction_df (pd.DataFrame): The subset/merged DataFrame from input2.
+        observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df.
+        P_initial (dict): Dictionary mapping gene-psite pairs to kinase relationships and time-series data.
+        P_initial_array (np.ndarray): Array containing observed time-series data for gene-psite pairs.
+        K_array (np.ndarray): Array containing time-series data for kinase-psite combinations.
+        K_index (dict): Mapping of kinases to their respective psite data.
+        beta_counts (dict): Mapping of kinase indices to the number of associated psites.
+        gene_psite_counts (list): List of counts of psites for each gene.
+        n (int): Number of unique gene-psite pairs.
     """
     # 1) Load and scale
     full_hgnc_df, interaction_df, observed = _load_and_scale_data(
@@ -261,20 +270,27 @@ def pipeline(
     gene_psite_counts = [len(data['Kinases']) for data in P_initial.values()]
 
     return (
-        full_hgnc_df,  # pd.DataFrame
-        interaction_df,  # pd.DataFrame
-        observed,  # pd.DataFrame
-        P_initial,  # dict
-        P_initial_array,  # np.ndarray
-        K_array,  # np.ndarray
-        K_index,  # dict
-        beta_counts,  # dict
-        gene_psite_counts,  # list
-        n  # int
+        full_hgnc_df,
+        interaction_df,
+        observed,
+        P_initial,
+        P_initial_array,
+        K_array,
+        K_index,
+        beta_counts,
+        gene_psite_counts,
+        n
     )
 
 
 def load_geneid_to_psites(input1_path=INPUT1):
+    """
+    Function to load geneid to psite mapping from input1.csv.
+    Args:
+        input1_path (str): Path to the first CSV file (HGNC data).
+    Returns:
+        geneid_psite_map (dict): Dictionary mapping gene IDs to sets of psites.
+    """
     geneid_psite_map = defaultdict(set)
     with open(input1_path, newline='') as f:
         reader = csv.DictReader(f)
@@ -287,6 +303,13 @@ def load_geneid_to_psites(input1_path=INPUT1):
 
 
 def get_unique_kinases(input2_path=INPUT2):
+    """
+    Function to extract unique kinases from input2.csv.
+    Args:
+        input2_path (str): Path to the second CSV file (kinase interactions).
+    Returns:
+        kinases (set): Set of unique kinases extracted from the input2 file.
+    """
     kinases = set()
     with open(input2_path, newline='') as f:
         reader = csv.DictReader(f)
@@ -304,6 +327,15 @@ def get_unique_kinases(input2_path=INPUT2):
 
 
 def check_kinases():
+    """
+    Function to check if kinases from input2.csv are present in input1.csv.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     geneid_to_psites = load_geneid_to_psites()
     kinases = get_unique_kinases()
 

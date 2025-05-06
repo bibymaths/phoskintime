@@ -73,8 +73,10 @@ def parse_fix_value(val):
 
 def ensure_output_directory(directory):
     """
-    :param directory:
-    :type directory: str
+    Args:
+        directory (str): The path to the directory to create.
+    Returns:
+        None
     """
     os.makedirs(directory, exist_ok=True)
 
@@ -90,6 +92,7 @@ def parse_args():
     --A-bound, --B-bound, --C-bound, --D-bound,
     --Ssite-bound, --Dsite-bound, --bootstraps,
     --input-excel, --input-excel-rna.
+
     Args:
         None
     Returns:
@@ -120,12 +123,13 @@ def log_config(logger, bounds, args):
     This function logs the parameter bounds
     bootstrapping iterations.
     It uses the provided logger to output the information.
-    :param logger:
-    :param bounds:
-    :param fixed_params:
-    :param time_fixed:
-    :param args:
-    :return:
+
+    Args:
+        logger (logging.Logger): The logger to use for logging.
+        bounds (dict): The parameter bounds.
+        args (argparse.Namespace): The command-line arguments.
+    Returns:
+        None
     """
     logger.info("Parameter Bounds:")
     for key, val in bounds.items():
@@ -140,8 +144,12 @@ def extract_config(args):
     Extract configuration settings from command-line arguments.
     This function creates a dictionary containing the parameter bounds, bootstrapping iterations.
     The function returns the configuration dictionary.
-    :param args:
-    :return:
+
+    Args:
+        args (argparse.Namespace): The command-line arguments.
+    Returns:
+        dict: The configuration settings.
+
     """
     bounds = {
         "A": args.A_bound,
@@ -177,9 +185,7 @@ def score_fit(params, target, prediction,
     The regularization penalty is controlled by the reg_penalty parameter.
     The function returns the calculated score.
     Args:
-        gene (str): The name of the gene.
         params (np.ndarray): The model parameters.
-        weight (str): The weighting schema.
         target (np.ndarray): The target data.
         prediction (np.ndarray): The predicted data.
         alpha (float): Weight for RMSE.
@@ -218,6 +224,13 @@ def future_times(n_new: int, ratio: float = None, tp: np.ndarray = TIME_POINTS) 
     """
     Extend ttime points by n_new points, each spaced by multiplying the previous interval by ratio.
     If ratio is None, it is inferred from the last two points.
+
+    Args:
+        n_new (int): Number of new time points to generate.
+        ratio (float, optional): Ratio to multiply the previous interval. Defaults to None.
+        tp (np.ndarray, optional): Existing time points. Defaults to TIME_POINTS.
+    Returns:
+        np.ndarray: Extended time points.
     """
     times = tp.tolist()
     if ratio is None:

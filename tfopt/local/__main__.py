@@ -18,13 +18,7 @@ logger = setup_logger()
 
 def main():
     """
-    Main function to run the mRNA-TF optimization problem.
-    This function orchestrates the loading of data, preparation of fixed arrays,
-    setting up optimization parameters, running the optimization, and post-processing
-    the results. It also handles the visualization and saving of results.
-    The function starts by parsing command line arguments, loading and filtering
-    data, preparing the data and fixed arrays, setting up optimization parameters,
-    running the optimization, and finally post-processing the results.
+    Main function to run the mRNA-TF optimization problem using gradient based optimizer.
     """
     logger.info("[Local Optimization] mRNA-TF Optimization Problem Started")
 

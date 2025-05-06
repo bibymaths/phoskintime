@@ -4,7 +4,7 @@ from numba import prange, njit
 from tfopt.local.config.constants import VECTORIZED_LOSS_FUNCTION
 
 
-@njit(cache=False, fastmath=False, parallel=True, nogil=False)
+@njit(cache=True, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
     """
@@ -15,22 +15,21 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
 
     Computes a loss value using one of several loss functions.
 
-    Parameters:
-      x                  : Decision vector.
-      expression_matrix  : (n_genes x T_use) measured gene expression values.
-      regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
-      tf_protein_matrix  : (n_TF x T_use) TF protein time series.
-      psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
-      n_reg              : Maximum number of regulators per gene.
-      T_use              : Number of time points used.
-      n_genes, n_TF     : Number of genes and TF respectively.
-      beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
-      num_psites         : Integer array with the actual number of PSites for each TF.
-      loss_type          : Integer indicating the loss type (0: MSE, 1: MAE, 2: soft L1, 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov).
-      lam1, lam2         : Regularization parameters (used for loss_type 5 and 6).
+    Args:
+        x                  : Decision vector.
+        expression_matrix  : (n_genes x T_use) measured gene expression values.
+        regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
+        tf_protein_matrix  : (n_TF x T_use) TF protein time series.
+        psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
+        n_reg              : Maximum number of regulators per gene.
+        T_use              : Number of time points used.
+        n_genes, n_TF     : Number of genes and TF respectively.
+        beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
+        num_psites         : Integer array with the actual number of PSites for each TF.
+        loss_type          : Integer indicating the loss type (0: MSE, 1: MAE, 2: soft L1, 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov).
 
     Returns:
-      The computed loss (a scalar).
+        loss               : The computed loss (a scalar).
     """
     # Initialize loss
     total_loss = 0.0
@@ -100,20 +99,20 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
                         num_psites):
     """
     Computes the predicted expression matrix based on the decision vector x.
-    This function uses the regulators, TF protein matrix, and post-translational modification tensor to generate
-    predictions for each gene at each time point.
-    Parameters:
-      x                  : Decision vector.
-      regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
-      tf_protein_matrix  : (n_TF x T_use) TF protein time series.
-      psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
-      n_reg              : Maximum number of regulators per gene.
-      T_use              : Number of time points used.
-      n_genes, n_TF     : Number of genes and TF respectively.
-      beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
-      num_psites         : Integer array with the actual number of PSites for each TF.
+
+    Args:
+        x                  : Decision vector.
+        regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
+        tf_protein_matrix  : (n_TF x T_use) TF protein time series.
+        psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
+        n_reg              : Maximum number of regulators per gene.
+        T_use              : Number of time points used.
+        n_genes            : Number of genes.
+        beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
+        num_psites         : Integer array with the actual number of PSites for each TF.
+
     Returns:
-        predictions        : (n_genes x T_use) matrix of predicted gene expression values.
+        predictions        : (n_genes x T_use) predicted gene expression values.
     """
     n_alpha = n_genes * n_reg
     predictions = np.zeros((n_genes, T_use))
@@ -140,19 +139,20 @@ def objective_wrapper(x, expression_matrix, regulators, tf_protein_matrix, psite
                       beta_start_indices, num_psites, loss_type):
     """
     Wrapper function for the objective function.
-    This function is used to call the objective function with the appropriate parameters.
-    Parameters:
-      x                  : Decision vector.
-      expression_matrix  : (n_genes x T_use) measured gene expression values.
-      regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
-      tf_protein_matrix  : (n_TF x T_use) TF protein time series.
-      psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
-      n_reg              : Maximum number of regulators per gene.
-      T_use              : Number of time points used.
-      n_genes, n_TF     : Number of genes and TF respectively.
-      beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
-      num_psites         : Integer array with the actual number of PSites for each TF.
-      loss_type          : Integer indicating the loss type (0: MSE, 1: MAE, 2: soft L1, 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov).
+
+    Args:
+        x                  : Decision vector.
+        expression_matrix  : (n_genes x T_use) measured gene expression values.
+        regulators         : (n_genes x n_reg) indices of TF regulators for each gene.
+        tf_protein_matrix  : (n_TF x T_use) TF protein time series.
+        psite_tensor       : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
+        n_reg              : Maximum number of regulators per gene.
+        T_use              : Number of time points used.
+        n_genes            : Number of genes.
+        beta_start_indices : Integer array giving the starting index (in the β–segment) for each TF.
+        num_psites         : Integer array with the actual number of PSites for each TF.
+        loss_type          : Integer indicating the loss type.
+
     Returns:
         loss               : The computed loss (a scalar).
     """

@@ -11,10 +11,6 @@ def initial_condition(num_psites: int) -> list:
     Calculates the initial steady-state conditions for a given number of phosphorylation sites
     for distributive phosphorylation model.
 
-    This function defines a system of equations representing the steady-state conditions
-    of an ODE model and solves it using numerical optimization. The steady-state conditions
-    are used as initial conditions for further simulations.
-
     Args:
         num_psites (int): Number of phosphorylation sites in the model.
 

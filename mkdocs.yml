@@ -1,18 +1,31 @@
 site_name: phoskintime
 site_url: https://bibymaths.github.io/phoskintime
-site_description: phoskintime - a tool for ODE based parameter estimation and optimization for phosphorylation models.
+site_description: phoskintime - a toolkit for ODE based parameter estimation and optimization for phosphorylation models.
 site_author: Abhinav Mishra
 
 repo_url: https://github.com/bibymaths/phoskintime
 
 theme:
-  name: material
+  name: readthedocs
   palette:
-    scheme: auto
+    - scheme: default
+      primary: deep purple
+      accent: indigo
+    - scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   features:
     - navigation.instant
     - navigation.sections
     - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - content.tooltips
+    - navigation.expand
+    - toc.follow
   language: en
 
 nav:
@@ -20,20 +33,21 @@ nav:
   - Reference: reference.md
   - Changelog: Documentation/CHANGELOG.md
   - Documentation:
-      - Main: Documentation/bin/README.md
+      - Entry Backend: Documentation/bin/README.md
+      - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
       - Kinase Optimization: Documentation/kinopt/README.md
-      - ODE Models: Documentation/models/README.md
-      - Parameter Estimation: Documentation/paramest/README.md
-      - Confidence Intervals: Documentation/paramest/identifiability/README.md
-      - Sensitivity Analysis: Documentation/sensitivity/README.md
-      - Steady State Calculation: Documentation/steady/README.md
       - Transcription Factor Optimization: Documentation/tfopt/README.md
+      - Models: Documentation/models/README.md
+      - Steady State Calculation: Documentation/steady/README.md
+      - Parameter Estimation: Documentation/paramest/README.md
+      - Confidence Intervals: Documentation/identifiability/README.md
+      - Sensitivity Analysis: Documentation/sensitivity/README.md
+      - Knockout Analysis: Documentation/knockout/README.md
+      - Plotting: Documentation/plotting/README.md
       - Utils: Documentation/utils/README.md
 
 markdown_extensions:
-  - toc:
-      permalink: true
   - pymdownx.arithmatex:
       inline_syntax: [ '$', '$' ]
       block_syntax: [ '$$', '$$' ]
@@ -45,6 +59,7 @@ markdown_extensions:
   - tables
 
 extra_css:
+  - styles/overrides.css
   - https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css
 
 extra_javascript:

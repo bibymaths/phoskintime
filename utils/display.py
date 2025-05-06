@@ -12,7 +12,8 @@ def ensure_output_directory(directory):
     """
     Ensure the output directory exists. If it doesn't, create it.
 
-    :param directory: str
+    Args:
+        directory (str): Path to the output directory.
     """
     os.makedirs(directory, exist_ok=True)
 
@@ -21,10 +22,12 @@ def load_data(excel_file, sheet="Estimated Values"):
     """
     Load data from an Excel file. The default sheet is "Estimated Values".
 
-    :param excel_file: str
-    :param sheet: str
-    :return: DataFrame
-    :rtype: pd.DataFrame
+    Args:
+        excel_file (str): Path to the Excel file.
+        sheet (str): Name of the sheet to load. Default is "Estimated Values".
+
+    Returns:
+        pd.DataFrame: DataFrame containing the data from the specified sheet.
     """
     return pd.read_excel(excel_file, sheet_name=sheet)
 
@@ -32,13 +35,11 @@ def load_data(excel_file, sheet="Estimated Values"):
 def format_duration(seconds):
     """
     Format a duration in seconds into a human-readable string.
-    The function converts seconds into a string representation in the format:
-    - "X sec" for seconds
-    - "X min" for minutes
-    - "X hr" for hours
 
-    :param seconds: float
-    :return: formatted string
+    Args:
+        seconds (float): Duration in seconds.
+    Returns:
+        str: Formatted duration string.
     """
     if seconds < 60:
         return f"{seconds:.2f} sec"
@@ -50,13 +51,13 @@ def format_duration(seconds):
 
 def merge_obs_est(filename):
     """
-    Loads observed and estimated data from an Excel file where:
-    - Each gene has two sheets: <GENE>_site_observed and <GENE>_site_estimates
-    - Rows = Psites with index "Site/Time(min)"
-    - Columns = time points (14)
+    Function to merge observed and estimated data from an Excel file.
+
+    Args:
+        filename (str): Path to the Excel file containing observed and estimated data.
 
     Returns:
-        A DataFrame with columns: Gene, Psite, x1_obs–x14_obs, x1_est–x14_est
+        pd.DataFrame: Merged DataFrame containing observed and estimated values for each gene and Psite.
     """
     xls = pd.ExcelFile(filename)
     all_data = []
@@ -92,21 +93,12 @@ def merge_obs_est(filename):
 
 def save_result(results, excel_filename):
     """
-    Save the results to an Excel file with multiple sheets.
-    Each sheet corresponds to a different gene and contains:
-    - Sequential Parameter Estimates
-    - Profiled Estimates (if available)
-    - Errors summary
-    - Model fits for the system
-    - Model fits for each site
-    - Observed data for each site
-    - PCA results
-    - t-SNE results
-    - Knockout results
-    The sheet names are prefixed with the gene name, truncated to 25 characters.
+    Function to save results to an Excel file.
+
     Args:
         results (list): List of dictionaries containing results for each gene.
         excel_filename (str): Path to the output Excel file.
+
     """
     with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
         for res in results:
@@ -212,11 +204,6 @@ def save_result(results, excel_filename):
 def create_report(results_dir: str, output_file: str = f"{model_type}_report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
-
-    For each gene folder (e.g. "ABL2"), the report will include:
-      - All PNG plots and interactive HTML plots displayed in a grid with three plots per row.
-      - Each plot is confined to a fixed size of 900px by 900px.
-      - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
 
     Args:
         results_dir (str): Path to the root result's directory.
@@ -346,12 +333,9 @@ def create_report(results_dir: str, output_file: str = f"{model_type}_report.htm
 def organize_output_files(directories: Iterable[Union[str, Path]]):
     """
     Organize output files into protein-specific folders and a general folder.
-    Files matching the pattern "protein_name_*.{json,svg,png,html,csv,xlsx,tex}"
-    will be moved to a folder named after the protein.
-    Remaining files will be moved to a "General" folder within the same directory.
 
-    :param directories: List of directories to organize.
-    :type directories: list
+    Args:
+        directories (Iterable[Union[str, Path]]): List of directories to organize.
     """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx|tex)$')
 

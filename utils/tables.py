@@ -12,12 +12,12 @@ logger = setup_logger(__name__)
 def generate_tables(xlsx_file_path):
     """
     Generate hierarchical tables from the XLSX file containing alpha and beta values.
-    The function reads the alpha and beta values from the specified XLSX file,
-    processes them to create hierarchical tables, and returns a list of these tables.
-    Each table is a DataFrame with a MultiIndex for the columns, representing
-    the alpha and beta values for different kinases and phosphorylation sites.
-    The tables are structured to facilitate easy comparison and analysis of the
-    phosphorylation data.
+
+    Args:
+        xlsx_file_path (str): Path to the XLSX file containing alpha and beta values.
+
+    Returns:
+        tuple: containing protein, psite, and the corresponding table.
     """
     # Load alpha and beta values from the XLSX file
     alpha_values = pd.read_excel(xlsx_file_path, sheet_name="Alpha Values")
@@ -29,12 +29,24 @@ def generate_tables(xlsx_file_path):
     def format_float(value):
         """
         Custom formatter to remove trailing zeroes.
+
+        Args:
+            value (float): The value to format.
+        Returns:
+            str: The formatted string.
         """
         return f"{value:.2f}".rstrip('0').rstrip('.') if pd.notnull(value) else ""
 
     def merge_kinase_columns(alpha_pivot, beta_pivot):
         """
         Merge columns of kinases without duplicating names.
+
+        Args:
+            alpha_pivot (DataFrame): Pivot table for alpha values.
+            beta_pivot (DataFrame): Pivot table for beta values.
+
+        Returns:
+            DataFrame: Merged DataFrame with unique kinase columns.
         """
         all_kinases = list(alpha_pivot.columns) + list(beta_pivot.columns)
         unique_kinases = sorted(set(all_kinases), key=all_kinases.index)
@@ -90,13 +102,10 @@ def generate_tables(xlsx_file_path):
 def save_tables(tables, output_dir):
     """
     Save the generated tables as LaTeX and CSV files.
-    Each table is saved with a filename based on the protein and phosphorylation site.
-    The LaTeX files are formatted for easy inclusion in a larger document,
-    and the CSV files are saved for further analysis.
 
-    :param tables: List of tuples containing protein, psite, and the corresponding table.
-    :param output_dir: Directory where the tables will be saved.
-    :type output_dir: str
+    Args:
+        tables (list): List of tuples containing protein, psite, and the corresponding table.
+        output_dir (str): Directory to save the LaTeX and CSV files.
     """
     for (protein, psite), table in tables:
         base_filename = f"{output_dir}/{protein}_{psite.replace(':', '_')}"
@@ -110,13 +119,10 @@ def save_tables(tables, output_dir):
 def save_master_table(folder="latex", output_file="latex/all_tables.tex"):
     """
     Save a master LaTeX file that includes all individual LaTeX files from the specified folder.
-    This function generates a LaTeX file that includes all the individual LaTeX files
-    for each protein and phosphorylation site.
 
-    :param folder: Directory containing the individual LaTeX files.
-    :param output_file: Output LaTeX file name.
-    :type folder: str
-    :type output_file: str
+    Args:
+        folder (str): The folder containing the individual LaTeX files.
+        output_file (str): The name of the master LaTeX file to be created.
     """
     files = sorted([f for f in os.listdir(folder) if f.endswith(".tex")])
 

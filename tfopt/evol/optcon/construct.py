@@ -4,15 +4,24 @@ import numpy as np
 def build_fixed_arrays(mRNA_ids, mRNA_mat, TF_ids, protein_dict, psite_dict, psite_labels_dict, reg_map):
     """
     Builds fixed-shape arrays from the input data.
+
+    Args:
+        mRNA_ids (list): List of mRNA identifiers.
+        mRNA_mat (np.ndarray): Matrix of mRNA expression levels.
+        TF_ids (list): List of TF identifiers.
+        protein_dict (dict): Dictionary mapping TFs to their protein levels.
+        psite_dict (dict): Dictionary mapping TFs to their phosphorylation sites.
+        psite_labels_dict (dict): Dictionary mapping TFs to their phosphorylation site labels.
+        reg_map (dict): Mapping of genes to their regulators.
     Returns:
-      - mRNA_mat: array of shape (n_mRNA, T)
-      - regulators: array of shape (n_mRNA, n_reg) with indices into TF_ids.
-      - protein_mat: array of shape (n_TF, T)
-      - psite_tensor: array of shape (n_TF, n_psite_max, T), padded with zeros.
-      - n_reg: maximum number of regulators per mRNA.
-      - n_psite_max: maximum number of PSites among TFs.
-      - psite_labels_arr: list (length n_TF) of lists of PSite names (padded with empty strings).
-      - num_psites: array of length n_TF with the actual number of PSites for each TF.
+        mRNA_mat (np.ndarray): Matrix of mRNA expression levels.
+        regulators (np.ndarray): Matrix of regulators for each mRNA.
+        protein_mat (np.ndarray): Matrix of TF protein levels.
+        psite_tensor (np.ndarray): Tensor of phosphorylation sites.
+        n_reg (int): Number of regulators.
+        n_psite_max (int): Maximum number of phosphorylation sites across all TFs.
+        psite_labels_arr (list): List of phosphorylation site labels for each TF.
+        num_psites (np.ndarray): Array indicating the number of phosphorylation sites for each TF.
     """
     n_mRNA, T = mRNA_mat.shape
 

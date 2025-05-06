@@ -20,26 +20,6 @@ class TFOptimizationMultiObjectiveProblem(Problem):
     transcription factor (TF) optimization problem. It inherits from the
     `Problem` class in the pymoo library. The problem is defined with three
     objectives: f1 (error), f2 (alpha violation), and f3 (beta violation).
-
-    The problem is initialized with the following parameters:
-    - n_var: Number of decision variables.
-    - n_mRNA: Number of mRNA genes.
-    - n_TF: Number of transcription factors.
-    - n_reg: Number of regulators.
-    - n_psite_max: Maximum number of phosphorylation sites.
-    - n_alpha: Number of alpha parameters.
-    - mRNA_mat: Matrix of measured mRNA values.
-    - regulators: Matrix of TF regulators for each mRNA.
-    - protein_mat: Matrix of TF protein time series.
-    - psite_tensor: Tensor of phosphorylation site signals.
-    - T_use: Number of time points used.
-    - beta_start_indices: Integer array giving the starting index (in the β–segment)
-                          for each TF.
-    - num_psites: Integer array with the actual number of phosphorylation sites for each TF.
-    - no_psite_tf: Boolean array indicating if the TF has no phosphorylation sites.
-    - xl: Lower bounds for the decision variables.
-    - xu: Upper bounds for the decision variables.
-    - kwargs: Additional keyword arguments.
     """
 
     def __init__(self, n_var, n_mRNA, n_TF, n_reg, n_psite_max, n_alpha,
@@ -49,23 +29,23 @@ class TFOptimizationMultiObjectiveProblem(Problem):
         """
         Initialize the multi-objective optimization problem.
 
-        :param n_var:
-        :param n_mRNA:
-        :param n_TF:
-        :param n_reg:
-        :param n_psite_max:
-        :param n_alpha:
-        :param mRNA_mat:
-        :param regulators:
-        :param protein_mat:
-        :param psite_tensor:
-        :param T_use:
-        :param beta_start_indices:
-        :param num_psites:
-        :param no_psite_tf:
-        :param xl:
-        :param xu:
-        :param kwargs:
+        Args:
+            n_var (int): Number of decision variables.
+            n_mRNA (int): Number of mRNAs.
+            n_TF (int): Number of transcription factors.
+            n_reg (int): Number of regulators.
+            n_psite_max (int): Maximum number of phosphorylation sites.
+            n_alpha (int): Number of alpha parameters.
+            mRNA_mat (np.ndarray): Matrix of mRNA measurements.
+            regulators (np.ndarray): Matrix of regulators for each mRNA.
+            protein_mat (np.ndarray): Matrix of TF protein levels.
+            psite_tensor (np.ndarray): Tensor of phosphorylation sites.
+            T_use (int): Number of time points to use.
+            beta_start_indices (list): List of starting indices for beta parameters.
+            num_psites (list): List of number of phosphorylation sites for each TF.
+            no_psite_tf (list): List indicating if a TF has no phosphorylation site.
+            xl (np.ndarray, optional): Lower bounds for decision variables. Defaults to None.
+            xu (np.ndarray, optional): Upper bounds for decision variables. Defaults to None.
         """
         super().__init__(n_var=n_var, n_obj=3, n_constr=0, xl=xl, xu=xu)
         self.n_mRNA = n_mRNA
@@ -86,19 +66,12 @@ class TFOptimizationMultiObjectiveProblem(Problem):
     def _evaluate(self, X, out, *args, **kwargs):
         """
         Evaluate the objectives for the given decision variables.
-        This function computes the objectives for each individual in the population.
-        The objectives are defined as follows:
-        - f1: Error (objective function value).
-        - f2: Alpha violation (sum of squares of alpha values).
-        - f3: Beta violation (sum of squares of beta values).
 
-        The function computes the objectives for each individual in the population
-        and stores the results in the output dictionary.
-        :param X: Decision variables (population).
-        :param out: Output dictionary to store the results.
-        :param args: Additional arguments.
-        :param kwargs: Additional keyword arguments.
-        :return: Final Objective values.
+        Args:
+            X (np.ndarray): Decision variable matrix.
+            out (dict): Dictionary to store the results.
+            *args: Additional arguments.
+            **kwargs: Additional keyword arguments.
         """
         n_pop = X.shape[0]
         F = np.empty((n_pop, 3))
@@ -132,62 +105,29 @@ class TFOptimizationMultiObjectiveProblem(Problem):
             F[i, 2] = f3
         out["F"] = F
 
-
-"""
-@njit(parallel=True)
-def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA, beta_start_indices, num_psites):
-    total_error = 0.0
-    n_alpha = n_mRNA * n_reg
-    for i in prange(n_mRNA):
-        R_meas = mRNA_mat[i, :T_use]
-        R_pred = np.zeros(T_use)
-        for r in range(n_reg):
-            tf_idx = regulators[i, r]
-            a = x[i * n_reg + r]
-            protein = protein_mat[tf_idx, :T_use]
-            beta_start = beta_start_indices[tf_idx]
-            length = 1 + num_psites[tf_idx]
-            beta_vec = x[n_alpha + beta_start : n_alpha + beta_start + length]
-            tf_effect = beta_vec[0] * protein
-            for k in range(num_psites[tf_idx]):
-                tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
-            R_pred += a * tf_effect
-        for t in range(T_use):
-            diff = R_meas[t] - R_pred[t]
-            total_error += diff * diff
-    return total_error / (T_use * n_mRNA)
-"""
-
-
-# Loss functions for objective function.
-# 0: MSE, 1: MAE, 2: soft L1 (pseudo-Huber), 3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov.
-# The loss functions are implemented in the objective_ function.
-# The loss function is selected using the loss_type parameter.
-# The default is MSE (0).
-@njit(cache=False, fastmath=False, parallel=True, nogil=False)
+@njit(cache=True, fastmath=False, parallel=True, nogil=False)
 def objective_(x, mRNA_mat, regulators, protein_mat, psite_tensor, n_reg, T_use, n_mRNA,
                beta_start_indices, num_psites, loss_type, lam1=1e-3, lam2=1e-3):
     """
-    Computes a loss value using one of several loss functions.
+    Computes a loss value for transcription factor optimization using evolutionary algorithms.
 
-    Parameters:
-      x               : Decision vector.
-      mRNA_mat        : (n_mRNA x T_use) measured mRNA values.
-      regulators      : (n_mRNA x n_reg) indices of TF regulators for each mRNA.
-      protein_mat     : (n_TF x T_use) TF protein time series.
-      psite_tensor    : (n_TF x n_psite_max x T_use) matrix of PSite signals (padded with zeros).
-      n_reg           : Maximum number of regulators per mRNA.
-      T_use           : Number of time points used.
-      n_mRNA, n_TF    : Number of mRNA and TF respectively.
-      beta_start_indices: Integer array giving the starting index (in the β–segment)
-                         for each TF.
-      num_psites      : Integer array with the actual number of PSites for each TF.
-      loss_type       : Integer indicating the loss type (0: MSE, 1: MAE, 2: soft L1,
-                         3: Cauchy, 4: Arctan, 5: Elastic Net, 6: Tikhonov).
-      lam1, lam2      : Regularization parameters (used for loss_type 5 and 6).
+    Args:
+        x (np.ndarray): Optimization variables.
+        mRNA_mat (np.ndarray): Matrix of mRNA measurements.
+        regulators (np.ndarray): Matrix of regulators for each mRNA.
+        protein_mat (np.ndarray): Matrix of TF protein levels.
+        psite_tensor (np.ndarray): Tensor of phosphorylation sites.
+        n_reg (int): Number of regulators.
+        T_use (int): Number of time points to use.
+        n_mRNA (int): Number of mRNAs.
+        beta_start_indices (list): List of starting indices for beta parameters.
+        num_psites (list): List of number of phosphorylation sites for each TF.
+        loss_type (int): Type of loss function to use.
+        lam1 (float, optional): L1 penalty coefficient. Defaults to 1e-3.
+        lam2 (float, optional): L2 penalty coefficient. Defaults to 1e-3.
 
     Returns:
-      The computed loss (a scalar).
+        float: Computed loss value.
     """
     # Initialize loss to zero.
     total_loss = 0.0

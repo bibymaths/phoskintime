@@ -7,19 +7,17 @@ from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
-
-# -----------------------------
-# LaTeX Table Generation
-# -----------------------------
 def generate_latex_table(summary_dict, table_caption, table=None):
     """
     Function to generate a LaTeX table from a summary dictionary.
-    The table is formatted for use in a LaTeX document.
 
-    :param summary_dict: Dictionary containing summary data.
-    :param table_caption: Caption for the LaTeX table.
-    :param table: Optional table object to format.
-    :return: LaTeX table as a string.
+    Args:
+        summary_dict (dict): Dictionary containing summary data.
+        table_caption (str): Caption for the LaTeX table.
+        table (str): Optional existing LaTeX table to append to.
+
+    Returns:
+        str: LaTeX formatted table as a string.
     """
     latex_table = "\n\\begin{table}[H]\n\\centering\n\\begin{tabular}{|l|c|}\\hline\n"
     latex_table += "Metric & Value \\\\ \\hline\n"
@@ -30,12 +28,15 @@ def generate_latex_table(summary_dict, table_caption, table=None):
     return latex_table
 
 
-# -----------------------------
-# Printing Functions
-# -----------------------------
 def print_primal_feasibility_results(primal_summary, alpha_violations, beta_violations, logger_obj=None):
     """
     Logs the primal feasibility summary and violation details.
+
+    Args:
+        primal_summary (dict): Dictionary containing primal feasibility results.
+        alpha_violations (dict): Dictionary containing alpha constraint violations.
+        beta_violations (dict): Dictionary containing beta constraint violations.
+        logger_obj: Optional logger object to log the information.
     """
     if logger_obj is None:
         logger_obj = logger
@@ -55,6 +56,12 @@ def print_primal_feasibility_results(primal_summary, alpha_violations, beta_viol
 def print_sensitivity_and_active_constraints(sensitivity_summary, active_constraints_summary, logger_obj=None):
     """
     Logs the sensitivity summary and active constraints summary.
+
+    Args:
+        sensitivity_summary (dict): Dictionary containing sensitivity analysis results.
+        active_constraints_summary (dict): Dictionary containing active constraints summary.
+        logger_obj: Optional logger object to log the information.
+
     """
     if logger_obj is None:
         logger_obj = logger
@@ -118,6 +125,9 @@ def plot_sensitivity_analysis(sensitivity_analysis, out_dir):
     Args:
         sensitivity_analysis (pd.DataFrame): DataFrame containing sensitivity analysis results.
         out_dir (str): Directory to save the plot.
+
+    Returns:
+        None
     """
     summary = sensitivity_analysis.groupby("GeneID")[["Sensitivity Mean", "Max Sensitivity", "Min Sensitivity"]].mean()
     summary = summary.sort_values(by="Sensitivity Mean", ascending=True)
@@ -222,11 +232,9 @@ def process_excel_results(file_path=OUT_FILE):
 def post_optimization_results():
     """
     Function to process and visualize the results of the optimization.
-    It reads the results from an Excel file, processes the data,
-    and generates plots for constraint violations and sensitivity analysis.
-    It also prints the primal feasibility results and sensitivity summaries.
-    The results are returned as a dictionary.
 
+    Args:
+        None
     Returns:
         dict: Dictionary containing the processed results, including alpha and beta values,
               estimated and observed values, constraint violations, residuals summary,

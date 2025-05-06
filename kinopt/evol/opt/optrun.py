@@ -123,9 +123,6 @@ def post_optimization_nsga(
         ref_point=np.array([3, 1, 1])):
     """
     Post-processes the result of a multi-objective optimization run.
-    1) Extracts the Pareto front and computes a weighted score to pick a 'best' solution.
-    2) Gathers metrics like Hypervolume (HV) and IGD+ over the optimization history.
-    3) Logs feasibility generation info, saves waterfall and convergence data to CSV.
 
     Args:
         result: The final result object from the optimizer (e.g., a pymoo result).
@@ -266,9 +263,6 @@ def post_optimization_de(
         beta_values):
     """
     Post-processes the result of a multi-objective optimization run.
-    1) Extracts the Pareto front and computes a weighted score to pick a 'best' solution.
-    2) Gathers metrics like Hypervolume (HV) and IGD+ over the optimization history.
-    3) Logs feasibility generation info, saves waterfall and convergence data to CSV.
 
     Args:
         result: The final result object from the optimizer (e.g., a pymoo result).
@@ -280,7 +274,7 @@ def post_optimization_de(
             'optimized_params': The individual's decision variables (X).
             'scores': Weighted scores for each solution in the Pareto front.
             'best_index': The index of the best solution according to weighted score.
-            'hist_hv': The hypervolume per generation.
+            'hist_hv': The hyper volume per generation.
             'hist_igd': The IGD+ per generation.
             'convergence_df': The DataFrame with iteration vs. best objective value
                 for each iteration in the result history.

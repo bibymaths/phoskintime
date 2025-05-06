@@ -186,9 +186,6 @@ For macusers, you can use Homebrew:
 brew install graphviz
 ``` 
 
-Ensure you have Python 3.7+ and that packages such as NumPy, SciPy, Pandas, scikit-learn, Matplotlib, Seaborn, Plotly,
-SALib, and Numba are installed.
-
 The package is executed via the main script located in the `bin` directory. This script sets up the configuration,
 processes experimental data, performs parameter estimation, generates model simulations, and creates a comprehensive
 report.

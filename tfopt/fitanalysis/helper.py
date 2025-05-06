@@ -17,24 +17,14 @@ matplotlib.use('Agg')
 class Plotter:
     """
     A class to plot various analysis results from an Excel file.
-    The class provides methods to visualize the alpha and beta values,
-    residuals, observed and estimated values, and other metrics.
-
-    The plots include:
-    - Alpha distribution
-    - Beta bar plots
-    - Heatmap of absolute residuals
-    - Goodness of fit
-    - Kullback-Leibler divergence
-    - PCA
-    - Box plots for alpha and beta values
-    - CDF for alpha and beta values
-    - Time-wise residuals
     """
 
     def __init__(self, filepath, savepath):
         """
         Initializes the Plotter instance by loading data from the Excel file.
+        Args:
+            filepath (str): Path to the Excel file containing analysis results.
+            savepath (str): Directory where the plots will be saved.
         """
         self.filepath = filepath
         self.savepath = savepath
@@ -43,8 +33,9 @@ class Plotter:
     def load_data(self):
         """
         Loads data from the specified Excel file.
-        The data includes residuals, observed values, estimated values,
-        alpha values, and beta values.
+        Args:
+            filepath (str): Path to the Excel file.
+            savepath (str): Directory where the plots will be saved.
         """
         self.df = pd.read_excel(self.filepath, sheet_name='Residuals', index_col=0)
         self.df_obs = pd.read_excel(self.filepath, sheet_name='Observed', index_col=0)

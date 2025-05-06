@@ -8,32 +8,18 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
     """
     The core ODE system for the distributive phosphorylation model.
 
-    The system is defined by the following equations:
+    Args:
+        y: array of concentrations
+        t: time
+        A: mRNA production rate
+        B: mRNA degradation rate
+        C: protein production rate
+        D: protein degradation rate
+        S_rates: phosphorylation rates for each site
+        D_rates: dephosphorylation rates for each site
 
-    dR/dt = A - B * R
-    dP/dt = C * R - (D + sum(S_rates)) * P + sum(P_sites)
-    dP_sites[i]/dt = S_rates[i] * P - (1.0 + D_rates[i]) * P_sites[i]
-
-    where:
-
-    R: the concentration of the mRNA
-    P: the concentration of the protein
-    P_sites: the concentration of the phosphorylated sites
-    A: the rate of production of the mRNA
-    B: the rate of degradation of the mRNA
-    C: the rate of production of the protein
-    D: the rate of degradation of the protein
-    S_rates: the rates of phosphorylation of each site
-    D_rates: the rates of dephosphorylation of each site
-
-    :param y:
-    :param A:
-    :param B:
-    :param C:
-    :param D:
-    :param S_rates:
-    :param D_rates:
-    :return: Derivative of y
+    Returns:
+        dydt: array of derivatives
     """
     # y[0] is the concentration of the mRNA
     R = y[0]
@@ -81,19 +67,19 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
 @njit(cache=True)
 def unpack_params(params, num_psites):
     """
-    Function to unpack the parameters for the ODE system.
-    The parameters are expected to be in the following order:
-    A, B, C, D, S_rates, D_rates
-    where:
-    A: mRNA production rate
-    B: mRNA degradation rate
-    C: protein production rate
-    D: protein degradation rate
-    S_rates: phosphorylation rates for each site
-    D_rates: dephosphorylation rates for each site
-    :param params: array of parameters
-    :param num_psites: number of phosphorylation sites
-    :return: A, B, C, D, S_rates, D_rates
+    Function to unpack the parameters for the distributive ODE system.
+
+    Args:
+        params(np.array): Parameter vector containing A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m.
+        num_psites(int): Number of phosphorylation sites.
+
+    Returns:
+        A (float): mRNA production rate.
+        B (float): mRNA degradation rate.
+        C (float): protein production rate.
+        D (float): protein degradation rate.
+        S_rates (np.array): Phosphorylation rates for each site.
+        D_rates (np.array): Dephosphorylation rates for each site.
     """
     params = np.asarray(params)
     A = params[0]
@@ -108,11 +94,15 @@ def solve_ode(params, init_cond, num_psites, t):
     """
     Solve the ODE system for the distributive phosphorylation model.
 
-    :param params:
-    :param init_cond:
-    :param num_psites:
-    :param t:
-    :return: solution of the ODE system, solution of phosphorylated sites
+    Args:
+        params: array of parameters
+        init_cond: initial conditions
+        num_psites: number of phosphorylation sites
+        t: time points
+
+    Returns:
+        sol: solution of the ODE system
+        P_fitted: phosphorylated sites
     """
 
     # Unpack the parameters

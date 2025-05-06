@@ -9,13 +9,11 @@ from kinopt.evol.config.constants import INPUT1, INPUT2
 def format_duration(seconds):
     """
     Returns a formatted string representing the duration in seconds, minutes, or hours.
-    The format is:
-    - seconds: "xx.xx sec"
-    - minutes: "xx.xx min"
-    - hours: "xx.xx hr"
 
-    :param seconds:
-    :return:
+    Args:
+        seconds (float): The duration in seconds.
+    Returns:
+        str: The formatted duration string.
     """
     if seconds < 60:
         return f"{seconds:.2f} sec"
@@ -27,19 +25,18 @@ def format_duration(seconds):
 
 def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points):
     """
-    Loads the full HGNC data and kinase interaction data, applies scaling to the time-series columns,
-    and subsets/merges them. The first file is the full HGNC data, and the second file contains kinase interactions.
-    The function also handles the conversion of kinases from string format to list format.
+    Function to load and scale data from CSV files.
 
-    :param estimate_missing:
-    :param scaling_method:
-    :param split_point:
-    :param seg_points:
+    Args:
+        estimate_missing (bool): If True, estimates missing values.
+        scaling_method (str): The scaling method to apply ('min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative').
+        split_point (int): Column index for temporal scaling.
+        seg_points (list): List of column indices for segmented scaling.
 
-    :return:
-    full_hgnc_df (pd.DataFrame): The scaled data from input1
-    interaction_df (pd.DataFrame): The subset/merged DataFrame from input2
-    observed (pd.DataFrame): Subset of full_hgnc_df merged with interaction_df
+    Returns:
+        full_hgnc_df (pd.DataFrame): DataFrame with scaled time-series data.
+        interaction_df (pd.DataFrame): DataFrame containing interaction data.
+        observed (pd.DataFrame): DataFrame containing observed data.
     """
     full_hgnc_df = pd.read_csv(INPUT1)
     time_series_cols = [f'x{i}' for i in range(1, 15)]
@@ -60,17 +57,18 @@ def load_and_scale_data(estimate_missing, scaling_method, split_point, seg_point
 
 def apply_scaling(df, time_series_columns, method, split_point, segment_points):
     """
-    Applies different scaling methods to the time-series columns of a DataFrame.
+    Function to apply different scaling methods to time-series data in a DataFrame.
+
     Args:
-        df (pd.DataFrame): The DataFrame containing the time-series data.
-        time_series_columns (list): List of columns to be scaled.
-        method (str): The scaling method to apply ('min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative').
+        df (pd.DataFrame): Input DataFrame containing time-series data.
+        time_series_columns (list): List of column names to scale.
+        method (str): Scaling method ('min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative').
         split_point (int): Column index for temporal scaling.
         segment_points (list): List of column indices for segmented scaling.
-    :returns:
-        pd.DataFrame: The DataFrame with scaled time-series columns.
-    """
 
+    Returns:
+        pd.DataFrame: DataFrame with scaled time-series data.
+    """
     if method == 'min_max':
         # Min-Max Scaling (row-wise)
         scaler = MinMaxScaler()
@@ -131,14 +129,12 @@ def create_report(results_dir: str, output_file: str = "report.html"):
     """
     Creates a single global report HTML file from all gene folders inside the results directory.
 
-    For each gene folder (e.g. "ABL2"), the report will include:
-      - All PNG plots and interactive HTML plots displayed in a grid with three plots per row.
-      - Each plot is confined to a fixed size of 900px by 900px.
-      - Data tables from XLSX or CSV files in the gene folder are displayed below the plots, one per row.
-
     Args:
-        results_dir (str): Path to the root results directory.
+        results_dir (str): Path to the root result's directory.
         output_file (str): Name of the generated global report file (placed inside results_dir).
+
+    Returns:
+        None
     """
     # Gather gene folders (skip "General" and "logs")
     gene_folders = [
@@ -160,7 +156,7 @@ def create_report(results_dir: str, output_file: str = "report.html"):
         # /* CSS grid for plots: two per row, fixed size 500px x 500px, extra space between rows */
         ".plot-container {",
         "  display: grid;",
-        "  grid-template-columns: repeat(2, 500px);",
+        "  grid-template-columns: repeat(4, 500px);",
         "  column-gap: 20px;",
         "  row-gap: 40px;",  # /* extra vertical gap */
         "  justify-content: left;",
@@ -239,11 +235,13 @@ def create_report(results_dir: str, output_file: str = "report.html"):
 
 def organize_output_files(*directories):
     """
-    Organizes output files from the optimization process into separate folders based on protein names.
-    Each protein's files are moved into a folder named after the protein.
-    Any remaining files that do not match the protein pattern are moved to a "General" folder.
+    Function to organize output files into protein-specific folders and a general folder.
 
-    :param directories: List of directories to organize.
+    Args:
+        *directories: List of directories to organize.
+
+    Returns:
+        None
     """
     protein_regex = re.compile(r'([A-Za-z0-9]+)_.*\.(json|svg|png|html|csv|xlsx)$')
 

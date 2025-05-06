@@ -10,30 +10,17 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
     """
     The core of the ODE system for the successive ODE model.
 
-    The system is defined by the following equations:
-    dR/dt = A - B * R
-    dP/dt = C * R - D * P - S_rates[0] * P + sum(P_sites)
-    dP_sites[i]/dt = S_rates[i] * P - (1.0 + D_rates[i]) * P_sites[i]
-
-    where:
-    R: the concentration of the mRNA
-    P: the concentration of the protein
-    P_sites: the concentration of the phosphorylated sites
-    A: the rate of production of the mRNA
-    B: the rate of degradation of the mRNA
-    C: the rate of production of the protein
-    D: the rate of degradation of the protein
-    S_rates: the rates of phosphorylation of each site
-    D_rates: the rates of dephosphorylation of each site
-
-    :param y:
-    :param A:
-    :param B:
-    :param C:
-    :param D:
-    :param S_rates:
-    :param D_rates:
-    :return: derivative of y
+    Args:
+        y (np.array): The current state of the system.
+        t (float): The current time.
+        A (float): The mRNA production rate.
+        B (float): The mRNA degradation rate.
+        C (float): The protein production rate.
+        D (float): The protein degradation rate.
+        S_rates (np.array): The phosphorylation rates for each site.
+        D_rates (np.array): The dephosphorylation rates for each site.
+    Returns:
+        dydt (np.array): The derivatives of the state variables.
     """
     # mRNA
     R = y[0]

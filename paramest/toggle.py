@@ -7,25 +7,22 @@ def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points
     This function allows for the selection of the estimation mode
     and handles the parameter estimation process accordingly.
 
-    It uses the sequential estimation method for "sequential" mode (deprecated)
-    and the normal estimation method for "normal" mode.
-
     Args:
-        - gene: The gene name.
-        - p_data: phosphorylation data (DataFrame or numpy array).
-        - r_data: mRNA data (DataFrame or numpy array).
-        - init_cond: Initial condition for the ODE solver.
-        - num_psites: Number of phosphorylation sites.
-        - time_points: Array of time points to use.
-        - bounds: Dictionary of parameter bounds.
-        - fixed_params: Dictionary of fixed parameters.
-        - bootstraps: Number of bootstrapping iterations (only used in normal mode).
-    :returns:
-        - model_fits: List with the ODE solution and model predictions.
-        - estimated_params: List with the full estimated parameter vector.
-        - seq_model_fit: Sequential model fit for the gene.
-        - errors: Error metrics (MSE, MAE).
-        - reg_term: Regularization term.
+        gene (str): Gene name.
+        p_data (array): Array of protein data.
+        r_data (array): Array of RNA data.
+        init_cond (array): Initial conditions for the model.
+        num_psites (int): Number of phosphorylation sites.
+        time_points (array): Time points for the data.
+        bounds (tuple): Bounds for the parameter estimation.
+        bootstraps (int): Number of bootstrap samples.
+
+    Returns:
+        model_fits (list): List of model fits.
+        estimated_params (array): Estimated parameters.
+        seq_model_fit (array): Sequence model fit.
+        errors (array): Errors in the estimation.
+        reg_term (float): Regularization term.
     """
 
     # For normal estimation, we use the provided bounds and fixed parameters

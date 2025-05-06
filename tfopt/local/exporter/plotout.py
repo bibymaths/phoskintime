@@ -16,20 +16,17 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
                                tf_ids, num_targets, save_path=OUT_DIR):
     """
     Plots the estimated vs observed values for a given set of genes and their corresponding TFs.
-    The function generates two types of plots:
-    1. A full time series plot showing the observed and estimated values for each gene.
-    2. A plot showing the first 5 time points for each gene.
-    Additionally, it generates an interactive plot using Plotly for each gene.
 
-    :param predictions: 2D numpy array of predicted values.
-    :param expression_matrix: 2D numpy array of observed values.
-    :param gene_ids: List of gene identifiers.
-    :param time_points: 1D numpy array of time points.
-    :param regulators: 2D numpy array of regulators for each gene.
-    :param tf_protein_matrix: 2D numpy array of TF protein signals.
-    :param tf_ids: List of TF identifiers.
-    :param num_targets: Number of target genes to plot.
-    :param save_path: Directory path to save the plots.
+    Args:
+        predictions (np.ndarray): Predicted expression levels.
+        expression_matrix (np.ndarray): Observed expression levels.
+        gene_ids (list): List of gene identifiers.
+        time_points (np.ndarray): Time points for the experiments.
+        regulators (np.ndarray): Matrix of regulators for each gene.
+        tf_protein_matrix (np.ndarray): Matrix of TF protein levels.
+        tf_ids (list): List of TF identifiers.
+        num_targets (int): Number of target genes to plot.
+        save_path (str): Directory to save the plots.
     """
     T = len(time_points)
     time_vals_expr = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])

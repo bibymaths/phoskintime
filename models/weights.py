@@ -12,15 +12,14 @@ current_dir = Path(__file__).resolve().parent
 def early_emphasis(p_data, time_points, num_psites):
     """
     Function that calculates custom weights for early time points in a dataset.
-    The weights are based on the data values and the time differences between points.
 
-    The weights are calculated in a way that emphasizes early time points,
-    while also considering the data values and time intervals.
+    Args:
+        p_data: 2D numpy array of shape (num_psites, n_times)
+        time_points: 1D numpy array of time points
+        num_psites: Number of phosphorylation sites
 
-    :param p_data:
-    :param time_points:
-    :param num_psites:
-    :return: flattened array of custom weights
+    Returns:
+        custom_weights: 1D numpy array of weights for early time points
     """
     if p_data.ndim == 1:
         p_data = p_data.reshape(1, p_data.size)
@@ -59,15 +58,15 @@ def get_protein_weights(
         input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
 ):
     """
-    Extracts x1_std to x14_std weights for a single GeneID.
+    Function to extract weights for a specific gene from the input files.
 
     Args:
-        gene: GeneID (str) to process
-        input1_path: Path to input1_wstd.csv
-        input2_path: Path to input2.csv
+        gene (str): Gene ID to filter the weights.
+        input1_path (Path): Path to the input1_wstd.csv file.
+        input2_path (Path): Path to the input2.csv file.
 
     Returns:
-        Flattened numpy array of weights for the specific GeneID
+        weights (numpy.ndarray): Extracted weights for the specified gene.
     """
 
     # Load input1_wstd and input2
@@ -103,6 +102,17 @@ def get_protein_weights(
 
 
 def full_weight(p_data_weight, use_regularization, reg_len):
+    """
+    Function to create a full weight array for parameter estimation.
+
+    Args:
+        p_data_weight (numpy.ndarray): The weight data to be processed.
+        use_regularization (bool): Flag to indicate if regularization is used.
+        reg_len (int): Length of the regularization term.
+
+    Returns:
+        numpy.ndarray: The full weight array.
+    """
     base = np.concatenate([np.ones(9), p_data_weight])
     if use_regularization:
         base = np.concatenate([base, np.ones(reg_len)])
@@ -112,34 +122,18 @@ def full_weight(p_data_weight, use_regularization, reg_len):
 def get_weight_options(target, t_target, num_psites, use_regularization, reg_len, early_weights, ms_gauss_weights):
     """
     Function to calculate weights for parameter estimation based on the target data and time points.
-    The weights are designed to emphasize early time points and account for noise in the data.
-    The function also includes options for regularization and custom early point emphasis.
 
-    The following are the weighting schemes:
-    - Inverse data: 1 / abs(target)
-    - Exponential decay: exp(-0.5 * target)
-    - Log scale: 1 / log(1 + abs(target))
-    - Time difference: 1 / abs(time_diff)
-    - Moving average: 1 / abs(target - moving_avg)
-    - Sigmoid time decay: 1 / (1 + exp(time_indices - 5))
-    - Exponential early emphasis: exp(-0.5 * time_indices)
-    - Polynomial decay: 1 / (1 + 0.5 * time_indices)
-    - MS SNR model: 1 / sqrt(signal)
-    - MS inverse variance: 1 / (abs(target) ** 0.7)
-    - Flat region penalty: 1 / abs(grad)
-    - Steady state decay: exp(-0.1 * time_indices)
-    - Inverse sqrt data: 1 / sqrt(abs(target))
-    - Early emphasis moderate: ones
-    - Early emphasis steep decay: ones
-    - Custom early points emphasis: early_weights
+    Args:
+        target (numpy.ndarray): The target data for which weights are calculated.
+        t_target (numpy.ndarray): The time points corresponding to the target data.
+        num_psites (int): Number of phosphorylation sites.
+        use_regularization (bool): Flag to indicate if regularization is used.
+        reg_len (int): Length of the regularization term.
+        early_weights (numpy.ndarray): Weights for early time points.
+        ms_gauss_weights (numpy.ndarray): Weights based on Gaussian distribution.
 
-    :param target:
-    :param t_target:
-    :param num_psites:
-    :param use_regularization:
-    :param reg_len:
-    :param early_weights:
-    :return: dictionary of weights for parameter estimation
+    Returns:
+        dict: A dictionary containing different weight options.
     """
     time_indices = np.tile(np.arange(1, len(t_target) + 1), num_psites)
 

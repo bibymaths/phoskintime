@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.cm as cm
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -11,18 +12,20 @@ import seaborn as sns
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-
 from kinopt.evol.config.constants import OUT_DIR
-
+matplotlib.use('Agg')
 
 def goodnessoffit(estimated, observed):
     """
-    Function to plot the goodness of fit for estimated and observed values.
-    It creates scatter plots with confidence intervals and labels for genes outside the 95% CI.
-    The function also calculates KL divergence and generates a heatmap for optimization progression.
+    Function to plot the goodness of fit and kullback-leibler divergence
+    for estimated and observed values.
 
-    :param estimated:
-    :param observed:
+    Args:
+        estimated (pd.DataFrame): DataFrame containing estimated values.
+        observed (pd.DataFrame): DataFrame containing observed values.
+
+    Returns:
+        None
     """
     merged_data = estimated.rename(columns={"Gene": "GeneID"}).merge(observed, on=['GeneID', 'Psite'],
                                                                      suffixes=('_est', '_obs'))
@@ -153,13 +156,12 @@ def goodnessoffit(estimated, observed):
 def reshape_alpha_beta(alpha_values, beta_values):
     """
     Function to reshape alpha and beta values for plotting.
-    It renames columns and creates a new 'Parameter' column for each type of value.
 
-    :param alpha_values:
-    :param beta_values:
-
-    :returns:
-    - pd.DataFrame: Reshaped DataFrame containing 'GeneID', 'Value', and 'Parameter' columns.
+    Args:
+        alpha_values (pd.DataFrame): DataFrame containing alpha values.
+        beta_values (pd.DataFrame): DataFrame containing beta values.
+    Returns:
+        pd.DataFrame: Reshaped DataFrame containing both alpha and beta values.
     """
     alpha_values['Gene'] = alpha_values['Gene'].astype(str)
     alpha_values['Psite'] = alpha_values['Psite'].astype(str)
@@ -183,12 +185,13 @@ def reshape_alpha_beta(alpha_values, beta_values):
 # Function to perform PCA analysis
 def perform_pca(df):
     """
-    Perform PCA analysis on the given DataFrame.
-    The DataFrame should contain a 'Value' column for PCA analysis.
-    The function returns a DataFrame with PCA results and additional columns for type and gene/psite information.
+    Function to perform PCA analysis on the given DataFrame.
 
-    :param df: DataFrame containing the data for PCA analysis.
-    :return: DataFrame with PCA results and additional columns.
+    Args:
+        df (pd.DataFrame): DataFrame containing the data for PCA analysis.
+
+    Returns:
+        pd.DataFrame: DataFrame with PCA results and additional columns for type and gene/psite information.
     """
     numeric_df = df[['Value']].copy()
     scaler = StandardScaler()
