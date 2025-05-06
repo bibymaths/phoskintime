@@ -18,9 +18,12 @@ def _build_P_initial(full_df, interact_df):
     """
     Build the initial protein-kinase mapping and time series data.
 
-    :param full_df:
-    :param interact_df:
-    :return: Protein - Kinase mapping, time series data
+    Args:
+        full_df (DataFrame): DataFrame containing full data
+        interact_df (DataFrame): DataFrame containing interactions
+    Returns:
+        P_initial (dict): Dictionary containing initial protein-kinase mapping
+        P_list (ndarray): Numpy array containing time series data
     """
     # Extract time series columns
     time = [f'x{i}' for i in range(1, 15)]
@@ -49,10 +52,14 @@ def _build_K_data(full_df, interact_df, estimate_missing):
     """
     Build the kinase data for optimization.
 
-    :param full_df: DataFrame containing full data
-    :param interact_df: DataFrame containing interactions
-    :param estimate_missing: Boolean flag to estimate missing data
-    :return: Kinase index, kinase data array, beta counts
+    Args:
+        full_df (DataFrame): DataFrame containing full data
+        interact_df (DataFrame): DataFrame containing interactions
+        estimate_missing (bool): Flag to estimate missing data
+    Returns:
+        K_index (dict): Dictionary containing kinase data
+        K_array (ndarray): Numpy array containing kinase time series data
+        beta_counts (dict): Dictionary containing beta counts
     """
     # Extract time series columns
     time = [f'x{i}' for i in range(1, 15)]
@@ -109,8 +116,14 @@ def _convert_to_sparse(K_array):
     """
     Function to convert a dense array to sparse format.
 
-    :param K_array: Kinase data array
-    :return: Sparse matrix, data, indices, indptr
+    Args:
+        K_array (ndarray): Dense array to be converted
+    Returns:
+        K_sparse (csr_matrix): Sparse matrix representation of the input array
+        K_sparse.data (ndarray): Non-zero values of the sparse matrix
+        K_sparse.indices (ndarray): Column indices of the non-zero values
+        K_sparse.indptr (ndarray): Row pointer of the sparse matrix
+
     """
     K_sparse = csr_matrix(K_array)
     return K_sparse, K_sparse.data, K_sparse.indices, K_sparse.indptr
@@ -120,15 +133,17 @@ def _precompute_mappings(P_initial, K_index):
     """
     Function to precompute mappings for optimization.
 
-    :param P_initial: Initial protein-kinase mapping
-    :param K_index: Kinase index
-    :return: Unique kinases, gene-kinase counts, alpha starts, kinase indices, total alpha, beta counts, beta starts
-    :rtype: tuple
-
-    :note: This function precomputes the mappings for optimization.
-    :note: It extracts unique kinases, gene-kinase counts, and initializes alpha and beta parameters.
-    :note: The function also computes the total number of alpha parameters and the beta counts.
-    :note: The function is used to prepare the data for optimization.
+    Args:
+        P_initial (dict): Dictionary containing initial protein-kinase mapping
+        K_index (dict): Dictionary containing kinase data
+    Returns:
+        unique_kinases (list): List of unique kinases
+        gene_kinase_counts (ndarray): Array containing counts of kinases for each protein
+        gene_alpha_starts (ndarray): Array containing starting indices for alpha parameters
+        gene_kinase_idx (ndarray): Array containing indices of kinases for each protein
+        total_alpha (int): Total number of alpha parameters
+        kinase_beta_counts (ndarray): Array containing counts of beta parameters for each kinase
+        kinase_beta_starts (ndarray): Array containing starting indices for beta parameters
     """
 
     # Extract unique kinases and their indices
@@ -183,7 +198,8 @@ def _precompute_mappings(P_initial, K_index):
         # Store the indices of the phosphorylation sites for the current kinase
         cum += cnt
 
-    return unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha, kinase_beta_counts, kinase_beta_starts
+    return (unique_kinases, gene_kinase_counts, gene_alpha_starts, gene_kinase_idx, total_alpha,
+            kinase_beta_counts, kinase_beta_starts)
 
 
 def _init_parameters(
@@ -195,13 +211,16 @@ def _init_parameters(
     """
     Function to initialize parameters for optimization.
 
-    :param total_alpha: Total number of alpha parameters
-    :param lb: Lower bound for beta parameters
-    :param ub: Upper bound for beta parameters
-    :param kinase_beta_counts: List of kinase beta counts
-    :return: Initial parameters and bounds
-    :rtype: tuple
-    :note: This function initializes the parameters for optimization.
+    Args:
+        total_alpha (int): Total number of alpha parameters
+        lb (float): Lower bound for beta parameters
+        ub (float): Upper bound for beta parameters
+        kinase_beta_counts (list[int]): List of counts of beta parameters for each kinase
+
+    Returns:
+        params_initial (ndarray): Initial parameters for optimization
+        bounds (list[tuple]): Bounds for the parameters
+
     """
     n_beta = int(sum(kinase_beta_counts))
     bounds = [(0.0, 1.0)] * total_alpha + [(lb, ub)] * n_beta
@@ -218,9 +237,13 @@ def _compute_time_weights(P_array, loss_type):
     """
     Function to compute time weights for optimization.
 
-    :param P_array:
-    :param loss_type:
-    :return: t_max, P_dense, time_weights
+    Args:
+        P_array (ndarray): Array containing phosphorylation data
+        loss_type (str): Type of loss function to use
+    Returns:
+        t_max (int): Maximum time points
+        P_dense (ndarray): Dense matrix of phosphorylation data
+        time_weights (ndarray): Weights for time points
     """
     t_max = P_array.shape[1]
     P_dense = P_array.astype(np.float64)
@@ -238,20 +261,20 @@ def _eq_constraint(s, c):
     """
     Function to create an equality constraint for optimization.
 
-    :param s:
-    :param c:
-    :return: linear constraint sum
+    Args:
+        s (int): Start index for the constraint
+        c (int): Count of parameters for the constraint
     """
-
     def f(p):
         """
         Function to compute the equality constraint for optimization.
 
-        :param p:
-        :return: Sum of parameters in the range [s, s+c] minus 1
+        Args:
+            p (ndarray): Parameters for optimization
+        Returns:
+            float: Computed equality constraint value
         """
         return np.sum(p[s: s + c]) - 1
-
     return f
 
 
@@ -259,13 +282,16 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
     """
     Function to build constraints for optimization.
 
-    :param opt_method:
-    :param gene_kinase_counts:
-    :param unique_kinases:
-    :param total_alpha:
-    :param kinase_beta_counts:
-    :param n_params:
-    :return: Constraints for optimization
+    Args:
+        opt_method (str): Optimization method to use
+        gene_kinase_counts (list[int]): List of counts of kinases for each gene
+        unique_kinases (list): List of unique kinases
+        total_alpha (int): Total number of alpha parameters
+        kinase_beta_counts (list[int]): List of counts of beta parameters for each kinase
+        n_params (int): Total number of parameters
+    Returns:
+        list[LinearConstraint]: List of linear constraints for optimization
+        list[dict]: List of equality constraints for optimization
     """
     if opt_method == "trust-constr":
         n_alpha = len(gene_kinase_counts)
@@ -307,6 +333,14 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
 
 
 def load_geneid_to_psites(input1_path=INPUT1):
+    """
+    Load the geneid to psite mapping from a CSV file.
+
+    Args:
+        input1_path (str): Path to the input CSV file containing geneid and psite information.
+    Returns:
+        defaultdict: A dictionary mapping geneid to a set of psites.
+    """
     geneid_psite_map = defaultdict(set)
     with open(input1_path, newline='') as f:
         reader = csv.DictReader(f)
@@ -319,6 +353,14 @@ def load_geneid_to_psites(input1_path=INPUT1):
 
 
 def get_unique_kinases(input2_path=INPUT2):
+    """
+    Extract unique kinases from the input CSV file.
+
+    Args:
+        input2_path (str): Path to the input CSV file containing kinase information.
+    Returns:
+        set: A set of unique kinases.
+    """
     kinases = set()
     with open(input2_path, newline='') as f:
         reader = csv.DictReader(f)
@@ -336,6 +378,9 @@ def get_unique_kinases(input2_path=INPUT2):
 
 
 def check_kinases():
+    """
+    Check if kinases in input2.csv are present in input1.csv and log the results.
+    """
     geneid_to_psites = load_geneid_to_psites()
     kinases = get_unique_kinases()
 

@@ -19,14 +19,14 @@ logger = setup_logger()
 
 def compute_bound(value, perturbation=PERTURBATIONS_VALUE):
     """
-    Computes the lower and upper bounds for a given parameter value.
-    The bounds are computed as a percentage of the parameter value,
-    with a specified perturbation value.
-    The lower bound is capped at 0.0 to avoid negative values.
-    The function returns a list containing the lower and upper bounds.
-    :param perturbation: Fractional perturbation around the parameter value.
-    :param value: The parameter value for which to compute the bounds.
-    :return: A list containing the lower and upper bounds.
+    Computes the lower and upper bounds for a given parameter value for sensitivity analysis and perturbations.
+
+    Args:
+        value (float): The parameter value.
+        perturbation (float): The perturbation factor.
+
+    Returns:
+        list: A list containing the lower and upper bounds.
     """
     if abs(value) < 1e-6:
         return [0.0, 0.1]  # fallback for near-zero
@@ -38,6 +38,13 @@ def compute_bound(value, perturbation=PERTURBATIONS_VALUE):
 def define_sensitivity_problem_rand(num_psites, values):
     """
     Defines the Morris sensitivity analysis problem for the random model.
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+        values (list): List of parameter values.
+
+    Returns:
+        dict: A dictionary containing the number of variables, parameter names, and bounds.
     """
     num_vars = get_number_of_params_rand(num_psites)
     param_names = get_param_names_rand(num_psites)
@@ -56,6 +63,13 @@ def define_sensitivity_problem_rand(num_psites, values):
 def define_sensitivity_problem_ds(num_psites, values):
     """
     Defines the Morris sensitivity analysis problem for the dynamic-site model.
+
+    Args:
+        num_psites (int): Number of phosphorylation sites.
+        values (list): List of parameter values.
+
+    Returns:
+        dict: A dictionary containing the number of variables, parameter names, and bounds.
     """
     num_vars = 4 + 2 * num_psites
     param_names = ['A', 'B', 'C', 'D'] + \
@@ -76,6 +90,13 @@ def define_sensitivity_problem_ds(num_psites, values):
 def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
     """
     Compute the scalar Y based on the global Y_METRIC flag.
+
+    Args:
+        solution (np.ndarray): The solution array from the ODE solver.
+        num_psites (int): Number of phosphorylation sites.
+
+    Returns:
+        float: The computed Y value based on the selected metric.
     """
     n_t = solution.shape[0]
     # compute sum of mRNA and sites, and build flattened length
@@ -143,6 +164,12 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
 def _perturb_solve(i_X_tuple):
     """
     Worker: solve ODE for one parameter set.
+
+    Args:
+        i_X_tuple (tuple): A tuple containing the index and parameter values.
+
+    Returns:
+        tuple: The index, solution, flat phosphorylation site mRNA, and Y value.
     """
     i, X, init_cond, num_psites, time_points = i_X_tuple
     A, B, C, D, *rest = X
@@ -156,10 +183,6 @@ def _perturb_solve(i_X_tuple):
 def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, state_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
-
-    This function defines the sensitivity problem based on the ODE model type,
-    generates parameter samples, evaluates the model for each sample, and computes
-    sensitivity indices. It also generates various plots to visualize the results.
 
     Args:
         time_points (list or np.ndarray): Time points for the ODE simulation.
@@ -253,15 +276,19 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
 
     # Restrict the trajectories to only the closest ones 
     # Best phosphorylation site solutions
-    best_model_psite_solutions = all_model_psite_solutions[best_idxs] 
+    best_model_psite_solutions = all_model_psite_solutions[best_idxs]
+
     # Best mRNA and protein solutions
     best_mrna_solutions = all_mrna_solutions[best_idxs]
-    best_protein_solutions = all_protein_solutions[best_idxs] 
+    best_protein_solutions = all_protein_solutions[best_idxs]
+
     # Number of phosphorylation sites
-    n_sites = best_model_psite_solutions.shape[2] 
+    n_sites = best_model_psite_solutions.shape[2]
+
     # Best model solutions stacked
     all_states = np.stack([best_mrna_solutions, best_protein_solutions] +
                           [best_model_psite_solutions[:, :, i] for i in range(n_sites)], axis=-1)
+
     # cut-off time point for plotting
     cutoff_idx = 8
 

@@ -83,25 +83,8 @@ def format_site(site):
 def process_msgauss():
     """
     Processes the MS Gaussian data file to generate time series data.
-
-    This function performs the following steps:
-    1. Loads the `MS_Gaussian_updated_09032023.csv` file.
-    2. Computes the transformed values as 2^(predict_mean).
-    3. Pivots the data to create a time series for each (GeneID, Psite) pair.
-    4. Renames the time point columns to `x1` to `x14` and formats the `Psite` column.
-    5. Saves the cleaned time series to `input1.csv`.
-    6. Filters the data to keep only rows where `Psite` starts with `Y_`, `S_`, `T_`, or is empty.
-    7. Saves the filtered time series to `input1.csv`.
-
-    Outputs:
-        - `input1.csv`: Cleaned and filtered time series data.
-
-    Prints:
-        - A message indicating that the time series data has been saved.
-
-    Raises:
-        FileNotFoundError: If the input file is not found in the specified directory.
     """
+
     # Load the MS_Gaussian file
     df = pd.read_csv(os.path.join(base_dir, "MS_Gaussian_updated_09032023.csv"))
 
@@ -139,24 +122,6 @@ def process_msgauss():
 def process_msgauss_std():
     """
     Processes the MS Gaussian data file to compute transformed means and standard deviations.
-
-    This function performs the following steps:
-    1. Loads the `MS_Gaussian_updated_09032023.csv` file.
-    2. Computes transformed values as 2^(predict_mean) and propagates errors using the formula:
-       sigma_y = 2^(x) * ln(2) * sigma_x.
-    3. Pivots the data to create time series for each (GeneID, Psite) pair for both means and standard deviations.
-    4. Merges the pivoted data for means and standard deviations.
-    5. Filters the data to keep only rows where `Psite` starts with `Y_`, `S_`, `T_`, or is empty.
-    6. Saves the resulting data to `input1_wstd.csv`.
-
-    Outputs:
-        - `input1_wstd.csv`: Cleaned time series data with transformed means and standard deviations.
-
-    Prints:
-        - A message indicating that the time series data with standard deviations has been saved.
-
-    Raises:
-        FileNotFoundError: If the input file is not found in the specified directory.
     """
     df = pd.read_csv(os.path.join(base_dir, "MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
@@ -200,23 +165,8 @@ def process_msgauss_std():
 def process_routlimma():
     """
     Processes the Rout Limma table to generate time series data for mRNA.
-
-    This function performs the following steps:
-    1. Loads the `Rout_LimmaTable.csv` file.
-    2. Selects specific columns related to time points and conditions.
-    3. Renames the selected columns to a standardized format (`x1` to `x9`).
-    4. Converts the values in the renamed columns using the formula `2^(value)`.
-    5. Saves the resulting time series data to `input3.csv`.
-
-    Outputs:
-        - `input3.csv`: Cleaned and transformed time series data for mRNA.
-
-    Prints:
-        - A message indicating that the time series data has been saved.
-
-    Raises:
-        FileNotFoundError: If the input file `Rout_LimmaTable.csv` is not found in the specified directory.
     """
+
     # Load Rout_LimmaTable.csv and select desired columns
     df = pd.read_csv(os.path.join(base_dir, "Rout_LimmaTable.csv"))
     selected_cols = [
@@ -254,22 +204,8 @@ def update_gene_symbols(filename):
     """
     Updates the GeneID column in a CSV file by mapping GeneIDs to gene/protein symbols.
 
-    This function reads a CSV file, queries the MyGeneInfo database to map GeneIDs to their
-    corresponding gene/protein symbols, and writes the updated DataFrame back to the same file.
-
     Args:
         filename (str): The path to the CSV file to be updated. The file must contain a 'GeneID' column.
-
-    Raises:
-        FileNotFoundError: If the specified file does not exist.
-        ValueError: If the 'GeneID' column is missing in the file.
-
-    Outputs:
-        - The input file is updated in place with the 'GeneID' column replaced by gene/protein symbols.
-
-    Prints:
-        - A progress bar indicating the mapping process.
-        - A message confirming the update of gene symbols in the file.
     """
     df = pd.read_csv(filename)
     df['GeneID'] = df['GeneID']
@@ -314,27 +250,6 @@ def update_gene_symbols(filename):
 def move_processed_files():
     """
     Moves or copies processed files to their respective directories.
-
-    This function organizes processed files into specific directories for
-    transcription factor optimization (TFOpt) and kinase optimization (KinOpt).
-    It creates the target directories if they do not exist and moves or copies
-    the files based on whether they have already been moved.
-
-    Directories:
-        - `../tfopt/data`: Target directory for TFOpt files.
-        - `../kinopt/data`: Target directory for KinOpt files.
-
-    Files:
-        - KinOpt files: ["input1.csv", "input2.csv"]
-        - TFOpt files: ["input1.csv", "input3.csv", "input4.csv"]
-
-    Behavior:
-        - If a file has already been moved, it is copied to the target directory.
-        - If a file has not been moved, it is moved to the target directory.
-        - If a file does not exist, a message is printed.
-
-    Prints:
-        - Messages indicating whether files were moved, copied, or not found.
     """
 
     # Create a new directory if it doesn't exist

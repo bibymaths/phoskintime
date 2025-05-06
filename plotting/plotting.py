@@ -515,6 +515,10 @@ class Plotter:
     def plot_params_bar(self, ci_results: dict, param_labels: list = None):
         """
         Plots bar plot for estimated parameter with 95% Confidence Interval.
+
+        Args:
+            ci_results (dict): Dictionary containing the results of the confidence intervals.
+            param_labels (list, optional): List of parameter labels. Defaults to None.
         """
         beta_hat = ci_results['beta_hat']
         p_values = ci_results['pval']
@@ -575,6 +579,11 @@ class Plotter:
     def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
         Plot wild-type and knockout simulation results for comparison.
+
+        Args:
+            results_dict (dict): Dictionary containing simulation results.
+            num_psites (int): Number of phosphorylation sites.
+            psite_labels (list): List of phosphorylation site labels.
         """
         marker_cycle = itertools.cycle(available_markers)
         time_points = results_dict['WT'][0]
@@ -1093,14 +1102,13 @@ class Plotter:
         """
         Plots the model fit for the future time points.
 
-        :param model_fit: Estimated model fit values.
-        :param P_data: Observed data for phosphorylation levels.
-        :param R_data: Observed data for mRNA levels.
-        :param sol: ODE solution for mRNA and protein levels.
-        :param num_psites: number of phosphorylation sites.
-        :param psite_labels: labels for the phosphorylation sites.
-        :param time_points: time points for the data.
-        :return:
+        Args:
+            P_data (np.ndarray): Data for phosphorylation sites.
+            R_data (np.ndarray): Data for mRNA.
+            sol (np.ndarray): Model solution.
+            num_psites (int): Number of phosphorylation sites.
+            psite_labels (list): Labels for phosphorylation sites.
+            time_points (np.ndarray): Time points for the data.
         """
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
@@ -1149,6 +1157,9 @@ class Plotter:
         """
         Read every '<gene>_params' sheet in the Excel file, pull the Regularization value,
         and plot a horizontal bar chart of regularization vs. gene.
+
+        Args:
+            excel_path (str): Path to the Excel file.
         """
         xls = pd.ExcelFile(excel_path)
         genes = []
@@ -1193,6 +1204,9 @@ class Plotter:
         """
         Read every '<gene>_params' sheet in the Excel file, pull the RMSE value,
         and plot a horizontal bar chart of RMSE vs. gene.
+
+        Args:
+            excel_path (str): Path to the Excel file.
         """
         xls = pd.ExcelFile(excel_path)
         genes = []

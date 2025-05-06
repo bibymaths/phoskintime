@@ -10,32 +10,24 @@ def _objective(params, P_init, t_max, n,
                time_weights, loss_flag):
     """
     Objective function for optimization.
-    This function computes the loss value based on the predicted and actual values.
-    The loss function can be selected based on the loss_flag parameter.
 
-    The loss function can be one of the following:
-    0: Base loss (L2 norm)
-    1: Weighted loss (L2 norm with time weights)
-    2: Soft L1 loss
-    3: Cauchy loss
-    4: Arctan loss
+    Args:
+        params: Parameters for the optimization.
+        P_init: Initial phosphorylation data.
+        t_max: Maximum time points.
+        n: Number of genes.
+        gene_alpha_starts: Starting indices for gene alpha values.
+        gene_kinase_counts: Counts of kinases for each gene.
+        gene_kinase_idx: Indices of kinases for each gene.
+        total_alpha: Total number of alpha parameters.
+        kinase_beta_starts: Starting indices for kinase beta values.
+        kinase_beta_counts: Counts of beta values for each kinase.
+        K_data, K_indices, K_indptr: Sparse matrix representation of the data.
+        time_weights: Weights for time points (if applicable).
+        loss_flag: Flag indicating the type of loss function to use.
 
-    :param params:
-    :param P_init:
-    :param t_max:
-    :param n:
-    :param gene_alpha_starts:
-    :param gene_kinase_counts:
-    :param gene_kinase_idx:
-    :param total_alpha:
-    :param kinase_beta_starts:
-    :param kinase_beta_counts:
-    :param K_data:
-    :param K_indices:
-    :param K_indptr:
-    :param time_weights:
-    :param loss_flag:
-    :return: loss value
+    Returns:
+        loss_val: Computed loss value based on the selected loss function.
     """
     # Initialize the number of genes and kinases
     n_gene = P_init.shape[0]
@@ -110,25 +102,21 @@ def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, g
                       K_data, K_indices, K_indptr):
     """
     Compute the estimated series based on the parameters and the sparse matrix representation of the data.
-    This function computes the predicted values for each gene at each time point based on the parameters
-    and the sparse matrix.
 
-    The predicted values are computed by first calculating the kinase activity matrix M and then using it
-    to compute the predicted values for each gene.
+    Args:
+        params: Parameters for the optimization.
+        t_max: Maximum time points.
+        n: Number of genes.
+        gene_alpha_starts: Starting indices for gene alpha values.
+        gene_kinase_counts: Counts of kinases for each gene.
+        gene_kinase_idx: Indices of kinases for each gene.
+        total_alpha: Total number of alpha parameters.
+        kinase_beta_starts: Starting indices for kinase beta values.
+        kinase_beta_counts: Counts of beta values for each kinase.
+        K_data, K_indices, K_indptr: Sparse matrix representation of the data.
 
-    :param params:
-    :param t_max:
-    :param n:
-    :param gene_alpha_starts:
-    :param gene_kinase_counts:
-    :param gene_kinase_idx:
-    :param total_alpha:
-    :param kinase_beta_starts:
-    :param kinase_beta_counts:
-    :param K_data:
-    :param K_indices:
-    :param K_indptr:
-    :return: predicted values for each gene at each time point
+    Returns:
+        pred: Predicted values for each gene at each time point.
     """
     # Initialize the number of genes and kinases
     n_gene = n
@@ -180,30 +168,23 @@ def _objective_wrapper(params, P_init_dense, t_max, gene_alpha_starts, gene_kina
                        K_data, K_indices, K_indptr, time_weights, loss_type):
     """
     Wrapper function for the objective function.
-    This function calls the _objective function with the appropriate parameters
-    and loss function based on the loss_type parameter.
-    The loss function can be one of the following:
-    0: Base loss (L2 norm)
-    1: Weighted loss (L2 norm with time weights)
-    2: Soft L1 loss
-    3: Cauchy loss
-    4: Arctan loss
 
-    :param params:
-    :param P_init_dense:
-    :param t_max:
-    :param gene_alpha_starts:
-    :param gene_kinase_counts:
-    :param gene_kinase_idx:
-    :param total_alpha:
-    :param kinase_beta_starts:
-    :param kinase_beta_counts:
-    :param K_data:
-    :param K_indices:
-    :param K_indptr:
-    :param time_weights:
-    :param loss_type:
-    :return: objective value
+    Args:
+        params: Parameters for the optimization.
+        P_init_dense: Dense matrix of initial phosphorylation data.
+        t_max: Maximum time points.
+        gene_alpha_starts: Starting indices for gene alpha values.
+        gene_kinase_counts: Counts of kinases for each gene.
+        gene_kinase_idx: Indices of kinases for each gene.
+        total_alpha: Total number of alpha parameters.
+        kinase_beta_starts: Starting indices for kinase beta values.
+        kinase_beta_counts: Counts of beta values for each kinase.
+        K_data, K_indices, K_indptr: Sparse matrix representation of the data.
+        time_weights: Weights for time points (if applicable).
+        loss_type: Type of loss function to use.
+
+    Returns:
+        loss_val: Computed loss value based on the selected loss function.
     """
     mapping = {"base": 0, "weighted": 1, "softl1": 2, "cauchy": 3, "arctan": 4}
     flag = mapping.get(loss_type, 0)

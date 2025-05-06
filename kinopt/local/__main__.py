@@ -20,29 +20,8 @@ logger = setup_logger()
 def main():
     """
     Main function to run the local optimization for kinase phosphorylation time series data.
-
-    It performs the following steps:
-    1. Sets up logging.
-    2. Parses command-line arguments.
-    3. Loads and scales the data.
-    4. Builds the initial protein group data matrix.
-    5. Builds the kinase data matrix.
-    6. Precomputes mappings for optimization.
-    7. Initializes parameters for optimization.
-    8. Computes time weights for the optimization.
-    9. Builds constraints for the optimization.
-    10. Defines the objective function wrapper.
-    11. Runs the optimization using the specified method.
-    12. Extracts optimized parameters from the optimization results.
-    13. Computes metrics for the optimized parameters.
-    14. Outputs results to an Excel file.
-    15. Copies the output file to a specified directory.
-    16. Analyzes optimization performance.
-    17. Organizes output files and creates a report.
-    18. Logs the completion of the process.
-
-    The function takes no parameters and returns nothing.
     """
+
     # Set up logging.
     logger.info('[Local Optimization] Started - Kinase Phosphorylation Time Series')
 

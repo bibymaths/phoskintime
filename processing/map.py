@@ -16,11 +16,6 @@ def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Valu
     """
     Reads the TF-mRNA optimization results from an Excel file and maps mRNA to each TF.
 
-    This function processes the 'Alpha Values' sheet of the provided Excel file to extract
-    non-zero optimization results, groups mRNA by TF, and merges the results with additional
-    data from a CSV file containing TF, Psite, and Kinase information. The final DataFrame
-    is cleaned and formatted for further analysis.
-
     Args:
         tf_file_path: Path to the Excel file containing TF-mRNA optimization results.
         kin_file_path: Path to the Excel file containing Kinase-Phosphorylation optimization results.
@@ -66,7 +61,6 @@ def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Valu
 def create_cytoscape_table(mapping_csv_path):
     """
     Creates a Cytoscape-compatible edge table from a mapping file.
-    Adds a 'Strength' column from TF_strength or Kinase_strength.
 
     Parameters:
         mapping_csv_path (str): Path to the input CSV file with columns:
@@ -118,9 +112,13 @@ def create_cytoscape_table(mapping_csv_path):
 def add_kinetic_strength_columns(mapping_path, mapping__path, excel_path, suffix):
     """
     Adds kinetic strength columns to the mapping files based on the provided Excel file.
-    The function reads the mapping files and the Excel file, extracts the kinetic strength values,
-    and updates the mapping files with the new columns.
-    The updated mapping files are saved with a specified suffix of the model.
+
+    Args:
+        mapping_path (str): Path to the first mapping file.
+        mapping__path (str): Path to the second mapping file.
+        excel_path (str): Path to the Excel file containing kinetic strength data.
+        suffix (str): Suffix to append to the output files.
+
     """
     mapping = pd.read_csv(mapping_path)
     mapping_ = pd.read_csv(mapping__path)
@@ -155,9 +153,9 @@ def add_kinetic_strength_columns(mapping_path, mapping__path, excel_path, suffix
 
 def generate_nodes(edge_df):
     """
-    Infers node types and aggregates all Psites per target node from phosphorylation edges.
+    Infers node types and aggregates all phosphorylation sites per target node from phosphorylation edges.
 
-    Parameters:
+    Args:
         edge_df (pd.DataFrame): Must have columns ['Source', 'Target', 'Interaction', 'Psite']
 
     Returns:

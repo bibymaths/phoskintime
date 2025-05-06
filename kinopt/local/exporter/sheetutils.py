@@ -11,30 +11,21 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
                    result, mse, rmse, mae, mape, r_squared):
     """
     Function to output the results of the optimization process.
-    It logs the optimized alpha and beta values, optimization summary,
-    error metrics, and generates plots for each gene.
-    It also writes the results to an Excel file with multiple sheets.
 
-    The sheets include:
-    - Alpha Values: Optimized alpha values for each gene and psite.
-    - Beta Values: Optimized beta values for each kinase and psite.
-    - Summary: Summary of the optimization process.
-    - Observed: Observed time-series data for each gene and psite.
-    - Estimated: Estimated time-series data for each gene and psite.
-    - Residuals: Residuals for each gene and psite.
+    Args:
+        P_initial (dict): Dictionary containing initial phosphorylation data.
+        P_init_dense (ndarray): Dense matrix of initial phosphorylation data.
+        P_estimated (ndarray): Dense matrix of estimated phosphorylation data.
+        residuals (ndarray): Dense matrix of residuals.
+        alpha_values (dict): Dictionary containing optimized alpha values.
+        beta_values (dict): Dictionary containing optimized beta values.
+        result (OptimizeResult): Result object from the optimization process.
+        mse (float): Mean Squared Error of the optimization.
+        rmse (float): Root Mean Squared Error of the optimization.
+        mae (float): Mean Absolute Error of the optimization.
+        mape (float): Mean Absolute Percentage Error of the optimization.
+        r_squared (float): R-squared value of the optimization.
 
-    :param P_initial:
-    :param P_init_dense:
-    :param P_estimated:
-    :param residuals:
-    :param alpha_values:
-    :param beta_values:
-    :param result:
-    :param mse:
-    :param rmse:
-    :param mae:
-    :param mape:
-    :param r_squared:
     """
     logger.info("Optimized Alpha values:")
     for (gene, psite), kinases in alpha_values.items():

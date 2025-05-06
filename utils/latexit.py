@@ -12,6 +12,14 @@ sheet_pattern = re.compile(r"^[A-Z0-9]+_[a-zA-Z0-9]+$")
 
 
 def generate_latex_table(df, sheet_name):
+    """
+    Generate LaTeX code for a table from a DataFrame.
+    Args:
+        df (pd.DataFrame): DataFrame to convert to LaTeX.
+        sheet_name (str): Name of the sheet for caption and label.
+    Returns:
+        str: LaTeX code for the table.
+    """
     caption = f"Table showing data for {sheet_name.replace('_', ' ')}."
     label = f"tab:{sheet_name.lower()}"
 
@@ -29,6 +37,14 @@ def generate_latex_table(df, sheet_name):
 
 
 def generate_latex_image(image_filename):
+    """
+    Generate LaTeX code for an image.
+
+    Args:
+        image_filename (str): Path to the image file.
+    Returns:
+        str: LaTeX code for the image.
+    """
     image_name = os.path.basename(image_filename)
     image_path_in_latex = f"Figures/{image_name.split('_')[0]}/{image_name}"
     caption = f"Figure showing {os.path.splitext(image_name)[0].replace('_', ' ')}."
@@ -46,6 +62,12 @@ def generate_latex_image(image_filename):
 
 
 def main(input_dir):
+    """
+    Main function to process Excel and PNG files in the input directory and generate LaTeX code.
+
+    Args:
+        input_dir (str): Directory containing Excel and PNG files.
+    """
     tables_latex = []
     figures_latex = []
 
