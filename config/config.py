@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 from pathlib import Path
 
+from numba import njit
+
 from config.constants import (
     ALPHA_WEIGHT,
     BETA_WEIGHT,
@@ -158,8 +160,8 @@ def extract_config(args):
     }
     return config
 
-
-def score_fit(gene, params, weight, target, prediction,
+@njit(cache=True)
+def score_fit(params, target, prediction,
               alpha=ALPHA_WEIGHT,
               beta=BETA_WEIGHT,
               gamma=GAMMA_WEIGHT,
@@ -188,8 +190,6 @@ def score_fit(gene, params, weight, target, prediction,
     Returns:
         float: The calculated score.
     """
-    # Format the weight
-    weight_display = ' '.join(w.capitalize() for w in weight.split('_'))
 
     # Compute scaled absolute residuals (error per data point).
     residual = np.abs(target - prediction) / target.size
@@ -211,14 +211,6 @@ def score_fit(gene, params, weight, target, prediction,
 
     # Calculate weighted total score combining errors
     score = delta * mse + alpha * rmse + beta * mae + gamma * variance + mu * l2_norm
-
-    # Log all calculated metrics for each weighting schema.
-    # logging.info(f"[{gene}] [{weight_display}] MSE: {mse:.2e}")
-    # logging.info(f"[{gene}] [{weight_display}] RMSE: {rmse:.2e}")
-    # logging.info(f"[{gene}] [{weight_display}] MAE: {mae:.2e}")
-    # logging.info(f"[{gene}] [{weight_display}] Variance: {variance:.2e}")
-    # logging.info(f"[{gene}] [{weight_display}] L2 Norm: {l2_norm:.2e}")
-    # logging.info(f"[{gene}] [{weight_display}] Score: {score:.2e}")
 
     return score
 

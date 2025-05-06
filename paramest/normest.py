@@ -11,7 +11,6 @@ from config.config import score_fit
 from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
     USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
-from mcmc_test import run_mcmc_on_estimates
 from models import solve_ode
 from models.weights import early_emphasis, get_weight_options, get_protein_weights
 from plotting import Plotter
@@ -80,17 +79,18 @@ def worker_find_lambda(
             time_points
         )
 
-        score = score_fit(gene, np.exp(popt_try) if ODE_MODEL == 'randmod'
-        else popt_try,f"{weight_key}_lambda_{lam}", target, pred)
+        score = score_fit(np.exp(popt_try) if ODE_MODEL == 'randmod'
+        else popt_try, target, pred)
 
         if score < best_score:
             best_score = score
             best_weight_key = weight_key
 
     if best_weight_key:
-        logger.info(f"[{gene}]      λ = {lam / len(p0) * np.sum(np.square(p0)): .2f}    |"
-                    f"Weight: '{' '.join(w.capitalize() for w in best_weight_key.split('_'))}'  |"
-                    f"Score = {best_score:.2f}")
+        logger.info(f"[{gene}]\t\t| "
+                    f"λ = {lam / len(p0) * np.sum(np.square(p0)):6.2f} | "
+                    f"Weight: {(' '.join(w.capitalize() for w in best_weight_key.split('_'))):20} | "
+                    f"Score = {best_score:6.2f}")
     else:
         logger.warning(f"[{gene}] All fits failed for lambda = {lam:.2f}")
 
@@ -259,7 +259,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
                         init_cond, num_psites, time_points)
 
     # Calculate the score for the fit.
-    scores[wname] = score_fit(gene, np.exp(popt) if ODE_MODEL == 'randmod' else popt, wname, target, pred)
+    scores[wname] = score_fit(np.exp(popt) if ODE_MODEL == 'randmod' else popt, target, pred)
 
     # Select the best weight based on the score.
     best_weight = min(scores, key=scores.get)
