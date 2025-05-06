@@ -1,6 +1,6 @@
 # local: PhosKinTime Local Optimization Module
 
-local is a submodule of the **abopt** framework that implements a local optimization strategy for gene–phosphorylation
+local is a submodule of the **kinopt** framework that implements a local optimization strategy for gene–phosphorylation
 time-series data. It is tailored for preparing optimized parameter estimates prior to subsequent ODE modelling. The
 module leverages SciPy’s optimization algorithms (SLSQP or TRUST-CONSTR) combined with Numba-accelerated objective
 evaluations for efficient computation.

@@ -1,51 +1,35 @@
 # Utils
 
-The **utils** module provides a collection of helper functions that streamline data handling, output formatting, file
-management, and report/table generation throughout the PhosKinTime package. These utilities ensure that results from
-parameter estimation, sensitivity analysis, and other computations are organized, saved, and displayed consistently.
+The `utils` module provides a set of helper scripts to streamline data processing, table generation, file organization, and report creation for the project. These utilities ensure consistent handling of outputs, formatting, and organization across the pipeline.
 
-## Module Structure
+## Scripts Overview
 
-The **utils** module is organized into the following components:
+### `display.py`
+- **Purpose**: Handles data loading, output directory management, and report generation.
+- **Key Features**:
+  - Ensures output directories exist.
+  - Loads data from Excel files.
+  - Merges observed and estimated data for analysis.
+  - Saves results to Excel with multiple sheets for parameters, errors, PCA, t-SNE, and sensitivity analysis.
+  - Generates a global HTML report summarizing results with plots and tables.
 
-### 1. Display Utilities (`display.py`)
+### `tables.py`
+- **Purpose**: Generates hierarchical tables for alpha and beta values and saves them in LaTeX and CSV formats.
+- **Key Features**:
+  - Processes alpha and beta values from Excel files.
+  - Creates hierarchical tables with multi-index columns for easy comparison.
+  - Saves tables as LaTeX and CSV files for further analysis.
+  - Generates a master LaTeX file to include all individual tables.
 
-This submodule includes functions for:
+### `latexit.py`
+- **Purpose**: Converts Excel data and PNG plots into LaTeX tables and figures for documentation.
+- **Key Features**:
+  - Processes Excel sheets and generates LaTeX tables.
+  - Converts PNG plots into LaTeX figure blocks.
+  - Outputs a structured LaTeX file for integration into larger documents.
 
-- **Directory Management:**
-    - `ensure_output_directory(directory)`: Creates the specified directory if it does not exist.
-
-- **Data Loading:**
-    - `load_data(excel_file, sheet="Estimated Values")`: Loads and returns data from an Excel file.
-
-- **Formatting:**
-    - `format_duration(seconds)`: Converts a duration in seconds to a human-readable format (seconds, minutes, or
-      hours).
-
-- **Result Saving:**
-    - `save_result(results, excel_filename)`: Saves a list of result dictionaries to an Excel file with separate sheets
-      for each gene’s parameters, profiles, and error summaries.
-
-- **Report Generation:**
-    - `create_report(results_dir, output_file="report.html")`: Generates a global HTML report by aggregating plots and
-      data tables from gene-specific result folders.
-
-- **File Organization:**
-    - `organize_output_files(*directories)`: Organizes output files by moving gene-specific files into subfolders and
-      grouping remaining files into a "General" folder.
-
-### 2. Table Utilities (`tables.py`)
-
-This submodule provides functions for generating and saving data tables:
-
-- **Table Generation:**
-    - `generate_tables(xlsx_file_path)`: Loads alpha and beta values from an Excel file, pivots the data, and creates
-      hierarchical tables combining both sets of values.
-
-- **Table Saving:**
-    - `save_tables(tables, output_dir)`: Saves each generated hierarchical table as both a LaTeX file and a CSV file,
-      using a naming convention based on protein and phosphorylation site.
-
-- **Master Table Creation:**
-    - `save_master_table(folder="latex", output_file="latex/all_tables.tex")`: Generates a master LaTeX file that
-      includes all the individual table files from a specified folder.
+## Outputs
+- **Excel Files**: Organized results with multiple sheets for parameters, errors, and analysis.
+- **LaTeX Files**: Tables and figures for documentation.
+- **CSV Files**: Processed data tables for further analysis.
+- **HTML Reports**: Interactive summaries of results with plots and tables.

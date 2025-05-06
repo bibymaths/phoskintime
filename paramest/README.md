@@ -24,28 +24,3 @@ The module is organized into several submodules:
 - **Integration with Plotting:**  
   After estimation, the module calls plotting functions (via the `Plotter` class) to visualize the ODE solution,
   parameter profiles, and goodness-of-fit metrics.
-
-## Usage
-
-### Estimation Mode Toggle
-
-The function `estimate_parameters(mode, ...)` in `toggle.py` serves as the interface that selects the appropriate
-routine and returns:
-
-- `estimated_params`: A list of estimated parameter vectors.
-- `model_fits`: A list of tuples containing the ODE solution and fitted data.
-- `seq_model_fit`: A 2D array of model predictions with shape matching the measurement data.
-- `errors`: Error metrics computed during estimation.
-
-### Running the Estimation
-
-The main script (`core.py`) extracts gene-specific data, sets up initial conditions, and calls `estimate_parameters` (
-via the toggle) with appropriate inputs such as:
-
-- Measurement data (`P_data`)
-- Time points
-- Model bounds and fixed parameter settings
-- Bootstrapping iteration count
-
-After estimation, the final parameter set is used to solve the full ODE system, and various plots (e.g., model fit, PCA,
-t-SNE, profiles) are generated and saved.

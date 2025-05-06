@@ -118,15 +118,6 @@ the results, validate constraints, and generate comprehensive reports.
 
 ---
 
-## Contributing & License
-
-Contributions are welcome! Please refer to the main repository documentation for guidelines on contributing, reporting
-issues, and feature requests.
-
-**kinopt** is distributed under the BSD Clause 3 license. See the LICENSE file in the repository for more details.
-
----
-
 This README provides an overview of the **kinopt** framework, outlining its structure, features, and usage instructions.
 For detailed documentation on each submodule, please refer to the individual README.md files within the respective
 directories.

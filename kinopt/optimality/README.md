@@ -1,6 +1,6 @@
 # Optimality Module
 
-The **Optimality** module is an integral component of the **abopt** framework and is used by both the *evol* and *local*
+The **Optimality** module is an integral component of the **kinopt** framework and is used by both the *evol* and *local*
 submodules. It provides a suite of tools for post-optimization analysis, including feasibility assessments, sensitivity
 analysis, and diagnostic plotting. The module is designed to help users evaluate the quality of the optimization results
 and ensure that the solutions meet the necessary constraints.
@@ -69,41 +69,10 @@ and ensure that the solutions meet the necessary constraints.
 
 ---
 
-## Dependencies
-
-- **Python Packages:**
-    - numpy
-    - pandas
-    - matplotlib
-    - pathlib
-- **Logging:**  
-  Utilizes the logging configuration provided by the framework (configured via `logconf.py` in *evol* or *local*).
-
----
-
-## Usage
-
-The Optimality module is automatically integrated within the *abopt* framework. After an optimization run, the module’s
-main function, `post_optimization_results()`, is invoked to:
-
-- Process the Excel results.
-- Generate diagnostic LaTeX tables and plots.
-- Log comprehensive feasibility and sensitivity summaries.
-
-For standalone usage or custom analysis, import the module and call the relevant functions directly. For example:
-
-```python
-from kinopt.optimality.KKT import post_optimization_results
-
-results = post_optimization_results()
-```
-
----
-
-## Directory Structure (within abopt)
+## Directory Structure (within kinopt)
 
 ```
-abopt/
+kinopt/
 └── optimality/
     └── KKT.py             # Contains all functions for optimality analysis (LaTeX generation, plotting, logging, etc.). citeturn2file0
 ```
