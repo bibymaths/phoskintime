@@ -1,6 +1,6 @@
 # evol: PhosKinTime Evolutionary Optimization Module
 
-evol is a submodule of the **abopt** framework designed for optimizing gene–phosphorylation site time-series data. It
+evol is a submodule of the **kinopt** framework designed for optimizing gene–phosphorylation site time-series data. It
 formulates and solves custom optimization problems to estimate phosphorylation levels by tuning model parameters (alphas
 and betas) under biological constraints. The module supports multiple loss functions and optimization methods, making it
 flexible for various experimental setups.

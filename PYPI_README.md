@@ -189,49 +189,60 @@ brew install graphviz
 Ensure you have Python 3.7+ and that packages such as NumPy, SciPy, Pandas, scikit-learn, Matplotlib, Seaborn, Plotly,
 SALib, and Numba are installed.
 
-## Usage
-
-```bash
-usage: main.py [-h] [--A-bound A_BOUND] [--B-bound B_BOUND] [--C-bound C_BOUND] [--D-bound D_BOUND] [--Ssite-bound SSITE_BOUND] [--Dsite-bound DSITE_BOUND] [--fix-A FIX_A] [--fix-B FIX_B] [--fix-C FIX_C] [--fix-D FIX_D] [--fix-Ssite FIX_SSITE] [--fix-Dsite FIX_DSITE] [--fix-t FIX_T]
-               [--bootstraps BOOTSTRAPS] [--profile-start PROFILE_START] [--profile-end PROFILE_END] [--profile-step PROFILE_STEP] [--input-excel INPUT_EXCEL]
-
-PhosKinTime - ODE Parameter Estimation of Phosphorylation Events in Temporal Space
-
-options:
-  -h, --help            show this help message and exit
-  --A-bound A_BOUND
-  --B-bound B_BOUND
-  --C-bound C_BOUND
-  --D-bound D_BOUND
-  --Ssite-bound SSITE_BOUND
-  --Dsite-bound DSITE_BOUND
-  --fix-A FIX_A
-  --fix-B FIX_B
-  --fix-C FIX_C
-  --fix-D FIX_D
-  --fix-Ssite FIX_SSITE
-  --fix-Dsite FIX_DSITE
-  --fix-t FIX_T         JSON string mapping time points to fixed param values
-  --bootstraps BOOTSTRAPS
-  --profile-start PROFILE_START
-  --profile-end PROFILE_END
-  --profile-step PROFILE_STEP
-  --input-excel INPUT_EXCEL
-                        Path to the input Excel file
-
-```  
-
 The package is executed via the main script located in the `bin` directory. This script sets up the configuration,
 processes experimental data, performs parameter estimation, generates model simulations, and creates a comprehensive
 report.
+ 
+# Command-Line Entry Point for the Phoskintime Pipeline
 
-### Running the Main Script
+The `phoskintime` pipeline provides a command-line interface to execute various stages of the workflow,  
+including preprocessing, optimization, and modeling. Below are the usage instructions and examples for running  
+the pipeline.
 
-You can run the main script from the command line:
+Before running any commands, ensure you are in the working directory one level above the project root (where the project  
+directory is visible).
 
+### Run All Stages
+Run the entire pipeline with the default (local) solver:
 ```bash
-python bin/main.py --A-bound "0,100" --B-bound "0,100" --C-bound "0,100" --D-bound "0,100" --Ssite-bound "0,100" --Dsite-bound "0,100" --bootstraps 10 --input-excel "path/to/your/excel.xlsx"
+python phoskintime all
 ```
+
+### Run Preprocessing Only
+Execute only the preprocessing stage:
+```bash
+python phoskintime prep
+```
+
+### Run Transcription-Factor-mRNA Optimization (TFOPT)
+Run TFOPT with the local solver:
+```bash
+python phoskintime tfopt --mode local
+```
+
+Run TFOPT with the evolutionary solver:
+```bash
+python phoskintime tfopt --mode evol
+```
+
+### Run Kinase-Phosphorylation Optimization (KINOPT)
+Run KINOPT with the local solver:
+```bash
+python phoskintime kinopt --mode local
+```
+
+Run KINOPT with the evolutionary solver:
+```bash
+python phoskintime kinopt --mode evol
+```
+
+### Run the Model
+Execute the modeling stage:
+```bash
+python phoskintime model
+``` 
+
+### Main Script
 
 The command-line arguments (such as parameter bounds, fixed parameters, bootstrapping iterations, and input file paths)
 are parsed by the configuration module. The main script then:
@@ -253,8 +264,6 @@ Here’s a brief overview of the execution flow:
     - Command-line arguments are parsed to override default settings.
 
 2. **Parameter Estimation:**
-    - Depending on the chosen estimation mode (sequential or normal), functions from `paramest/seqest.py` or
-      `paramest/normest.py` are used.
     - The toggle functionality in `paramest/toggle.py` selects the appropriate routine.
     - Results are saved and passed for visualization.
 
@@ -284,9 +293,7 @@ Here’s a brief overview of the execution flow:
     - `weights.py`: Weighting schemes for parameter estimation.
 
 - **Parameter Estimation Module:**
-    - `seqest.py`: Sequential (time-point-by-time-point) estimation.
     - `normest.py`: Normal (all timepoints at once) estimation.
-    - `adapest.py`: Adaptive profile estimation.
     - `toggle.py`: Utility to switch between estimation modes.
     - `core.py`: Integrates estimation, ODE solving, error metrics, and visualization.
 
@@ -311,7 +318,6 @@ You can customize the package by:
 
 - Adjusting model parameters and bounds in the config files.
 - Choosing the ODE model type by modifying `ODE_MODEL` in `constants.py`.
-- Setting the estimation mode (`ESTIMATION_MODE`) to "sequential" or "normal".
 - Configuring output directories and file paths.
 - Modifying the logging behavior in `logconf.py`.
 - Tweaking the scoring function weights in `constants.py`.

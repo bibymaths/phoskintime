@@ -1,7 +1,8 @@
 # Parameter Identifiability
 
 This module provides a function to compute **confidence intervals (CIs)** and **significance statistics** for model
-parameters using **linear approximation** based on the covariance matrix from a nonlinear least squares fit.
+parameters using **linear approximation** based on the covariance matrix from a nonlinear least squares fit, commonly 
+known as also **Wald Intervals**.
 
 ---
 

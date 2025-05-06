@@ -75,7 +75,26 @@ Let:
 - $T$: total number of time points
 - $w_i$: weight at time $i$
 
-Basic schemes:
+**Uncertanities from data**:  
+ They are interpreted as the **standard deviations** of the data points. The formula for the weighted least squares fit  
+ becomes:
+
+  $$
+  \chi^2 = \sum_{i=1}^N \left( \frac{y_i - f(x_i, \theta)}{\sigma_i} \right)^2
+  $$ 
+where $y_i$ is the observed data point, $f(x_i, \theta)$ is the model function with parameters $\theta$, and $\sigma_i$ 
+  is the standard deviation (weights) for the $i^{th}$ data point.
+  
+ 
+The `absolute_sigma=True` argument ensures that the covariance matrix of the parameter estimates is scaled by the provided  
+$\sigma_i$ values, rather than being rescaled by the reduced chi-squared value. This means the uncertainties in the data  
+(as given by the weights) are treated as absolute.
+ 
+When the estimations are not ideal, the weights can be adjusted to improve the fit. The `absoulute_sigma = False` for  
+`curve_fit` will rescale the covariance matrix by the reduced chi-squared value, which can be useful when the uncertainties  
+in the data are not well characterized.
+ 
+The following are some common weighting schemes:
 
 - **Inverse Data**:  
   $w_i = \frac{1}{|x_i| + \epsilon}$
@@ -114,9 +133,6 @@ Basic schemes:
 - **Steady State Decay**:  
   $w_i = \exp(-0.1 \cdot t_i)$
 
-- **Combined Data and Time**:  
-  $w_i = \frac{1}{|x_i| \cdot (1 + 0.5 \cdot t_i)}$
-
 - **Inverse Sqrt Data**:  
   $w_i = \frac{1}{\sqrt{|x_i| + \epsilon}}$
 
@@ -125,7 +141,7 @@ Basic schemes:
 
 - **Custom Early Emphasis**:  
   Based on:  
-  $w_i = \frac{1}{(|x_i| + \epsilon)(\Delta t_i + \epsilon)}$ for early $t_i$, else $w_i = 1$
+  $w_i = \frac{1}{(|x_i| + \epsilon)(\Delta t_i + \epsilon)}$ for early $t_i$, else $w_i = 1$  
 
 ### **With Regularization**
 
@@ -203,34 +219,6 @@ The package’s `__init__.py` file in the models module automatically imports th
 configuration constant `ODE_MODEL`. The selected module’s `solve_ode` function is then exposed as the default ODE solver
 for the package. This enables seamless switching between different mechanistic models without changing the rest of the
 code.
-
-## Key Features
-
-- **Vectorized Computation and JIT Optimization:**  
-  For the random model, vectorized arrays and Numba’s `@njit` decorator are used to accelerate ODE evaluations.
-
-- **Modular Design:**  
-  Each model type is implemented in its own file, allowing easy extension or modification of the underlying kinetics
-  without affecting the overall framework.
-
-- **Flexible Integration:**  
-  The models use `scipy.integrate.odeint` to numerically integrate the ODE system, ensuring robust and accurate
-  simulation of phosphorylation dynamics.
-
-- **Support for Multiple Phosphorylation Sites:**  
-  All models are designed to handle an arbitrary number of phosphorylation sites, with appropriate state variable
-  definitions and parameter extraction.
-
-- **Customizable Weighting for Parameter Estimation:**  
-  The weights module provides several functions for generating weights (e.g., early emphasis) to be used during the
-  parameter estimation process, enhancing the fitting performance.
-
-## Dependencies
-
-- **NumPy & SciPy:** For numerical operations, ODE integration, and optimization.
-- **Numba:** To accelerate performance-critical functions via just-in-time (JIT) compilation.
-- **Other Dependencies:** The module works within the PhosKinTime package, leveraging configuration and logging
-  utilities defined elsewhere in the package.
 
 ---
 

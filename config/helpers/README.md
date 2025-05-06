@@ -46,14 +46,17 @@ clickable links in supported terminals.
 
 - **`get_number_of_params_rand(num_psites: int) -> int`**  
   Calculates the total number of parameters required for the random model, taking into account:
-    - Base parameters (`A`, `B`, `C`, `D`)
-    - Phosphorylation parameters (one per site)
-    - Dephosphorylation parameters (for each non-empty combination of sites)
+    - Base parameters: 4
+    - Phosphorylation parameters: `num_psites`
+    - Dephosphorylation parameters: `num_psites * (num_psites - 1) / 2`
+    - **Formula:**  
+      `total_params = 4 + num_psites + (num_psites * (num_psites - 1) / 2)`
 
 - **`get_bounds_rand(num_psites: int, ub: float = 0, lower: float = 0) -> list`**  
   Generates a list of bounds for the ODE parameters for the random model.
-    - **Format:**  
-      A list of `[lower, ub]` pairs, one for each parameter (base, phosphorylation, and dephosphorylation parameters).
+**Format:**  
+    `[(lower, ub), (lower, ub), ..., (lower, ub)]`  
+    where the number of bounds is equal to the total number of parameters.
 
 ## How It Fits in the Package
 
@@ -68,35 +71,6 @@ These helper functions are used throughout the PhosKinTime package to:
 
 - **File and Terminal Utilities:**  
   Format file paths and hyperlinks to improve the clarity of console output and debugging.
-
-## Example Usage
-
-Below is an example of how these functions might be used within the package:
-
-```python
-from config.helper import get_param_names_rand, generate_labels_rand, location, get_number_of_params_rand, get_bounds_rand
-
-num_psites = 3
-# For the random model:
-param_names = get_param_names_rand(num_psites)
-state_labels = generate_labels_rand(num_psites)
-print("Parameter Names:", param_names)
-print("State Labels:", state_labels)
-
-# Get total number of parameters required for the random model:
-total_params = get_number_of_params_rand(num_psites)
-print("Total Number of Parameters:", total_params)
-
-# Generate bounds for parameters (example: lower bound 0, upper bound 100)
-bounds = get_bounds_rand(num_psites, ub=100, lower=0)
-print("Parameter Bounds:", bounds)
-
-# Format a file location as a clickable link (if terminal supports it)
-file_link = location("/path/to/results.xlsx", label="Results File")
-print("File Link:", file_link)
-```
-
-## Conclusion
 
 The **config/helper** module is a central component of the PhosKinTime package that standardizes and simplifies
 configuration tasks related to parameter naming, labeling, and bounds generation. Its utility functions ensure that

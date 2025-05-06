@@ -4,13 +4,6 @@ This tool performs parallelized parameter estimation for phosphorylation dynamic
 reads input from an Excel sheet, processes each gene using a custom ODE-based fitting routine, and outputs results,
 organized files, and an HTML report.
 
-## Features
-
-- Parallel processing of multiple genes using `ProcessPoolExecutor`
-- Configurable parameter bounds, fixed values, and bootstrap settings
-- Logging and error handling
-- Report and result generation
-
 ## Input Format
 
 Excel file with sheet name `Estimated`, and columns:
@@ -23,10 +16,15 @@ Excel file with sheet name `Estimated`, and columns:
 
 Configuration is passed via command-line arguments and processed using `config/config.py`. Key parameters include:
 
-- `input_excel`: Path to Excel file
-- `bounds`, `fixed_params`: Estimation constraints
-- `bootstraps`, `time_fixed`: Optional features
-- `profile_start`, `profile_end`, `profile_step`: Optional profiling range
+- `input_excel`: Path to Protein-Kinase data 
+- `input_excel_rna`: Path to mRNA data 
+- `bootstraps` : Number of bootstrap iterations
+- `A-bound` : Bounds for mRNA production rate 
+- `B-bound` : Bounds for mRNA degradation rate 
+- `C-bound` : Bounds for protein production rate 
+- `D-bound` : Bounds for protein degradation rate 
+- `S-bound` : Bounds for phosphorylation rate 
+- `D-bound` : Bounds for dephosphorylation rate
 
 ## Output
 
