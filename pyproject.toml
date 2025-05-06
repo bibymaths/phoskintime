@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "phoskintime"
-version = "0.2.0"
+version = "0.4.0"
 description = "PhosKinTime is a Python toolkit for ODE‑based modeling of phosphorylation kinetics and transcriptional time‑series, featuring parameter estimation, sensitivity analysis, steady‑state computation, and interactive visualization."
 readme = "PYPI_README.md"
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]

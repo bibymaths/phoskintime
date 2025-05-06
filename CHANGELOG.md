@@ -104,7 +104,7 @@ Removed
 - Deprecated analysis modes and unused constants.  
 - Combined time-weight calculation from data preprocessing. 
 
-## [0.4.0] – Unreleased
+## [0.4.0] – 2025-06-05
 
 ### Added
 
