@@ -1,4 +1,6 @@
 # PhosKinTime
+ 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
 <img src="static/images/logo_3.png" alt="Package Logo" width="200"/> 
 
