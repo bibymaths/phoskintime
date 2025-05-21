@@ -1,5 +1,8 @@
 # Ignore all Python files in the project root
-/*.py
+/*.py 
+ 
+/*.csv 
+/*.xlsx
 
 # Ignore all bash scripts in the project root
 /*.sh
