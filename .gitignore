@@ -8,7 +8,8 @@ __pycache__/
 
  
 /*.csv 
-/*.xlsx
+/*.xlsx 
+.venv/
 
 # Ignore all bash scripts in the project root
 /*.sh
