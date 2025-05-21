@@ -2,7 +2,7 @@ site_name: phoskintime
 site_url: https://bibymaths.github.io/phoskintime
 site_description: phoskintime - a toolkit for ODE based parameter estimation and optimization for phosphorylation models.
 site_author: Abhinav Mishra
-
+use_directory_urls: false
 repo_url: https://github.com/bibymaths/phoskintime
 
 theme:
