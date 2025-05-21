@@ -1,5 +1,11 @@
 # Ignore all Python files in the project root
-/*.py 
+/*.py  
+# Ignore __pycache__ directories
+__pycache__/
+
+# Ignore .pyc files
+*.py[cod]
+
  
 /*.csv 
 /*.xlsx
