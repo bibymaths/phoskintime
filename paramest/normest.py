@@ -148,13 +148,14 @@ def find_best_lambda(
     return best_lambda, best_score_weight
 
 
-def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
+def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
     """
     Function to estimate parameters for a given gene using ODE models.
 
     Args:
         gene: Gene name.
+        pr_data: Protein data.
         p_data: Phosphorylation data.
         r_data: Reference data.
         init_cond: Initial conditions for the ODE solver.
@@ -211,7 +212,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
-    target = np.concatenate([r_data.flatten(), p_data.flatten()])
+    target = np.concatenate([r_data.flatten(), pr_data.flatten(), p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
     logger.info(f"[{gene}]      Finding best regularization term λ...")

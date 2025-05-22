@@ -142,8 +142,11 @@ def solve_ode(params, init_cond, num_psites, t):
     # Extract the mRNA from the solution
     R_fitted = sol[5:, 0].T
 
+    # Extract the protein from the solution
+    Pr_fitted = sol[:, 1].T
+
     # Extract the phosphorylated sites from the solution
     P_fitted = sol[:, 2:].T
 
     # Return the solution and the phosphorylated sites
-    return sol, np.concatenate((R_fitted.flatten(), P_fitted.flatten()))
+    return sol, np.concatenate((R_fitted.flatten(), Pr_fitted.flatten(), P_fitted.flatten()))

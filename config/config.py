@@ -92,7 +92,7 @@ def parse_args():
     The arguments include:
     --A-bound, --B-bound, --C-bound, --D-bound,
     --Ssite-bound, --Dsite-bound, --bootstraps,
-    --input-excel, --input-excel-rna.
+    --input-excel-protein, --input-excel-psite, --input-excel-rna.
 
     Args:
         None

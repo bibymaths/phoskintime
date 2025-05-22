@@ -16,6 +16,7 @@ logger = setup_logger()
 
 def process_gene(
         gene,
+        protein_data,
         kinase_data,
         mrna_data,
         time_points,
@@ -28,6 +29,7 @@ def process_gene(
 
     Args:
         gene (str): Gene name.
+        protein_data (pd.DataFrame): DataFrame containing protein-only data.
         kinase_data (pd.DataFrame): DataFrame containing kinase data.
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
@@ -54,7 +56,10 @@ def process_gene(
         - regularization: Regularization value used in parameter estimation.
 
     """
-    # Extract protein-group data
+    # Extract protein data
+    protein_data = protein_data[protein_data['Psite'].isna() & (protein_data['GeneID'] == gene)]
+
+    # Extract protein-group phospho data
     gene_data = kinase_data[kinase_data['Gene'] == gene]
 
     # Extract mRNA data
@@ -65,6 +70,8 @@ def process_gene(
 
     # Get the residue and position values
     psite_values = gene_data['Psite'].values
+
+    Pr_data = protein_data.iloc[:, 2:].values
 
     # Get the FC value for TIME_POINTS
     P_data = gene_data.iloc[:, 2:].values
@@ -79,7 +86,7 @@ def process_gene(
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors, regularization_val = estimate_parameters(
-        gene, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
+        gene, Pr_data, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # Error Metrics
@@ -218,12 +225,13 @@ def process_gene(
     }
 
 
-def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
+def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
     """
     Wrapper function to process a gene.
 
     Args:
         gene (str): Gene name.
+        protein_data (pd.DataFrame): DataFrame containing protein-only data.
         kinase_data (pd.DataFrame): DataFrame containing kinase data.
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
@@ -236,6 +244,7 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, boot
     """
     return process_gene(
         gene=gene,
+        protein_data=protein_data,
         kinase_data=kinase_data,
         mrna_data=mrna_data,
         time_points=time_points,
