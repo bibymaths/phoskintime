@@ -101,16 +101,18 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
     n_t = solution.shape[0]
     # compute sum of mRNA and sites, and build flattened length
     sum_mRNA = 0.0
+    sum_protein = 0.0
     sum_sites = 0.0
     length = n_t + n_t * num_psites
 
     for t in range(n_t):
         sum_mRNA += solution[t, 0]
+        sum_protein += solution[t, 1]
         for s in range(num_psites):
             sum_sites += solution[t, 2 + s]
 
     if Y_METRIC == 'total_signal':
-        return sum_mRNA + sum_sites
+        return sum_mRNA + sum_protein + sum_sites
 
     # mean
     if Y_METRIC == 'mean_activity':
@@ -118,11 +120,12 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
 
     # variance
     if Y_METRIC == 'variance':
-        mean = (sum_mRNA + sum_sites) / length
+        mean = (sum_mRNA + sum_protein + sum_sites) / length
         var_acc = 0.0
         # variance over all entries
         for t in range(n_t):
             var_acc += (solution[t, 0] - mean) ** 2
+            var_acc += (solution[t, 1] - mean) ** 2
             for s in range(num_psites):
                 var_acc += (solution[t, 2 + s] - mean) ** 2
         return var_acc / length
@@ -138,6 +141,14 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
             cur = solution[t, 0]
             dyn_acc += (cur - prev) ** 2
             prev = cur
+
+        # then the protein chain
+        prev = solution[0, 1]
+        for t in range(1, n_t):
+            cur = solution[t, 1]
+            dyn_acc += (cur - prev) ** 2
+            prev = cur
+
         # then site chains in sequence
         for s in range(num_psites):
             prev = solution[0, 2 + s]
@@ -153,6 +164,9 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
         # mRNA
         for t in range(n_t):
             norm_acc += solution[t, 0] ** 2
+        # protein
+        for t in range(n_t):
+            norm_acc += solution[t, 1] ** 2
         # sites
         for t in range(n_t):
             for s in range(num_psites):

@@ -66,7 +66,7 @@ def confidence_intervals(gene, popt, pcov, target, model, alpha_val=0.05):
     logger.info(f"[{gene}]      Parameter\t\t Estimate\t  SE\t\t Pr(>|t|)\t\t   95% CI")
     logger.info(f"            -----------\t\t --------\t  --\t\t --------\t\t   ------")
     for i, (b, se, p, lwr, upr) in enumerate(zip(beta_hat, se_lin, pval, lwr_ci, upr_ci)):
-        logger.info(f"[{gene}]      Rate{i}:\t\t {b:.2f}\t\t {se:.2f}\t\t {p:.1e}\t\t ({lwr:.2f} - {upr:.2f})")
+        logger.info(f"[{gene}]      Rate{i}:\t\t {b:.4f}\t\t {se:.3f}\t\t {p:.3e}\t\t ({lwr:.4f} - {upr:.4f})")
 
     results = {
         'beta_hat': beta_hat,

@@ -52,11 +52,11 @@ NUM_TRAJECTORIES = 1000
 # This parameter determines how finely the parameter space is sampled.
 # Each parameter will be divided into this number of intervals,
 # and the Morris method will sample points within these intervals.
-PARAMETER_SPACE = 40
+PARAMETER_SPACE = 200
 # Fractional range around each parameter value for sensitivity analysis bounds.
 # Lower bound = value * (1 - PERTURBATIONS_VALUE)
 # Upper bound = value * (1 + PERTURBATIONS_VALUE)
-PERTURBATIONS_VALUE = 0.5  # 20% perturbation
+PERTURBATIONS_VALUE = 0.2  # 20% perturbation
 # ALPHA_CI: Confidence level for computing confidence intervals for parameter identifiability.
 # For example, an ALPHA_CI of 0.95 indicates that the model will compute 95% confidence intervals.
 # This corresponds to a significance level of 1 - ALPHA_CI (i.e., 0.05) when determining the critical t-value.

@@ -90,8 +90,10 @@ def process_gene(
     )
 
     # Error Metrics
-    mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
-    mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
+    mse = mean_squared_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
+                             seq_model_fit.flatten())
+    mae = mean_absolute_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
+                              seq_model_fit.flatten())
 
     logger.info("           --------------------------------")
     logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
@@ -132,7 +134,8 @@ def process_gene(
     plotter.pca_components(sol_full, target_variance=0.99)
 
     # Plot ODE model fits
-    plotter.plot_model_fit(seq_model_fit, P_data, R_data.flatten(), sol_full, num_psites, psite_values, time_points)
+    plotter.plot_model_fit(seq_model_fit, Pr_data.flatten(), P_data, R_data.flatten(),
+                           sol_full, num_psites, psite_values, time_points)
 
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
@@ -207,7 +210,7 @@ def process_gene(
         "psite_labels": psite_values,
         "estimated_params": estimated_params,
         "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, len(TIME_POINTS)),
+        "seq_model_fit": seq_model_fit[23:].reshape(num_psites, len(TIME_POINTS)),
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
