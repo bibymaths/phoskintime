@@ -721,6 +721,7 @@ class Plotter:
             best_model_psite_solutions: The best model phosphorylation site solutions.
             best_mrna_solutions: The best model mRNA solutions.
             best_protein_solutions: The best model protein solutions.
+            protein_ref: The reference data for the protein.
             psite_labels: The labels for the phosphorylation sites.
             psite_data_ref: The reference data for the phosphorylation sites.
             rna_ref: The reference data for mRNA.

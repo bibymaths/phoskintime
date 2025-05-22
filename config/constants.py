@@ -22,7 +22,7 @@ DEV_TEST = True
 # 'distmod' : Distributive model (phosphorylation events occur independently).
 # 'succmod' : Successive model (phosphorylation events occur in a fixed order).
 # 'randmod' : Random model (phosphorylation events occur randomly).
-ODE_MODEL = 'distmod'
+ODE_MODEL = 'randmod'
 # Upper bounds for mRNA production and degradation rates
 UB_mRNA_prod = 20
 UB_mRNA_deg = 20
