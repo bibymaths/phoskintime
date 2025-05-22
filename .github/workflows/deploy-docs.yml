@@ -2,6 +2,7 @@ name: Deploy MkDocs to GitHub Pages
 
 on:
   push:
+    branches: [*]
 
 permissions:
   contents: write
@@ -9,8 +10,6 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      DEPLOY_DOCS: ${{ secrets.DEPLOY_DOCS }}
 
     steps:
       - name: Checkout repository
@@ -21,15 +20,10 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install MkDocs and dependencies
+      - name: Install MkDocs
         run: |
-          pip install mkdocs pymdown-extensions
-
-      - name: Check deploy condition
-        if: env.DEPLOY_DOCS == 'true'
-        run: echo "DEPLOY_DOCS is true, continuing with deployment..."
+          pip install mkdocs 
 
       - name: Deploy to GitHub Pages
-        if: env.DEPLOY_DOCS == 'true'
         run: |
           mkdocs gh-deploy --force
