@@ -101,28 +101,31 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
     n_t = solution.shape[0]
     # compute sum of mRNA and sites, and build flattened length
     sum_mRNA = 0.0
+    sum_protein = 0.0
     sum_sites = 0.0
-    length = n_t + n_t * num_psites
+    length = 2*n_t + n_t * num_psites
 
     for t in range(n_t):
         sum_mRNA += solution[t, 0]
+        sum_protein += solution[t, 1]
         for s in range(num_psites):
             sum_sites += solution[t, 2 + s]
 
     if Y_METRIC == 'total_signal':
-        return sum_mRNA + sum_sites
+        return sum_mRNA + sum_protein + sum_sites
 
     # mean
     if Y_METRIC == 'mean_activity':
-        return (sum_mRNA + sum_sites) / length
+        return (sum_mRNA + sum_protein + sum_sites) / length
 
     # variance
     if Y_METRIC == 'variance':
-        mean = (sum_mRNA + sum_sites) / length
+        mean = (sum_mRNA + sum_protein + sum_sites) / length
         var_acc = 0.0
         # variance over all entries
         for t in range(n_t):
             var_acc += (solution[t, 0] - mean) ** 2
+            var_acc += (solution[t, 1] - mean) ** 2
             for s in range(num_psites):
                 var_acc += (solution[t, 2 + s] - mean) ** 2
         return var_acc / length
@@ -138,6 +141,14 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
             cur = solution[t, 0]
             dyn_acc += (cur - prev) ** 2
             prev = cur
+
+        # then the protein chain
+        prev = solution[0, 1]
+        for t in range(1, n_t):
+            cur = solution[t, 1]
+            dyn_acc += (cur - prev) ** 2
+            prev = cur
+
         # then site chains in sequence
         for s in range(num_psites):
             prev = solution[0, 2 + s]
@@ -153,6 +164,9 @@ def _compute_Y(solution: np.ndarray, num_psites: int) -> float:
         # mRNA
         for t in range(n_t):
             norm_acc += solution[t, 0] ** 2
+        # protein
+        for t in range(n_t):
+            norm_acc += solution[t, 1] ** 2
         # sites
         for t in range(n_t):
             for s in range(num_psites):
@@ -180,11 +194,15 @@ def _perturb_solve(i_X_tuple):
     Y_val = _compute_Y(solution, num_psites)
     return i, solution, flat_psite_mRNA, Y_val
 
-def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_labels, state_labels, init_cond, gene):
+def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psites,
+                          psite_labels, state_labels, init_cond, gene):
     """
     Performs sensitivity analysis using the Morris method for a given ODE model.
 
     Args:
+        pr_data (np.ndarray): Protein data for the model.
+        p_data (np.ndarray): Phosphorylation data for the model.
+        rna_data (np.ndarray): mRNA data for the model.
         time_points (list or np.ndarray): Time points for the ODE simulation.
         num_psites (int): Number of phosphorylation sites in the model.
         init_cond (list or np.ndarray): Initial conditions for the ODE model.
@@ -247,19 +265,23 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
                  scaled=True, print_to_console=False)
 
     # Select the closest simulations to the data
-    psite_data_ref = data
+    psite_data_ref = p_data
+    protein_data_ref = pr_data.reshape(-1)
     rna_ref = rna_data.reshape(-1)
 
     # Compute diff from concatenated flat outputs
+    protein_preds = all_protein_solutions[:, :]
     psite_preds = all_model_psite_solutions[:, :, :]
     rna_preds = all_mrna_solutions[:, -len(TIME_POINTS_RNA):]
 
     rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :]) / rna_ref.size
     psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :]) / psite_data_ref.size
+    protein_diff = np.abs(protein_preds - protein_data_ref[np.newaxis, :]) / protein_data_ref.size
 
     rna_mse = np.mean(rna_diff ** 2, axis=1)
     psite_mse = np.mean(psite_diff ** 2, axis=(1, 2))
-    rmse = np.sqrt((rna_mse + psite_mse) / 2.0)
+    protein_mse = np.mean(protein_diff ** 2, axis=1)
+    rmse = np.sqrt((rna_mse + psite_mse + protein_mse) / 2.0)
 
     # Attach RMSE to each stored trajectory
     for i in range(len(param_values)):
@@ -303,7 +325,7 @@ def _sensitivity_analysis(data, rna_data, popt, time_points, num_psites, psite_l
     # Plot best simulations
     Plotter(gene, OUT_DIR).plot_model_perturbations(problem, Si, cutoff_idx, time_points, n_sites,
                                                     best_model_psite_solutions, best_mrna_solutions,
-                                                    best_protein_solutions, psite_labels, psite_data_ref,
-                                                    rna_ref, model_fit)
+                                                    best_protein_solutions, psite_labels, protein_data_ref,
+                                                    psite_data_ref, rna_ref, model_fit)
 
     return Si, best_trajectories

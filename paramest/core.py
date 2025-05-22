@@ -16,6 +16,7 @@ logger = setup_logger()
 
 def process_gene(
         gene,
+        protein_data,
         kinase_data,
         mrna_data,
         time_points,
@@ -28,6 +29,7 @@ def process_gene(
 
     Args:
         gene (str): Gene name.
+        protein_data (pd.DataFrame): DataFrame containing protein-only data.
         kinase_data (pd.DataFrame): DataFrame containing kinase data.
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
@@ -54,7 +56,10 @@ def process_gene(
         - regularization: Regularization value used in parameter estimation.
 
     """
-    # Extract protein-group data
+    # Extract protein data
+    protein_data = protein_data[protein_data['Psite'].isna() & (protein_data['GeneID'] == gene)]
+
+    # Extract protein-group phospho data
     gene_data = kinase_data[kinase_data['Gene'] == gene]
 
     # Extract mRNA data
@@ -65,6 +70,8 @@ def process_gene(
 
     # Get the residue and position values
     psite_values = gene_data['Psite'].values
+
+    Pr_data = protein_data.iloc[:, 2:].values
 
     # Get the FC value for TIME_POINTS
     P_data = gene_data.iloc[:, 2:].values
@@ -79,12 +86,14 @@ def process_gene(
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors, regularization_val = estimate_parameters(
-        gene, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
+        gene, Pr_data, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # Error Metrics
-    mse = mean_squared_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
-    mae = mean_absolute_error(np.concatenate((R_data.flatten(), P_data.flatten())), seq_model_fit.flatten())
+    mse = mean_squared_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
+                             seq_model_fit.flatten())
+    mae = mean_absolute_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
+                              seq_model_fit.flatten())
 
     logger.info("           --------------------------------")
     logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
@@ -125,7 +134,8 @@ def process_gene(
     plotter.pca_components(sol_full, target_variance=0.99)
 
     # Plot ODE model fits
-    plotter.plot_model_fit(seq_model_fit, P_data, R_data.flatten(), sol_full, num_psites, psite_values, time_points)
+    plotter.plot_model_fit(seq_model_fit, Pr_data.flatten(), P_data, R_data.flatten(),
+                           sol_full, num_psites, psite_values, time_points)
 
     # Simulate wild-type
     sol_wt, p_fit_wt = solve_ode(final_params, init_cond, num_psites, time_points)
@@ -189,7 +199,7 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis, trajectories_w_params = sensitivity_analysis(P_data, R_data, final_params, time_points,
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(Pr_data, P_data, R_data, final_params, time_points,
                                                                             num_psites, psite_values, labels, init_cond,
                                                                             gene)
 
@@ -200,7 +210,7 @@ def process_gene(
         "psite_labels": psite_values,
         "estimated_params": estimated_params,
         "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit[9:].reshape(num_psites, len(TIME_POINTS)),
+        "seq_model_fit": seq_model_fit[23:].reshape(num_psites, len(TIME_POINTS)),
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
@@ -218,12 +228,13 @@ def process_gene(
     }
 
 
-def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
+def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
     """
     Wrapper function to process a gene.
 
     Args:
         gene (str): Gene name.
+        protein_data (pd.DataFrame): DataFrame containing protein-only data.
         kinase_data (pd.DataFrame): DataFrame containing kinase data.
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
@@ -236,6 +247,7 @@ def process_gene_wrapper(gene, kinase_data, mrna_data, time_points, bounds, boot
     """
     return process_gene(
         gene=gene,
+        protein_data=protein_data,
         kinase_data=kinase_data,
         mrna_data=mrna_data,
         time_points=time_points,

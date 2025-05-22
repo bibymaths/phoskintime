@@ -1,7 +1,7 @@
 from paramest.normest import normest
 
 
-def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):
+def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):
     """
 
     This function allows for the selection of the estimation mode
@@ -9,7 +9,8 @@ def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points
 
     Args:
         gene (str): Gene name.
-        p_data (array): Array of protein data.
+        pr_data (array): Array of protein data.
+        p_data (array): Array of protein-phospho data.
         r_data (array): Array of RNA data.
         init_cond (array): Initial conditions for the model.
         num_psites (int): Number of phosphorylation sites.
@@ -27,7 +28,7 @@ def estimate_parameters(gene, p_data, r_data, init_cond, num_psites, time_points
 
     # For normal estimation, we use the provided bounds and fixed parameters
     estimated_params, model_fits, errors, reg_term = normest(
-        gene, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
+        gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
     )
 
     # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))

@@ -7,13 +7,13 @@ from config.constants import USE_CUSTOM_WEIGHTS
 
 current_dir = Path(__file__).resolve().parent
 
-
-@njit
-def early_emphasis(p_data, time_points, num_psites):
+@njit(cache=True)
+def early_emphasis(pr_data, p_data, time_points, num_psites):
     """
     Function that calculates custom weights for early time points in a dataset.
 
     Args:
+        pr_data: 2D numpy array of shape (num_psites, n_times)
         p_data: 2D numpy array of shape (num_psites, n_times)
         time_points: 1D numpy array of time points
         num_psites: Number of phosphorylation sites
@@ -22,34 +22,58 @@ def early_emphasis(p_data, time_points, num_psites):
         custom_weights: 1D numpy array of weights for early time points
     """
     if p_data.ndim == 1:
-        p_data = p_data.reshape(1, p_data.size)
+        p_data = p_data.reshape(1, -1)
+    if pr_data.ndim == 1:
+        pr_data = pr_data.reshape(1, -1)
 
     n_times = len(time_points)
-    custom_weights = np.ones((num_psites, n_times))
+    weights_p = np.ones((num_psites, n_times))
+    weights_pr = np.ones(n_times)
 
     time_diffs = np.empty(n_times)
     time_diffs[0] = 0.0
 
-    # Calculate time differences
+    # For the first time point, set the time difference to 0
     for j in range(1, n_times):
-        # Subtract the previous time point from the current one
+        # Calculate time differences
         time_diffs[j] = time_points[j] - time_points[j - 1]
 
-    for i in range(num_psites):
-        # Emphasize early time points - first five
-        limit = min(8, n_times)
-        # Compute weights for early time points
-        for j in range(1, limit):
-            # Calculate the data-based and time-based weights
-            data_based_weight = 1.0 / (abs(p_data[i, j]) + 1e-5)
-            time_based_weight = 1.0 / (time_diffs[j] + 1e-5)
-            # Combine the weights
-            custom_weights[i, j] = data_based_weight * time_based_weight
-        for j in range(5, n_times):
-            # For later time points, use a fixed weight
-            custom_weights[i, j] = 1.0
+    # Calculate weights for early time points
+    for j in range(n_times):
+        # For the first time point, set the time weight to 1
+        time_w = 1.0 / (time_diffs[j] + 1e-5) if j > 0 else 1.0
+        # For the first 8 time points, apply a different weight calculation
+        pr_val = pr_data[0, j]
+        if j < 8:
+            # Calculate weights based on the absolute value of pr_val
+            weights_pr[j] = (1.0 / (abs(pr_val) + 1e-5)) * time_w
+        else:
+            # For time points after the first 8, use a different weight calculation
+            weights_pr[j] = 1.0 / (abs(pr_val) + 1e-5)
 
-    return custom_weights.ravel()
+    # Calculate weights for phosphorylation sites
+    for i in range(num_psites):
+        # For the first time point, set the time weight to 1
+        for j in range(n_times):
+            # Calculate time differences
+            time_w = 1.0 / (time_diffs[j] + 1e-5) if j > 0 else 1.0
+            # For the first 8 time points, apply a different weight calculation
+            if j < 8:
+                # Calculate weights based on the absolute value of p_data
+                weights_p[i, j] = (1.0 / (abs(p_data[i, j]) + 1e-5)) * time_w
+            else:
+                # For time points after the first 8, use a different weight calculation
+                weights_p[i, j] = 1.0 / (abs(p_data[i, j]) + 1e-5)
+
+    combined = np.empty(n_times + num_psites * n_times)
+    for j in range(n_times):
+        combined[j] = weights_pr[j]
+
+    for i in range(num_psites):
+        for j in range(n_times):
+            combined[n_times + i * n_times + j] = weights_p[i, j]
+
+    return combined
 
 
 def get_protein_weights(
@@ -83,21 +107,41 @@ def get_protein_weights(
     if input2_gene.empty:
         raise ValueError(f"No entries for GeneID {gene} found in input2.csv")
 
+    # Normalize Psite empty values
+    input1['Psite'] = input1['Psite'].replace('', pd.NA)
+    input2_gene = input2[input2['GeneID'] == gene].copy()
+    input2_gene['Psite'] = input2_gene['Psite'].replace('', pd.NA)
+
     # Merge to get corresponding x1_std to x14_std values
     merged = pd.merge(
         input2_gene, input1,
         on=['GeneID', 'Psite'],
-        how='left'
+        how='left',
+        indicator= True
     )
 
     if merged.isnull().any().any():
         missing = merged[merged.isnull().any(axis=1)][['GeneID', 'Psite']]
         raise ValueError(f"Missing (GeneID, Psite) pairs for {gene} in input1_wstd.csv:\n{missing}")
 
+    # If a TF row exists in input1 but was not included via merge
+    # (because not present in input2), add it manually
+    if input1[(input1['GeneID'] == gene) & (input1['Psite'].isna())].shape[0] == 1:
+        tf_row = input1[(input1['GeneID'] == gene) & (input1['Psite'].isna())].copy()
+        tf_row['Psite'] = pd.NA
+        tf_row = input2_gene.iloc[[0]].drop(columns=input2_gene.columns.difference(['GeneID'])).assign(
+            **tf_row.iloc[0].to_dict())
+        merged = pd.concat([tf_row, merged], ignore_index=True)
+
     # Extract weights
     std_columns = [f'x{i}_std' for i in range(1, 15)]
-    weights = merged[std_columns].to_numpy().flatten()
 
+    # Sort: protein first, then phosphos
+    tf_rows = merged[merged['Psite'].isna()]
+    phospho_rows = merged[merged['Psite'].notna()]
+    ordered = pd.concat([tf_rows, phospho_rows], ignore_index=True)
+
+    weights = ordered[std_columns].to_numpy().flatten()
     return weights
 
 

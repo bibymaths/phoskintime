@@ -291,6 +291,9 @@ def solve_ode(popt, y0, num_sites, t):
     # Extract mRNA trajectory after OFFSET
     R_fitted = sol[OFFSET:, 0].copy()
 
+    # Extract protein trajectory (first column)
+    Pr_fitted = sol[:, 1].copy()
+
     # Extract phosphorylated protein states (transpose to shape: num_sites x time)
     if num_sites > 1:
         P_fitted = sol[:, 2:2 + num_sites].T
@@ -299,4 +302,4 @@ def solve_ode(popt, y0, num_sites, t):
         P_fitted = sol[:, 2].reshape(1, -1)
 
     # Return full ODE solution and concatenated fit vector (R followed by P states)
-    return sol, np.concatenate((R_fitted, P_fitted.flatten()))
+    return sol, np.concatenate((R_fitted, Pr_fitted, P_fitted.flatten()))

@@ -28,7 +28,8 @@ def worker_find_lambda(
         free_bounds: Tuple[np.ndarray, np.ndarray],
         init_cond: np.ndarray,
         num_psites: int,
-        p_data: np.ndarray
+        p_data: np.ndarray,
+        pr_data: np.ndarray
 ) -> Tuple[float, float, str]:
     """
     Worker function for a single lambda value.
@@ -42,7 +43,8 @@ def worker_find_lambda(
         free_bounds: Parameter bounds for the optimization.
         init_cond: Initial conditions for the ODE solver.
         num_psites: Number of phosphorylation sites.
-        p_data: Measurement data.
+        p_data: Measurement data for protein-phospho.
+        pr_data: Reference data for protein.
 
     Returns:
         Tuple containing the lambda value, score, and weight key.
@@ -56,7 +58,9 @@ def worker_find_lambda(
         return np.concatenate([y_model, reg])
 
     tf = np.concatenate([target, np.zeros(len(p0))])
-    early_weights = early_emphasis(p_data, time_points, num_psites)
+
+    early_weights = early_emphasis(pr_data, p_data, time_points, num_psites)
+
     ms_gauss_weights = get_protein_weights(gene)
 
     weight_options = get_weight_options(
@@ -120,6 +124,7 @@ def find_best_lambda(
         init_cond: np.ndarray,
         num_psites: int,
         p_data: np.ndarray,
+        pr_data: np.ndarray,
         lambdas=np.logspace(-2, 0, 10),
         max_workers: int = os.cpu_count(),
 ) -> Tuple[float, str]:
@@ -135,7 +140,7 @@ def find_best_lambda(
             executor.submit(
                 worker_find_lambda,
                 lam, gene, target, p0, time_points, free_bounds,
-                init_cond, num_psites, p_data
+                init_cond, num_psites, p_data, pr_data
             ): lam for lam in lambdas
         }
         for future in as_completed(futures):
@@ -148,13 +153,14 @@ def find_best_lambda(
     return best_lambda, best_score_weight
 
 
-def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
+def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
     """
     Function to estimate parameters for a given gene using ODE models.
 
     Args:
         gene: Gene name.
+        pr_data: Protein data.
         p_data: Phosphorylation data.
         r_data: Reference data.
         init_cond: Initial conditions for the ODE solver.
@@ -211,13 +217,13 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
     p0 = np.array([np.random.uniform(low=l, high=u) for l, u in zip(*free_bounds)])
 
     # Build the target vector from the measured data.
-    target = np.concatenate([r_data.flatten(), p_data.flatten()])
+    target = np.concatenate([r_data.flatten(), pr_data.flatten(), p_data.flatten()])
     target_fit = np.concatenate([target, np.zeros(len(p0))]) if use_regularization else target
 
     logger.info(f"[{gene}]      Finding best regularization term λ...")
 
     lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
-                                                 p_data)
+                                                 p_data, pr_data)
 
     logger.info("           --------------------------------")
     logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0) * np.sum(np.square(p0)): .4f}")
@@ -245,7 +251,7 @@ def normest(gene, p_data, r_data, init_cond, num_psites, time_points, bounds,
         return y_model
 
     # Get weights for the model fitting.
-    early_weights = early_emphasis(p_data, time_points, num_psites)
+    early_weights = early_emphasis(pr_data, p_data, time_points, num_psites)
     ms_gauss_weights = get_protein_weights(gene)
     weight_options = get_weight_options(target, time_points, num_psites,
                                         use_regularization, len(p0), early_weights, ms_gauss_weights)

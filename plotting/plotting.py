@@ -218,106 +218,116 @@ class Plotter:
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_params_profiles.png")
 
-    def plot_model_fit(self, model_fit: np.ndarray, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
-                       num_psites: int, psite_labels: list, time_points: np.ndarray):
+    def plot_model_fit(self, model_fit: np.ndarray, Pr_data: np.ndarray, P_data: np.ndarray, R_data: np.ndarray,
+                       sol: np.ndarray, num_psites: int, psite_labels: list, time_points: np.ndarray):
         """
-        Plots the model fit for the given data.
+        Plots the model fit for mRNA, protein, and phosphorylated species across time.
 
         Args:
-            model_fit (np.ndarray): The model fit data.
-            P_data (np.ndarray): The phosphorylation data.
-            R_data (np.ndarray): The mRNA data.
-            sol (np.ndarray): The solution data.
-            num_psites (int): The number of phosphorylation sites.
-            psite_labels (list): The labels for the phosphorylation sites.
-            time_points (np.ndarray): The time points for the data.
+            model_fit (np.ndarray): Flattened model fit data (length = 9 + 14 + 14*num_psites).
+            Pr_data (np.ndarray): Protein data (14,).
+            P_data (np.ndarray): Phosphorylation data (num_psites + 2, 14).
+            R_data (np.ndarray): mRNA data (9,).
+            sol (np.ndarray): ODE solution array.
+            num_psites (int): Number of phosphorylation sites.
+            psite_labels (list): Labels for phosphorylation sites.
+            time_points (np.ndarray): Time points (14,).
         """
-        model_fit = model_fit[9:].reshape(num_psites, 14)
+        # Split model_fit
+        R_fit = model_fit[:9]
+        Pr_fit = model_fit[9:23]
+        P_fit = model_fit[23:].reshape(num_psites, 14)
+
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+
+        # LEFT panel — early time
         ax = axes[0]
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 0], '-', color='black', alpha=0.7, linewidth=1)
         ax.plot(TIME_POINTS_RNA[:3], R_data[:3], '--', marker='s', markersize=5, mew=0.5, mec='black',
                 color='black', alpha=0.7, linewidth=0.75)
+
         ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, 1], '-', color='red', alpha=0.7, linewidth=1)
+        ax.plot(time_points[:cutoff_idx], Pr_data[:cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
+                mec='red', color='red', linewidth=0.75)
+
         for i in range(num_psites):
-            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
-                    mec='black',
-                    color=self.color_palette[i], linewidth=0.75)
-            ax.plot(time_points[:cutoff_idx], model_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth=1)
+            ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5,
+                    mew=0.5, mec='black', color=self.color_palette[i], linewidth=0.75)
+            ax.plot(time_points[:cutoff_idx], P_fit[i, :cutoff_idx], '-', color=self.color_palette[i], linewidth=1)
+
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("FC")
         ax.set_xticks(time_points[:cutoff_idx])
-        ax.set_xticklabels(
-            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
-            rotation=45,
-            fontsize=6
-        )
+        ax.set_xticklabels([f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[:cutoff_idx]],
+                           rotation=45, fontsize=6)
         ax.grid(True, alpha=0.05)
+
+        # RIGHT panel — later time
         ax = axes[1]
-        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth=1)
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, linewidth=1,
+                label='mRNA (R)')
         ax.plot(TIME_POINTS_RNA[3:], R_data[3:], '--', marker='s', markersize=5, mew=0.5, mec='black',
                 color='black', alpha=0.7, linewidth=0.75)
-        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth=1)
+
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, linewidth=1,
+                label='Protein (P)')
+        ax.plot(time_points[cutoff_idx:], Pr_data[cutoff_idx:], '--', marker='s', markersize=5, mew=0.5,
+                mec='red', color='red', linewidth=0.75)
+
         for i in range(num_psites):
-            ax.plot(time_points[cutoff_idx:], P_data[i, cutoff_idx:], '--', marker='s', markersize=5, mew=0.5, mec='black',
-                    color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth=0.75)
-            ax.plot(time_points[cutoff_idx:], model_fit[i, cutoff_idx:], '-', color=self.color_palette[i], linewidth=1)
+            ax.plot(time_points[cutoff_idx:], P_data[i, cutoff_idx:], '--', marker='s', markersize=5,
+                    mew=0.5, mec='black', color=self.color_palette[i], label=psite_labels[i], linewidth=0.75)
+            ax.plot(time_points[cutoff_idx:], P_fit[i, cutoff_idx:], '-', color=self.color_palette[i], linewidth=1)
+
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_points[cutoff_idx:])
-        ax.set_xticklabels(
-            [f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
-            rotation=45,
-            fontsize=6
-        )
+        ax.set_xticklabels([f"{int(tp)}" if tp > 1 else f"{tp}" for tp in time_points[cutoff_idx:]],
+                           rotation=45, fontsize=6)
         ax.legend()
         ax.grid(True, alpha=0.05)
+
         plt.suptitle(f'{self.gene}', fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         self._save_fig(fig, f"{self.gene}_model_fit_.png")
 
+        # Plotly version
         fig_plotly = go.Figure()
-        fig_plotly.add_trace(go.Scatter(
-            x=time_points,
-            y=sol[:, 0],
-            mode='lines+markers',
-            line=dict(color='black'),
-            showlegend=False
-        ))
-        fig_plotly.add_trace(go.Scatter(
-            x=TIME_POINTS_RNA,
-            y=R_data,
-            mode='lines+markers',
-            name='mRNA(R)',
-            line=dict(dash='dash', color='black')
-        ))
-        fig_plotly.add_trace(go.Scatter(
-            x=time_points,
-            y=sol[:, 1],
-            mode='lines+markers',
-            name='Protein(P)',
-            line=dict(color='red')
-        ))
+        fig_plotly.add_trace(
+            go.Scatter(x=time_points, y=sol[:, 0], mode='lines+markers', line=dict(color='black'), showlegend=False))
+        fig_plotly.add_trace(go.Scatter(x=TIME_POINTS_RNA, y=R_data, mode='lines+markers', name='mRNA(R)',
+                                        line=dict(dash='dash', color='black')))
+
+        fig_plotly.add_trace(
+            go.Scatter(x=time_points, y=sol[:, 1], mode='lines+markers', name='Protein(P)', line=dict(color='red')))
+        fig_plotly.add_trace(
+            go.Scatter(x=time_points, y=Pr_data, mode='lines+markers',
+                       line=dict(dash='dash', color='red'), showlegend=False))
+
         for i in range(num_psites):
             fig_plotly.add_trace(go.Scatter(
                 x=time_points,
-                y=P_data[i, :] if num_psites > 1 else P_data.flatten(),
+                y=P_data[i, :],
                 mode='lines+markers',
-                name=f'{psite_labels[i]}',
+                name=psite_labels[i],
                 line=dict(dash='dash', color=self.color_palette[i])
             ))
             fig_plotly.add_trace(go.Scatter(
                 x=time_points,
-                y=model_fit[i, :],
+                y=P_fit[i],
                 mode='lines+markers',
                 line=dict(color=self.color_palette[i]),
                 showlegend=False
             ))
-        fig_plotly.update_layout(title=self.gene,
-                                 xaxis_title="Time (minutes)",
-                                 yaxis_title="Fold Changes",
-                                 template="plotly_white",
-                                 width=900, height=900)
+
+        fig_plotly.update_layout(
+            title=self.gene,
+            xaxis_title="Time (minutes)",
+            yaxis_title="Fold Changes",
+            template="plotly_white",
+            width=900,
+            height=900
+        )
         fig_plotly.write_html(os.path.join(self.out_dir, f"{self.gene}_model_fit_.html"))
 
     def plot_param_scatter(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
@@ -591,7 +601,7 @@ class Plotter:
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
-            p_fit = p_fit[9:].reshape(num_psites, 14)
+            p_fit = p_fit[23:].reshape(num_psites, 14)
             marker = next(marker_cycle)
             # -- Last 'n' time range plots
             ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 0], label=f"{label} (mRNA)", linewidth=0.5, marker=marker,
@@ -697,7 +707,7 @@ class Plotter:
 
     def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
                                  best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
-                                 best_protein_solutions: np.ndarray, psite_labels: list[str],
+                                 best_protein_solutions: np.ndarray, psite_labels: list[str], protein_data_ref: np.ndarray,
                                  psite_data_ref: np.ndarray, rna_ref: np.ndarray, model_fit_sol: np.ndarray) -> None:
         """
         Plot the best model perturbations for the given data.
@@ -711,6 +721,7 @@ class Plotter:
             best_model_psite_solutions: The best model phosphorylation site solutions.
             best_mrna_solutions: The best model mRNA solutions.
             best_protein_solutions: The best model protein solutions.
+            protein_ref: The reference data for the protein.
             psite_labels: The labels for the phosphorylation sites.
             psite_data_ref: The reference data for the phosphorylation sites.
             rna_ref: The reference data for mRNA.
@@ -790,6 +801,17 @@ class Plotter:
             model_fit_sol[:cutoff_idx, 1],
             color='red',
             linewidth=1,
+        )
+
+        ax.plot(
+            time_points[:cutoff_idx],
+            protein_data_ref[:cutoff_idx],
+            marker='s',
+            linestyle='--',
+            color='red',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
         )
 
         ax.set_xlabel('Time (min)')
@@ -877,6 +899,17 @@ class Plotter:
             color='red',
             linewidth=1,
             label='Protein (P)'
+        )
+
+        ax.plot(
+            time_points[cutoff_idx:],
+            protein_data_ref[cutoff_idx:],
+            marker='s',
+            linestyle='--',
+            color='red',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
         )
 
         ax.set_xlabel('Time (min)')

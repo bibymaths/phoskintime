@@ -2,15 +2,16 @@ import os
 import argparse
 import numpy as np
 from pathlib import Path
-
+from typing import Optional
 from numba import njit
 
 from config.constants import (
     ALPHA_WEIGHT,
     BETA_WEIGHT,
     GAMMA_WEIGHT,
-    DELTA_WEIGHT,
-    INPUT_EXCEL, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
+    DELTA_WEIGHT, 
+    INPUT_EXCEL_PROTEIN,
+    INPUT_EXCEL_PSITE, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
     UB_Protein_prod, UB_Protein_deg, UB_Phospho_prod
 )
 
@@ -91,7 +92,7 @@ def parse_args():
     The arguments include:
     --A-bound, --B-bound, --C-bound, --D-bound,
     --Ssite-bound, --Dsite-bound, --bootstraps,
-    --input-excel, --input-excel-rna.
+    --input-excel-protein, --input-excel-psite, --input-excel-rna.
 
     Args:
         None
@@ -107,9 +108,12 @@ def parse_args():
     parser.add_argument("--D-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=f"0, {UB_Phospho_prod}")
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
-    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS)
-    parser.add_argument("--input-excel", type=str,
-                        default=INPUT_EXCEL,
+    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS) 
+    parser.add_argument("--input-excel-protein", type=str,
+                        default=INPUT_EXCEL_PROTEIN,
+                        help="Path to the original protein data file")
+    parser.add_argument("--input-excel-psite", type=str,
+                        default=INPUT_EXCEL_PSITE,
                         help="Path to the estimated optimized phosphorylation-residue file")
     parser.add_argument("--input-excel-rna", type=str,
                         default=INPUT_EXCEL_RNA,
@@ -161,8 +165,9 @@ def extract_config(args):
     }
     config = {
         'bounds': bounds,
-        'bootstraps': args.bootstraps,
-        'input_excel': args.input_excel,
+        'bootstraps': args.bootstraps, 
+        'input_excel_protein': args.input_excel_protein,
+        'input_excel_psite': args.input_excel_psite,
         'input_excel_rna': args.input_excel_rna,
         'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
@@ -220,7 +225,7 @@ def score_fit(params, target, prediction,
 
     return score
 
-def future_times(n_new: int, ratio: float = None, tp: np.ndarray = TIME_POINTS) -> np.ndarray:
+def future_times(n_new: int, ratio: Optional[float] = None, tp: np.ndarray = TIME_POINTS) -> np.ndarray:
     """
     Extend ttime points by n_new points, each spaced by multiplying the previous interval by ratio.
     If ratio is None, it is inferred from the last two points.

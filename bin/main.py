@@ -83,18 +83,19 @@ def main():
     # Make output directory
     ensure_output_directory(OUT_DIR)
 
-    # Load the data
-    kinase_data = pd.read_excel(config['input_excel'], sheet_name='Estimated')
+    # Load the data 
+    protein_data = pd.read_csv(config['input_excel_protein'])
+    kinase_data = pd.read_excel(config['input_excel_psite'], sheet_name='Estimated')
     mrna_data = pd.read_excel(config['input_excel_rna'], sheet_name='Estimated')
 
     # Check if the data is empty
-    if mrna_data.empty and kinase_data.empty:
+    if mrna_data.empty and kinase_data.empty and protein_data.empty:
         logger.error("No data found in the input Excel files.")
         return
 
     # Check if the required columns are present: Gene, Psite, x1 - x14
     required_columns = ['Gene', 'Psite'] + [f'x{i}' for i in range(1, 15)]
-    missing_columns = [col for col in required_columns if col not in kinase_data.columns]
+    missing_columns = [col for col in required_columns if col not in kinase_data.columns and col not in protein_data.columns]
     if missing_columns:
         logger.error(f"Missing columns in the phosphorylation data: {', '.join(missing_columns)}")
         return
@@ -149,7 +150,7 @@ def main():
     for gene in genes:
         logger.info(f"[{gene}]      Processing...")
         result = process_gene_wrapper(
-            gene, kinase_data, mrna_data, TIME_POINTS,
+            gene, protein_data, kinase_data, mrna_data, TIME_POINTS,
             config['bounds'], config['bootstraps']
         )
         results.append(result)
