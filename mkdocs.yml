@@ -33,7 +33,6 @@ nav:
   - Reference: reference.md
   - Changelog: Documentation/CHANGELOG.md
   - Documentation:
-      - Entry Backend: Documentation/bin/README.md
       - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
       - Kinase Optimization: Documentation/kinopt/README.md
