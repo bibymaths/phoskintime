@@ -707,7 +707,7 @@ class Plotter:
 
     def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
                                  best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
-                                 best_protein_solutions: np.ndarray, psite_labels: list[str],
+                                 best_protein_solutions: np.ndarray, psite_labels: list[str], protein_data_ref: np.ndarray,
                                  psite_data_ref: np.ndarray, rna_ref: np.ndarray, model_fit_sol: np.ndarray) -> None:
         """
         Plot the best model perturbations for the given data.
@@ -802,6 +802,17 @@ class Plotter:
             linewidth=1,
         )
 
+        ax.plot(
+            time_points[:cutoff_idx],
+            protein_data_ref[:cutoff_idx],
+            marker='s',
+            linestyle='--',
+            color='red',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
+        )
+
         ax.set_xlabel('Time (min)')
         ax.set_xticks(time_points[:cutoff_idx])
         ax.set_xticklabels(
@@ -887,6 +898,17 @@ class Plotter:
             color='red',
             linewidth=1,
             label='Protein (P)'
+        )
+
+        ax.plot(
+            time_points[cutoff_idx:],
+            protein_data_ref[cutoff_idx:],
+            marker='s',
+            linestyle='--',
+            color='red',
+            markersize=5,
+            linewidth=0.75,
+            mew=0.5, mec='black',
         )
 
         ax.set_xlabel('Time (min)')
