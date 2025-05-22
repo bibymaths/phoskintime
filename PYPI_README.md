@@ -2,26 +2,6 @@
  
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
-![NumPy](https://img.shields.io/badge/NumPy-*-red.svg)
-![Pandas](https://img.shields.io/badge/Pandas-*-yellowgreen.svg)
-![Matplotlib](https://img.shields.io/badge/Matplotlib-*-blueviolet.svg)
-![SciPy](https://img.shields.io/badge/SciPy-*-orange.svg)
-![Plotly](https://img.shields.io/badge/Plotly-*-brightgreen.svg)
-![Openpyxl](https://img.shields.io/badge/Openpyxl-*-lightgrey.svg)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-*-lightgrey.svg)
-![tqdm](https://img.shields.io/badge/tqdm-*-informational.svg)
-![Numba](https://img.shields.io/badge/Numba-*-yellowgreen.svg)
-![XlsxWriter](https://img.shields.io/badge/XlsxWriter-*-success.svg)
-![statsmodels](https://img.shields.io/badge/statsmodels-*-blue.svg)
-![pymoo](https://img.shields.io/badge/pymoo-*-orange.svg)
-![adjustText](https://img.shields.io/badge/adjustText-*-yellow.svg)
-![SALib](https://img.shields.io/badge/SALib-*-lightgrey.svg)
-![Graphviz](https://img.shields.io/badge/Graphviz-*-purple.svg)
-![mygene](https://img.shields.io/badge/mygene-*-green.svg)
-![python-dotenv](https://img.shields.io/badge/python--dotenv-*-blue.svg)
-![cobyqa](https://img.shields.io/badge/cobyqa-*-orange.svg)
-
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
 parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers
 explore kinase-substrate interactions in a temporal context.
@@ -29,10 +9,10 @@ explore kinase-substrate interactions in a temporal context.
 ## Acknowledgments
 
 This project originated as part of my master's thesis work at Theoretical Biophysics group (
-now, [Klipp-Linding Lab](https://www.klipp-linding.science/tbp/index.php/en/)), Humboldt Universität zu Berlin.
+now, [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/)), Humboldt Universität zu Berlin.
 
-- **Conceptual framework and mathematical modeling** were developed under the supervision of **[Prof. Dr. Dr. H.C. Edda Klipp](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/52-klipp)**.
-- **Experimental datasets** were provided by the **[(Retd. Prof.) Dr. Rune Linding](https://www.klipp-linding.science/tbp/index.php/en/people/51-people/head/278-rune-linding)**.
+- **Conceptual framework and mathematical modeling** were developed under the supervision of **[Prof. Dr. Dr. H.C. Edda Klipp](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/52-klipp)**.
+- **Experimental datasets** were provided by the **[(Retd. Prof.) Dr. Rune Linding](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/278-rune-linding)**.
 - The subpackage `tfopt` is an optimized and efficient derivative
   of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my colleague **[Julius Normann](https://github.com/Normann-BPh)**, adapted with permission.
 

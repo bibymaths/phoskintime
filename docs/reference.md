@@ -74,10 +74,6 @@
 
 ## ODE Modelling & Parameter Estimation
 
-### CLI Entry Point
-
-::: bin.main
-
 ### Configuration
  
 ::: config.cli

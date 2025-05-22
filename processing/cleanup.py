@@ -1,3 +1,4 @@
+import os 
 import shutil
 import pandas as pd
 import numpy as np
@@ -7,9 +8,11 @@ from pathlib import Path
 from config.logconf import setup_logger
 
 logger = setup_logger()
+ 
 
 ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
+os.chdir(BASE) 
 
 # Directory where the raw data files should be located
 base_dir = BASE / "raw"
