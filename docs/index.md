@@ -8,8 +8,8 @@ hide:
 Welcome to the official documentation for **PhosKinTime**, an ODE-based modeling toolkit for phosphorylation kinetics
 and transcriptional time-series analysis. This index page provides an overview of each package and submodule in the
 project.
- 
-<img src="../images/logo_3.png" alt="Package Logo" width="200"/>     
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)   
 
 ---
 ## Acknowledgments
