@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.markers as mmarkers
 from pathlib import Path
-from config.helpers import *
+from config.helpers import * 
+from tfopt.local.config.constants import INPUT1
 
 # Flag to indicate if the code is in development mode.
 DEV_TEST = True
@@ -186,8 +187,9 @@ Y_METRIC = 'total_signal'
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = PROJECT_ROOT / f'{model_type}_results'
 OUT_RESULTS_DIR = OUT_DIR / f'{model_type}_results.xlsx'
-DATA_DIR = PROJECT_ROOT / 'data'
-INPUT_EXCEL = DATA_DIR / 'kinopt_results.xlsx'
+DATA_DIR = PROJECT_ROOT / 'data' 
+INPUT_EXCEL_PROTEIN = INPUT1
+INPUT_EXCEL_PSITE = DATA_DIR / 'kinopt_results.xlsx'
 INPUT_EXCEL_RNA = DATA_DIR / 'tfopt_results.xlsx'
 LOG_DIR = OUT_DIR / f'{model_type}_logs'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
