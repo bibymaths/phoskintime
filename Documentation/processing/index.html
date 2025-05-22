@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/processing/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Processing & Mapping - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Processing \u0026 Mapping";
+        var mkdocs_page_input_path = "Documentation/processing/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/processing/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Processing & Mapping</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#structure">Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#scripts-overview">Scripts Overview</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#cleanuppy">cleanup.py</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mappy">map.py</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#key-features">Key Features:</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#inputs">Inputs</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#outputs">Outputs</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Processing & Mapping</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/processing/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="phoskintime-data-preprocessing-mapping">PhosKinTime Data Preprocessing &amp; Mapping</h1>
+<p>This workflow prepares and maps time-series data for kinase and transcription factor optimization models from raw
+proteomics and transcriptomics datasets.</p>
+<hr />
+<h2 id="structure">Structure</h2>
+<pre class="highlight"><code>phoskintime/
+├── processing/
+│   ├── cleanup.py     # Data cleaning and preparation
+│   └── map.py         # Optimization result mapping and network table generation
+├── raw/               # Input CSVs (CollecTRI, MS Gaussian, Rout Limma)
+├── kinopt/data/       # Kinase model inputs
+├── tfopt/data/        # TF model inputs
+└── data/              # Network export for Cytoscape</code></pre>
+<hr />
+<h2 id="scripts-overview">Scripts Overview</h2>
+<h3 id="cleanuppy"><code>cleanup.py</code></h3>
+<p>Performs the following steps:</p>
+<ol>
+<li>
+<p><strong>TF-mRNA Interaction Cleanup</strong></p>
+<ul>
+<li>Filters complex interactions in CollecTRI</li>
+<li>Keeps only TFs matching phospho-interactions in <code>input2.csv</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Proteomics Data Transformation</strong></p>
+<ul>
+<li>Transforms MS Gaussian predictions with <code>2^mean</code></li>
+<li>Formats phosphorylation sites, saves to <code>input1.csv</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Error Propagation</strong></p>
+<ul>
+<li>Computes std propagation:<br />
+<code>σ_y = 2^x * ln(2) * σ_x</code></li>
+<li>Saves to <code>input1_wstd.csv</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Transcriptomics Cleanup</strong></p>
+<ul>
+<li>Transforms Rout Limma values with <code>2^x</code></li>
+<li>Saves to <code>input3.csv</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Gene Symbol Mapping</strong></p>
+<ul>
+<li>Replaces Ensembl/Entrez IDs with gene symbols (using MyGeneInfo)</li>
+</ul>
+</li>
+<li>
+<p><strong>File Management</strong></p>
+<ul>
+<li>Moves cleaned files to <code>kinopt/data/</code> and <code>tfopt/data/</code></li>
+</ul>
+</li>
+</ol>
+<h3 id="mappy"><code>map.py</code></h3>
+<p>This script processes optimization results for transcription factors (TFs) and kinases, mapping their interactions with mRNA and phosphorylation sites. It generates Cytoscape-compatible edge and node tables for network visualization.</p>
+<h4 id="key-features">Key Features:</h4>
+<ul>
+<li><strong>TF-mRNA Mapping</strong>: Extracts non-zero optimization results and groups mRNA by associated TFs and their strengths.</li>
+<li><strong>Kinase-Phosphorylation Mapping</strong>: Maps kinases to mRNA and phosphorylation sites based on optimization results.</li>
+<li><strong>Cytoscape Table Generation</strong>: Creates edge and node tables for network visualization, including interaction types and strengths.</li>
+<li><strong>Kinetic Strength Integration</strong>: Adds kinetic strength columns to mapping files for further analysis.</li>
+</ul>
+<hr />
+<h2 id="inputs">Inputs</h2>
+<p>Place the following raw data in <code>processing/raw/</code>:</p>
+<ul>
+<li><code>CollecTRI.csv</code></li>
+<li><code>MS_Gaussian_updated_09032023.csv</code></li>
+<li><code>Rout_LimmaTable.csv</code></li>
+<li><code>input2.csv</code> (phospho interactions)</li>
+</ul>
+<hr />
+<h2 id="outputs">Outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input1.csv</code></td>
+<td>Phospho time series (KinOpt, TFOpt)</td>
+</tr>
+<tr>
+<td><code>input1_wstd.csv</code></td>
+<td>Same as above + standard deviation</td>
+</tr>
+<tr>
+<td><code>input2.csv</code></td>
+<td>Phospho kinase-interaction metadata</td>
+</tr>
+<tr>
+<td><code>input3.csv</code></td>
+<td>mRNA time series (TFOpt)</td>
+</tr>
+<tr>
+<td><code>input4.csv</code></td>
+<td>Clean TF-mRNA interactions</td>
+</tr>
+<tr>
+<td><code>mapping.csv</code></td>
+<td>Mapped TF → mRNA with Kinase + Psite</td>
+</tr>
+<tr>
+<td><code>mapping_.csv</code></td>
+<td>Cytoscape-compatible edge list</td>
+</tr>
+<tr>
+<td><code>nodes.csv</code></td>
+<td>Cytoscape node roles</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Complex TF interactions (e.g. <code>COMPLEX:TF1/TF2</code>) are excluded.</li>
+<li>Kinase-only proteins not appearing in CollecTRI (e.g. <code>PAK2</code>) are excluded from TF mapping.</li>
+<li>Unmappable GeneIDs are printed at runtime.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../CHANGELOG.html" class="btn btn-neutral float-left" title="Changelog"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../config/index.html" class="btn btn-neutral float-right" title="Configuration">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../CHANGELOG.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../config/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

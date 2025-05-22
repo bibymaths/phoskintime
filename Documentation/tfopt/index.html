@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/tfopt/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Transcription Factor Optimization - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Transcription Factor Optimization";
+        var mkdocs_page_input_path = "Documentation/tfopt/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/tfopt/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Transcription Factor Optimization</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#model-equation">Model Equation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#objective-function">Objective Function</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#constraints">Constraints</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#-constraints-for-each-mrna-i">α-constraints (for each mRNA i):</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#-constraints-for-each-tf-j">β-constraints (for each TF j):</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#optimization-problem-summary">Optimization Problem Summary</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#evol-global-evolutionary-optimization">evol/ — Global Evolutionary Optimization</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#local-constrained-local-optimization">local/ — Constrained Local Optimization</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Transcription Factor Optimization</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/tfopt/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="tfopt-transcription-factor-optimization-framework">tfopt — Transcription Factor Optimization Framework</h1>
+<ul>
+<li><strong>Originally implemented by Julius Normann.</strong></li>
+<li><strong>This version has been modified and optimized for consistency &amp; speed in submodules by Abhinav Mishra.</strong></li>
+</ul>
+<p><code>tfopt</code> provides a flexible architecture for estimating transcriptional regulatory influence using mRNA time series
+data, TF protein dynamics, and phosphorylation site signals.</p>
+<p>The package contains two main submodules:</p>
+<ul>
+<li><strong><code>tfopt/evol</code></strong> — global optimization via multi-objective evolutionary algorithms</li>
+<li><strong><code>tfopt/local</code></strong> — constrained optimization using SciPy solvers (e.g., SLSQP)</li>
+</ul>
+<p>Both modules share a consistent data preparation pipeline and model formulation.</p>
+<hr />
+<h2 id="model-equation">Model Equation</h2>
+<p>For each mRNA (indexed by <em>i</em>), the measured time series is represented by:</p>
+<p>$$
+\mathbf{R}_i = \left([mRNA]_i(t_1), [mRNA]_i(t_2), \dots, [mRNA]_i(T)\right)
+$$</p>
+<p>Its predicted value is modeled as a weighted combination of the effects of transcription factors (TFs) that regulate it.
+Each TF (indexed by <em>j</em>) contributes in two ways:</p>
+<ul>
+<li>A <strong>protein component</strong> (when no phosphorylation site is reported) with time series ( TF_{i,j}(t) )</li>
+<li>A <strong>PSite component</strong> (when phosphorylation sites are available) with time series ( PSite_{k,j}(t) ) for each site
+  <em>k</em></li>
+</ul>
+<p>These contributions are modulated by two sets of parameters:</p>
+<ul>
+<li><strong>α-values</strong>: For each mRNA, the impact of TF <em>j</em> is weighted by ( \alpha_{i,j} )</li>
+<li><strong>β-values</strong>: For each TF, a vector of weights:</li>
+</ul>
+<p>$$
+  \beta_j = \left( \beta_{0,j}, \beta_{1,j}, \dots, \beta_{K_j,j} \right)
+  $$</p>
+<p>Here, $ \beta_{0,j} $ multiplies the raw TF protein signal, and the remaining terms multiply phosphorylation site
+contributions.</p>
+<hr />
+<h2 id="objective-function">Objective Function</h2>
+<p>To estimate the best set of weights, we minimize the difference between measured and predicted expression over all genes
+and time points:</p>
+<p>$$
+\min_{{\alpha,\beta}} \quad \sum_i \sum_t \left( R_i(t) - \hat{R}_i(t) \right)^2
+$$</p>
+<p>This formulation supports multiple loss types (MSE, MAE, soft L1, Cauchy, etc.) implemented in both submodules.</p>
+<hr />
+<h2 id="constraints">Constraints</h2>
+<h3 id="-constraints-for-each-mrna-i">α-constraints (for each mRNA <em>i</em>):</h3>
+<p>$$
+\sum_{j \in J_i} \alpha_{i,j} = 1, \quad 0 \le \alpha_{i,j} \le 1
+$$</p>
+<h3 id="-constraints-for-each-tf-j">β-constraints (for each TF <em>j</em>):</h3>
+<p>$$
+\sum_{q=0}^{K_j} \beta_{q,j} = 1, \quad -2 \le \beta_{q,j} \le 2
+$$</p>
+<p>This ensures that weights are interpretable and stable.</p>
+<hr />
+<h2 id="optimization-problem-summary">Optimization Problem Summary</h2>
+<p>The final optimization problem is:</p>
+<p>$$
+\min_{{\alpha,\beta}} \sum_i \sum_t \left( R_i(t) - \sum_{j\in J_i} \alpha_{i,j} \cdot TF_{i,j}(t) \cdot \left( \beta_{0,j} + \sum_k PSite_{k,j}(t) \cdot \beta_{k,j} \right) \right)^2
+$$</p>
+<p>subject to the constraints above. This enables estimation of regulatory influences in a biologically meaningful and
+data-driven manner.</p>
+<hr />
+<h2 id="submodules">Submodules</h2>
+<h3 id="evol-global-evolutionary-optimization"><code>evol/</code> — Global Evolutionary Optimization</h3>
+<ul>
+<li>Implements multi-objective optimization using <code>pymoo</code> (NSGA2, AGEMOEA, SMSEMOA)</li>
+<li>Evaluates tradeoffs between fit error, α-constraint violation, and β-constraint violation</li>
+<li>Outputs Excel summaries, static and interactive plots, and HTML reports</li>
+</ul>
+<h3 id="local-constrained-local-optimization"><code>local/</code> — Constrained Local Optimization</h3>
+<ul>
+<li>Implements deterministic solvers (e.g. SLSQP)</li>
+<li>Faster and more interpretable for small- to medium-scale systems</li>
+<li>Shares the same objective and constraint framework as <code>evol</code></li>
+<li>Generates the same reports and plots as the global module</li>
+</ul>
+<hr />
+<h2 id="usage">Usage</h2>
+<p>From one level top of project root:</p>
+<pre class="highlight"><code class="language-bash">python -m phoskintime tfopt --mode evol</code></pre>
+<p>or</p>
+<pre class="highlight"><code class="language-bash">python -m phoskintime tfopt --mode local</code></pre>
+<p>Output will be saved in structured folders, including Excel files, plots, and an aggregated HTML report.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../kinopt/index.html" class="btn btn-neutral float-left" title="Kinase Optimization"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../models/index.html" class="btn btn-neutral float-right" title="Models">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../kinopt/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../models/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

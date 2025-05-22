@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/identifiability/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Confidence Intervals - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Confidence Intervals";
+        var mkdocs_page_input_path = "Documentation/identifiability/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/identifiability/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Confidence Intervals</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#purpose">Purpose</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#mathematical-background">Mathematical Background</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-standard-error">1. Standard Error</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-degrees-of-freedom">2. Degrees of Freedom</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-t-statistic">3. t-Statistic</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-p-value">4. p-Value</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#5-confidence-interval">5. Confidence Interval</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#when-to-use">When to Use</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Confidence Intervals</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/identifiability/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="parameter-identifiability">Parameter Identifiability</h1>
+<p>This module provides a function to compute <strong>confidence intervals (CIs)</strong> and <strong>significance statistics</strong> for model
+parameters using <strong>linear approximation</strong> based on the covariance matrix from a nonlinear least squares fit, commonly 
+known as also <strong>Wald Intervals</strong>.</p>
+<hr />
+<h2 id="purpose">Purpose</h2>
+<p>Given:</p>
+<ul>
+<li>Best-fit parameter estimates (<code>popt</code>)</li>
+<li>Their covariance matrix (<code>pcov</code>)</li>
+<li>The observed data (<code>target</code>)</li>
+</ul>
+<p>This function estimates:</p>
+<ul>
+<li>Standard errors</li>
+<li>t-statistics</li>
+<li>Two-sided p-values</li>
+<li>95% confidence intervals (or another level via <code>alpha_val</code>)</li>
+</ul>
+<hr />
+<h2 id="mathematical-background">Mathematical Background</h2>
+<h3 id="1-standard-error">1. <strong>Standard Error</strong></h3>
+<p>The standard error of each parameter is estimated as:</p>
+<p>$$
+\text{SE}(\beta_i) = \sqrt{ \text{Var}(\beta_i) } = \sqrt{ \text{diag}(\text{pcov})_i }
+$$</p>
+<p>Where <code>pcov</code> is the <strong>covariance matrix</strong> from the curve fitting routine (typically from <code>scipy.optimize.curve_fit</code>).</p>
+<hr />
+<h3 id="2-degrees-of-freedom">2. <strong>Degrees of Freedom</strong></h3>
+<p>$$
+\text{df} = n_{\text{obs}} - n_{\text{params}}
+$$</p>
+<p>Used to select the correct <strong>t-distribution</strong> for the confidence interval and p-value computation.</p>
+<hr />
+<h3 id="3-t-statistic">3. <strong>t-Statistic</strong></h3>
+<p>For each parameter:</p>
+<p>$$
+t_i = \frac{\hat{\beta}_i}{\text{SE}(\hat{\beta}_i)}
+$$</p>
+<hr />
+<h3 id="4-p-value">4. <strong>p-Value</strong></h3>
+<p>Two-sided p-value from the Student’s t-distribution:</p>
+<p>$$
+p_i = 2 \cdot P(T &gt; |t_i|) = 2 \cdot \text{sf}(|t_i|, \text{df})
+$$</p>
+<hr />
+<h3 id="5-confidence-interval">5. <strong>Confidence Interval</strong></h3>
+<p>Using the t-critical value $t^*$:</p>
+<p>$$
+t^* = t_{1 - \alpha/2, \text{df}}
+$$</p>
+<p>Confidence bounds:</p>
+<p>$$
+\text{CI}_i = \left[ \max\left(0, \hat{\beta}_i - t^* \cdot \text{SE}(\hat{\beta}_i)\right),\ \hat{\beta}_i + t^* \cdot \text{SE}(\hat{\beta}_i) \right]
+$$</p>
+<blockquote>
+<p>Lower bound is clipped to zero for non-negative parameters.</p>
+</blockquote>
+<hr />
+<h2 id="when-to-use">When to Use</h2>
+<ul>
+<li>To assess parameter certainty</li>
+<li>To report statistical significance and error bars</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../paramest/index.html" class="btn btn-neutral float-left" title="Parameter Estimation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../sensitivity/index.html" class="btn btn-neutral float-right" title="Sensitivity Analysis">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../paramest/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../sensitivity/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

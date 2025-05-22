@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/steady/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Steady State Calculation - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Steady State Calculation";
+        var mkdocs_page_input_path = "Documentation/steady/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/steady/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Steady State Calculation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#what-is-being-computed">What Is Being Computed?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#model-specific-logic">Model-Specific Logic</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-distributive-model">1. Distributive Model</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-successive-model">2. Successive Model</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-random-model">3. Random Model</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output">Output</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Steady State Calculation</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/steady/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="steady-state-initializers-for-phosphorylation-models">Steady-State Initializers for Phosphorylation Models</h1>
+<p>These scripts compute <strong>biologically meaningful steady-state initial values</strong> for different phosphorylation models,
+which are required as <strong>starting points for ODE simulations</strong>.</p>
+<p>Instead of guessing or using arbitrary initial values, we solve a <strong>nonlinear system of equations</strong> that ensures:</p>
+<blockquote>
+<p><strong>All time derivatives are zero at $t = 0$</strong><br />
+→ i.e., the system is at equilibrium</p>
+</blockquote>
+<hr />
+<h2 id="what-is-being-computed">What Is Being Computed?</h2>
+<p>For each model, we're solving:</p>
+<p>$$
+\text{Find } y_0 \text{ such that } \frac{dy}{dt}\bigg|_{t=0} = 0
+$$</p>
+<p>where $\mathbf{y} = [R, P, \dots]$ are all species in the system.</p>
+<p>This is done using <strong>constrained numerical optimization</strong> (<code>scipy.optimize.minimize</code>) to solve a system of
+equations $f(\mathbf{y}) = 0$.</p>
+<hr />
+<h2 id="model-specific-logic">Model-Specific Logic</h2>
+<h3 id="1-distributive-model">1. <strong>Distributive Model</strong></h3>
+<ul>
+<li>Each site $i$ is phosphorylated independently</li>
+<li>Steady-state means:<ul>
+<li>mRNA synthesis balances degradation</li>
+<li>Protein synthesis balances degradation and phosphorylation</li>
+<li>Each phosphorylated state $P_i$ is in flux balance</li>
+</ul>
+</li>
+</ul>
+<p>You solve a nonlinear system:</p>
+<p>$$
+A - B R = 0<br />
+$$ </p>
+<p>$$
+C R - (D + \sum S_i) P + \sum P_i = 0<br />
+$$ </p>
+<p>$$
+S_i P - (1 + D_i) P_i = 0 \quad \forall i
+$$</p>
+<hr />
+<h3 id="2-successive-model">2. <strong>Successive Model</strong></h3>
+<ul>
+<li>Sites are phosphorylated in a fixed order:
+  $P \to P_0 \to P_1 \to \dots \to P_n$</li>
+<li>Steady-state requires:<ul>
+<li>mRNA and protein production/degradation balance</li>
+<li>Each intermediate state receives and passes flux without accumulation</li>
+</ul>
+</li>
+</ul>
+<p>You solve:</p>
+<p>$$
+A - B \cdot R = 0
+$$</p>
+<p>$$
+C \cdot R - S_0 \cdot P + D_0 \cdot P_0 = 0
+$$</p>
+<p>$$
+S_0 \cdot P - (S_1 + D_0) \cdot P_0 + D_1 \cdot P_1 = 0
+$$</p>
+<p>$$
+S_1 \cdot P_0 - (S_2 + D_1) \cdot P_1 + D_2 \cdot P_2 = 0
+$$</p>
+<p>$$
+\vdots
+$$</p>
+<p>$$
+S_{n-1} \cdot P_{n-2} - (S_n + D_{n-1}) \cdot P_{n-1} + D_n \cdot P_n = 0
+$$</p>
+<p>$$
+S_n \cdot P_{n-1} - D_n \cdot P_n = 0
+$$</p>
+<p><strong>Where:</strong></p>
+<ul>
+<li>$R$: mRNA concentration  </li>
+<li>$P$: unphosphorylated protein  </li>
+<li>$P_i$: protein with $i$ sites phosphorylated in sequence  </li>
+<li>$S_i$: phosphorylation rate from $P_{i-1} \to P_i$  </li>
+<li>$D_i$: degradation rate of $P_i$</li>
+</ul>
+<hr />
+<h3 id="3-random-model">3. <strong>Random Model</strong></h3>
+<ul>
+<li>All possible phosphorylated combinations are treated as distinct states</li>
+<li>Total number of states = $2^n - 1$ (excluding unphosphorylated state)</li>
+</ul>
+<p>You construct a system:</p>
+<ul>
+<li>One equation for $R$ and $P$</li>
+<li>One for each state $X_j$ (each subset of phosphorylated sites)</li>
+<li>For each state, compute net phosphorylation in/out, and degradation</li>
+</ul>
+<p>At steady state, each phosphorylated state $X_j$ satisfies:</p>
+<p>$$
+\frac{dX_j}{dt} = \sum_{k \in N_j^{\text{in}}} S_{k \to j} \cdot X_k \sum_{l \in N_j^{\text{out}}} S_{j \to l} \cdot X_j D_j \cdot X_j = 0
+$$</p>
+<p><strong>Where:</strong></p>
+<ul>
+<li>$X_j$: concentration of phosphorylation state $j$  </li>
+<li>$N_j^{\text{in}}$: set of states $k$ that transition into $X_j$  </li>
+<li>$N_j^{\text{out}}$: set of states $l$ that $X_j$ can transition into  </li>
+<li>$S_{a \rightarrow b}$: rate constant for transition from state $a$ to $b$ (e.g., phosphorylation/dephosphorylation)  </li>
+<li>$D_j$: degradation rate of state $X_j$ (depends on its phosphorylation pattern)</li>
+</ul>
+<hr />
+<h2 id="output">Output</h2>
+<p>Each function returns steady-state concentrations:</p>
+<ul>
+<li>$[R, P, P_1, ..., P_n]$ (for <code>distributive</code> and <code>successive</code>)</li>
+<li>$[R, P, X_1, ..., X_k]$ (for <code>random</code>, where $X_k$ are the subset states)</li>
+</ul>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../models/index.html" class="btn btn-neutral float-left" title="Models"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../paramest/index.html" class="btn btn-neutral float-right" title="Parameter Estimation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../models/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../paramest/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
