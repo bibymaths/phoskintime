@@ -7,7 +7,7 @@ from config.helpers import *
 from tfopt.local.config.constants import INPUT1
 
 # Flag to indicate if the code is in development mode.
-DEV_TEST = True
+DEV_TEST = False
 
 ########################################################################################################################
 # GLOBAL CONSTANTS
