@@ -2,7 +2,7 @@
 /*.py  
 # Ignore __pycache__ directories
 __pycache__/
-
+out/
 # Ignore .pyc files
 *.py[cod]
 

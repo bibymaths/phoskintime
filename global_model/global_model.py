@@ -32,14 +32,11 @@ S_{i,s}(t) = sum_k c_k * alpha_{i,s,k} * K_k(t)
 
 Where c_k is global catalytic strength per kinase, alpha are sparse substrate weights
 derived from the interaction table (and optionally regularized by kinopt effects).
-
-Author: generated for a milestone; designed to be self-contained and readable.
 """
 
 import argparse
 import sys
 import os
-import math
 import json
 from typing import Dict, List, Tuple, Optional
 
