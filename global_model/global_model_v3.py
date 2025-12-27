@@ -59,13 +59,13 @@ TIME_POINTS_RNA = np.array(
 # Biology bounds (physical) then mapped to raw via inv_softplus
 # ------------------------------
 BOUNDS_CONFIG = {
-    "c_k":      (1e-6, 1.0),
+    "c_k":      (1e-6, 5.0),
     "A_i":      (1e-6, 2.0),
     "B_i":      (1e-6, 2.0),
     "C_i":      (1e-6, 2.0),
     "D_i":      (1e-6, 2.0),
     "E_i":      (1e-6, 2.0),
-    "tf_scale": (0.0, 1.0),
+    "tf_scale": (1e-6, 0.5),
 }
 
 def softplus(x):
