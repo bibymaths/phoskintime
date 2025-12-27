@@ -2,37 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Global ODE Dual-Fit (Pymoo / UNSGA3) - Elementwise Multi-Objective Optimization
-------------------------------------------------------------------------------
-
-Replaces scipy.optimize.minimize(SLSQP) with pymoo multi-objective optimization:
-  Objectives (minimize):
-    f1 = Protein MSE
-    f2 = RNA MSE
-    f3 = Prior regularization loss
-
-Key properties:
-- ElementwiseProblem (network problem evaluated per candidate)
-- UNSGA3 (a.k.a. "UNSA3" in your message) with 3 objectives
-- Numba JIT for RHS hot loop + loss core
-- Works with your existing model structure + bounds via raw (inv_softplus) parametrization
-
-Run:
-  python global_optim_pymoo_unsga3.py \
-    --kinase-net input2.csv \
-    --tf-net CollecTRI.csv \
-    --ms MS_Gaussian_updated_09032023.csv \
-    --rna Rout_LimmaTable.csv \
-    --output-dir out_unsga3 \
-    --cores 4 \
-    --n-gen 200 \
-    --pop 120 \
-    --seed 1 \
-    --lambda-prior 0.001 \
-    --lambda-rna 1.0
-
-Notes:
-- Multiobjective returns a Pareto front. This script also selects a "picked" solution
-  by minimizing: f1 + lambda_rna*f2 + f3 (same scalarization idea as before) and exports it.
 """
 
 import argparse
@@ -72,7 +41,8 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
 from pymoo.core.problem import StarmapParallelization
-
+from pymoo.decomposition.asf import ASF
+from pymoo.mcdm.high_tradeoff import HighTradeoffPoints
 # ------------------------------
 # Global Constants
 # ------------------------------
@@ -89,12 +59,13 @@ TIME_POINTS_RNA = np.array(
 # Biology bounds (physical) then mapped to raw via inv_softplus
 # ------------------------------
 BOUNDS_CONFIG = {
-    "c_k":      (0.0, 1.0),
-    "A_i":      (1e-4, 2.0),
-    "B_i":      (0.001, 2.0),
-    "C_i":      (0.01, 2.0),
-    "D_i":      (1e-4, 2.0),
-    "tf_scale": (0.0, 1.0)
+    "c_k":      (1e-6, 1.0),
+    "A_i":      (1e-6, 2.0),
+    "B_i":      (1e-6, 2.0),
+    "C_i":      (1e-6, 2.0),
+    "D_i":      (1e-6, 2.0),
+    "E_i":      (1e-6, 2.0),
+    "tf_scale": (0.0, 1.0),
 }
 
 def softplus(x):
@@ -105,6 +76,12 @@ def inv_softplus(y):
     y = np.maximum(y, 1e-12)
     return np.log(np.expm1(y))
 
+def normalize_fc_to_t0(df):
+    df = df.copy()
+    # assumes each protein has a row at time==0
+    t0 = df[df["time"] == 0.0].set_index("protein")["fc"]
+    df["fc"] = df.apply(lambda r: r["fc"] / t0.get(r["protein"], np.nan), axis=1)
+    return df.dropna(subset=["fc"])
 
 def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     """
@@ -366,7 +343,7 @@ def export_results(sys, idx, df_prot_obs, df_rna_obs, df_pred_p, df_pred_r, outp
 # 1. Numba Optimized Kernel (RHS hot loop)
 # ------------------------------
 @njit(fastmath=True, cache=True, nogil=True)
-def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, tf_scale, TF_inputs, S_all,
+def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
                   offset_y, offset_s, n_sites):
     N = len(A_i)
 
@@ -385,8 +362,17 @@ def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, tf_scale, TF_inputs, S_all,
         Bi = B_i[i]
         Ci = C_i[i]
         Di = D_i[i]
+        Ei = E_i[i]
 
-        synth = Ai * (1.0 + tf_scale * TF_inputs[i])
+        u = TF_inputs[i]
+        if u < -1.0: u = -1.0
+        if u > 1.0: u = 1.0
+        synth = Ai * (1.0 + tf_scale * u)
+
+        # u = TF_inputs[i]
+        # u = u / (1.0 + abs(u))  # maps to (-1,1)
+        # synth = Ai * (1.0 + tf_scale * u)
+
         dy[idx_R] = synth - Bi * R
 
         if ns == 0:
@@ -399,8 +385,8 @@ def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, tf_scale, TF_inputs, S_all,
                 ps_val = y[y_start + 2 + j]
 
                 sum_S += s_rate
-                sum_Ps += ps_val
-                dy[y_start + 2 + j] = s_rate * P - (1.0 + Di) * ps_val
+                sum_Ps += Ei * ps_val
+                dy[y_start + 2 + j] = s_rate * P - (Ei + Di) * ps_val
 
             dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_Ps
 
@@ -446,7 +432,7 @@ def rhs_nb(
     y,
     t,
     # params
-    c_k, A_i, B_i, C_i, D_i, tf_scale,
+    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
     # kinase input (stepwise)
     kin_grid, kin_Kmat,
     # W_global CSR (rows = total_sites, cols = n_kinases)
@@ -455,7 +441,8 @@ def rhs_nb(
     TF_indptr, TF_indices, TF_data, n_TF_rows,
     # maps
     p_indices,
-    offset_y, offset_s, n_sites
+    offset_y, offset_s, n_sites,
+    tf_deg,
 ):
     dy = np.zeros_like(y)
 
@@ -470,15 +457,30 @@ def rhs_nb(
     # TF inputs per protein from protein abundance P_vec
     # P_vec is y at the per-protein protein index positions (length = n_proteins)
     P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+
     for i in range(n_TF_rows):
-        P_vec[i] = y[p_indices[i]]
+        y_start = offset_y[i]
+        ns = n_sites[i]
+
+        # unphosphorylated protein
+        tot = y[y_start + 1]
+
+        # add all phosphorylated states
+        for j in range(ns):
+            tot += y[y_start + 2 + j]
+
+        P_vec[i] = tot
 
     TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
+
+    for i in range(n_TF_rows):
+        TF_inputs[i] /= tf_deg[i]
+        # TF_inputs[i] /= np.sqrt(tf_deg[i])
 
     # Core dynamics (your hot loop)
     fast_rhs_loop(
         y, dy,
-        A_i, B_i, C_i, D_i, tf_scale,
+        A_i, B_i, C_i, D_i, E_i, tf_scale,
         TF_inputs, S_all,
         offset_y, offset_s, n_sites
     )
@@ -500,12 +502,13 @@ def fd_jacobian_odeint(y, t, *args):
 def fd_jacobian_nb_core(
     y,
     t,
-    c_k, A_i, B_i, C_i, D_i, tf_scale,
+    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
     kin_grid, kin_Kmat,
     W_indptr, W_indices, W_data, n_W_rows,
     TF_indptr, TF_indices, TF_data, n_TF_rows,
     p_indices,
     offset_y, offset_s, n_sites,
+    tf_deg,
     eps=1e-8
 ):
     """
@@ -516,12 +519,13 @@ def fd_jacobian_nb_core(
 
     f0 = rhs_nb(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         p_indices,
-        offset_y, offset_s, n_sites
+        offset_y, offset_s, n_sites,
+        tf_deg
     )
 
     for j in range(n):
@@ -531,12 +535,13 @@ def fd_jacobian_nb_core(
 
         fj = rhs_nb(
             y_pert, t,
-            c_k, A_i, B_i, C_i, D_i, tf_scale,
+            c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
             kin_grid, kin_Kmat,
             W_indptr, W_indices, W_data, n_W_rows,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             p_indices,
-            offset_y, offset_s, n_sites
+            offset_y, offset_s, n_sites,
+            tf_deg
         )
 
         invh = 1.0 / h
@@ -742,7 +747,7 @@ class KinaseInput:
         return self.Kmat[:, j]
 
 class System:
-    def __init__(self, idx, W_global, tf_mat, kin_input, defaults):
+    def __init__(self, idx, W_global, tf_mat, kin_input, defaults, tf_deg):
         self.idx = idx
         self.W_global = W_global
         self.tf_mat = tf_mat
@@ -754,6 +759,7 @@ class System:
         self.B_i = defaults["B_i"]
         self.C_i = defaults["C_i"]
         self.D_i = defaults["D_i"]
+        self.E_i = defaults["E_i"]
         self.tf_scale = defaults["tf_scale"]
         # --- CSR buffers for njit RHS ---
         W = self.W_global.tocsr()
@@ -775,13 +781,16 @@ class System:
         # p_indices must be int32 for njit indexing
         self.p_indices = self.p_indices.astype(np.int32)
 
+        # Degree of target TFs
+        self.tf_deg = tf_deg
 
-    def update(self, c_k, A_i, B_i, C_i, D_i, tf_scale):
+    def update(self, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale):
         self.c_k = c_k
         self.A_i = A_i
         self.B_i = B_i
         self.C_i = C_i
         self.D_i = D_i
+        self.E_i = E_i
         self.tf_scale = tf_scale
 
     def rhs(self, t, y):
@@ -790,12 +799,21 @@ class System:
         Kt = self.kin.eval(t) * self.c_k
         S_all = self.W_global.dot(Kt)
 
-        P_vec = y[self.p_indices]
+        P_vec = np.zeros(self.idx.N, dtype=np.float64)
+        for i in range(self.idx.N):
+            st = self.idx.offset_y[i]
+            ns = self.idx.n_sites[i]
+            tot = y[st + 1]  # unphosphorylated P
+            if ns > 0:
+                tot += y[st + 2: st + 2 + ns].sum()  # phosphorylated states
+            P_vec[i] = tot
+
         TF_inputs = self.tf_mat.dot(P_vec)
+        TF_inputs = TF_inputs / self.tf_deg
 
         fast_rhs_loop(
             y, dy,
-            self.A_i, self.B_i, self.C_i, self.D_i, self.tf_scale,
+            self.A_i, self.B_i, self.C_i, self.D_i, self.E_i, self.tf_scale,
             TF_inputs, S_all,
             self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
         )
@@ -823,6 +841,7 @@ class System:
             self.B_i.astype(np.float64),
             self.C_i.astype(np.float64),
             self.D_i.astype(np.float64),
+            self.E_i.astype(np.float64),
             float(self.tf_scale),
 
             self.kin_grid,
@@ -837,6 +856,7 @@ class System:
             self.idx.offset_y.astype(np.int32),
             self.idx.offset_s.astype(np.int32),
             self.idx.n_sites.astype(np.int32),
+            self.tf_deg,
         )
 
 
@@ -849,7 +869,7 @@ def init_raw_params(defaults):
     bounds = []
     curr = 0
 
-    for k in ["c_k", "A_i", "B_i", "C_i", "D_i"]:
+    for k in ["c_k", "A_i", "B_i", "C_i", "D_i", "E_i"]:
         raw = inv_softplus(defaults[k])
         vecs.append(raw)
         length = len(raw)
@@ -882,6 +902,7 @@ def unpack_params(theta, slices):
         "B_i": softplus(theta[slices["B_i"]]),
         "C_i": softplus(theta[slices["C_i"]]),
         "D_i": softplus(theta[slices["D_i"]]),
+        "E_i": softplus(theta[slices["E_i"]]),
         "tf_scale": softplus(theta[slices["tf_scale"]])[0]
     }
 
@@ -919,7 +940,7 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, time_grid):
 @njit(fastmath=True, cache=True, nogil=True)
 def jit_loss_core(Y, p_prot, t_prot, obs_prot, w_prot,
                   p_rna, t_rna, obs_rna, w_rna,
-                  prot_map):
+                  prot_map, rna_base_idx):
     loss_p = 0.0
     for k in range(len(p_prot)):
         p_idx = p_prot[k]
@@ -940,7 +961,7 @@ def jit_loss_core(Y, p_prot, t_prot, obs_prot, w_prot,
         tot_0 = P_0 + Ps_0
 
         pred_fc = max(tot_t, 1e-9) / max(tot_0, 1e-9)
-        diff = pred_fc - obs_prot[k]
+        diff = obs_prot[k] - pred_fc
         loss_p += w_prot[k] * (diff * diff)
 
     loss_r = 0.0
@@ -950,10 +971,10 @@ def jit_loss_core(Y, p_prot, t_prot, obs_prot, w_prot,
         start = prot_map[p_idx, 0]
 
         R_t = Y[t_idx, start]
-        R_0 = Y[0, start]
-        pred_fc = max(R_t, 1e-9) / max(R_0, 1e-9)
+        R_b = Y[rna_base_idx, start]
+        pred_fc = max(R_t, 1e-9) / max(R_b, 1e-9)
 
-        diff = pred_fc - obs_rna[k]
+        diff = obs_rna[k] - pred_fc
         loss_r += w_rna[k] * (diff * diff)
 
     return loss_p, loss_r
@@ -992,10 +1013,12 @@ class GlobalODE_MOO(ElementwiseProblem):
 
         # 2) reg term (same as before, but keep as separate objective)
         reg = 0.0
-        for k in ["A_i", "B_i", "C_i", "D_i"]:
-            diff = p[k] - self.defaults[k]
+        count = 0
+        for k in ["A_i", "B_i", "C_i", "D_i", "E_i"]:
+            diff = (p[k] - self.defaults[k]) / (self.defaults[k] + 1e-6)
             reg += float(np.sum(diff * diff))
-        reg_loss = (reg * self.lambdas["prior"]) / max(1, len(x))
+            count += diff.size
+        reg_loss = self.lambdas["prior"] * (reg / max(1, count))
 
         # 3) simulate (odeint + njit RHS + njit Jacobian)
         try:
@@ -1020,7 +1043,7 @@ class GlobalODE_MOO(ElementwiseProblem):
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
             self.loss_data["p_rna"], self.loss_data["t_rna"], self.loss_data["obs_rna"], self.loss_data["w_rna"],
-            self.loss_data["prot_map"]
+            self.loss_data["prot_map"], self.loss_data["rna_base_idx"]
         )
 
         prot_mse = loss_p_sum / self.loss_data["n_p"]
@@ -1054,30 +1077,26 @@ def simulate_odeint(sys, t_eval, rtol=1e-5, atol=1e-6, mxstep=5000):
 
 def simulate_and_measure(sys, idx, t_points_p, t_points_r):
     times = np.unique(np.concatenate([t_points_p, t_points_r]))
-    try:
-        Y = simulate_odeint(sys, times, rtol=1e-5, atol=1e-7, mxstep=5000)
-    except Exception:
-        return None, None
+    Y = simulate_odeint(sys, times, rtol=1e-5, atol=1e-7, mxstep=5000)
 
-    if Y is None or Y.size == 0 or not np.all(np.isfinite(Y)):
-        return None, None
+    # baseline indices
+    prot_b = int(np.where(times == 0.0)[0][0])
+    rna_b  = int(np.where(times == 4.0)[0][0])   # IMPORTANT
 
-    rows_p = []
+    rows_p, rows_r = [], []
     for i, p in enumerate(idx.proteins):
         st = idx.offset_y[i]
         ns = idx.n_sites[i]
-        P = Y[:, st + 1]
-        Ps = Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0
-        tot = P + Ps
-        fc = np.maximum(tot, 1e-9) / np.maximum(tot[0], 1e-9)
-        rows_p.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc}))
 
-    rows_r = []
-    for i, p in enumerate(idx.proteins):
-        st = idx.offset_y[i]
+        # Protein baseline at t=0
+        tot = Y[:, st + 1] + (Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0)
+        fc_p = np.maximum(tot, 1e-9) / np.maximum(tot[prot_b], 1e-9)
+        rows_p.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc_p}))
+
+        # RNA baseline at t=4
         R = Y[:, st]
-        fc = np.maximum(R, 1e-9) / np.maximum(R[0], 1e-9)
-        rows_r.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc}))
+        fc_r = np.maximum(R, 1e-9) / np.maximum(R[rna_b], 1e-9)
+        rows_r.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc_r}))
 
     df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame()
     df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame()
@@ -1099,12 +1118,12 @@ def main():
     parser.add_argument("--cores", type=int, default=os.cpu_count())
 
     # Pymoo
-    parser.add_argument("--n-gen", type=int, default=100)
+    parser.add_argument("--n-gen", type=int, default=1000)
     parser.add_argument("--pop", type=int, default=100)
     parser.add_argument("--seed", type=int, default=1)
 
     # Loss weights
-    parser.add_argument("--lambda-prior", type=float, default=0.001)
+    parser.add_argument("--lambda-prior", type=float, default=1e-5)
     parser.add_argument("--lambda-rna", type=float, default=1.0)
 
     args = parser.parse_args()
@@ -1112,6 +1131,10 @@ def main():
 
     # 1) Load
     df_kin, df_tf, df_prot, df_rna = load_data(args)
+    df_prot = normalize_fc_to_t0(df_prot)
+    base = df_rna[df_rna["time"] == 4.0].set_index("protein")["fc"]
+    df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
+    df_rna = df_rna.dropna(subset=["fc"])
 
     # 2) Model index
     idx = Index(df_kin)
@@ -1121,14 +1144,18 @@ def main():
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
 
     # Weights (early emphasis)
-    wmap = {t: 1.0 + (max(TIME_POINTS) - t) / max(TIME_POINTS) for t in TIME_POINTS}
+    all_times = np.unique(np.concatenate([TIME_POINTS, TIME_POINTS_RNA]))
+    wmap = {t: 1.0 + (all_times.max() - t) / all_times.max() for t in all_times}
     df_prot["w"] = df_prot["time"].map(wmap).fillna(1.0)
-    df_rna["w"] = 1.0
+    df_rna["w"] = df_rna["time"].map(wmap).fillna(1.0)
 
     # 3) Build W + TF
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
     tf_mat = build_tf_matrix(df_tf, idx)
     kin_in = KinaseInput(idx.kinases, df_prot)
+
+    tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)  # row sums = in-degree per target
+    tf_deg[tf_deg == 0.0] = 1.0
 
     # 4) Defaults/system
     defaults = {
@@ -1137,13 +1164,18 @@ def main():
         "B_i": np.full(idx.N, 0.2),
         "C_i": np.full(idx.N, 0.5),
         "D_i": np.full(idx.N, 0.05),
+        "E_i": np.ones(idx.N),
         "tf_scale": 0.1
     }
-    sys = System(idx, W_global, tf_mat, kin_in, defaults)
+    sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS, TIME_POINTS_RNA]))
+    rna_base_time = 4.0
+    rna_base_idx = int(np.where(solver_times == rna_base_time)[0][0])
+
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, solver_times)
+    loss_data["rna_base_idx"] = np.int32(rna_base_idx)
 
     # 6) Decision vector bounds (raw space)
     theta0, slices, xl, xu = init_raw_params(defaults)
@@ -1181,7 +1213,7 @@ def main():
         cvtol=1e-6,
         ftol=0.0025,
         period=30,
-        n_max_gen=args.n_gen,
+        n_max_gen=500,
         n_max_evals=100000
     )
 
@@ -1212,15 +1244,11 @@ def main():
 
     # 11) Pick one solution
     F = res.F
-    weights = np.array([1.0, 1.0, 0.2])  # Weights for Prot, RNA, Reg
-    # Normalize objectives to 0-1 range so weights are fair
-    norm_matrix = (F - F.min(axis=0)) / (np.ptp(F, axis=0) + 1e-9)
-    # Calculate the single scalar score for every solution
-    weighted_scores = np.sum(norm_matrix * weights, axis=1)
-    # Find the index of the best score
-    best_i = np.argmin(weighted_scores)
-    theta_best = X[best_i].astype(float)
-    F_best = F[best_i]
+    Fn = (F - F.min(axis=0)) / (np.ptp(F, axis=0) + 1e-12)
+    w = np.array([1.0, args.lambda_rna, 1.0])
+    I = np.argmin((Fn * w).sum(axis=1))
+    theta_best = X[I].astype(float)
+    F_best = F[I]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
@@ -1235,8 +1263,8 @@ def main():
         json.dump(p_out, f, indent=2)
 
     # Write picked objective values
-    picked = {"prot_mse": float(F[best_i, 0]), "rna_mse": float(F[best_i, 1]), "reg_loss": float(F[best_i, 2]),
-              "scalar_score": float(F[best_i, 0] + args.lambda_rna * F[best_i, 1] + F[best_i, 2])}
+    picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "reg_loss": float(F[I, 2]),
+              "scalar_score": float(F[I, 0] + args.lambda_rna * F[I, 1] + F[I, 2])}
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
