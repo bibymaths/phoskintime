@@ -57,3 +57,6 @@ __pycache__/
 
 # Ignore any dist files - wheels
 /dist/
+
+# Ignore global config files
+global_model/*.csv
