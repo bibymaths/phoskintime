@@ -625,17 +625,43 @@ def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         if ns == 0:
             dy[idx_P] = Ci * R - Di * P
         else:
-            sum_S = 0.0
-            sum_Ps = 0.0
-            for j in range(ns):
-                s_rate = S_all[s_start + j]
-                ps_val = y[y_start + 2 + j]
+            # Sequential chain:
+            #   P0 (unphosph) = y[idx_P]
+            #   P1..Pns = y[y_start+2 + j]
+            #
+            # Forward:  Pj -> P(j+1) with rate k_j = S_all[s_start + j]
+            # Backward: P(j+1) -> Pj with rate Ei
+            #
+            # Protein degradation Di applies to every protein state.
 
-                sum_S += s_rate
-                sum_Ps += Ei * ps_val
-                dy[y_start + 2 + j] = s_rate * P - (Ei + Di) * ps_val
+            P0 = y[idx_P]
 
-            dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_Ps
+            # --- P0 (unphosph) ---
+            k0 = S_all[s_start + 0]
+            # loss by forward to P1, gain by back from P1
+            dy[idx_P] = Ci * R - Di * P0 - k0 * P0 + Ei * y[y_start + 2 + 0]
+
+            # --- middle states P1..P(ns-1) ---
+            for j in range(ns - 1):
+                Pj = y[y_start + 2 + j]
+                kj = S_all[s_start + j]  # forward Pj -> P(j+1)
+                kj1 = S_all[s_start + j + 1]  # forward P(j+1) -> P(j+2)
+
+                # inflow: forward from previous + back from next
+                inflow = kj * (P0 if j == 0 else y[y_start + 2 + (j - 1)]) + Ei * y[y_start + 2 + (j + 1)]
+                # outflow: forward to next + back to previous + degradation
+                outflow = (kj1 + Ei + Di) * Pj
+
+                dy[y_start + 2 + j] = inflow - outflow
+
+            # --- last state Pns ---
+            Plast = y[y_start + 2 + (ns - 1)]
+            k_last = S_all[s_start + (ns - 1)]
+            Pprev = P0 if ns == 1 else y[y_start + 2 + (ns - 2)]
+            # inflow: forward from previous
+            # outflow: back to previous + degradation
+            dy[y_start + 2 + (ns - 1)] = k_last * Pprev - (Ei + Di) * Plast
+
 
 # ------------------------------
 # ODEINT + NJIT RHS + NJIT FD Jacobian (drop-in)
@@ -799,22 +825,48 @@ def fd_jacobian_nb_core(
 # 2. Parallel W Builder
 # ------------------------------
 def _build_single_W(args):
+    """
+    Build W block for one protein for SEQUENTIAL phosphorylation.
+
+    rows = stages j = 0..ns-1 (transition P_j -> P_{j+1})
+    stage j corresponds to the psite sites_i[j]
+    cols = kinases
+    data = 1.0 (unweighted edges), like your current builder
+    """
     p, interactions, sites_i, k2i, n_kinases = args
 
+    # IMPORTANT: sequential needs a deterministic site order
+    # If your idx.sites[i] is not stable, enforce sorting here.
+    # If you already enforce ordering upstream, you can remove this.
+    sites_i = list(sites_i)
+    # sites_i.sort()  # optional: uncomment if you want alphabetical order
+
+    site_to_stage = {s: j for j, s in enumerate(sites_i)}
+
     sub = interactions[interactions["protein"] == p]
-    site_map = {s: r for r, s in enumerate(sites_i)}
+
     rows, cols = [], []
-
     for _, r in sub.iterrows():
-        if r["psite"] in site_map and r["kinase"] in k2i:
-            rows.append(site_map[r["psite"]])
-            cols.append(k2i[r["kinase"]])
+        s = r["psite"]
+        k = r["kinase"]
+        if s in site_to_stage and k in k2i:
+            rows.append(site_to_stage[s])      # stage index
+            cols.append(k2i[k])                # kinase index
 
-    data = np.ones(len(rows), float)
+    data = np.ones(len(rows), dtype=float)
     return sparse.csr_matrix((data, (rows, cols)), shape=(len(sites_i), n_kinases))
 
 def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_matrix:
-    print(f"[Model] Building W matrices in parallel using {n_cores} cores...")
+    """
+    Build global W for sequential phosphorylation.
+
+    Global W shape:
+      (sum_i n_sites[i]) x (n_kinases)
+
+    For each protein i, its block has n_sites[i] rows:
+      row j -> rate k_j for transition P_j -> P_{j+1}
+    """
+    print(f"[Model] Building SEQUENTIAL W matrices in parallel using {n_cores} cores...")
 
     tasks = [
         (p, interactions, idx.sites[i], idx.k2i, len(idx.kinases))
@@ -827,7 +879,7 @@ def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_m
         with mp.Pool(n_cores) as pool:
             W_list = pool.map(_build_single_W, tasks)
 
-    print("[Model] Stacking Global W matrix...")
+    print("[Model] Stacking Global SEQUENTIAL W matrix...")
     return sparse.vstack(W_list).tocsr()
 
 
@@ -936,7 +988,10 @@ class Index:
     def __init__(self, interactions: pd.DataFrame):
         self.proteins = sorted(interactions["protein"].unique().tolist())
         self.p2i = {p: i for i, p in enumerate(self.proteins)}
-        self.sites = [interactions.loc[interactions["protein"] == p, "psite"].unique().tolist() for p in self.proteins]
+        self.sites = [
+            sorted(interactions.loc[interactions["protein"] == p, "psite"].dropna().astype(str).unique().tolist())
+            for p in self.proteins
+        ]
         self.kinases = sorted(interactions["kinase"].unique().tolist())
         self.k2i = {k: i for i, k in enumerate(self.kinases)}
         self.N = len(self.proteins)
