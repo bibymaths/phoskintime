@@ -350,6 +350,104 @@ def export_pareto_front_to_excel(
     print(f"[Output] Pareto export saved: {output_path}")
     print(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
+def save_gene_timeseries_plots(
+    gene: str,
+    df_prot_obs: pd.DataFrame,
+    df_prot_pred: pd.DataFrame,
+    df_rna_obs: pd.DataFrame,
+    df_rna_pred: pd.DataFrame,
+    output_dir: str,
+    prot_times: np.ndarray = None,
+    rna_times: np.ndarray = None,
+    filename_prefix: str = "ts",
+    dpi: int = 300,
+):
+    """
+    Save a 2-panel time-series plot for ONE gene symbol:
+      - Top: Protein observed vs predicted FC across TIME_POINTS
+      - Bottom: mRNA observed vs predicted FC across TIME_POINTS_RNA
+
+    Expected inputs:
+      df_*_obs  columns:  protein, time, fc
+      df_*_pred columns: protein, time, pred_fc   (or fc_pred; handled)
+
+    Output:
+      {output_dir}/{filename_prefix}_{gene}.png
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # ---- normalize column names for predicted dfs ----
+    def _norm_pred(df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        if "pred_fc" in df.columns and "fc_pred" not in df.columns:
+            df.rename(columns={"pred_fc": "fc_pred"}, inplace=True)
+        if "fc_pred" not in df.columns:
+            raise ValueError("Pred df must have 'pred_fc' or 'fc_pred' column.")
+        return df
+
+    prot_pred = _norm_pred(df_prot_pred)
+    rna_pred  = _norm_pred(df_rna_pred)
+
+    # ---- subset one gene ----
+    p_obs = df_prot_obs[df_prot_obs["protein"] == gene].copy()
+    p_pre = prot_pred[prot_pred["protein"] == gene].copy()
+    r_obs = df_rna_obs[df_rna_obs["protein"] == gene].copy()
+    r_pre = rna_pred[rna_pred["protein"] == gene].copy()
+
+    if p_obs.empty and p_pre.empty and r_obs.empty and r_pre.empty:
+        # nothing to plot
+        return None
+
+    # optional: restrict to known grids
+    if prot_times is not None:
+        p_obs = p_obs[p_obs["time"].isin(prot_times)]
+        p_pre = p_pre[p_pre["time"].isin(prot_times)]
+    if rna_times is not None:
+        r_obs = r_obs[r_obs["time"].isin(rna_times)]
+        r_pre = r_pre[r_pre["time"].isin(rna_times)]
+
+    # ensure numeric + sorted
+    for df, col in [(p_obs, "fc"), (r_obs, "fc"), (p_pre, "fc_pred"), (r_pre, "fc_pred")]:
+        if not df.empty:
+            df["time"] = pd.to_numeric(df["time"], errors="coerce")
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df.dropna(subset=["time", col], inplace=True)
+            df.sort_values("time", inplace=True)
+
+    # ---- plot ----
+    fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=False)
+    ax_p, ax_r = axes
+
+    # Protein panel
+    if not p_obs.empty:
+        ax_p.plot(p_obs["time"].to_numpy(), p_obs["fc"].to_numpy(), marker="o", linewidth=2, label="Protein obs")
+    if not p_pre.empty:
+        ax_p.plot(p_pre["time"].to_numpy(), p_pre["fc_pred"].to_numpy(), marker="o", linewidth=2, label="Protein pred")
+    ax_p.set_title(f"{gene} — Protein")
+    ax_p.set_xlabel("Time")
+    ax_p.set_ylabel("FC")
+    ax_p.grid(True, alpha=0.3)
+    ax_p.legend()
+
+    # RNA panel
+    if not r_obs.empty:
+        ax_r.plot(r_obs["time"].to_numpy(), r_obs["fc"].to_numpy(), marker="o", linewidth=2, label="mRNA obs")
+    if not r_pre.empty:
+        ax_r.plot(r_pre["time"].to_numpy(), r_pre["fc_pred"].to_numpy(), marker="o", linewidth=2, label="mRNA pred")
+    ax_r.set_title(f"{gene} — mRNA")
+    ax_r.set_xlabel("Time")
+    ax_r.set_ylabel("FC")
+    ax_r.grid(True, alpha=0.3)
+    ax_r.legend()
+
+    fig.suptitle(f"Observed vs Predicted Time Series — {gene}", y=0.98)
+    fig.tight_layout()
+
+    out_path = os.path.join(output_dir, f"{filename_prefix}_{gene}.png")
+    fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir):
     """
     Generates a Goodness of Fit (Parity Plot) for Protein and RNA data.
@@ -1487,7 +1585,7 @@ def main():
     parser.add_argument("--seed", type=int, default=1)
 
     # Loss weights
-    parser.add_argument("--lambda-prior", type=float, default=1e-2)
+    parser.add_argument("--lambda-prior", type=float, default=1e-3)
     parser.add_argument("--lambda-rna", type=float, default=1.0)
 
     args = parser.parse_args()
@@ -1577,7 +1675,7 @@ def main():
         cvtol=1e-6,
         ftol=0.0025,
         period=30,
-        n_max_gen=100,
+        n_max_gen=args.n_gen,
         n_max_evals=100000
     )
 
@@ -1665,6 +1763,21 @@ def main():
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, output_dir=args.output_dir)
     print("[Done] Goodness of Fit plot saved.")
 
+    ts_dir = os.path.join(args.output_dir, "timeseries_plots")
+    for g in idx.proteins:
+        save_gene_timeseries_plots(
+            gene=g,
+            df_prot_obs=df_prot,
+            df_prot_pred=dfp,
+            df_rna_obs=df_rna,
+            df_rna_pred=dfr,
+            output_dir=ts_dir,
+            prot_times=TIME_POINTS,
+            rna_times=TIME_POINTS_RNA,
+            filename_prefix="fit"
+        )
+
+    print("[Done] Time series plots saved.")
 
     # Use the NEW export function (pass dfp, dfr directly)
     if dfp is not None and dfr is not None:
