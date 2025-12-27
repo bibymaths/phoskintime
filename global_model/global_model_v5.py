@@ -636,16 +636,31 @@ def build_random_transitions(idx):
         trans_n,
     )
 
+
+@njit(cache=True)
+def time_bucket(t, grid):
+    # stepwise hold bucket index j
+    if t <= grid[0]:
+        return 0
+    if t >= grid[-1]:
+        return grid.size - 1
+    j = np.searchsorted(grid, t, side="right") - 1
+    if j < 0:
+        j = 0
+    if j >= grid.size:
+        j = grid.size - 1
+    return j
+
 # ------------------------------
 # 1. Numba Optimized Kernel (RHS hot loop)
 # ------------------------------
-@njit(fastmath=True, cache=True, nogil=True)
+@njit(fastmath=True, cache=True)
 def fast_rhs_loop(
     y, dy,
     A_i, B_i, C_i, D_i, E_i, tf_scale,
-    TF_inputs, S_all,
+    TF_inputs, S_cache, jb,
     offset_y, offset_s,
-    n_sites,
+    n_sites, n_states,
     trans_from, trans_to, trans_site, trans_off, trans_n
 ):
     N = len(A_i)
@@ -681,7 +696,7 @@ def fast_rhs_loop(
             dy[idx_P0] = Ci * R - Di * P0
             continue
 
-        nstates = 1 << ns
+        nstates = n_states[i]
 
         # Translation goes into unphosphorylated state (mask 0)
         # decay applies to ALL protein states
@@ -699,7 +714,7 @@ def fast_rhs_loop(
             to  = trans_to[off + k]
             j   = trans_site[off + k]
 
-            rate = S_all[s_start + j]
+            rate = S_cache[s_start + j, jb]
             flux = rate * y[idx_P0 + frm]
 
             dy[idx_P0 + frm] -= flux
@@ -760,52 +775,45 @@ def rhs_nb(
     t,
     # params
     c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
-    # kinase input (stepwise)
-    kin_grid, kin_Kmat,
-    # W_global CSR (rows = total_sites, cols = n_kinases)
-    W_indptr, W_indices, W_data, n_W_rows,
+    # kinase grid for bucketing
+    kin_grid,
+    # PRECOMPUTED phosphorylation rates: shape (total_sites, len(kin_grid))
+    S_cache,
     # TF CSR (rows = n_proteins, cols = n_proteins)
     TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites,
+    offset_y, offset_s, n_sites, n_states,
     trans_from, trans_to, trans_site, trans_off, trans_n,
     tf_deg,
 ):
     dy = np.zeros_like(y)
 
-    # Kinase vector at time t, scaled by c_k
-    Kt = kin_eval_step(t, kin_grid, kin_Kmat)
-    for i in range(Kt.size):
-        Kt[i] *= c_k[i]
+    # pick bucket (stepwise hold)
+    jb = time_bucket(t, kin_grid)
 
-    # Site phosphorylation rates S_all = W_global * Kt   (len = total_sites)
-    S_all = csr_matvec(W_indptr, W_indices, W_data, Kt, n_W_rows)
-
-    # TF inputs per protein from protein abundance P_vec
-    # P_vec is y at the per-protein protein index positions (length = n_proteins)
+    # build protein totals (P_vec)
     P_vec = np.zeros(n_TF_rows, dtype=np.float64)
-
     for i in range(n_TF_rows):
         y_start = offset_y[i]
-        ns = n_sites[i]
-        nstates = 1 << ns
+        nst = n_states[i]
         p0 = y_start + 1
         tot = 0.0
-        for m in range(nstates):
+        for m in range(nst):
             tot += y[p0 + m]
         P_vec[i] = tot
 
+    # TF inputs
     TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
-
     for i in range(n_TF_rows):
         TF_inputs[i] /= tf_deg[i]
-        # TF_inputs[i] /= np.sqrt(tf_deg[i])
 
-    # Core dynamics (your hot loop)
+    # core dynamics using cached phosphorylation rates
     fast_rhs_loop(
         y, dy,
         A_i, B_i, C_i, D_i, E_i, tf_scale,
-        TF_inputs, S_all,
-        offset_y, offset_s, n_sites,
+        TF_inputs,
+        S_cache, jb,
+        offset_y, offset_s,
+        n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n
     )
     return dy
@@ -824,30 +832,25 @@ def fd_jacobian_odeint(y, t, *args):
 
 @njit(cache=True, fastmath=True)
 def fd_jacobian_nb_core(
-    y,
-    t,
-    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
-    kin_grid, kin_Kmat,
-    W_indptr, W_indices, W_data, n_W_rows,
-    TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites,
-    trans_from, trans_to, trans_site, trans_off, trans_n,
-    tf_deg,
-    eps=1e-8
+        y,
+        t,
+        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        kin_grid, S_cache,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        offset_y, offset_s, n_sites, n_states,
+        trans_from, trans_to, trans_site, trans_off, trans_n,
+        tf_deg,
+        eps=1e-8
 ):
-    """
-    Forward-diff Jacobian of rhs_nb wrt y: J[i, j] = d f_i / d y_j
-    """
     n = y.size
     J = np.empty((n, n), dtype=np.float64)
 
     f0 = rhs_nb(
         y, t,
         c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
-        kin_grid, kin_Kmat,
-        W_indptr, W_indices, W_data, n_W_rows,
+        kin_grid, S_cache,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
-        offset_y, offset_s, n_sites,
+        offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
         tf_deg
     )
@@ -860,10 +863,9 @@ def fd_jacobian_nb_core(
         fj = rhs_nb(
             y_pert, t,
             c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
-            kin_grid, kin_Kmat,
-            W_indptr, W_indices, W_data, n_W_rows,
+            kin_grid, S_cache,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
-            offset_y, offset_s, n_sites,
+            offset_y, offset_s, n_sites, n_states,
             trans_from, trans_to, trans_site, trans_off, trans_n,
             tf_deg
         )
@@ -1192,10 +1194,9 @@ class System:
                 y[st + 1 + 1: st + 1 + nstates] = 0.01
         return y
 
-    def odeint_args(self):
+    def odeint_args(self, S_cache):
         """
         Returns args tuple matching rhs_nb / fd_jacobian_nb_core signature.
-        IMPORTANT: order must match rhs_nb(...).
         """
         return (
             self.c_k.astype(np.float64),
@@ -1207,14 +1208,13 @@ class System:
             float(self.tf_scale),
 
             self.kin_grid,
-            self.kin_Kmat,
-
-            self.W_indptr, self.W_indices, self.W_data, int(self.n_W_rows),
+            np.asarray(S_cache, dtype=np.float64),
 
             self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
             self.idx.offset_y.astype(np.int32),
             self.idx.offset_s.astype(np.int32),
             self.idx.n_sites.astype(np.int32),
+            self.idx.n_states.astype(np.int32),
 
             self.trans_from,
             self.trans_to,
@@ -1223,7 +1223,6 @@ class System:
             self.trans_n,
             self.tf_deg,
         )
-
 
 # ------------------------------
 # 5. Param packing/unpacking (raw -> physical via softplus)
@@ -1419,8 +1418,13 @@ def simulate_odeint(sys, t_eval, rtol=1e-5, atol=1e-6, mxstep=5000):
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
     """
     y0 = sys.y0().astype(np.float64)
-    args = sys.odeint_args()
-
+    # Kt_mat shape: (n_kinases, n_grid)
+    Kt_mat = sys.kin_Kmat * sys.c_k[:, None]
+    # S_cache shape: (total_sites, n_grid)
+    S_cache = sys.W_global.dot(Kt_mat)
+    S_cache = np.asarray(S_cache, dtype=np.float64)  # force ndarray
+    S_cache = np.ascontiguousarray(S_cache)
+    args = sys.odeint_args(S_cache)
     xs = odeint(
         rhs_odeint,
         y0,
@@ -1479,7 +1483,7 @@ def main():
 
     # Pymoo
     parser.add_argument("--n-gen", type=int, default=1000)
-    parser.add_argument("--pop", type=int, default=500)
+    parser.add_argument("--pop", type=int, default=25)
     parser.add_argument("--seed", type=int, default=1)
 
     # Loss weights
@@ -1573,7 +1577,7 @@ def main():
         cvtol=1e-6,
         ftol=0.0025,
         period=30,
-        n_max_gen=1000,
+        n_max_gen=100,
         n_max_evals=100000
     )
 
