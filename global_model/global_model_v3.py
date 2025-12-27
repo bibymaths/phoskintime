@@ -43,16 +43,23 @@ import multiprocessing as mp
 import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
-from scipy.integrate import solve_ivp
 from scipy import sparse
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import linregress
+import warnings
+from scipy.integrate import odeint, ODEintWarning
+
+warnings.filterwarnings("ignore", category=ODEintWarning)
+warnings.filterwarnings("ignore", message="Excess work done on this call")
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 # ------------------------------
 # Numba
 # ------------------------------
 
-from numba import njit, prange
+from numba import njit
 
 # ------------------------------
 # Pymoo
@@ -235,14 +242,15 @@ def create_convergence_video(res, output_dir="out_moo", filename="optimization_h
 
     plt.close()
 
+
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir):
     """
     Generates a Goodness of Fit (Parity Plot) for Protein and RNA data.
-    Plots Observed vs Predicted with y=x diagonal and 95% CI regression.
     """
 
     # 1. Prepare Data
     # Merge on protein + time to align points
+    # Note the suffixes: _obs and _pred
     mp = df_prot_obs.merge(df_prot_pred, on=["protein", "time"], suffixes=('_obs', '_pred'))
     mr = df_rna_obs.merge(df_rna_pred, on=["protein", "time"], suffixes=('_obs', '_pred'))
 
@@ -251,10 +259,22 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, out
     mr["Type"] = "RNA"
     combined = pd.concat([mp, mr], ignore_index=True)
 
-    # Drop NaNs just in case
-    combined = combined.dropna(subset=["fc_obs", "pred_fc"])
+    # 2. Critical Renaming Step
+    # The merge created 'pred_fc' (from df_prot_pred) or 'fc_pred' depending on input names.
+    # Let's standardize everything to 'fc_obs' and 'fc_pred' to be safe.
 
-    # 2. Setup Plot
+    # Standardize Observation Column
+    if "fc" in combined.columns:
+        combined.rename(columns={"fc": "fc_obs"}, inplace=True)
+
+    # Standardize Prediction Column (The cause of your error)
+    if "pred_fc" in combined.columns:
+        combined.rename(columns={"pred_fc": "fc_pred"}, inplace=True)
+
+    # Drop NaNs just in case
+    combined = combined.dropna(subset=["fc_obs", "fc_pred"])
+
+    # 3. Setup Plot
     sns.set_style("whitegrid")
     g = sns.FacetGrid(combined, col="Type", height=6, sharex=False, sharey=False)
 
@@ -282,53 +302,49 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, out
                 fontsize=12, verticalalignment='top',
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
 
-    g.map(scatter_with_metrics, "fc_obs", "pred_fc")
+    # --- FIX IS HERE: Use "fc_pred" instead of "pred_fc" ---
+    g.map(scatter_with_metrics, "fc_obs", "fc_pred")
 
     g.set_axis_labels("Observed FC", "Predicted FC")
     g.fig.suptitle("Goodness of Fit: Global ODE Model", y=1.05)
 
-    # 3. Save
+    # 4. Save
     out_path = os.path.join(output_dir, "goodness_of_fit.png")
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"[Output] Saved Goodness of Fit plot to: {out_path}")
 
 
-def export_results(sys, idx, df_prot_obs, df_rna_obs, t_p, Y_p, t_r, Y_r, output_dir):
+def export_results(sys, idx, df_prot_obs, df_rna_obs, df_pred_p, df_pred_r, output_dir):
     """
-    Exports:
-    1. 'model_trajectories.csv': Merged Obs vs Pred for all timepoints.
-    2. 'model_parameters_genes.csv': A, B, C, D per protein.
-    3. 'model_parameters_kinases.csv': c_k per kinase.
+    Exports results using PRE-CALCULATED prediction dataframes.
+    Avoids re-running the simulation.
     """
-
-    # --- Part A: Trajectories (Obs vs Pred) ---
     print("[Output] Exporting Trajectories...")
 
-    # 1. Generate Prediction DataFrames (using the helper from previous script)
-    df_pred_p, df_pred_r = simulate_and_measure(idx, t_p, Y_p, t_r, Y_r)
-
-    # 2. Merge with Observations
-    # Protein
-    merged_p = df_prot_obs.merge(df_pred_p, on=["protein", "time"], how="outer", suffixes=("_obs", "_pred"))
+    # 1. Merge Protein
+    # Rename cols to ensure clean merge
+    obs_p = df_prot_obs.rename(columns={"fc": "fc_obs"})
+    pred_p = df_pred_p.rename(columns={"pred_fc": "fc_pred"})
+    merged_p = obs_p.merge(pred_p, on=["protein", "time"], how="outer")
     merged_p["type"] = "Protein"
 
-    # RNA
-    merged_r = df_rna_obs.merge(df_pred_r, on=["protein", "time"], how="outer", suffixes=("_obs", "_pred"))
+    # 2. Merge RNA
+    obs_r = df_rna_obs.rename(columns={"fc": "fc_obs"})
+    pred_r = df_pred_r.rename(columns={"pred_fc": "fc_pred"})
+    merged_r = obs_r.merge(pred_r, on=["protein", "time"], how="outer")
     merged_r["type"] = "RNA"
 
-    # Combine & Sort
+    # 3. Combine & Save
     full_traj = pd.concat([merged_p, merged_r], ignore_index=True)
-    full_traj = full_traj[["type", "protein", "time", "fc", "pred_fc"]].sort_values(["type", "protein", "time"])
-    full_traj.rename(columns={"fc": "observed_fc", "pred_fc": "predicted_fc"}, inplace=True)
+    full_traj = full_traj[["type", "protein", "time", "fc_obs", "fc_pred"]]
+    full_traj.sort_values(["type", "protein", "time"], inplace=True)
 
     full_traj.to_csv(os.path.join(output_dir, "model_trajectories.csv"), index=False)
 
-    # --- Part B: Parameters ---
+    # --- Export Parameters ---
     print("[Output] Exporting Parameters...")
 
-    # 1. Gene Parameters (A, B, C, D)
-    # Map array indices back to Protein Names using idx.proteins
     df_params = pd.DataFrame({
         "Protein_Gene": idx.proteins,
         "Synthesis_A": sys.A_i,
@@ -336,19 +352,13 @@ def export_results(sys, idx, df_prot_obs, df_rna_obs, t_p, Y_p, t_r, Y_r, output
         "Translation_C": sys.C_i,
         "Protein_Degradation_D": sys.D_i
     })
-
-    # Add TF Scale as a metadata column or separate small file (Here added as a constant column for context)
     df_params["Global_TF_Scale"] = sys.tf_scale
-
     df_params.to_csv(os.path.join(output_dir, "model_parameters_genes.csv"), index=False)
 
-    # 2. Kinase Parameters (c_k)
-    # Map array indices back to Kinase Names using idx.kinases
     df_kin_params = pd.DataFrame({
         "Kinase": idx.kinases,
         "Activity_Scale_ck": sys.c_k
     })
-
     df_kin_params.to_csv(os.path.join(output_dir, "model_parameters_kinases.csv"), index=False)
 
     print(f"[Output] Exports saved to {output_dir}")
@@ -394,6 +404,146 @@ def fast_rhs_loop(y, dy, A_i, B_i, C_i, D_i, tf_scale, TF_inputs, S_all,
 
             dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_Ps
 
+# ------------------------------
+# ODEINT + NJIT RHS + NJIT FD Jacobian (drop-in)
+# ------------------------------
+from numba import njit
+
+@njit(cache=True, fastmath=True)
+def csr_matvec(indptr, indices, data, x, n_rows):
+    out = np.zeros(n_rows, dtype=np.float64)
+    for i in range(n_rows):
+        s = 0.0
+        start = indptr[i]
+        end = indptr[i + 1]
+        for p in range(start, end):
+            s += data[p] * x[indices[p]]
+        out[i] = s
+    return out
+
+
+@njit(cache=True, fastmath=True)
+def kin_eval_step(t, grid, Kmat):
+    """
+    Stepwise hold (no interpolation), matching your KinaseInput.eval behavior.
+    Returns vector K(t) of size n_kinases.
+    """
+    if t <= grid[0]:
+        return Kmat[:, 0].copy()
+    if t >= grid[-1]:
+        return Kmat[:, -1].copy()
+
+    j = np.searchsorted(grid, t, side="right") - 1
+    if j < 0:
+        j = 0
+    if j >= grid.size:
+        j = grid.size - 1
+    return Kmat[:, j].copy()
+
+
+@njit(cache=True, fastmath=True)
+def rhs_nb(
+    y,
+    t,
+    # params
+    c_k, A_i, B_i, C_i, D_i, tf_scale,
+    # kinase input (stepwise)
+    kin_grid, kin_Kmat,
+    # W_global CSR (rows = total_sites, cols = n_kinases)
+    W_indptr, W_indices, W_data, n_W_rows,
+    # TF CSR (rows = n_proteins, cols = n_proteins)
+    TF_indptr, TF_indices, TF_data, n_TF_rows,
+    # maps
+    p_indices,
+    offset_y, offset_s, n_sites
+):
+    dy = np.zeros_like(y)
+
+    # Kinase vector at time t, scaled by c_k
+    Kt = kin_eval_step(t, kin_grid, kin_Kmat)
+    for i in range(Kt.size):
+        Kt[i] *= c_k[i]
+
+    # Site phosphorylation rates S_all = W_global * Kt   (len = total_sites)
+    S_all = csr_matvec(W_indptr, W_indices, W_data, Kt, n_W_rows)
+
+    # TF inputs per protein from protein abundance P_vec
+    # P_vec is y at the per-protein protein index positions (length = n_proteins)
+    P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+    for i in range(n_TF_rows):
+        P_vec[i] = y[p_indices[i]]
+
+    TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
+
+    # Core dynamics (your hot loop)
+    fast_rhs_loop(
+        y, dy,
+        A_i, B_i, C_i, D_i, tf_scale,
+        TF_inputs, S_all,
+        offset_y, offset_s, n_sites
+    )
+    return dy
+
+
+def rhs_odeint(y, t, *args):
+    # odeint expects f(y, t, ...)
+    return rhs_nb(y, t, *args)
+
+
+def fd_jacobian_odeint(y, t, *args):
+    # odeint expects J(y, t, ...) with J[i, j] = df_i/dy_j
+    y_arr = np.asarray(y, dtype=np.float64)
+    return fd_jacobian_nb_core(y_arr, t, *args)
+
+
+@njit(cache=True, fastmath=True)
+def fd_jacobian_nb_core(
+    y,
+    t,
+    c_k, A_i, B_i, C_i, D_i, tf_scale,
+    kin_grid, kin_Kmat,
+    W_indptr, W_indices, W_data, n_W_rows,
+    TF_indptr, TF_indices, TF_data, n_TF_rows,
+    p_indices,
+    offset_y, offset_s, n_sites,
+    eps=1e-8
+):
+    """
+    Forward-diff Jacobian of rhs_nb wrt y: J[i, j] = d f_i / d y_j
+    """
+    n = y.size
+    J = np.empty((n, n), dtype=np.float64)
+
+    f0 = rhs_nb(
+        y, t,
+        c_k, A_i, B_i, C_i, D_i, tf_scale,
+        kin_grid, kin_Kmat,
+        W_indptr, W_indices, W_data, n_W_rows,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        p_indices,
+        offset_y, offset_s, n_sites
+    )
+
+    for j in range(n):
+        y_pert = y.copy()
+        h = eps * (1.0 if abs(y[j]) < 1.0 else abs(y[j]))
+        y_pert[j] += h
+
+        fj = rhs_nb(
+            y_pert, t,
+            c_k, A_i, B_i, C_i, D_i, tf_scale,
+            kin_grid, kin_Kmat,
+            W_indptr, W_indices, W_data, n_W_rows,
+            TF_indptr, TF_indices, TF_data, n_TF_rows,
+            p_indices,
+            offset_y, offset_s, n_sites
+        )
+
+        invh = 1.0 / h
+        for i in range(n):
+            J[i, j] = (fj[i] - f0[i]) * invh
+
+    return J
 
 # ------------------------------
 # 2. Parallel W Builder
@@ -605,6 +755,26 @@ class System:
         self.C_i = defaults["C_i"]
         self.D_i = defaults["D_i"]
         self.tf_scale = defaults["tf_scale"]
+        # --- CSR buffers for njit RHS ---
+        W = self.W_global.tocsr()
+        self.W_indptr = W.indptr.astype(np.int32)
+        self.W_indices = W.indices.astype(np.int32)
+        self.W_data = W.data.astype(np.float64)
+        self.n_W_rows = W.shape[0]
+
+        TF = self.tf_mat.tocsr()
+        self.TF_indptr = TF.indptr.astype(np.int32)
+        self.TF_indices = TF.indices.astype(np.int32)
+        self.TF_data = TF.data.astype(np.float64)
+        self.n_TF_rows = TF.shape[0]   # == idx.N
+
+        # Kinase input arrays
+        self.kin_grid = np.asarray(self.kin.grid, dtype=np.float64)
+        self.kin_Kmat = np.asarray(self.kin.Kmat, dtype=np.float64)
+
+        # p_indices must be int32 for njit indexing
+        self.p_indices = self.p_indices.astype(np.int32)
+
 
     def update(self, c_k, A_i, B_i, C_i, D_i, tf_scale):
         self.c_k = c_k
@@ -641,6 +811,33 @@ class System:
             if ns > 0:
                 y[st + 2: st + 2 + ns] = 0.01
         return y
+
+    def odeint_args(self):
+        """
+        Returns args tuple matching rhs_nb / fd_jacobian_nb_core signature.
+        IMPORTANT: order must match rhs_nb(...).
+        """
+        return (
+            self.c_k.astype(np.float64),
+            self.A_i.astype(np.float64),
+            self.B_i.astype(np.float64),
+            self.C_i.astype(np.float64),
+            self.D_i.astype(np.float64),
+            float(self.tf_scale),
+
+            self.kin_grid,
+            self.kin_Kmat,
+
+            self.W_indptr, self.W_indices, self.W_data, int(self.n_W_rows),
+
+            self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
+
+            self.p_indices,
+
+            self.idx.offset_y.astype(np.int32),
+            self.idx.offset_s.astype(np.int32),
+            self.idx.n_sites.astype(np.int32),
+        )
 
 
 # ------------------------------
@@ -800,27 +997,25 @@ class GlobalODE_MOO(ElementwiseProblem):
             reg += float(np.sum(diff * diff))
         reg_loss = (reg * self.lambdas["prior"]) / max(1, len(x))
 
-        # 3) simulate
+        # 3) simulate (odeint + njit RHS + njit Jacobian)
         try:
-            sol = solve_ivp(
-                self.sys.rhs,
-                (self.time_grid.min(), self.time_grid.max()),
-                self.sys.y0(),
-                t_eval=self.time_grid,
-                method="LSODA",
+            Y = simulate_odeint(
+                self.sys,
+                self.time_grid,
                 rtol=1e-5,
-                atol=1e-6
+                atol=1e-6,
+                mxstep=5000
             )
         except Exception:
             out["F"] = np.array([self.fail_value, self.fail_value, self.fail_value], dtype=float)
             return
 
-        if not sol.success or sol.y is None or sol.y.size == 0:
+        if Y is None or Y.size == 0 or not np.all(np.isfinite(Y)):
             out["F"] = np.array([self.fail_value, self.fail_value, self.fail_value], dtype=float)
             return
 
-        # 4) fast data loss
-        Y = np.ascontiguousarray(sol.y.T)  # (T, state_dim)
+        # Ensure (T, state_dim) contiguous
+        Y = np.ascontiguousarray(Y)
         loss_p_sum, loss_r_sum = jit_loss_core(
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
@@ -837,14 +1032,35 @@ class GlobalODE_MOO(ElementwiseProblem):
 # ------------------------------
 # 8. Post-processing: pick a single solution and export
 # ------------------------------
+def simulate_odeint(sys, t_eval, rtol=1e-5, atol=1e-6, mxstep=5000):
+    """
+    Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
+    """
+    y0 = sys.y0().astype(np.float64)
+    args = sys.odeint_args()
+
+    xs = odeint(
+        rhs_odeint,
+        y0,
+        t_eval.astype(np.float64),
+        args=args,
+        Dfun=fd_jacobian_odeint,
+        col_deriv=False,
+        rtol=rtol,
+        atol=atol,
+        mxstep=mxstep,
+    )
+    return np.ascontiguousarray(xs, dtype=np.float64)
+
 def simulate_and_measure(sys, idx, t_points_p, t_points_r):
     times = np.unique(np.concatenate([t_points_p, t_points_r]))
-    sol = solve_ivp(sys.rhs, (times.min(), times.max()), sys.y0(), t_eval=times,
-                    method="LSODA", rtol=1e-5, atol=1e-7)
-    if not sol.success:
+    try:
+        Y = simulate_odeint(sys, times, rtol=1e-5, atol=1e-7, mxstep=5000)
+    except Exception:
         return None, None
 
-    Y = sol.y.T
+    if Y is None or Y.size == 0 or not np.all(np.isfinite(Y)):
+        return None, None
 
     rows_p = []
     for i, p in enumerate(idx.proteins):
@@ -854,20 +1070,21 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r):
         Ps = Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0
         tot = P + Ps
         fc = np.maximum(tot, 1e-9) / np.maximum(tot[0], 1e-9)
-        rows_p.append(pd.DataFrame({"protein": p, "time": sol.t, "pred_fc": fc}))
+        rows_p.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc}))
+
     rows_r = []
     for i, p in enumerate(idx.proteins):
         st = idx.offset_y[i]
         R = Y[:, st]
         fc = np.maximum(R, 1e-9) / np.maximum(R[0], 1e-9)
-        rows_r.append(pd.DataFrame({"protein": p, "time": sol.t, "pred_fc": fc}))
+        rows_r.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc}))
 
     df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame()
     df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame()
+
     df_p = df_p[df_p["time"].isin(t_points_p)]
     df_r = df_r[df_r["time"].isin(t_points_r)]
     return df_p, df_r
-
 
 # ------------------------------
 # 9. Main
@@ -1003,16 +1220,15 @@ def main():
     # Find the index of the best score
     best_i = np.argmin(weighted_scores)
     theta_best = X[best_i].astype(float)
-
+    F_best = F[best_i]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
     # 12) Export picked solution
     dfp, dfr = simulate_and_measure(sys, idx, TIME_POINTS, TIME_POINTS_RNA)
-    if dfp is not None:
-        dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
-    if dfr is not None:
-        dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
+    # Save raw preds
+    if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
+    if dfr is not None: dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
 
     p_out = {k: (v.tolist() if isinstance(v, np.ndarray) else float(v)) for k, v in params.items()}
     with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
@@ -1030,19 +1246,23 @@ def main():
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, output_dir=args.output_dir)
     print("[Done] Goodness of Fit plot saved.")
 
-    export_results(sys, idx, df_prot, df_rna, TIME_POINTS, dfp, TIME_POINTS_RNA, dfr, output_dir=args.output_dir)
+
+    # Use the NEW export function (pass dfp, dfr directly)
+    if dfp is not None and dfr is not None:
+        export_results(sys, idx, df_prot, df_rna, dfp, dfr, args.output_dir)
+
     print("[Done] Exported results saved.")
 
     # --- VISUALIZATION BLOCK ---
 
     # 1. 3D Pareto Front
     #
-    save_pareto_3d(res, selected_solution=theta_best, output_dir=args.output_dir)
+    save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
     print("[Done] 3D Pareto plot saved.")
 
     # 2. Parallel Coordinate Plot
     #
-    save_parallel_coordinates(res, selected_solution=theta_best, output_dir=args.output_dir)
+    save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
     print("[Done] Parallel Coordinate plot saved.")
 
     # 3. Convergence Video
