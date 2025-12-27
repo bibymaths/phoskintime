@@ -59,13 +59,13 @@ TIME_POINTS_RNA = np.array(
 # Biology bounds (physical) then mapped to raw via inv_softplus
 # ------------------------------
 BOUNDS_CONFIG = {
-    "c_k":      (1e-6, 5.0),
-    "A_i":      (1e-6, 2.0),
-    "B_i":      (1e-6, 2.0),
-    "C_i":      (1e-6, 2.0),
-    "D_i":      (1e-6, 2.0),
-    "E_i":      (1e-6, 2.0),
-    "tf_scale": (1e-6, 0.5),
+    "c_k":      (1e-4, 5.0),
+    "A_i":      (0.01, 1.0),   # Raise floor to prevent "dead" mRNA
+    "B_i":      (0.01, 1.0),   # mRNA turnover should be significant
+    "C_i":      (0.01, 1.0),   # Translation floor prevents flatlines
+    "D_i":      (0.05, 1.0),   # CRITICAL: Raise floor so proteins MUST turn over
+    "E_i":      (1e-3, 2.0),   # Prevent dephosphorylation from being effectively zero
+    "tf_scale": (0.01, 0.5),
 }
 
 def softplus(x):
