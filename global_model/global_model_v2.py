@@ -40,28 +40,19 @@ import json
 import os
 import re
 import multiprocessing as mp
-
+import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
 from scipy.integrate import solve_ivp
 from scipy import sparse
-
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import linregress
 # ------------------------------
 # Numba
 # ------------------------------
-try:
-    from numba import njit, prange
-    print("[System] Numba detected. JIT acceleration enabled.")
-except ImportError:
-    print("[System] Numba NOT found. Falling back to slow Python mode.")
 
-    def njit(*args, **kwargs):
-        def decorator(func):
-            return func
-        return decorator
-
-    def prange(*args, **kwargs):
-        return range(*args)
+from numba import njit, prange
 
 # ------------------------------
 # Pymoo
@@ -71,14 +62,9 @@ from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.termination.default import DefaultMultiObjectiveTermination
-
-try:
-    # Optional: parallel evaluation of elementwise problems in pymoo
-    from pymoo.core.problem import StarmapParallelization
-    PYMOO_HAS_PAR = True
-except Exception:
-    PYMOO_HAS_PAR = False
-
+from pymoo.visualization.scatter import Scatter
+from pymoo.visualization.pcp import PCP
+from pymoo.core.problem import StarmapParallelization
 
 # ------------------------------
 # Global Constants
@@ -111,23 +97,6 @@ def softplus(x):
 def inv_softplus(y):
     y = np.maximum(y, 1e-12)
     return np.log(np.expm1(y))
-
-
-# ------------------------------
-# Pymoo Visualization Tools
-# ------------------------------
-from pymoo.visualization.scatter import Scatter
-from pymoo.visualization.pcp import PCP
-
-# Try importing pyrecorder for video, handle gracefully if missing
-try:
-    from pyrecorder.recorder import Recorder
-    from pyrecorder.writers.video import Video
-
-    HAS_RECORDER = True
-except ImportError:
-    HAS_RECORDER = False
-    print("[System] 'pyrecorder' not found. Video generation will be skipped.")
 
 
 def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
@@ -199,55 +168,72 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
 
 def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
     """
-    Creates an MP4 video showing the evolution of the population over generations.
-    Requires 'save_history=True' in pymoo_minimize.
+    Creates an animation of the Pareto Front evolution using standard Matplotlib.
+    Saves as .gif (universal) or .mp4 (if ffmpeg is installed).
     """
-    if not HAS_RECORDER:
-        return
+    print("[Output] Rendering Optimization Video...")
 
-    print("[Output] Rendering Optimization Video (this may take a moment)...")
-    video_path = os.path.join(output_dir, filename)
-
-    # Check if history exists
     if not res.history:
-        print("[Warning] No history found in result object. Cannot create video.")
+        print("[Warning] No history found. Cannot create video.")
         return
 
-    with Recorder(Video(video_path)) as rec:
-        # Iterate through generations
-        for i, entry in enumerate(res.history):
-            # We only render every 5th generation to keep video short/fast
-            if i % 5 != 0 and i != len(res.history) - 1:
-                continue
+    # Setup Figure
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
 
-            # Create a frame
-            sc = Scatter(
-                plot_3d=True,
-                title=(f"Generation {entry.n_gen}"),
-                labels=["Prot MSE", "RNA MSE", "Reg Loss"],
-                figsize=(10, 8)
-            )
+    # Pre-determine bounds so the camera doesn't jump around
+    all_F = np.vstack([e.pop.get("F") for e in res.history])
+    min_f = all_F.min(axis=0)
+    max_f = all_F.max(axis=0)
 
-            # Add current population objective values
-            F = entry.pop.get("F")
-            sc.add(F, color="blue", s=10, alpha=0.6)
+    def update(frame_idx):
+        ax.clear()
 
-            # Add the final Pareto front as a reference (Ghost line/dots)
-            # This helps visualizing convergence toward the final front
-            if res.F is not None:
-                sc.add(res.F, color="red", s=5, alpha=0.1)
+        # Get data for this generation
+        entry = res.history[frame_idx]
+        gen = entry.n_gen
+        F = entry.pop.get("F")
 
-            # Render and Record
-            sc.do()  # 'do' applies the plotting
-            rec.record()
+        # Plot
+        ax.scatter(F[:, 0], F[:, 1], F[:, 2], c="blue", s=10, alpha=0.6, label="Population")
 
-    print(f"[Output] Video saved: {video_path}")
+        # Reference (Final Result) - Ghosted
+        if res.F is not None:
+            ax.scatter(res.F[:, 0], res.F[:, 1], res.F[:, 2], c="red", s=5, alpha=0.1)
 
+        # Styling
+        ax.set_title(f"Optimization History - Gen {gen}")
+        ax.set_xlabel("Prot MSE")
+        ax.set_ylabel("RNA MSE")
+        ax.set_zlabel("Reg Loss")
+        ax.set_xlim(min_f[0], max_f[0])
+        ax.set_ylim(min_f[1], max_f[1])
+        ax.set_zlim(min_f[2], max_f[2])
+        ax.view_init(elev=45, azim=45)
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import linregress
+    # Create Animation
+    # We skip frames to make it render faster (every 5th gen)
+    frames = list(range(0, len(res.history), 5))
+    if len(res.history) - 1 not in frames:
+        frames.append(len(res.history) - 1)
 
+    ani = animation.FuncAnimation(fig, update, frames=frames, interval=200)
+
+    # Save (Try MP4 via ffmpeg, fallback to GIF via Pillow)
+    save_path = os.path.join(output_dir, filename)
+
+    try:
+        # Try saving highly compressed MP4
+        ani.save(save_path, writer='ffmpeg', fps=5, dpi=150)
+        print(f"[Output] Video saved: {save_path}")
+    except Exception:
+        # Fallback to GIF (universally supported, no ffmpeg needed)
+        gif_path = save_path.replace(".mp4", ".gif")
+        print("[System] FFMPEG not found. Falling back to GIF...")
+        ani.save(gif_path, writer='pillow', fps=5, dpi=100)
+        print(f"[Output] Video saved: {gif_path}")
+
+    plt.close()
 
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir):
     """
@@ -949,8 +935,7 @@ def main():
     # 7) Pymoo parallel runner (optional)
     runner = None
     pool = None
-    if args.cores > 1 and PYMOO_HAS_PAR:
-        # Use processes; note: heavy LSODA + numba; this can help if CPU is free.
+    if args.cores > 1:
         pool = mp.Pool(args.cores)
         runner = StarmapParallelization(pool.starmap)
         print(f"[Pymoo] Parallel evaluation enabled with {args.cores} workers.")
@@ -1008,12 +993,15 @@ def main():
     df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
     print(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
 
-    # 11) Pick one solution (scalarization close to your old objective)
-    # score = prot_mse + lambda_rna*rna_mse + reg_loss
-    # score = F[:, 0] + args.lambda_rna * F[:, 1] + F[:, 2]
-    weights = np.array([1.0, 1.0, 0.2])
-    score_norm = (F - F.min(axis=0))/ F.ptp(axis=0 + 1e-9)
-    best_i = np.argmin(np.sum(score_norm * weights, axis=1))
+    # 11) Pick one solution
+    F = res.F
+    weights = np.array([1.0, 1.0, 0.2])  # Weights for Prot, RNA, Reg
+    # Normalize objectives to 0-1 range so weights are fair
+    norm_matrix = (F - F.min(axis=0)) / (np.ptp(F, axis=0) + 1e-9)
+    # Calculate the single scalar score for every solution
+    weighted_scores = np.sum(norm_matrix * weights, axis=1)
+    # Find the index of the best score
+    best_i = np.argmin(weighted_scores)
     theta_best = X[best_i].astype(float)
 
     params = unpack_params(theta_best, slices)
@@ -1032,7 +1020,7 @@ def main():
 
     # Write picked objective values
     picked = {"prot_mse": float(F[best_i, 0]), "rna_mse": float(F[best_i, 1]), "reg_loss": float(F[best_i, 2]),
-              "scalar_score": float(score_norm[best_i])}
+              "scalar_score": float(F[best_i, 0] + args.lambda_rna * F[best_i, 1] + F[best_i, 2])}
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
@@ -1062,7 +1050,6 @@ def main():
     print("[Done] Convergence video saved.")
 
 if __name__ == "__main__":
-    # Safer default for Linux; on mac/windows use "spawn".
     try:
         mp.set_start_method("fork", force=True)
     except Exception:
