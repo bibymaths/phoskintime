@@ -143,6 +143,8 @@ def pick_best_lamdas(F, weights):
 
 @dataclass(frozen=True)
 class PhosKinConfig:
+    normalize_fc_steady: bool
+    use_initial_condition_from_data: bool
     time_points_prot: np.ndarray
     time_points_rna: np.ndarray
     time_points_phospho: np.ndarray
@@ -152,6 +154,7 @@ class PhosKinConfig:
     ode_abs_tol: float
     ode_rel_tol: float
     ode_max_steps: int
+    loss_mode: int
     maximum_iterations: int
     population_size: int
     seed: int
@@ -166,6 +169,9 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     with path.open("rb") as f:
         cfg = tomllib.load(f)
+
+    use_initial_condition_from_data = cfg["data"]["use_initial_conditions"]
+    normalize_fc_steady = cfg["data"]["normalize_steady"]
 
     tp_prot = cfg["timepoints"]["protein"]
     tp_rna = cfg["timepoints"]["rna"]
@@ -182,6 +188,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     ode_rel_tol = cfg["solver"]["relative_tolerance"]
     ode_max_steps = cfg["solver"]["max_timesteps"]
 
+    loss_mode = cfg["optimization"]["loss"]
     max_iter = cfg["optimization"]["max_iterations"]
     pop_size = cfg["optimization"]["population_size"]
     seed = cfg["optimization"]["seed"]
@@ -204,6 +211,8 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         bounds_config[k] = (lo, hi)
 
     return PhosKinConfig(
+        normalize_fc_steady=normalize_fc_steady,
+        use_initial_condition_from_data=use_initial_condition_from_data,
         time_points_prot=time_points_prot,
         time_points_rna=time_points_rna,
         time_points_phospho=time_points_phospho,
@@ -213,6 +222,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         ode_abs_tol=ode_abs_tol,
         ode_rel_tol=ode_rel_tol,
         ode_max_steps=ode_max_steps,
+        loss_mode=loss_mode,
         maximum_iterations=max_iter,
         population_size=pop_size,
         seed=seed,

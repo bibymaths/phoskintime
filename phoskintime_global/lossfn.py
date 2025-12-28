@@ -1,8 +1,29 @@
 # lossfn.py
+import numpy as np
 from numba import njit
-from phoskintime_global.config import MODEL
+from phoskintime_global.config import MODEL, LOSS_MODE
 
 EPS = 1e-9
+
+@njit(fastmath=True, cache=True, nogil=True)
+def sq(diff):
+    return diff * diff
+
+@njit(fastmath=True, cache=True, nogil=True)
+def huber(diff, delta=1.0):
+    a = diff if diff >= 0.0 else -diff
+    if a <= delta:
+        return 0.5 * diff * diff
+    return delta * (a - 0.5 * delta)
+
+@njit(fastmath=True, cache=True, nogil=True)
+def pseudo_huber(diff, delta=1.0):
+    x = diff / delta
+    return (delta * delta) * ((1.0 + x * x) ** 0.5 - 1.0)
+
+@njit(fastmath=True, cache=True, nogil=True)
+def charbonnier(diff, eps=1e-3):
+    return (diff * diff + eps * eps) ** 0.5 - eps
 
 @njit(fastmath=True, cache=True, nogil=True)
 def loss_function_noncomb(
@@ -27,8 +48,18 @@ def loss_function_noncomb(
             tot_b += Y[prot_base_idx, start + 2 + s]
 
         pred_fc = (tot_t if tot_t > EPS else EPS) / (tot_b if tot_b > EPS else EPS)
+
         diff = obs_prot[k] - pred_fc
-        loss_p += w_prot[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_p += w_prot[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_p += w_prot[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_prot[k] + EPS)
+            loss_p += w_prot[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_p += w_prot[k] * charbonnier(diff, 1e-3)
 
     loss_r = 0.0
     for k in range(p_rna.size):
@@ -38,10 +69,20 @@ def loss_function_noncomb(
 
         R_t = Y[t_idx, start]
         R_b = Y[rna_base_idx, start]
+
         pred_fc = (R_t if R_t > EPS else EPS) / (R_b if R_b > EPS else EPS)
 
         diff = obs_rna[k] - pred_fc
-        loss_r += w_rna[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_r += w_rna[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_r += w_rna[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_rna[k] + EPS)
+            loss_r += w_rna[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_r += w_rna[k] * charbonnier(diff, 1e-3)
 
     loss_ph = 0.0
     for k in range(p_pho.size):
@@ -54,8 +95,18 @@ def loss_function_noncomb(
         ph_b = Y[pho_base_idx, start + 2 + s_idx]
 
         pred_fc = (ph_t if ph_t > EPS else EPS) / (ph_b if ph_b > EPS else EPS)
+
         diff = obs_pho[k] - pred_fc
-        loss_ph += w_pho[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_ph += w_pho[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_ph += w_pho[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_pho[k] + EPS)
+            loss_ph += w_pho[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_ph += w_pho[k] * charbonnier(diff, 1e-3)
 
     return loss_p, loss_r, loss_ph
 
@@ -84,8 +135,18 @@ def loss_function_comb(
             tot_b += Y[prot_base_idx, p0 + m]
 
         pred_fc = (tot_t if tot_t > EPS else EPS) / (tot_b if tot_b > EPS else EPS)
+
         diff = obs_prot[k] - pred_fc
-        loss_p += w_prot[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_p += w_prot[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_p += w_prot[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_prot[k] + EPS)
+            loss_p += w_prot[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_p += w_prot[k] * charbonnier(diff, 1e-3)
 
     loss_r = 0.0
     for k in range(p_rna.size):
@@ -95,10 +156,20 @@ def loss_function_comb(
 
         R_t = Y[t_idx, start]
         R_b = Y[rna_base_idx, start]
+
         pred_fc = (R_t if R_t > EPS else EPS) / (R_b if R_b > EPS else EPS)
 
         diff = obs_rna[k] - pred_fc
-        loss_r += w_rna[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_r += w_rna[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_r += w_rna[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_rna[k] + EPS)
+            loss_r += w_rna[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_r += w_rna[k] * charbonnier(diff, 1e-3)
 
     loss_ph = 0.0
     for k in range(p_pho.size):
@@ -117,8 +188,18 @@ def loss_function_comb(
                 ph_b += Y[pho_base_idx, p0 + m]
 
         pred_fc = (ph_t if ph_t > EPS else EPS) / (ph_b if ph_b > EPS else EPS)
+
         diff = obs_pho[k] - pred_fc
-        loss_ph += w_pho[k] * diff * diff
+
+        if LOSS_MODE == 0:
+            loss_ph += w_pho[k] * sq(diff)
+        elif LOSS_MODE == 1:
+            loss_ph += w_pho[k] * huber(diff, 0.5)
+        elif LOSS_MODE == 2:
+            diff = np.log(diff + EPS) - np.log(obs_pho[k] + EPS)
+            loss_ph += w_pho[k] * pseudo_huber(diff, 0.5)
+        else:
+            loss_ph += w_pho[k] * charbonnier(diff, 1e-3)
 
     return loss_p, loss_r, loss_ph
 

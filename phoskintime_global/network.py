@@ -4,6 +4,7 @@ import pandas as pd
 from phoskintime_global.buildmat import site_key
 from phoskintime_global.config import TIME_POINTS_PROTEIN, MODEL
 from phoskintime_global.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
+from phoskintime_global.steadystate import build_y0_from_data
 
 
 class Index:
@@ -79,12 +80,13 @@ class KinaseInput:
 
 class System:
     def __init__(self, idx, W_global, tf_mat, kin_input, defaults, tf_deg):
+        self._ic_data = None
         self.idx = idx
         self.W_global = W_global
         self.tf_mat = tf_mat
         self.kin = kin_input
         self.S_cache = None
-
+        self.custom_y0 = None
         # ------------------------------------------------------------
         # Parameters (force dtype/contiguity ONCE)
         # ------------------------------------------------------------
@@ -167,6 +169,32 @@ class System:
         self.E_i[:] = E_i
         self.tf_scale = float(tf_scale)
 
+    def attach_initial_condition_data(self, df_prot, df_rna, df_pho):
+        if self._ic_data is None:
+            raise RuntimeError("Initial-condition data already attached to System")
+        self._ic_data = dict(
+            df_prot=df_prot,
+            df_rna=df_rna,
+            df_pho=df_pho
+        )
+
+    def set_initial_conditions(self):
+        if self._ic_data is None:
+            raise RuntimeError(
+                "Initial-condition data not attached. Call sys.attach_initial_condition_data(df_prot, df_rna, df_pho) before optimize."
+            )
+
+        self.custom_y0 = build_y0_from_data(
+            self.idx,
+            self._ic_data["df_prot"],
+            self._ic_data["df_rna"],
+            self._ic_data["df_pho"],
+            t_init=0.0,
+            t0_prot=0.0,
+            t0_rna=4.0,
+            t0_pho=0.0,
+        )
+
     def rhs(self, t, y):
         dy = np.zeros_like(y)
 
@@ -227,7 +255,11 @@ class System:
             )
         return dy
 
-    def y0(self):
+    def y0(self) -> np.ndarray:
+
+        if getattr(self, "custom_y0", None) is not None:
+            return np.array(self.custom_y0, dtype=np.float64, copy=True)
+
         y = np.zeros(self.idx.state_dim, float)
         for i in range(self.idx.N):
             st = self.idx.offset_y[i]

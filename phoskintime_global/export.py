@@ -841,7 +841,7 @@ def save_gene_timeseries_plots(
         ph_pre = _clean_ts(ph_pre, "fc_pred")
 
     # ---- Plot ----
-    fig, axes = plt.subplots(1, 3, figsize=(20, 8), sharex=False)
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6), sharex=False)
     ax_p, ax_r, ax_ph = axes
     prot_c = "C0"
     rna_c = "C1"

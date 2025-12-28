@@ -16,7 +16,7 @@ from phoskintime_global.buildmat import build_W_parallel, build_tf_matrix
 from phoskintime_global.cache import prepare_fast_loss_data
 from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
-    REGULARIZATION_PROTEIN
+    REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA
 from phoskintime_global.io import load_data
 from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO, get_weight_options
@@ -50,6 +50,9 @@ def main():
     parser.add_argument("--lambda-rna", type=float, default=REGULARIZATION_RNA)
     parser.add_argument("--lambda-phospho", type=float, default=REGULARIZATION_PHOSPHO)
 
+    # Data inference
+    parser.add_argument("--normalize-fc-steady", action="store_true", default=NORMALIZE_FC_STEADY)
+    parser.add_argument("--use-initial-condition-from-data", action="store_true", default=USE_INITIAL_CONDITION_FROM_DATA)
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -66,8 +69,12 @@ def main():
 
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna = load_data(args)
-    df_prot = normalize_fc_to_t0(df_prot)
-    df_pho = normalize_fc_to_t0(df_pho)
+
+    if args.normalize_fc_steady:
+        df_prot = normalize_fc_to_t0(df_prot)
+        df_pho = normalize_fc_to_t0(df_pho)
+        print("[Data] Normalized protein and phospho FC to t=0.")
+
     base = df_rna[df_rna["time"] == 4.0].set_index("protein")["fc"]
     df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
     df_rna = df_rna.dropna(subset=["fc"])
@@ -80,27 +87,26 @@ def main():
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
     df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
 
-    # Weights - Piecewise Early Boost
-    # times
-    tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)  # protein/phospho grid
-    tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)  # rna grid
+    # Weights - Piecewise Early Boost (modality-specific)
+    tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
+    tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)
 
-    # early windows: "first 5" and "first 3"
-    ew_prot_pho = float(tp_prot_pho[4])  # 5th time point
-    ew_rna = float(tp_rna[2])  # 3rd time point
+    # Explicit early windows (minutes)
+    ew_prot_pho = 2.0
+    ew_rna = 15.0
 
-    # build schemes
+    # build schemes with desired boost baked in
     schemes_prot_pho = get_weight_options(tp_prot_pho, early_window=ew_prot_pho)
     schemes_rna = get_weight_options(tp_rna, early_window=ew_rna)
 
-    # pick weights
-    w_prot_pho = schemes_prot_pho["piecewise_early_boost_mean1"]
-    w_rna = schemes_rna["piecewise_early_boost_mean1"]
+    # manually rebuild boosted versions (one-liner each)
+    w_prot_pho = lambda tt: schemes_prot_pho["piecewise_early_boost_mean1"](tt)
+    w_rna = lambda tt: schemes_rna["piecewise_early_boost_mean1"](tt)
 
     # apply
-    df_prot["w"] = w_prot_pho(df_prot["time"].values)
-    df_pho["w"] = w_prot_pho(df_pho["time"].values)
-    df_rna["w"] = w_rna(df_rna["time"].values)
+    df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
+    df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
+    df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
 
     # 3) Build W + TF
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
@@ -124,8 +130,19 @@ def main():
         "E_i": np.ones(idx.N),
         "tf_scale": 0.1
     }
+
+    # Model system of Data IO + ODE + solver + optimization
     sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
 
+    # Setting initial conditions from data
+    if args.use_initial_condition_from_data:
+        sys.attach_initial_condition_data(
+            df_prot=df_prot,
+            df_rna=df_rna,
+            df_pho=df_pho
+        )
+        print("[Model] Initial conditions set from data.")
+    
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
 

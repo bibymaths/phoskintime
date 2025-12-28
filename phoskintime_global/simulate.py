@@ -29,7 +29,7 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
     """
-    y0 = sys.y0().astype(np.float64)
+    y0 = sys.y0().astype(np.float64, copy=False)
     t_eval = t_eval.astype(np.float64)
 
     if USE_CUSTOM_SOLVER:
