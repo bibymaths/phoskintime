@@ -8,8 +8,8 @@ import pandas as pd
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.core.evaluator import Evaluator
 from pymoo.core.problem import StarmapParallelization
-from pymoo.indicators.kktpm import KKTPM
-from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.indicators.hv import HV
+from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
@@ -26,7 +26,7 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, plot_kkt_stats
+    scan_prior_reg, plot_hypervolume
 
 
 def main():
@@ -126,9 +126,9 @@ def main():
     )
 
     # 9) UNSGA3 needs reference directions for n_obj=3
-    ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
-    algorithm = UNSGA3(pop_size=args.pop, ref_dirs=ref_dirs)
-    evaluator = Evaluator(evaluate_values_of=["F", "G", "dF", "dG"])
+    ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=20)
+    algorithm = UNSGA3(pop_size=args.pop, ref_dirs=ref_dirs, eliminate_duplicates=True, sampling=LHS())
+    evaluator = Evaluator(evaluate_values_of=["F"])
 
     termination = DefaultMultiObjectiveTermination(
         xtol=1e-8,
@@ -145,6 +145,7 @@ def main():
         problem,
         algorithm,
         termination,
+        evaluator=evaluator,
         seed=args.seed,
         save_history=True,
         verbose=True
@@ -154,38 +155,32 @@ def main():
         pool.close()
         pool.join()
 
-    # Collect KKTPM data for each generation
-    kkt_data = []
-    for algorithm in res.history:
-        if algorithm.n_gen % 5 == 0:
-            X = algorithm.pop.get("X")
-            kktpm = KKTPM().calc(X, problem)
+    F_all = np.vstack([algo.pop.get("F") for algo in res.history if algo.pop is not None])
+    ref_point = np.max(F_all, axis=0) * 1.05
 
-            # Add each individual's KKTPM value with generation info
-            for i, value in enumerate(kktpm):
-                kkt_data.append({
-                    'generation': algorithm.n_gen,
-                    'individual': i,
-                    'kktpm': value
-                })
+    hv_indicator = HV(ref_point=ref_point)
 
-    kkt_df = pd.DataFrame(kkt_data)
-    kkt_df.to_csv(os.path.join(args.output_dir, "kkt_data.csv"), index=False)
+    hv_history = []
+    gen_history = []
 
-    print(f"[Output] Saved KKT data to {args.output_dir}/kkt_data.csv")
+    for algo in res.history:
+        if algo.pop is None:
+            continue
+        F = algo.pop.get("F")
+        hv = hv_indicator.do(F)
+        hv_history.append(hv)
+        gen_history.append(algo.n_gen)
 
-    # Get summary stats for each generation
-    stats_by_gen = kkt_df.groupby('generation')['kktpm'].describe()
-    generations = stats_by_gen.index
-    kkt_output_path = os.path.join(args.output_dir, "kkt_violation.png")
+    hv_history = np.array(hv_history)
+    gen_history = np.array(gen_history)
 
-    plot_kkt_stats(
-        generations=generations,
-        stats_by_gen=stats_by_gen,
-        output_path=kkt_output_path
+    plot_hypervolume(
+        gen_history=gen_history,
+        hv_history=hv_history,
+        out_path=os.path.join(args.output_dir, "hypervolume.png")
     )
 
-    print(f"[Output] Saved KKT violation plot to {kkt_output_path}")
+    print("[Output] Saved hypervolume plot.")
 
     # 10) Save Pareto set
     X = res.X

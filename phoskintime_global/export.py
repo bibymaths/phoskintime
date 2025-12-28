@@ -139,13 +139,13 @@ def create_convergence_video(res, output_dir="out_moo", filename="optimization_h
 
     try:
         # Try saving highly compressed MP4
-        ani.save(save_path, writer='ffmpeg', fps=5, dpi=150)
+        ani.save(save_path, writer='ffmpeg', fps=5, dpi=300)
         print(f"[Output] Video saved: {save_path}")
     except Exception:
         # Fallback to GIF (universally supported, no ffmpeg needed)
         gif_path = save_path.replace(".mp4", ".gif")
         print("[System] FFMPEG not found. Falling back to GIF...")
-        ani.save(gif_path, writer='pillow', fps=5, dpi=100)
+        ani.save(gif_path, writer='pillow', fps=5, dpi=300)
         print(f"[Output] Video saved: {gif_path}")
 
     plt.close()
@@ -669,16 +669,13 @@ def scan_prior_reg(out_dir):
     print(" - lambda_scan_unique_picks.csv")
     print(" - lambda_scan_recommended.json")
 
-
-# Plot the quartiles and median over generations
-def plot_kkt_stats(generations, stats_by_gen, output_path):
-    plt.figure(figsize=(10, 10))
-    plt.plot(generations, stats_by_gen['25%'], label="Q1 (25th percentile)")
-    plt.plot(generations, stats_by_gen['50%'], label="Median")
-    plt.plot(generations, stats_by_gen['75%'], label="Q3 (75th percentile)")
-    plt.yscale("log")
-    plt.legend()
+def plot_hypervolume(out_path, gen_history, hv_history):
+    plt.figure(figsize=(6, 4))
+    plt.plot(gen_history, hv_history, lw=2)
     plt.xlabel("Generation")
-    plt.ylabel("KKTM")
-    plt.grid(True, alpha=0.3)
-    plt.savefig(output_path)
+    plt.ylabel("Hypervolume")
+    plt.title("Hypervolume Convergence")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300)
+    plt.close()

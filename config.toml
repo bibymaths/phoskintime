@@ -34,7 +34,7 @@ model_description = """
 
 [optimization]
 max_iterations = 500
-population_size = 200
+population_size = 300
 seed = 42
 
 [regularization]
