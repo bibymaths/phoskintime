@@ -440,7 +440,7 @@ def adaptive_rk45_model2(
         safety=0.9, max_steps=2_000_000
 ):
     # --- 1. Unpack Args ---
-    (c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale,
+    (c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
      S_cache,
      TF_indptr, TF_indices, TF_data, n_TF_rows,
      offset_y, offset_s, n_sites, n_states,

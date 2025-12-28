@@ -10,7 +10,7 @@ def solve_custom(sys, y0, t_eval, rtol, atol):
     if MODEL == 2:
         build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
         args_full = sys.odeint_args(sys.S_cache)
-        args2 = args_full[:7] + args_full[8:]  # drop kin_grid
+        args2 = args_full[:8] + args_full[9:]  # drop kin_grid
         return adaptive_rk45_model2(y0, t_eval, sys.kin_grid, args2, rtol=rtol, atol=atol)
     else:
         args = sys.odeint_args()
