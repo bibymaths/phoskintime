@@ -217,24 +217,19 @@ class System:
                 self.D_i.astype(np.float64),
                 self.E_i.astype(np.float64),
                 float(self.tf_scale),
-
                 self.kin_grid,
                 np.asarray(S_cache, dtype=np.float64),
                 int(jb),
-
                 self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
-
                 self.idx.offset_y.astype(np.int32),
                 self.idx.offset_s.astype(np.int32),
                 self.idx.n_sites.astype(np.int32),
                 self.idx.n_states.astype(np.int32),
-
                 self.trans_from,
                 self.trans_to,
                 self.trans_site,
                 self.trans_off,
                 self.trans_n,
-
                 self.tf_deg,
             )
 
@@ -247,19 +242,12 @@ class System:
             self.D_i.astype(np.float64),
             self.E_i.astype(np.float64),
             float(self.tf_scale),
-
             self.kin_grid,
             self.kin_Kmat,
-
             self.W_indptr, self.W_indices, self.W_data, int(self.n_W_rows),
-
             self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
-
-            self.p_indices,
-
             self.idx.offset_y.astype(np.int32),
             self.idx.offset_s.astype(np.int32),
             self.idx.n_sites.astype(np.int32),
-
             self.tf_deg,
         )
