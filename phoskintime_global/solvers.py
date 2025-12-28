@@ -247,6 +247,10 @@ def adaptive_rk45_model01(
     # Error estimation weights (E = b - b_hat)
     e1, e3, e4, e5, e6, e7 = 71 / 57600, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40
 
+    beta = 0.04
+    alpha = 0.2 - beta
+    err_prev = 1.0  # History for PI controller
+
     # --- 5. Initial Derivative ---
     if model_id == 0:
         rhs_model0_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr, W_indices,
@@ -267,13 +271,10 @@ def adaptive_rk45_model01(
         if steps > max_steps:
             raise RuntimeError("adaptive_rk45_natural_model01: max_steps exceeded")
 
-        # Update Bucket (if we just crossed one)
         while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
             jb += 1
-            hit_boundary = True  # Flag that physics changed
+            hit_boundary = True
 
-        # If we hit a boundary or physics changed, we MUST re-evaluate k1
-        # because the 'k7' from the previous step assumed old parameters.
         if hit_boundary:
             if model_id == 0:
                 rhs_model0_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
@@ -286,6 +287,7 @@ def adaptive_rk45_model01(
                                          offset_y, offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work,
                                          TF_in_work)
             hit_boundary = False
+            err_prev = 1.0
 
         # --- Step Size Limiting (Boundary Clamping) ---
         dt_use = dt
@@ -377,58 +379,45 @@ def adaptive_rk45_model01(
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
-        # --- Error Estimate ---
         err = 0.0
         for i in range(n):
-            # Error = dt * sum(E_i * k_i)
             diff = dt_use * (e1 * k1[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k7[i])
-
-            # Scale
             sc = atol + rtol * (abs(y[i]) if abs(y[i]) > abs(y_tmp[i]) else abs(y_tmp[i]))
             if sc < 1e-12: sc = 1e-12
-
             ratio = abs(diff) / sc
-            if ratio > err:
-                err = ratio
+            if ratio > err: err = ratio
 
-        # --- Accept or Reject ---
         if err <= 1.0:
             # === ACCEPT STEP ===
             t_next = tcur + dt_use
-
-            # 1. Dense Output: Fill all t_eval points in [tcur, t_next]
             while next_eval_idx < T_out_count and t_eval[next_eval_idx] <= t_next:
                 te = t_eval[next_eval_idx]
                 if te >= tcur:
-                    # Hermite Interpolation using endpoints and slopes
                     _hermite_interpolate_into(Y[next_eval_idx], te, tcur, t_next, y, y_tmp, k1, k7, n)
                 next_eval_idx += 1
-
-            # 2. Advance State
             y[:] = y_tmp
             tcur = t_next
 
-            # 3. FSAL (First Same As Last)
-            # k7 is the derivative at t_next. If we didn't cross a boundary, it is valid k1 for next step.
-            # If we clamped dt_use == dist_bnd, we are exactly at boundary.
-            # In that case, we set hit_boundary=True for next loop to force re-eval.
             if abs(dt_use - dist_bnd) < 1e-14:
-                hit_boundary = True  # Will trigger re-eval of k1 at top of loop
-                # We can't trust k7 for next step if parameters jump
+                hit_boundary = True
             else:
-                k1[:] = k7  # Valid FSAL optimization
+                k1[:] = k7
 
-            # 4. Controller (PI-like / Simple)
+            # --- PI Control Logic (REPLACES OLD I-CONTROL) ---
             if err < 1e-12:
                 fac = 5.0
             else:
-                fac = safety * (err ** -0.2)
+                # fac = safety * err^(-alpha) * err_prev^(beta)
+                fac = safety * (err ** -alpha) * (err_prev ** beta)
 
             if fac > 5.0: fac = 5.0
             if fac < 0.2: fac = 0.2
-
             dt = dt * fac
             if dt > dt_max: dt = dt_max
+
+            # Update PI History
+            err_prev = err
+            if err_prev < 1e-4: err_prev = 1e-4
 
         else:
             # === REJECT STEP ===
@@ -436,10 +425,9 @@ def adaptive_rk45_model01(
             if fac < 0.1: fac = 0.1
             dt = dt_use * fac
             if dt < dt_min: dt = dt_min
-            # Do not update y or tcur
+            err_prev = 1.0  # Reset PI history on reject (INSERTED)
 
     return Y
-
 
 # -----------------------------------------------------------------------------
 # Solver 2: Adaptive RK45 for Model 2
@@ -496,6 +484,10 @@ def adaptive_rk45_model2(
     b1, b3, b4, b5, b6 = 35 / 384, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84
     e1, e3, e4, e5, e6, e7 = 71 / 57600, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40
 
+    beta = 0.04
+    alpha = 0.2 - beta
+    err_prev = 1.0
+
     # --- 5. Init ---
     rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices, TF_data,
                              n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to, trans_site,
@@ -520,6 +512,7 @@ def adaptive_rk45_model2(
                                      TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                      trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
             hit_boundary = False
+            err_prev = 1.0
 
         # Clamping
         dt_use = dt
@@ -567,7 +560,6 @@ def adaptive_rk45_model2(
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
-        # Error
         err = 0.0
         for i in range(n):
             diff = dt_use * (e1 * k1[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k7[i])
@@ -576,17 +568,14 @@ def adaptive_rk45_model2(
             ratio = abs(diff) / sc
             if ratio > err: err = ratio
 
-        # Update
         if err <= 1.0:
-            # Accept
+            # === ACCEPT STEP ===
             t_next = tcur + dt_use
-
             while next_eval_idx < T_out_count and t_eval[next_eval_idx] <= t_next:
                 te = t_eval[next_eval_idx]
                 if te >= tcur:
                     _hermite_interpolate_into(Y[next_eval_idx], te, tcur, t_next, y, y_tmp, k1, k7, n)
                 next_eval_idx += 1
-
             y[:] = y_tmp
             tcur = t_next
 
@@ -595,20 +584,28 @@ def adaptive_rk45_model2(
             else:
                 k1[:] = k7
 
+            # --- PI Control Logic (REPLACES OLD I-CONTROL) ---
             if err < 1e-12:
                 fac = 5.0
             else:
-                fac = safety * (err ** -0.2)
+                # fac = safety * err^(-alpha) * err_prev^(beta)
+                fac = safety * (err ** -alpha) * (err_prev ** beta)
+
             if fac > 5.0: fac = 5.0
             if fac < 0.2: fac = 0.2
             dt = dt * fac
             if dt > dt_max: dt = dt_max
+
+            err_prev = err
+            if err_prev < 1e-4: err_prev = 1e-4
+
         else:
             # Reject
             fac = safety * (err ** -0.2)
             if fac < 0.1: fac = 0.1
             dt = dt_use * fac
             if dt < dt_min: dt = dt_min
+            err_prev = 1.0  # Reset PI history (INSERTED)
 
     return Y
 
