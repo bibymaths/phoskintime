@@ -125,9 +125,9 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     time_points_phospho = np.asarray(tp_phospho, dtype=float)
 
     model = cfg["models"]["default_model"]
-    ode_abs_tol = cfg["absolute_tolerance"]
-    ode_rel_tol = cfg["relative_tolerance"]
-    ode_max_steps = cfg["max_timesteps"]
+    ode_abs_tol = cfg["solver"]["absolute_tolerance"]
+    ode_rel_tol = cfg["solver"]["relative_tolerance"]
+    ode_max_steps = cfg["solver"]["max_timesteps"]
 
     b = cfg["bounds"]
     bounds_config: dict[str, tuple[float, float]] = {}

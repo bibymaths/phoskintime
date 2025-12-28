@@ -3,7 +3,7 @@ Configurations for PhoskinTime Global model
 """
 from phoskintime_global.utils import load_config_toml
 
-cfg = load_config_toml("../config.toml")
+cfg = load_config_toml("config.toml")
 
 TIME_POINTS_PROTEIN = cfg.time_points_prot
 TIME_POINTS_RNA = cfg.time_points_rna
