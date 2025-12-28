@@ -668,14 +668,3 @@ def scan_prior_reg(out_dir):
     print(" - lambda_scan.csv")
     print(" - lambda_scan_unique_picks.csv")
     print(" - lambda_scan_recommended.json")
-
-def plot_hypervolume(out_path, gen_history, hv_history):
-    plt.figure(figsize=(6, 4))
-    plt.plot(gen_history, hv_history, lw=2)
-    plt.xlabel("Generation")
-    plt.ylabel("Hypervolume")
-    plt.title("Hypervolume Convergence")
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=300)
-    plt.close()

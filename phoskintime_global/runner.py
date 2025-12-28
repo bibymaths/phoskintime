@@ -8,7 +8,6 @@ import pandas as pd
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.core.evaluator import Evaluator
 from pymoo.core.problem import StarmapParallelization
-from pymoo.indicators.hv import HV
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
@@ -26,7 +25,7 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, plot_hypervolume
+    scan_prior_reg
 
 
 def main():
@@ -154,33 +153,6 @@ def main():
     if pool is not None:
         pool.close()
         pool.join()
-
-    F_all = np.vstack([algo.pop.get("F") for algo in res.history if algo.pop is not None])
-    ref_point = np.max(F_all, axis=0) * 1.05
-
-    hv_indicator = HV(ref_point=ref_point)
-
-    hv_history = []
-    gen_history = []
-
-    for algo in res.history:
-        if algo.pop is None:
-            continue
-        F = algo.pop.get("F")
-        hv = hv_indicator.do(F)
-        hv_history.append(hv)
-        gen_history.append(algo.n_gen)
-
-    hv_history = np.array(hv_history)
-    gen_history = np.array(gen_history)
-
-    plot_hypervolume(
-        gen_history=gen_history,
-        hv_history=hv_history,
-        out_path=os.path.join(args.output_dir, "hypervolume.png")
-    )
-
-    print("[Output] Saved hypervolume plot.")
 
     # 10) Save Pareto set
     X = res.X
