@@ -1,10 +1,14 @@
 import json
+import math
 import os
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt, animation
 import matplotlib.colors as mcolors
 import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
 from pymoo.visualization.pcp import PCP
 from pymoo.visualization.scatter import Scatter
 from scipy.stats import linregress
@@ -1079,3 +1083,263 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
     df.to_csv(out_path, index=False)
     print(f"[Output] Saved S rates to: {out_path}")
     return df
+
+def plot_s_rates_report(
+    csv_path: str | Path,
+    out_pdf: str | Path = "S_rates_report.pdf",
+    *,
+    time_col: str = "time",
+    value_col: str = "S",
+    protein_col: str = "protein",
+    psite_col: str = "psite",
+    log_x: bool = True,
+    # keep plots readable for many sites
+    top_k_sites_per_protein: int | None = 24,   # rank by AUC and keep only top K per protein in "small multiples"
+    max_sites_per_page: int = 12,               # small-multiples pagination
+    ncols: int = 3,                              # small-multiples grid columns
+    normalize_per_site: bool = False,            # if True: plot S/Smax to compare kinetics
+    heatmap_per_protein: bool = True,
+    heatmap_cap_sites: int = 80,                 # cap number of rows in a heatmap (rank by AUC)
+    agg_duplicates: str = "mean",                # if repeated (protein,psite,time)
+    dpi: int = 150,
+) -> Path:
+    """
+    Robust plotting for S_rates_picked.csv (protein, psite, time, S):
+      - Global summary pages (AUC top sites, early-vs-late scatter)
+      - For each protein:
+          * optional heatmap (sites x time) capped
+          * small-multiples time series pages (paginated), ranked by AUC
+    Outputs a single multi-page PDF (no clumped mega-figure).
+
+    Returns
+    -------
+    Path to saved PDF.
+    """
+    csv_path = Path(csv_path)
+    out_pdf = Path(out_pdf)
+
+    df = pd.read_csv(csv_path)
+
+    need = {protein_col, psite_col, time_col, value_col}
+    missing = need - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns {missing}. Got: {list(df.columns)}")
+
+    # coerce + clean
+    df = df[[protein_col, psite_col, time_col, value_col]].copy()
+    df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
+    df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
+    df = df.dropna(subset=[protein_col, psite_col, time_col, value_col])
+
+    # aggregate duplicates (same protein, site, time)
+    if agg_duplicates:
+        df = (
+            df.groupby([protein_col, psite_col, time_col], as_index=False)[value_col]
+              .agg(agg_duplicates)
+        )
+
+    # sort
+    df.sort_values([protein_col, psite_col, time_col], inplace=True)
+
+    # compute AUC per (protein, psite) to rank sites
+    def _auc(g: pd.DataFrame) -> float:
+        t = g[time_col].to_numpy(dtype=float)
+        y = g[value_col].to_numpy(dtype=float)
+        if t.size < 2:
+            return float(y[0]) if y.size else 0.0
+        # trapz assumes t sorted
+        return float(np.trapz(y, t))
+
+    auc_df = (
+        df.groupby([protein_col, psite_col], as_index=False)
+          .apply(_auc)
+          .reset_index()
+    )
+    # pandas groupby.apply output can be awkward depending on version
+    if "level_0" in auc_df.columns and 0 in auc_df.columns:
+        auc_df = auc_df.rename(columns={"level_0": protein_col, "level_1": psite_col, 0: "AUC"})
+    elif 0 in auc_df.columns:
+        auc_df = auc_df.rename(columns={0: "AUC"})
+    elif "AUC" not in auc_df.columns:
+        # fallback: rebuild robustly
+        rows = []
+        for (p, s), g in df.groupby([protein_col, psite_col]):
+            rows.append((p, s, _auc(g)))
+        auc_df = pd.DataFrame(rows, columns=[protein_col, psite_col, "AUC"])
+
+    auc_df["AUC"] = pd.to_numeric(auc_df["AUC"], errors="coerce").fillna(0.0)
+    auc_df.sort_values(["AUC"], ascending=False, inplace=True)
+
+    # early vs late means for global scatter
+    tmin = float(df[time_col].min())
+    tmax = float(df[time_col].max())
+    # choose early/late cutoffs that match your grids
+    early_cut = 2.0
+    late_cut = 120.0
+
+    early = (
+        df[df[time_col] <= early_cut]
+        .groupby([protein_col, psite_col])[value_col]
+        .mean()
+        .rename("early_S")
+    )
+    late = (
+        df[df[time_col] >= late_cut]
+        .groupby([protein_col, psite_col])[value_col]
+        .mean()
+        .rename("late_S")
+    )
+    el = pd.concat([early, late], axis=1).dropna().reset_index()
+
+    # ---------- plotting helpers ----------
+    def _apply_xscale(ax):
+        if log_x:
+            # avoid log(0): shift zeros to smallest positive tick if needed
+            ax.set_xscale("symlog" if (df[time_col] == 0).any() else "log")
+
+    def _small_multiples_for_protein(pdf: PdfPages, prot: str, sub: pd.DataFrame):
+        # rank this protein's sites by AUC
+        sub_auc = auc_df[auc_df[protein_col] == prot].sort_values("AUC", ascending=False)
+        sites_ranked = sub_auc[psite_col].tolist()
+        if top_k_sites_per_protein is not None:
+            sites_ranked = sites_ranked[: int(top_k_sites_per_protein)]
+
+        # paginate
+        pages = max(1, math.ceil(len(sites_ranked) / max_sites_per_page))
+        for page in range(pages):
+            chunk = sites_ranked[page * max_sites_per_page : (page + 1) * max_sites_per_page]
+            if not chunk:
+                continue
+
+            n = len(chunk)
+            nrows = math.ceil(n / ncols)
+
+            fig, axes = plt.subplots(
+                nrows=nrows, ncols=ncols,
+                figsize=(3.8 * ncols, 2.7 * nrows),
+                squeeze=False
+            )
+            axes = axes.ravel()
+
+            for ax_i, site in enumerate(chunk):
+                ax = axes[ax_i]
+                g = sub[sub[psite_col] == site]
+                t = g[time_col].to_numpy(dtype=float)
+                y = g[value_col].to_numpy(dtype=float)
+
+                if normalize_per_site:
+                    mx = float(np.max(y)) if y.size else 1.0
+                    y = y / (mx if mx > 0 else 1.0)
+
+                ax.plot(t, y, marker="o", linewidth=1.5, markersize=3)
+                _apply_xscale(ax)
+                ax.set_title(f"{prot}  {site}", fontsize=9)
+                ax.grid(True, alpha=0.25)
+
+                if ax_i % ncols == 0:
+                    ax.set_ylabel("S" if not normalize_per_site else "S / max(S)")
+                ax.set_xlabel("time")
+
+            # turn off unused axes
+            for j in range(n, len(axes)):
+                axes[j].axis("off")
+
+            fig.suptitle(
+                f"{prot} — site time series"
+                + (" (normalized)" if normalize_per_site else "")
+                + (f" — page {page+1}/{pages}" if pages > 1 else ""),
+                fontsize=12
+            )
+            fig.tight_layout(rect=[0, 0, 1, 0.96])
+            pdf.savefig(fig, dpi=dpi)
+            plt.close(fig)
+
+    def _heatmap_for_protein(pdf: PdfPages, prot: str, sub: pd.DataFrame):
+        # pivot sites x times
+        sub_auc = auc_df[auc_df[protein_col] == prot].sort_values("AUC", ascending=False)
+        sites_ranked = sub_auc[psite_col].tolist()
+        if heatmap_cap_sites is not None:
+            sites_ranked = sites_ranked[: int(heatmap_cap_sites)]
+
+        sub2 = sub[sub[psite_col].isin(sites_ranked)]
+        piv = sub2.pivot(index=psite_col, columns=time_col, values=value_col)
+
+        # reorder columns by time
+        piv = piv.reindex(sorted(piv.columns), axis=1)
+
+        # optionally normalize rows
+        mat = piv.to_numpy(dtype=float)
+        if normalize_per_site:
+            row_max = np.nanmax(mat, axis=1)
+            row_max[row_max <= 0] = 1.0
+            mat = mat / row_max[:, None]
+
+        fig, ax = plt.subplots(figsize=(10.5, max(3.5, 0.18 * mat.shape[0])))
+        im = ax.imshow(mat, aspect="auto", interpolation="nearest")
+        ax.set_title(
+            f"{prot} — heatmap (top {len(sites_ranked)} sites by AUC)"
+            + (" — normalized" if normalize_per_site else ""),
+            fontsize=12
+        )
+        ax.set_ylabel("psite")
+        ax.set_xlabel("time")
+
+        # ticks
+        ax.set_yticks(np.arange(len(piv.index)))
+        ax.set_yticklabels(piv.index.tolist(), fontsize=7)
+
+        xt = piv.columns.to_list()
+        ax.set_xticks(np.arange(len(xt)))
+        ax.set_xticklabels([str(x) for x in xt], rotation=45, ha="right", fontsize=8)
+
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("S" if not normalize_per_site else "S / max(S)")
+
+        fig.tight_layout()
+        pdf.savefig(fig, dpi=dpi)
+        plt.close(fig)
+
+    # ---------- build PDF report ----------
+    out_pdf.parent.mkdir(parents=True, exist_ok=True)
+
+    with PdfPages(out_pdf) as pdf:
+        # Page 1: AUC top sites (global)
+        top_n = min(30, len(auc_df))
+        top = auc_df.head(top_n).copy()
+        labels = (top[protein_col].astype(str) + " " + top[psite_col].astype(str)).tolist()
+
+        fig, ax = plt.subplots(figsize=(11, 0.35 * top_n + 2.5))
+        ax.barh(range(top_n)[::-1], top["AUC"].to_numpy()[::-1])
+        ax.set_yticks(range(top_n)[::-1])
+        ax.set_yticklabels(labels[::-1], fontsize=8)
+        ax.set_xlabel("AUC of S over time")
+        ax.set_title(f"Top {top_n} sites by total signaling (AUC)")
+        ax.grid(True, axis="x", alpha=0.25)
+        fig.tight_layout()
+        pdf.savefig(fig, dpi=dpi)
+        plt.close(fig)
+
+        # Page 2: Early vs Late scatter (global)
+        if not el.empty:
+            fig, ax = plt.subplots(figsize=(7.5, 6.5))
+            x = el["early_S"].to_numpy(dtype=float)
+            y = el["late_S"].to_numpy(dtype=float)
+            ax.scatter(x, y, s=20, alpha=0.7)
+            lo = float(min(np.min(x), np.min(y)))
+            hi = float(max(np.max(x), np.max(y)))
+            ax.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1)
+            ax.set_xlabel(f"Early mean S (t ≤ {early_cut})")
+            ax.set_ylabel(f"Late mean S (t ≥ {late_cut})")
+            ax.set_title("Early vs Late signaling per site")
+            ax.grid(True, alpha=0.25)
+            fig.tight_layout()
+            pdf.savefig(fig, dpi=dpi)
+            plt.close(fig)
+
+        # Per-protein pages
+        for prot, sub in df.groupby(protein_col, sort=True):
+            if heatmap_per_protein:
+                _heatmap_for_protein(pdf, prot, sub)
+            _small_multiples_for_protein(pdf, prot, sub)
+
+    return out_pdf

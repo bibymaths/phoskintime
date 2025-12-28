@@ -7,6 +7,8 @@ import multiprocessing as mp
 import pandas as pd
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.core.problem import StarmapParallelization
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
@@ -25,7 +27,7 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates
+    scan_prior_reg, export_S_rates, plot_s_rates_report
 
 
 def main():
@@ -208,7 +210,9 @@ def main():
     ref_dirs = get_reference_directions(
         "das-dennis",
         problem.n_obj,
-        n_partitions=20
+        n_partitions=20,
+        seed=args.seed,
+        n_dimensions=problem.n_var
     )
 
     # Print number of reference directions
@@ -218,7 +222,9 @@ def main():
         pop_size=args.pop,
         ref_dirs=ref_dirs,
         eliminate_duplicates=True,
-        sampling=LHS()
+        sampling=LHS(),
+        crossover=SBX(prob=0.9, eta=15),
+        mutation=PM(prob=1/problem.n_var, eta=10),
     )
 
     termination = DefaultMultiObjectiveTermination(
@@ -297,6 +303,19 @@ def main():
     # Save the phosphorylation rates
     export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
     print("[Output] Saved phosphorylation rates for picked solution.")
+
+    out = plot_s_rates_report(
+        f"{args.outdir}/S_rates_picked.csv",
+        f"{args.outdir}/S_rates_report.pdf",
+        top_k_sites_per_protein=24,
+        max_sites_per_page=12,
+        ncols=3,
+        normalize_per_site=False,
+        heatmap_per_protein=True,
+        heatmap_cap_sites=80,
+    )
+
+    print(f"[Output] Saved phosphorylation rates report for picked solution {args.outdir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
