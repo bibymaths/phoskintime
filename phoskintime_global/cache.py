@@ -1,5 +1,7 @@
 import numpy as np
 
+from phoskintime_global.config import MODEL
+
 
 def prepare_fast_loss_data(idx, df_prot, df_rna, time_grid):
     t_map = {t: i for i, t in enumerate(time_grid)}
@@ -18,7 +20,10 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, time_grid):
     for i in range(idx.N):
         sl = idx.block(i)
         prot_map[i, 0] = sl.start
-        prot_map[i, 1] = idx.n_sites[i]
+        if MODEL == 2:
+            prot_map[i, 1] = idx.n_states[i]
+        else:
+            prot_map[i, 1] = idx.n_sites[i]
 
     return {
         "p_prot": p_prot, "t_prot": t_prot, "obs_prot": obs_prot, "w_prot": w_prot,

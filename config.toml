@@ -35,6 +35,6 @@ model_description = """
 max_optimization_iterations = 1000
 
 [solver]
-absolute_tolerance = 1e-6
-relative_tolerance = 1e-4
+absolute_tolerance = 1e-5
+relative_tolerance = 1e-6
 max_timesteps = 5000

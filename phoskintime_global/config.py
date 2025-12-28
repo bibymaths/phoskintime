@@ -9,4 +9,7 @@ TIME_POINTS_PROTEIN = cfg.time_points_prot
 TIME_POINTS_RNA = cfg.time_points_rna
 TIME_POINTS_PHOSPHO = cfg.time_points_phospho
 BOUNDS_CONFIG = cfg.bounds_config
-MODEL = cfg.model
+MODEL = 0 if cfg.model == "distributive" else (1 if cfg.model == "sequential" else 2)
+ODE_ABS_TOL = cfg.ode_abs_tol
+ODE_REL_TOL = cfg.ode_rel_tol
+ODE_MAX_STEPS = cfg.ode_max_steps

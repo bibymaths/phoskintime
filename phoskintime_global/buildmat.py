@@ -1,13 +1,21 @@
+import re
+
 import numpy as np
 import multiprocessing as mp
 
 import pandas as pd
 from scipy import sparse
 
+def site_key(site: str) -> int:
+    m = re.search(r"\d+", site)
+    if m is None:
+        raise ValueError(f"Invalid site format: {site}")
+    return int(m.group())
 
 def _build_single_W(args):
     p, interactions, sites_i, k2i, n_kinases = args
 
+    sites_i.sort(key=site_key)
     sub = interactions[interactions["protein"] == p]
     site_map = {s: r for r, s in enumerate(sites_i)}
     rows, cols = [], []

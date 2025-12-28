@@ -1,10 +1,11 @@
+import numpy as np
 from numba import njit
 
 
 @njit(fastmath=True, cache=True, nogil=True)
 def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
                      offset_y, offset_s, n_sites):
-    N = len(A_i)
+    N = A_i.shape[0]
 
     for i in range(N):
         y_start = offset_y[i]
@@ -13,6 +14,7 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
 
         s_start = offset_s[i]
         ns = n_sites[i]
+        base = y_start + 2  # first phospho state index in y
 
         R = y[idx_R]
         P = y[idx_P]
@@ -28,23 +30,246 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         # if u > 1.0: u = 1.0
         # synth = Ai * (1.0 + tf_scale * u)
 
+        # squashed TF input in (-1, 1)
         u = TF_inputs[i]
-        u = u / (1.0 + abs(u))  # maps to (-1,1)
+        u = u / (1.0 + np.abs(u))
         synth = Ai * (1.0 + tf_scale * u)
 
+        # mRNA
         dy[idx_R] = synth - Bi * R
 
         if ns == 0:
+            # protein only
             dy[idx_P] = Ci * R - Di * P
         else:
             sum_S = 0.0
-            sum_Ps = 0.0
+            sum_back = 0.0
+            Ei_plus_Di = Ei + Di
+
+            # phospho states
             for j in range(ns):
-                s_rate = S_all[s_start + j]
-                ps_val = y[y_start + 2 + j]
+                si = s_start + j
+                yi = base + j
+
+                s_rate = S_all[si]
+                ps_val = y[yi]
 
                 sum_S += s_rate
-                sum_Ps += Ei * ps_val
-                dy[y_start + 2 + j] = s_rate * P - (Ei + Di) * ps_val
+                sum_back += Ei * ps_val
 
-            dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_Ps
+                dy[yi] = s_rate * P - Ei_plus_Di * ps_val
+
+            # unphosph protein
+            dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_back
+
+
+@njit(fastmath=True, cache=True, nogil=True)
+def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
+                   offset_y, offset_s, n_sites):
+    N = A_i.shape[0]
+
+    for i in range(N):
+        y_start = offset_y[i]
+        idx_R = y_start
+        idx_P0 = y_start + 1
+
+        s_start = offset_s[i]
+        ns = n_sites[i]
+        base = y_start + 2  # P1 at base+0
+
+        R = y[idx_R]
+        P0 = y[idx_P0]
+
+        Ai = A_i[i]
+        Bi = B_i[i]
+        Ci = C_i[i]
+        Di = D_i[i]
+        Ei = E_i[i]
+
+        # u = TF_inputs[i]
+        # if u < -1.0: u = -1.0
+        # if u > 1.0: u = 1.0
+        # synth = Ai * (1.0 + tf_scale * u)
+
+        # squashed TF input in (-1, 1)
+        u = TF_inputs[i]
+        u = u / (1.0 + np.abs(u))
+        synth = Ai * (1.0 + tf_scale * u)
+
+        # mRNA
+        dy[idx_R] = synth - Bi * R
+
+        if ns == 0:
+            dy[idx_P0] = Ci * R - Di * P0
+            continue
+
+        # --- P0 (unphosph) ---
+        k0 = S_all[s_start + 0]
+        P1 = y[base + 0]
+        dy[idx_P0] = Ci * R - Di * P0 - k0 * P0 + Ei * P1
+
+        if ns == 1:
+            # --- last state is P1 ---
+            dy[base + 0] = k0 * P0 - (Ei + Di) * P1
+            continue
+
+        # --- P1 (first phospho) handled separately to avoid branch in loop ---
+        k1 = S_all[s_start + 1]
+        P2 = y[base + 1]
+        dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Di) * P1
+
+        # --- middle states: P2..P(ns-1) ---
+        # indices base+1 .. base+(ns-2)
+        for j in range(1, ns - 1):
+            idx = base + j          # P(j+1)
+            Pj = y[idx]
+
+            k_prev = S_all[s_start + j]       # forward from previous -> current
+            k_next = S_all[s_start + j + 1]   # forward from current -> next
+
+            P_prev = y[idx - 1]
+            P_next = y[idx + 1]
+
+            dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Di) * Pj
+
+        # --- last state: Pns (index base + ns - 1) ---
+        idx_last = base + (ns - 1)
+        Plast = y[idx_last]
+        k_last = S_all[s_start + (ns - 1)]
+        Pprev = y[idx_last - 1]
+        dy[idx_last] = k_last * Pprev - (Ei + Di) * Plast
+
+
+@njit(fastmath=True, cache=True)
+def combinatorial_rhs(
+    y, dy,
+    A_i, B_i, C_i, D_i, E_i, tf_scale,
+    TF_inputs, S_cache, jb,
+    offset_y, offset_s,
+    n_sites, n_states,
+    trans_from, trans_to, trans_site, trans_off, trans_n
+):
+    N = A_i.shape[0]
+    jb_loc = jb  # local binding helps Numba
+
+    for i in range(N):
+        y_start = offset_y[i]
+        s_start = offset_s[i]
+        ns = n_sites[i]
+
+        idx_R = y_start
+        idx_P0 = y_start + 1
+
+        R = y[idx_R]
+
+        Ai = A_i[i]
+        Bi = B_i[i]
+        Ci = C_i[i]
+        Di = D_i[i]
+        Ei = E_i[i]
+
+        # branchless squash to (-1,1)
+        u = TF_inputs[i]
+        u = u / (1.0 + np.abs(u))
+        synth = Ai * (1.0 + tf_scale * u)
+
+        # RNA
+        dy[idx_R] = synth - Bi * R
+
+        # No sites: simple protein production/decay
+        if ns == 0:
+            P0 = y[idx_P0]
+            dy[idx_P0] = Ci * R - Di * P0
+            continue
+
+        nstates = n_states[i]
+
+        # translation into mask=0
+        dy[idx_P0] += Ci * R
+
+        # decay for all states (tight loop, fewer index recomputations)
+        base = idx_P0
+        for m in range(nstates):
+            Pm = y[base + m]
+            dy[base + m] += -Di * Pm
+
+        # forward phosphorylation transitions
+        off = trans_off[i]
+        ntr = trans_n[i]
+        for k in range(ntr):
+            frm = trans_from[off + k]
+            to  = trans_to[off + k]
+            j   = trans_site[off + k]
+
+            rate = S_cache[s_start + j, jb_loc]
+            flux = rate * y[base + frm]
+
+            dy[base + frm] -= flux
+            dy[base + to]  += flux
+
+        # dephosph: iterate only over set bits (no scan over ns)
+        # each set bit gives a transition m -> m without that bit at rate Ei*Pm
+        for m in range(1, nstates):
+            Pm = y[base + m]
+            if Pm <= 0.0:
+                continue
+
+            flux_each = Ei * Pm
+
+            mm = m
+            # iterate over set bits of m
+            while mm != 0:
+                lsb = mm & -mm          # lowest set bit (power of two)
+                mm -= lsb
+                to = m ^ lsb            # clear that bit
+                dy[base + m]  -= flux_each
+                dy[base + to] += flux_each
+
+def build_random_transitions(idx):
+    """
+    Precompute random phosphorylation transitions for all proteins.
+
+    Returns arrays for Numba:
+      trans_from, trans_to, trans_site  (flattened)
+      trans_off[i], trans_n[i] per protein i
+
+    Interpretation:
+      for protein i:
+        transitions are in slice [trans_off[i] : trans_off[i]+trans_n[i]]
+        each transition uses site index 'j' (0..ns-1) to pick rate S_all[s_start + j]
+    """
+    trans_from = []
+    trans_to = []
+    trans_site = []
+    trans_off = np.zeros(idx.N, dtype=np.int32)
+    trans_n = np.zeros(idx.N, dtype=np.int32)
+
+    cur = 0
+    for i in range(idx.N):
+        ns = int(idx.n_sites[i])
+        trans_off[i] = cur
+
+        if ns == 0:
+            trans_n[i] = 0
+            continue
+
+        nstates = 1 << ns
+        for m in range(nstates):
+            for j in range(ns):
+                if (m & (1 << j)) == 0:
+                    mp = m | (1 << j)
+                    trans_from.append(m)
+                    trans_to.append(mp)
+                    trans_site.append(j)
+
+        n_i = len(trans_from) - cur
+        trans_n[i] = n_i
+        cur += n_i
+
+    return (
+        np.asarray(trans_from, dtype=np.int32),
+        np.asarray(trans_to, dtype=np.int32),
+        np.asarray(trans_site, dtype=np.int32),
+        trans_off,
+        trans_n,
+    )

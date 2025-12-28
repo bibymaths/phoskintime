@@ -1,7 +1,8 @@
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-from phoskintime_global.lossfn import jit_loss_core
+from phoskintime_global.config import ODE_MAX_STEPS, ODE_ABS_TOL
+from phoskintime_global.lossfn import LOSS_FN
 from phoskintime_global.params import unpack_params
 from phoskintime_global.simulate import simulate_odeint
 
@@ -49,9 +50,9 @@ class GlobalODE_MOO(ElementwiseProblem):
             Y = simulate_odeint(
                 self.sys,
                 self.time_grid,
-                rtol=1e-5,
-                atol=1e-6,
-                mxstep=5000
+                rtol=ODE_ABS_TOL,
+                atol=ODE_ABS_TOL,
+                mxstep=ODE_MAX_STEPS
             )
         except Exception:
             out["F"] = np.array([self.fail_value, self.fail_value, self.fail_value], dtype=float)
@@ -63,7 +64,7 @@ class GlobalODE_MOO(ElementwiseProblem):
 
         # Ensure (T, state_dim) contiguous
         Y = np.ascontiguousarray(Y)
-        loss_p_sum, loss_r_sum = jit_loss_core(
+        loss_p_sum, loss_r_sum = LOSS_FN(
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
             self.loss_data["p_rna"], self.loss_data["t_rna"], self.loss_data["obs_rna"], self.loss_data["w_rna"],

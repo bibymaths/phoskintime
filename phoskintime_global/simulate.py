@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import odeint, ODEintWarning
 
+from phoskintime_global.config import MODEL
+
 warnings.filterwarnings("ignore", category=ODEintWarning)
 warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -11,12 +13,20 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from phoskintime_global.jacspeedup import fd_jacobian_odeint, rhs_odeint
 
 
-def simulate_odeint(sys, t_eval, rtol=1e-5, atol=1e-6, mxstep=5000):
+def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
     """
     y0 = sys.y0().astype(np.float64)
-    args = sys.odeint_args()
+
+    if MODEL == 2:
+        Kt_mat = sys.kin_Kmat * sys.c_k[:, None]
+        S_cache = sys.W_global.dot(Kt_mat)
+        S_cache = np.asarray(S_cache, dtype=np.float64)
+        S_cache = np.ascontiguousarray(S_cache)
+        args = sys.odeint_args(S_cache)
+    else:
+        args = sys.odeint_args()
 
     xs = odeint(
         rhs_odeint,
@@ -25,9 +35,9 @@ def simulate_odeint(sys, t_eval, rtol=1e-5, atol=1e-6, mxstep=5000):
         args=args,
         Dfun=fd_jacobian_odeint,
         col_deriv=False,
-        # rtol=rtol,
-        # atol=atol,
-        # mxstep=mxstep,
+        rtol=rtol,
+        atol=atol,
+        mxstep=mxstep,
     )
     return np.ascontiguousarray(xs, dtype=np.float64)
 
@@ -43,10 +53,15 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r):
     rows_p, rows_r = [], []
     for i, p in enumerate(idx.proteins):
         st = idx.offset_y[i]
-        ns = idx.n_sites[i]
-
-        # Protein baseline at t=0
-        tot = Y[:, st + 1] + (Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0)
+        if MODEL == 2:
+            ns = int(idx.n_states[i])
+            p0 = st + 1
+            tot = 0.0
+            for m in range(ns):
+                tot += Y[:, p0 + m]
+        else:
+            ns = idx.n_sites[i]
+            tot = Y[:, st + 1] + (Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0)
         fc_p = np.maximum(tot, 1e-9) / np.maximum(tot[prot_b], 1e-9)
         rows_p.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc_p}))
 
