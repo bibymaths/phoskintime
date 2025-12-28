@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 import tomllib
+
+import pandas as pd
 from numba import njit
 
 def _normcols(df):
@@ -19,8 +21,37 @@ def _find_col(df, cands):
 
 def normalize_fc_to_t0(df):
     df = df.copy()
-    t0 = df[df["time"] == 0.0].set_index("protein")["fc"]
-    df["fc"] = df.apply(lambda r: r["fc"] / t0.get(r["protein"], np.nan), axis=1)
+
+    df["time"] = pd.to_numeric(df["time"], errors="coerce")
+    df["fc"] = pd.to_numeric(df["fc"], errors="coerce")
+    df = df.dropna(subset=["time", "fc"])
+
+    has_psite = "psite" in df.columns
+    if has_psite:
+        df["psite"] = (
+            df["psite"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace({"nan": "", "NaN": ""})
+        )
+
+    keys = ["protein"] + (["psite"] if has_psite else [])
+
+    t0 = (
+        df.loc[df["time"].eq(0.0), keys + ["fc"]]
+        .drop_duplicates(subset=keys, keep="last")
+        .set_index(keys)["fc"]
+    )
+
+    def _norm_row(r):
+        k = (r["protein"], r["psite"]) if has_psite else r["protein"]
+        base = t0.get(k, np.nan)
+        if not np.isfinite(base) or base == 0.0:
+            return np.nan
+        return r["fc"] / base
+
+    df["fc"] = df.apply(_norm_row, axis=1)
     return df.dropna(subset=["fc"])
 
 
@@ -121,9 +152,9 @@ class PhosKinConfig:
     seed: int
     regularization_rna: float
     regularization_lambda: float
+    regularization_phospho: float
+    regularization_protein: float
     results_dir: str | Path
-
-
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
     path = Path(path)
@@ -140,15 +171,21 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     time_points_phospho = np.asarray(tp_phospho, dtype=float)
 
     model = cfg["models"]["default_model"]
+
     use_custom_solver = cfg["solver"]["use_custom_solver"]
     ode_abs_tol = cfg["solver"]["absolute_tolerance"]
     ode_rel_tol = cfg["solver"]["relative_tolerance"]
     ode_max_steps = cfg["solver"]["max_timesteps"]
+
     max_iter = cfg["optimization"]["max_iterations"]
     pop_size = cfg["optimization"]["population_size"]
     seed = cfg["optimization"]["seed"]
+
+    reg_protein = cfg["regularization"]["protein"]
     reg_rna = cfg["regularization"]["rna"]
+    reg_phospho = cfg["regularization"]["phospho"]
     reg_lambda = cfg["regularization"]["lambda"]
+
     res_dir = cfg["general"]["output_directory"]
 
     b = cfg["bounds"]
@@ -176,5 +213,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         seed=seed,
         regularization_rna=reg_rna,
         regularization_lambda=reg_lambda,
+        regularization_phospho=reg_phospho,
+        regularization_protein=reg_protein,
         results_dir=res_dir
     )

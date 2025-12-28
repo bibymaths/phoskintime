@@ -39,7 +39,9 @@ seed = 42
 
 [regularization]
 lambda = 1e-4
+protein = 1.0
 rna = 1.0
+phospho = 1.0
 
 [solver]
 absolute_tolerance = 1e-5

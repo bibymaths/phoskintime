@@ -56,38 +56,85 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     )
     return np.ascontiguousarray(xs, dtype=np.float64)
 
-
-def simulate_and_measure(sys, idx, t_points_p, t_points_r):
-    times = np.unique(np.concatenate([t_points_p, t_points_r]))
+def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
+    times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
     Y = simulate_odeint(sys, times, rtol=1e-5, atol=1e-7, mxstep=5000)
 
-    # baseline indices
-    prot_b = int(np.where(times == 0.0)[0][0])
-    rna_b = int(np.where(times == 4.0)[0][0])  # IMPORTANT
+    def _bidx(t0: float) -> int:
+        return int(np.argmin(np.abs(times - float(t0))))
 
-    rows_p, rows_r = [], []
-    for i, p in enumerate(idx.proteins):
-        st = idx.offset_y[i]
+    prot_b = _bidx(0.0)
+    rna_b = _bidx(4.0)
+    pho_b = _bidx(0.0)
+
+    rows_p, rows_r, rows_pho = [], [], []
+
+    for i, gene in enumerate(idx.proteins):
+        st = int(idx.offset_y[i])
+
+        R = Y[:, st]
+        fc_r = np.maximum(R, 1e-12) / np.maximum(R[rna_b], 1e-12)
+        rows_r.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_r}))
+
         if MODEL == 2:
             ns = int(idx.n_states[i])
+            n_sites = int(idx.n_sites[i])
             p0 = st + 1
-            tot = 0.0
-            for m in range(ns):
-                tot += Y[:, p0 + m]
+
+            states = Y[:, p0:p0 + ns]                    # (T, ns)
+            tot = states.sum(axis=1)                     # (T,)
+            fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
+            rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
+
+            if n_sites > 0:
+                m = np.arange(ns, dtype=np.uint32)[:, None]
+                j = np.arange(n_sites, dtype=np.uint32)[None, :]
+                bits = ((m >> j) & 1).astype(np.float64)  # (ns, n_sites)
+                pho_sites = states @ bits                 # (T, n_sites)
+
+                for s_idx, psite in enumerate(idx.sites[i]):
+                    sig = pho_sites[:, s_idx]
+                    fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
+                    rows_pho.append(pd.DataFrame({
+                        "protein": gene, "psite": psite, "time": times, "pred_fc": fc
+                    }))
+
         else:
-            ns = idx.n_sites[i]
-            tot = Y[:, st + 1] + (Y[:, st + 2: st + 2 + ns].sum(axis=1) if ns > 0 else 0.0)
-        fc_p = np.maximum(tot, 1e-9) / np.maximum(tot[prot_b], 1e-9)
-        rows_p.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc_p}))
+            ns = int(idx.n_sites[i])
 
-        # RNA baseline at t=4
-        R = Y[:, st]
-        fc_r = np.maximum(R, 1e-9) / np.maximum(R[rna_b], 1e-9)
-        rows_r.append(pd.DataFrame({"protein": p, "time": times, "pred_fc": fc_r}))
+            P0 = Y[:, st + 1]
+            if ns > 0:
+                P_sites = Y[:, st + 2: st + 2 + ns]       # (T, ns)
+                pho_total = P_sites.sum(axis=1)
+            else:
+                P_sites = None
+                pho_total = np.zeros_like(P0)
 
-    df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame()
-    df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame()
+            tot = P0 + pho_total
+            fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
+            rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
-    df_p = df_p[df_p["time"].isin(t_points_p)]
-    df_r = df_r[df_r["time"].isin(t_points_r)]
-    return df_p, df_r
+            if P_sites is not None:
+                for s_idx, psite in enumerate(idx.sites[i]):
+                    sig = P_sites[:, s_idx]
+                    fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
+                    rows_pho.append(pd.DataFrame({
+                        "protein": gene, "psite": psite, "time": times, "pred_fc": fc
+                    }))
+
+    df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame(columns=["protein", "time", "pred_fc"])
+    df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame(columns=["protein", "time", "pred_fc"])
+    df_pho = pd.concat(rows_pho, ignore_index=True) if rows_pho else pd.DataFrame(columns=["protein", "psite", "time", "pred_fc"])
+
+    tp = np.asarray(t_points_p, dtype=np.float64)
+    tr = np.asarray(t_points_r, dtype=np.float64)
+    tph = np.asarray(t_points_pho, dtype=np.float64)
+
+    if not df_p.empty:
+        df_p = df_p[df_p["time"].isin(tp)]
+    if not df_r.empty:
+        df_r = df_r[df_r["time"].isin(tr)]
+    if not df_pho.empty:
+        df_pho = df_pho[df_pho["time"].isin(tph)]
+
+    return df_p, df_r, df_pho

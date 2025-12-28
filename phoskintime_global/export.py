@@ -8,7 +8,7 @@ from pymoo.visualization.pcp import PCP
 from pymoo.visualization.scatter import Scatter
 from scipy.stats import linregress
 
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
+from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
 from phoskintime_global.params import unpack_params
 from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import pick_best_lamdas
@@ -26,7 +26,7 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     plot = Scatter(
         plot_3d=True,
         angle=(45, 45),
-        labels=["Prot MSE", "RNA MSE", "Reg Loss"],
+        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
         figsize=(10, 8),
         title=("Pareto Front", {'pad': 20})
     )
@@ -58,7 +58,7 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
     # might have vastly different magnitudes (e.g. 1000 vs 0.1).
     plot = PCP(
         title=("Objective Trade-offs", {'pad': 20}),
-        labels=["Prot MSE", "RNA MSE", "Reg Loss"],
+        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
         normalize_each_axis=True,
         figsize=(12, 6),
         legend=(True, {'loc': "upper left"})
@@ -120,7 +120,7 @@ def create_convergence_video(res, output_dir="out_moo", filename="optimization_h
         ax.set_title(f"Optimization History - Gen {gen}")
         ax.set_xlabel("Prot MSE")
         ax.set_ylabel("RNA MSE")
-        ax.set_zlabel("Reg Loss")
+        ax.set_zlabel("Phospho MSE")
         ax.set_xlim(min_f[0], max_f[0])
         ax.set_ylim(min_f[1], max_f[1])
         ax.set_zlim(min_f[2], max_f[2])
@@ -157,10 +157,11 @@ def export_pareto_front_to_excel(
         idx,
         slices,
         output_path,
-        weights=(1.0, 1.0, 1.0),  # (w_prot, w_rna, w_reg) used for scalar score + ranking
+        weights=(1.0, 1.0, 1.0),  # (w_prot, w_rna, w_phos) used for scalar score + ranking
         top_k_trajectories=None,  # None = export trajectories for all solutions; else only top K by scalar score
         t_points_p=None,
         t_points_r=None,
+        t_points_ph=None,
         rtol=1e-5,
         atol=1e-7,
         mxstep=5000,
@@ -174,6 +175,7 @@ def export_pareto_front_to_excel(
       - params_kinases: per-kinase parameters for each sol_id (long format)
       - traj_protein: trajectories per sol_id (long format)
       - traj_rna: trajectories per sol_id (long format)
+      - traj_phospho: trajectories per sol_id (long format)
 
     Notes:
       - This can get HUGE if you have many Pareto points. Use top_k_trajectories.
@@ -186,21 +188,23 @@ def export_pareto_front_to_excel(
         t_points_p = TIME_POINTS_PROTEIN
     if t_points_r is None:
         t_points_r = TIME_POINTS_RNA
+    if t_points_ph is None:
+        t_points_ph = TIME_POINTS_PHOSPHO
 
-    w_prot, w_rna, w_reg = map(float, weights)
+    w_prot, w_rna, w_phos = map(float, weights)
 
     # ---- Summary + ranking ----
-    df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "reg_loss"])
+    df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
     df_summary.insert(0, "sol_id", np.arange(len(df_summary), dtype=int))
     df_summary["w_prot"] = w_prot
     df_summary["w_rna"] = w_rna
-    df_summary["w_reg"] = w_reg
+    df_summary["w_phos"] = w_phos
 
     # scalar score for ranking / convenience
     df_summary["scalar_score"] = (
             w_prot * df_summary["prot_mse"]
             + w_rna * df_summary["rna_mse"]
-            + w_reg * df_summary["reg_loss"]
+            + w_phos * df_summary["phospho_mse"]
     )
 
     # rank: 1 = best
@@ -218,6 +222,7 @@ def export_pareto_front_to_excel(
     params_kin_rows = []
     traj_p_list = []
     traj_r_list = []
+    traj_ph_list = []
 
     # Cache these for speed
     proteins = idx.proteins
@@ -249,7 +254,7 @@ def export_pareto_front_to_excel(
         # ----- trajectories (optional / top-K) -----
         if sol_id in sol_ids_for_traj:
             # use your existing measurement function (calls simulate_odeint internally)
-            dfp, dfr = simulate_and_measure(sys, idx, t_points_p, t_points_r)
+            dfp, dfr, dfph = simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_ph)
 
             if dfp is not None and not dfp.empty:
                 dfp = dfp.copy()
@@ -261,6 +266,11 @@ def export_pareto_front_to_excel(
                 dfr.insert(0, "sol_id", sol_id)
                 traj_r_list.append(dfr)
 
+            if dfph is not None and not dfph.empty:
+                dfph = dfph.copy()
+                dfph.insert(0, "sol_id", sol_id)
+                traj_ph_list.append(dfph)
+
     df_params_genes = pd.DataFrame(params_genes_rows, columns=["sol_id", "protein", "param", "value"])
     df_params_kin = pd.DataFrame(params_kin_rows, columns=["sol_id", "kinase", "c_k"])
 
@@ -270,6 +280,9 @@ def export_pareto_front_to_excel(
     df_traj_r = pd.concat(traj_r_list, ignore_index=True) if traj_r_list else pd.DataFrame(
         columns=["sol_id", "protein", "time", "pred_fc"]
     )
+    df_traj_ph = pd.concat(traj_ph_list, ignore_index=True) if traj_ph_list else pd.DataFrame(
+        columns=["sol_id", "protein", "psite", "time", "pred_fc"]
+    )
 
     # ---- Write Excel ----
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
@@ -278,77 +291,102 @@ def export_pareto_front_to_excel(
         df_params_kin.to_excel(writer, sheet_name="params_kinases", index=False)
         df_traj_p.to_excel(writer, sheet_name="traj_protein", index=False)
         df_traj_r.to_excel(writer, sheet_name="traj_rna", index=False)
+        df_traj_ph.to_excel(writer, sheet_name="traj_phospho", index=False)
 
     print(f"[Output] Pareto export saved: {output_path}")
     print(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
 
-def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir, file_prefix=""):
-    """
-    Generates a Goodness of Fit (Parity Plot) for Protein and RNA data.
-    """
 
-    # 1. Prepare Data
-    # Merge on protein + time to align points
-    # Note the suffixes: _obs and _pred
-    mp = df_prot_obs.merge(df_prot_pred, on=["protein", "time"], suffixes=('_obs', '_pred'))
-    mr = df_rna_obs.merge(df_rna_pred, on=["protein", "time"], suffixes=('_obs', '_pred'))
+def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
+    """
+    Given a merged df with suffixes, produce columns: fc_obs, fc_pred.
+    Supports common input names: fc, pred_fc, fc_obs/fc_pred already present.
+    """
+    if {"fc_obs", "fc_pred"}.issubset(df.columns):
+        return df
 
-    # Combine into one plotting structure
+    candidates = ["fc", "pred_fc", "obs_fc", "meas_fc"]
+
+    obs_col = None
+    pred_col = None
+    for base in candidates:
+        c_obs = f"{base}{obs_suffix}"
+        c_pred = f"{base}{pred_suffix}"
+        if c_obs in df.columns and c_pred in df.columns:
+            obs_col, pred_col = c_obs, c_pred
+            break
+
+    if obs_col is None and pred_col is None:
+        if "fc" in df.columns and "pred_fc" in df.columns:
+            obs_col, pred_col = "fc", "pred_fc"
+        elif "fc_obs" in df.columns and "pred_fc" in df.columns:
+            obs_col, pred_col = "fc_obs", "pred_fc"
+        elif "fc" in df.columns and "fc_pred" in df.columns:
+            obs_col, pred_col = "fc", "fc_pred"
+
+    if obs_col is None or pred_col is None:
+        raise KeyError(
+            f"Could not infer observed/predicted FC columns. "
+            f"Columns seen: {list(df.columns)}"
+        )
+
+    out = df.copy()
+    out.rename(columns={obs_col: "fc_obs", pred_col: "fc_pred"}, inplace=True)
+    return out
+
+def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
+                         df_rna_obs, df_rna_pred,
+                         df_phos_obs, df_phos_pred,
+                         output_dir, file_prefix=""):
+
+    # Merge and standardize
+    mp = df_prot_obs.merge(df_prot_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
+    mr = df_rna_obs.merge(df_rna_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
+    mph = df_phos_obs.merge(df_phos_pred, on=["protein", "psite", "time"], suffixes=("_obs", "_pred"))
+
+    mp = _standardize_merged_fc(mp)
+    mr = _standardize_merged_fc(mr)
+    mph = _standardize_merged_fc(mph)
+
     mp["Type"] = "Protein"
     mr["Type"] = "RNA"
-    combined = pd.concat([mp, mr], ignore_index=True)
+    mph["Type"] = "Phosphorylation"
 
-    # 2. Critical Renaming Step
-    # The merge created 'pred_fc' (from df_prot_pred) or 'fc_pred' depending on input names.
-    # Let's standardize everything to 'fc_obs' and 'fc_pred' to be safe.
-
-    # Standardize Observation Column
-    if "fc" in combined.columns:
-        combined.rename(columns={"fc": "fc_obs"}, inplace=True)
-
-    # Standardize Prediction Column (The cause of your error)
-    if "pred_fc" in combined.columns:
-        combined.rename(columns={"pred_fc": "fc_pred"}, inplace=True)
-
-    # Drop NaNs just in case
+    combined = pd.concat([mp, mr, mph], ignore_index=True)
     combined = combined.dropna(subset=["fc_obs", "fc_pred"])
 
-    # 3. Setup Plot
     sns.set_style("whitegrid")
     g = sns.FacetGrid(combined, col="Type", height=6, sharex=False, sharey=False)
 
     def scatter_with_metrics(x, y, **kwargs):
-        # Scatter points
-        plt.scatter(x, y, alpha=0.5, edgecolor='w', s=30, **kwargs)
+        ax = plt.gca()
 
-        # Identity line (y=x)
-        lims = [min(min(x), min(y)), max(max(x), max(y))]
-        plt.plot(lims, lims, 'k--', alpha=0.75, zorder=0, label="Perfect Fit")
+        ax.scatter(x, y, alpha=0.5, s=30, edgecolors="w", linewidths=0.3)
 
-        # Regression with 95% CI
+        # identity line
+        xmin = min(np.min(x), np.min(y))
+        xmax = max(np.max(x), np.max(y))
+        ax.plot([xmin, xmax], [xmin, xmax], "k--", alpha=0.75, zorder=0)
+
+        # regression line
         sns.regplot(x=x, y=y, scatter=False, ci=95,
-                    line_kws={"color": "red", "alpha": 0.5, "lw": 2}, label="95% CI Fit")
+                    line_kws={"alpha": 0.6, "lw": 2},
+                    ax=ax)
 
-        # Calculate Metrics
         slope, intercept, r_value, p_value, std_err = linregress(x, y)
         r2 = r_value ** 2
-        rmse = np.sqrt(np.mean((y - x) ** 2))
+        rmse = float(np.sqrt(np.mean((np.asarray(y) - np.asarray(x)) ** 2)))
 
-        # Annotate
-        ax = plt.gca()
-        stats = f"$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$"
-        ax.text(0.05, 0.95, stats, transform=ax.transAxes,
-                fontsize=12, verticalalignment='top',
+        ax.text(0.05, 0.95, f"$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$",
+                transform=ax.transAxes, va="top",
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
 
-    # --- FIX IS HERE: Use "fc_pred" instead of "pred_fc" ---
     g.map(scatter_with_metrics, "fc_obs", "fc_pred")
-
     g.set_axis_labels("Observed FC", "Predicted FC")
     g.fig.suptitle("Goodness of Fit: Global ODE Model", y=1.05)
 
-    # 4. Save
+    os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f"{file_prefix}goodness_of_fit.png")
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close()
@@ -361,8 +399,10 @@ def plot_gof_from_pareto_excel(
         plot_goodness_of_fit_func,
         df_prot_obs_all: pd.DataFrame,
         df_rna_obs_all: pd.DataFrame,
+        df_phos_obs_all: pd.DataFrame,
         traj_protein_sheet: str = "traj_protein",
         traj_rna_sheet: str = "traj_rna",
+        traj_phospho_sheet: str = "traj_phospho",
         summary_sheet: str = "summary",
         top_k: int = None,
         only_solutions=None,
@@ -373,13 +413,14 @@ def plot_gof_from_pareto_excel(
       - summary
       - traj_protein (sol_id, protein, time, pred_fc)
       - traj_rna     (sol_id, protein, time, pred_fc)
+      - traj_phospho (sol_id, protein, psite, time, pred_fc)
 
     Observations are NOT in Excel, so we take them from df_prot_obs_all / df_rna_obs_all.
     """
     os.makedirs(output_dir, exist_ok=True)
 
     xls = pd.ExcelFile(excel_path)
-    for s in [traj_protein_sheet, traj_rna_sheet, summary_sheet]:
+    for s in [traj_protein_sheet, traj_rna_sheet, traj_phospho_sheet, summary_sheet]:
         if s not in xls.sheet_names:
             raise ValueError(f"Missing sheet '{s}' in {excel_path}. Found: {xls.sheet_names}")
 
@@ -408,6 +449,7 @@ def plot_gof_from_pareto_excel(
     # load trajectories once
     traj_p = pd.read_excel(xls, sheet_name=traj_protein_sheet)
     traj_r = pd.read_excel(xls, sheet_name=traj_rna_sheet)
+    traj_ph = pd.read_excel(xls, sheet_name=traj_phospho_sheet)
 
     # sanity required columns
     for name, df in [("traj_protein", traj_p), ("traj_rna", traj_r)]:
@@ -416,17 +458,31 @@ def plot_gof_from_pareto_excel(
         if missing:
             raise ValueError(f"Sheet '{name}' missing columns: {sorted(missing)}")
 
+    for name, df in [("traj_phospho", traj_ph)]:
+        need = {"sol_id", "protein", "psite", "time", "pred_fc"}
+        missing = need - set(df.columns)
+        if missing:
+            raise ValueError(f"Sheet '{name}' missing columns: {sorted(missing)}")
+
     # ensure types
     traj_p["sol_id"] = pd.to_numeric(traj_p["sol_id"], errors="coerce").astype("Int64")
     traj_r["sol_id"] = pd.to_numeric(traj_r["sol_id"], errors="coerce").astype("Int64")
+    traj_ph["sol_id"] = pd.to_numeric(traj_ph["sol_id"], errors="coerce").astype("Int64")
+
     traj_p["time"] = pd.to_numeric(traj_p["time"], errors="coerce")
     traj_r["time"] = pd.to_numeric(traj_r["time"], errors="coerce")
+    traj_ph["time"] = pd.to_numeric(traj_ph["time"], errors="coerce")
 
     # observed must have protein,time,fc
     for df_name, df in [("df_prot_obs_all", df_prot_obs_all), ("df_rna_obs_all", df_rna_obs_all)]:
         for col in ["protein", "time", "fc"]:
-            if col not in df.columns:
+            if col not in df.columns and not df.empty:
                 raise ValueError(f"{df_name} must have columns: protein,time,fc. Missing: {col}")
+
+    for df_name, df in [("df_phos_obs_all", df_phos_obs_all)]:
+        for col in ["protein", "psite", "time", "fc"]:
+            if col not in df.columns and not df.empty:
+                raise ValueError(f"{df_name} must have columns: protein,psite,time,fc. Missing: {col}")
 
     # loop solutions
     for sid in sol_ids:
@@ -434,6 +490,7 @@ def plot_gof_from_pareto_excel(
 
         sub_p = traj_p[traj_p["sol_id"] == sid].copy()
         sub_r = traj_r[traj_r["sol_id"] == sid].copy()
+        sub_ph = traj_ph[traj_ph["sol_id"] == sid].copy()
 
         if sub_p.empty and sub_r.empty:
             continue
@@ -442,6 +499,7 @@ def plot_gof_from_pareto_excel(
         # df_*_pred must have columns: protein,time,pred_fc
         df_prot_pred = sub_p[["protein", "time", "pred_fc"]].copy()
         df_rna_pred = sub_r[["protein", "time", "pred_fc"]].copy()
+        df_phos_pred = sub_ph[["protein", "psite", "time", "pred_fc"]].copy()
 
         # observed: subset to the times/proteins present in preds (keeps merge tight)
         if not df_prot_pred.empty:
@@ -456,6 +514,12 @@ def plot_gof_from_pareto_excel(
         else:
             df_rna_obs = df_rna_obs_all.iloc[0:0].copy()
 
+        if not df_phos_pred.empty:
+            keys_ph = df_phos_pred[["protein", "psite", "time"]].drop_duplicates()
+            df_phos_obs = df_phos_obs_all.merge(keys_ph, on=["protein", "psite", "time"], how="inner")
+        else:
+            df_phos_obs = df_phos_obs_all.iloc[0:0].copy()
+
         sol_dir = output_dir
 
         plot_goodness_of_fit_func(
@@ -463,6 +527,8 @@ def plot_gof_from_pareto_excel(
             df_prot_pred=df_prot_pred,
             df_rna_obs=df_rna_obs,
             df_rna_pred=df_rna_pred,
+            df_phos_obs=df_phos_obs,
+            df_phos_pred=df_phos_pred,
             output_dir=sol_dir,
             file_prefix=f"sol_{sid}_"
         )
@@ -470,7 +536,7 @@ def plot_gof_from_pareto_excel(
     print(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
 
 
-def export_results(sys, idx, df_prot_obs, df_rna_obs, df_pred_p, df_pred_r, output_dir):
+def export_results(sys, idx, df_prot_obs, df_rna_obs, df_phos_obs, df_pred_p, df_pred_r, df_pred_ph, output_dir):
     """
     Exports results using PRE-CALCULATED prediction dataframes.
     Avoids re-running the simulation.
@@ -490,9 +556,15 @@ def export_results(sys, idx, df_prot_obs, df_rna_obs, df_pred_p, df_pred_r, outp
     merged_r = obs_r.merge(pred_r, on=["protein", "time"], how="outer")
     merged_r["type"] = "RNA"
 
+    # 3. Merge Phosphorylation
+    obs_ph = df_phos_obs.rename(columns={"fc": "fc_obs"})
+    pred_ph = df_pred_ph.rename(columns={"pred_fc": "fc_pred"})
+    merged_ph = obs_ph.merge(pred_ph, on=["protein", "psite", "time"], how="outer")
+    merged_ph["type"] = "Phosphorylation"
+
     # 3. Combine & Save
-    full_traj = pd.concat([merged_p, merged_r], ignore_index=True)
-    full_traj = full_traj[["type", "protein", "time", "fc_obs", "fc_pred"]]
+    full_traj = pd.concat([merged_p, merged_r, merged_ph], ignore_index=True)
+    full_traj = full_traj[["type", "protein", "psite", "time", "fc_obs", "fc_pred"]]
     full_traj.sort_values(["type", "protein", "time"], inplace=True)
 
     full_traj.to_csv(os.path.join(output_dir, "model_trajectories.csv"), index=False)
@@ -505,89 +577,123 @@ def export_results(sys, idx, df_prot_obs, df_rna_obs, df_pred_p, df_pred_r, outp
         "Synthesis_A": sys.A_i,
         "mRNA_Degradation_B": sys.B_i,
         "Translation_C": sys.C_i,
-        "Protein_Degradation_D": sys.D_i
+        "Protein_Degradation_D": sys.D_i,
+        "Phosphorylation_E": sys.E_i
     })
+
     df_params["Global_TF_Scale"] = sys.tf_scale
     df_params.to_csv(os.path.join(output_dir, "model_parameters_genes.csv"), index=False)
 
     df_kin_params = pd.DataFrame({
         "Kinase": idx.kinases,
-        "Activity_Scale_ck": sys.c_k
+        "Activity_Scale_ck": sys.c_k,
     })
+
     df_kin_params.to_csv(os.path.join(output_dir, "model_parameters_kinases.csv"), index=False)
 
     print(f"[Output] Exports saved to {output_dir}")
 
 
 def save_gene_timeseries_plots(
-        gene: str,
-        df_prot_obs: pd.DataFrame,
-        df_prot_pred: pd.DataFrame,
-        df_rna_obs: pd.DataFrame,
-        df_rna_pred: pd.DataFrame,
-        output_dir: str,
-        prot_times: np.ndarray = None,
-        rna_times: np.ndarray = None,
-        filename_prefix: str = "ts",
-        dpi: int = 300,
+    gene: str,
+    df_prot_obs: pd.DataFrame,
+    df_prot_pred: pd.DataFrame,
+    df_rna_obs: pd.DataFrame,
+    df_rna_pred: pd.DataFrame,
+    df_phos_obs: pd.DataFrame,
+    df_phos_pred: pd.DataFrame,
+    output_dir: str,
+    prot_times: np.ndarray = None,
+    rna_times: np.ndarray = None,
+    phos_times: np.ndarray = None,
+    filename_prefix: str = "ts",
+    dpi: int = 300,
+    phos_mode: str = "per-psite",   # "mean" or "per_psite"
+    max_psites: int = None,      # only used for per_psite
 ):
     """
-    Save a 2-panel time-series plot for ONE gene symbol:
-      - Top: Protein observed vs predicted FC across TIME_POINTS_PROTEIN
-      - Bottom: mRNA observed vs predicted FC across TIME_POINTS_RNA
+    Save a 3-panel time-series plot for ONE gene symbol:
+      - Protein observed vs predicted (fc vs fc_pred)
+      - RNA observed vs predicted
+      - Phosphorylation observed vs predicted (either mean across psites or per-psite lines)
 
     Expected inputs:
-      df_*_obs  columns:  protein, time, fc
-      df_*_pred columns: protein, time, pred_fc   (or fc_pred; handled)
+      Protein/RNA obs columns:  protein, time, fc
+      Protein/RNA pred columns: protein, time, pred_fc OR fc_pred
+
+      Phospho obs columns:  protein, psite, time, fc
+      Phospho pred columns: protein, psite, time, pred_fc OR fc_pred
 
     Output:
       {output_dir}/{filename_prefix}_{gene}.png
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # ---- normalize column names for predicted dfs ----
     def _norm_pred(df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
-        if "pred_fc" in df.columns and "fc_pred" not in df.columns:
+        if "fc_pred" not in df.columns and "pred_fc" in df.columns:
             df.rename(columns={"pred_fc": "fc_pred"}, inplace=True)
         if "fc_pred" not in df.columns:
-            raise ValueError("Pred df must have 'pred_fc' or 'fc_pred' column.")
+            raise ValueError(f"Pred df must have 'pred_fc' or 'fc_pred'. Got: {list(df.columns)}")
         return df
 
-    prot_pred = _norm_pred(df_prot_pred)
-    rna_pred = _norm_pred(df_rna_pred)
+    def _clean_ts(df: pd.DataFrame, value_col: str, time_col: str = "time") -> pd.DataFrame:
+        if df is None or df.empty:
+            return df
+        out = df.copy()
+        out[time_col] = pd.to_numeric(out[time_col], errors="coerce")
+        out[value_col] = pd.to_numeric(out[value_col], errors="coerce")
+        out.dropna(subset=[time_col, value_col], inplace=True)
+        out.sort_values(time_col, inplace=True)
+        return out
 
-    # ---- subset one gene ----
-    p_obs = df_prot_obs[df_prot_obs["protein"] == gene].copy()
-    p_pre = prot_pred[prot_pred["protein"] == gene].copy()
-    r_obs = df_rna_obs[df_rna_obs["protein"] == gene].copy()
-    r_pre = rna_pred[rna_pred["protein"] == gene].copy()
+    # Normalize preds
+    prot_pred = _norm_pred(df_prot_pred) if df_prot_pred is not None else pd.DataFrame()
+    rna_pred  = _norm_pred(df_rna_pred)  if df_rna_pred  is not None else pd.DataFrame()
+    phos_pred = _norm_pred(df_phos_pred) if df_phos_pred is not None else pd.DataFrame()
 
-    if p_obs.empty and p_pre.empty and r_obs.empty and r_pre.empty:
-        # nothing to plot
+    # Subset gene
+    p_obs = df_prot_obs[df_prot_obs["protein"] == gene].copy() if df_prot_obs is not None else pd.DataFrame()
+    p_pre = prot_pred[prot_pred["protein"] == gene].copy() if not prot_pred.empty else pd.DataFrame()
+
+    r_obs = df_rna_obs[df_rna_obs["protein"] == gene].copy() if df_rna_obs is not None else pd.DataFrame()
+    r_pre = rna_pred[rna_pred["protein"] == gene].copy() if not rna_pred.empty else pd.DataFrame()
+
+    ph_obs = df_phos_obs[df_phos_obs["protein"] == gene].copy() if df_phos_obs is not None else pd.DataFrame()
+    ph_pre = phos_pred[phos_pred["protein"] == gene].copy() if not phos_pred.empty else pd.DataFrame()
+
+    # If truly nothing exists, bail
+    if p_obs.empty and p_pre.empty and r_obs.empty and r_pre.empty and ph_obs.empty and ph_pre.empty:
         return None
 
-    # optional: restrict to known grids
+    # Optional time filtering
     if prot_times is not None:
         p_obs = p_obs[p_obs["time"].isin(prot_times)]
         p_pre = p_pre[p_pre["time"].isin(prot_times)]
     if rna_times is not None:
         r_obs = r_obs[r_obs["time"].isin(rna_times)]
         r_pre = r_pre[r_pre["time"].isin(rna_times)]
+    if phos_times is not None:
+        ph_obs = ph_obs[ph_obs["time"].isin(phos_times)]
+        ph_pre = ph_pre[ph_pre["time"].isin(phos_times)]
 
-    # ensure numeric + sorted
-    for df, col in [(p_obs, "fc"), (r_obs, "fc"), (p_pre, "fc_pred"), (r_pre, "fc_pred")]:
-        if not df.empty:
-            df["time"] = pd.to_numeric(df["time"], errors="coerce")
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-            df.dropna(subset=["time", col], inplace=True)
-            df.sort_values("time", inplace=True)
+    # Clean numeric + sort
+    p_obs = _clean_ts(p_obs, "fc")
+    p_pre = _clean_ts(p_pre, "fc_pred")
+    r_obs = _clean_ts(r_obs, "fc")
+    r_pre = _clean_ts(r_pre, "fc_pred")
 
-    # ---- plot ----
-    fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=False)
-    ax_p, ax_r = axes
+    # phospho cleaning (needs psite too, but same numeric cleaning)
+    if not ph_obs.empty:
+        ph_obs = _clean_ts(ph_obs, "fc")
+    if not ph_pre.empty:
+        ph_pre = _clean_ts(ph_pre, "fc_pred")
 
-    # Protein panel
+    # ---- Plot ----
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=False)
+    ax_p, ax_r, ax_ph = axes
+
+    # Protein
     if not p_obs.empty:
         ax_p.plot(p_obs["time"].to_numpy(), p_obs["fc"].to_numpy(), marker="o", linewidth=2, label="Protein obs")
     if not p_pre.empty:
@@ -598,7 +704,7 @@ def save_gene_timeseries_plots(
     ax_p.grid(True, alpha=0.3)
     ax_p.legend()
 
-    # RNA panel
+    # RNA
     if not r_obs.empty:
         ax_r.plot(r_obs["time"].to_numpy(), r_obs["fc"].to_numpy(), marker="o", linewidth=2, label="mRNA obs")
     if not r_pre.empty:
@@ -609,7 +715,46 @@ def save_gene_timeseries_plots(
     ax_r.grid(True, alpha=0.3)
     ax_r.legend()
 
-    fig.suptitle(f"Observed vs Predicted Time Series — {gene}", y=0.98)
+    # Phospho
+    ax_ph.set_title(f"{gene} — Phosphorylation")
+    ax_ph.set_xlabel("Time")
+    ax_ph.set_ylabel("FC")
+    ax_ph.grid(True, alpha=0.3)
+
+    if phos_mode not in {"mean", "per_psite"}:
+        raise ValueError("phos_mode must be 'mean' or 'per_psite'")
+
+    if not ph_obs.empty or not ph_pre.empty:
+        if phos_mode == "mean":
+            # mean across psites at each time
+            if not ph_obs.empty:
+                obs_mean = ph_obs.groupby("time", as_index=False)["fc"].mean()
+                ax_ph.plot(obs_mean["time"].to_numpy(), obs_mean["fc"].to_numpy(),
+                           marker="o", linewidth=2, label="Phos obs (mean)")
+            if not ph_pre.empty:
+                pre_mean = ph_pre.groupby("time", as_index=False)["fc_pred"].mean()
+                ax_ph.plot(pre_mean["time"].to_numpy(), pre_mean["fc_pred"].to_numpy(),
+                           marker="o", linewidth=2, label="Phos pred (mean)")
+        else:
+            # per-psite lines (capped)
+            psites = sorted(set(ph_obs["psite"].unique()).union(set(ph_pre["psite"].unique()))) if ("psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
+
+            # if len(psites) > max_psites:
+            #     psites = psites[:max_psites]
+
+            for ps in psites:
+                if not ph_obs.empty:
+                    subo = ph_obs[ph_obs["psite"] == ps]
+                    if not subo.empty:
+                        ax_ph.plot(subo["time"].to_numpy(), subo["fc"].to_numpy(), marker="o", linewidth=1, label=f"obs {ps}")
+                if not ph_pre.empty:
+                    subp = ph_pre[ph_pre["psite"] == ps]
+                    if not subp.empty:
+                        ax_ph.plot(subp["time"].to_numpy(), subp["fc_pred"].to_numpy(), marker="o", linewidth=1, label=f"pred {ps}")
+
+        ax_ph.legend(ncol=2, fontsize=8)
+
+    fig.suptitle(f"Observed vs Predicted Time Series — {gene}", y=0.995)
     fig.tight_layout()
 
     out_path = os.path.join(output_dir, f"{filename_prefix}_{gene}.png")
@@ -619,47 +764,70 @@ def save_gene_timeseries_plots(
 
 def scan_prior_reg(out_dir):
     F = np.load(os.path.join(out_dir, "pareto_F.npy"))
-    X = np.load(os.path.join(out_dir, "pareto_X.npy"))
+    X = np.load(os.path.join(out_dir, "pareto_X.npy"))  # not used here, but kept for consistency
 
-    # ---- define scan grid (simple log grids) ----
-    lambda_rna_grid   = np.logspace(-2, 2, 9)     # 0.01 .. 100
-    lambda_prior_grid = np.logspace(-4, 0, 9)     # 1e-4 .. 1
+    if F.ndim != 2 or F.shape[1] != 3:
+        raise ValueError(f"Expected F shape (n, 3) = [prot_mse, rna_mse, phospho_mse]. Got {F.shape}")
+
+    lambda_prot_grid  = np.logspace(-2, 2, 9)   # 0.01 .. 100
+    lambda_rna_grid   = np.logspace(-2, 2, 9)   # 0.01 .. 100
+    lambda_phos_grid  = np.logspace(-2, 2, 9)   # 0.01 .. 100
+    lambda_prior_grid = np.logspace(-4, 0, 9)   # 1e-4 .. 1
+
+    prot = F[:, 0].astype(float)
+    rna  = F[:, 1].astype(float)
+    phos = F[:, 2].astype(float)
 
     rows = []
-    for lr in lambda_rna_grid:
-        for lp in lambda_prior_grid:
-            weights = np.array([1.0, lr, lp], dtype=float)
-            best_i, best_score = pick_best_lamdas(F, weights)
+    for lprot in lambda_prot_grid:
+        for lrna in lambda_rna_grid:
+            for լph in lambda_phos_grid:
+                base = (float(lprot) * prot) + (float(lrna) * rna) + (float(լph) * phos)
 
-            rows.append({
-                "lambda_rna": lr,
-                "lambda_prior": lp,
-                "best_i": best_i,
-                "best_score": best_score,
-                "prot_mse": float(F[best_i, 0]),
-                "rna_mse": float(F[best_i, 1]),
-                "reg_loss": float(F[best_i, 2]),
-            })
+                for lprior in lambda_prior_grid:
+                    if float(lprior) <= 0:
+                        raise ValueError("lambda_prior must be > 0 to preserve ordering / meaning.")
 
-    df = pd.DataFrame(rows).sort_values(["lambda_rna", "lambda_prior"])
+                    score = float(lprior) * base
+                    best_i = int(np.argmin(score))
+                    best_score = float(score[best_i])
+
+                    rows.append({
+                        "lambda_prot": float(lprot),
+                        "lambda_rna": float(lrna),
+                        "lambda_phospho": float(լph),
+                        "lambda_prior": float(lprior),
+                        "best_i": best_i,
+                        "best_score": best_score,
+                        "prot_mse": float(prot[best_i]),
+                        "rna_mse": float(rna[best_i]),
+                        "phospho_mse": float(phos[best_i]),
+                    })
+
+    df = pd.DataFrame(rows).sort_values(
+        ["lambda_prot", "lambda_rna", "lambda_phospho", "lambda_prior"],
+        ignore_index=True
+    )
     df.to_csv(os.path.join(out_dir, "lambda_scan.csv"), index=False)
 
     # also save the unique picked solutions (often repeats)
     uniq = df.drop_duplicates("best_i").copy()
     uniq.to_csv(os.path.join(out_dir, "lambda_scan_unique_picks.csv"), index=False)
 
-    # write one “recommended” choice: lowest prot_mse among solutions with rna_mse not crazy
-    # (adjust this rule to taste)
-    cand = uniq.sort_values(["prot_mse", "rna_mse", "reg_loss"]).head(1).iloc[0]
+    # “recommended” choice: pick the best (prot, then rna, then phos) among unique picks
+    cand = uniq.sort_values(["prot_mse", "rna_mse", "phospho_mse"], ignore_index=True).iloc[0]
     rec = {
+        "lambda_prot": float(cand["lambda_prot"]),
         "lambda_rna": float(cand["lambda_rna"]),
+        "lambda_phospho": float(cand["lambda_phospho"]),
         "lambda_prior": float(cand["lambda_prior"]),
         "best_i": int(cand["best_i"]),
         "objectives": {
             "prot_mse": float(cand["prot_mse"]),
             "rna_mse": float(cand["rna_mse"]),
-            "reg_loss": float(cand["reg_loss"]),
-        }
+            "phospho_mse": float(cand["phospho_mse"]),
+        },
+        "note": "lambda_prior is a global multiplier; it does not change best_i for fixed F (only rescales best_score).",
     }
     with open(os.path.join(out_dir, "lambda_scan_recommended.json"), "w") as f:
         json.dump(rec, f, indent=2)
@@ -668,3 +836,5 @@ def scan_prior_reg(out_dir):
     print(" - lambda_scan.csv")
     print(" - lambda_scan_unique_picks.csv")
     print(" - lambda_scan_recommended.json")
+
+    return df, uniq, rec

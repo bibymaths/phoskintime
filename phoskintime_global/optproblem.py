@@ -32,11 +32,12 @@ class GlobalODE_MOO(ElementwiseProblem):
         self.fail_value = float(fail_value)
 
     def _evaluate(self, x, out, *args, **kwargs):
+
         # 1) unpack + update
         p = unpack_params(x, self.slices)
         self.sys.update(**p)
 
-        # 2) reg term (same as before, but keep as separate objective)
+        # 2) regularization penalty
         reg = 0.0
         count = 0
         for k in ["A_i", "B_i", "C_i", "D_i", "E_i"]:
@@ -44,8 +45,11 @@ class GlobalODE_MOO(ElementwiseProblem):
             reg += float(np.sum(diff * diff))
             count += diff.size
         reg_loss = self.lambdas["prior"] * (reg / max(1, count))
+        reg_protein = self.lambdas["protein"] * (reg / max(1, self.loss_data["n_p"]))
+        reg_rna = self.lambdas["rna"] * (reg / max(1, self.loss_data["n_r"]))
+        reg_phospho = self.lambdas["phospho"] * (reg / max(1, self.loss_data["n_ph"]))
 
-        # 3) simulate (odeint + njit RHS + njit Jacobian)
+        # 3) simulate
         try:
             Y = simulate_odeint(
                 self.sys,
@@ -62,19 +66,25 @@ class GlobalODE_MOO(ElementwiseProblem):
             out["F"] = np.array([self.fail_value, self.fail_value, self.fail_value], dtype=float)
             return
 
-        # Ensure (T, state_dim) contiguous
         Y = np.ascontiguousarray(Y)
-        loss_p_sum, loss_r_sum = LOSS_FN(
+
+        loss_p_sum, loss_r_sum, loss_ph_sum = LOSS_FN(
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
-            self.loss_data["p_rna"], self.loss_data["t_rna"], self.loss_data["obs_rna"], self.loss_data["w_rna"],
+            self.loss_data["p_rna"],  self.loss_data["t_rna"],  self.loss_data["obs_rna"],  self.loss_data["w_rna"],
+            self.loss_data["p_pho"],  self.loss_data["t_pho"],  self.loss_data["obs_pho"],  self.loss_data["w_pho"],
             self.loss_data["prot_map"], self.loss_data["rna_base_idx"]
         )
 
-        prot_mse = loss_p_sum / self.loss_data["n_p"]
-        rna_mse = loss_r_sum / self.loss_data["n_r"]
+        prot_mse = loss_p_sum  / self.loss_data["n_p"]
+        rna_mse  = loss_r_sum  / self.loss_data["n_r"]
+        pho_mse  = loss_ph_sum / self.loss_data["n_ph"]
 
-        out["F"] = np.array([prot_mse, rna_mse, reg_loss], dtype=float)
+        prot_obj = prot_mse * reg_protein * reg_loss
+        rna_obj  = rna_mse * reg_rna * reg_loss
+        pho_obj  = pho_mse * reg_phospho * reg_loss
+
+        out["F"] = np.array([prot_obj, rna_obj, pho_obj], dtype=float)
 
 def get_weight_options(
     time_points,

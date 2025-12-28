@@ -3,32 +3,105 @@ import numpy as np
 from phoskintime_global.config import MODEL
 
 
-def prepare_fast_loss_data(idx, df_prot, df_rna, time_grid):
-    t_map = {t: i for i, t in enumerate(time_grid)}
+def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
+    t_map = {float(t): i for i, t in enumerate(np.asarray(time_grid, dtype=float))}
 
-    def get_indices(df, p2i_map):
-        p_idxs = np.array([p2i_map[p] for p in df["protein"].values], dtype=np.int32)
-        t_idxs = np.array([t_map[t] for t in df["time"].values], dtype=np.int32)
-        obs = df["fc"].values.astype(np.float64)
-        ws = df["w"].values.astype(np.float64)
-        return p_idxs, t_idxs, obs, ws
+    def _map_times(t_arr):
+        t_arr = np.asarray(t_arr, dtype=float)
+        out = np.empty(t_arr.shape[0], dtype=np.int32)
+        for i, t in enumerate(t_arr):
+            if t not in t_map:
+                raise ValueError(
+                    f"Time {t} not found in time_grid. "
+                    f"Fix by rounding/normalizing times or passing the correct grid."
+                )
+            out[i] = t_map[t]
+        return out
 
-    p_prot, t_prot, obs_prot, w_prot = get_indices(df_prot, idx.p2i)
-    p_rna, t_rna, obs_rna, w_rna = get_indices(df_rna, idx.p2i)
+    def get_indices_basic(df, p2i_map):
+        # protein indices
+        prots = df["protein"].values
+        p_idxs = np.empty(len(prots), dtype=np.int32)
+        for i, p in enumerate(prots):
+            if p not in p2i_map:
+                raise ValueError(f"Protein '{p}' not in idx.p2i (interaction network index).")
+            p_idxs[i] = p2i_map[p]
 
+        # time indices
+        t_idxs = _map_times(df["time"].values)
+
+        # obs + weights
+        obs = np.ascontiguousarray(df["fc"].values, dtype=np.float64)
+        if "w" in df.columns:
+            ws = np.ascontiguousarray(df["w"].values, dtype=np.float64)
+        else:
+            ws = np.ones(len(df), dtype=np.float64)
+
+        return (np.ascontiguousarray(p_idxs, dtype=np.int32),
+                np.ascontiguousarray(t_idxs, dtype=np.int32),
+                obs,
+                ws)
+
+    # --- phospho needs site indices ---
+    # build per-protein dict: psite -> site_index
+    site_maps = []
+    for i in range(idx.N):
+        mp = {s: j for j, s in enumerate(idx.sites[i])}
+        site_maps.append(mp)
+
+    def get_indices_phospho(df):
+        prots = df["protein"].values
+        psite = df["psite"].values
+
+        p_idxs = np.empty(len(prots), dtype=np.int32)
+        s_idxs = np.empty(len(prots), dtype=np.int32)
+
+        for r in range(len(prots)):
+            p = prots[r]
+            if p not in idx.p2i:
+                raise ValueError(f"Protein '{p}' not in idx.p2i (interaction network index).")
+            pi = idx.p2i[p]
+            p_idxs[r] = pi
+
+            s = psite[r]
+            if s not in site_maps[pi]:
+                # Drop phospho sites not in the network
+                continue
+            s_idxs[r] = site_maps[pi][s]
+
+        t_idxs = _map_times(df["time"].values)
+
+        obs = np.ascontiguousarray(df["fc"].values, dtype=np.float64)
+        if "w" in df.columns:
+            ws = np.ascontiguousarray(df["w"].values, dtype=np.float64)
+        else:
+            ws = np.ones(len(df), dtype=np.float64)
+
+        return (np.ascontiguousarray(p_idxs, dtype=np.int32),
+                np.ascontiguousarray(s_idxs, dtype=np.int32),
+                np.ascontiguousarray(t_idxs, dtype=np.int32),
+                obs,
+                ws)
+
+    p_prot, t_prot, obs_prot, w_prot = get_indices_basic(df_prot, idx.p2i)
+    p_rna,  t_rna,  obs_rna,  w_rna  = get_indices_basic(df_rna,  idx.p2i)
+    p_pho,  s_pho,  t_pho,  obs_pho,  w_pho  = get_indices_phospho(df_pho)
+
+    # prot_map: start offset and "count" (depends on MODEL)
+    # For MODEL!=2: your state layout is [R, P, P1..Pns], so totals depend on how loss uses this.
     prot_map = np.zeros((idx.N, 2), dtype=np.int32)
     for i in range(idx.N):
         sl = idx.block(i)
         prot_map[i, 0] = sl.start
-        if MODEL == 2:
-            prot_map[i, 1] = idx.n_states[i]
-        else:
-            prot_map[i, 1] = idx.n_sites[i]
+        prot_map[i, 1] = int(idx.n_states[i]) if MODEL == 2 else int(idx.n_sites[i])
 
     return {
         "p_prot": p_prot, "t_prot": t_prot, "obs_prot": obs_prot, "w_prot": w_prot,
-        "p_rna": p_rna, "t_rna": t_rna, "obs_rna": obs_rna, "w_rna": w_rna,
-        "prot_map": prot_map,
-        "n_p": max(1, len(obs_prot)),
-        "n_r": max(1, len(obs_rna))
+        "p_rna":  p_rna,  "t_rna":  t_rna,  "obs_rna":  obs_rna,  "w_rna":  w_rna,
+        "p_pho":  p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
+        "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
+        "n_p":  max(1, len(obs_prot)),
+        "n_r":  max(1, len(obs_rna)),
+        "n_ph": max(1, len(obs_pho)),
     }
+

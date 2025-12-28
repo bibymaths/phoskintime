@@ -19,4 +19,6 @@ POPULATION_SIZE = cfg.population_size
 SEED = cfg.seed
 REGULARIZATION_RNA = cfg.regularization_rna
 REGULARIZATION_LAMBDA = cfg.regularization_lambda
+REGULARIZATION_PHOSPHO = cfg.regularization_phospho
+REGULARIZATION_PROTEIN = cfg.regularization_protein
 RESULTS_DIR = cfg.results_dir
