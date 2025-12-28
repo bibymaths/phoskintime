@@ -707,7 +707,7 @@ def export_results(
         psite_list = psites_by_protein.get(prot, [])
         for psite in psite_list:
             j = site_to_j.get(psite, None)
-            dp_val = float(sys.Dp_s[s0 + j]) if j is not None else np.nan
+            dp_val = float(sys.Dp_i[s0 + j]) if j is not None else np.nan
 
             rows.append(
                 {
@@ -841,7 +841,7 @@ def save_gene_timeseries_plots(
         ph_pre = _clean_ts(ph_pre, "fc_pred")
 
     # ---- Plot ----
-    fig, axes = plt.subplots(1, 3, figsize=(12, 6), sharex=False)
+    fig, axes = plt.subplots(1, 3, figsize=(20, 8), sharex=False)
     ax_p, ax_r, ax_ph = axes
     prot_c = "C0"
     rna_c = "C1"
@@ -1079,138 +1079,3 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
     df.to_csv(out_path, index=False)
     print(f"[Output] Saved S rates to: {out_path}")
     return df
-
-def export_S_rates_with_times(
-    sys,
-    idx,
-    output_dir: str,
-    filename: str = "S_rates.csv",
-    long: bool = True,
-    times: np.ndarray | None = None,
-    site_ids: list | np.ndarray | None = None,
-    float_format: str = "%.8g",
-    chunksize_sites: int = 200_000,
-) -> str:
-    """
-    Export phosphorylation rates S(t) for each site across time.
-
-    Assumes stepwise-hold kinase input:
-        K(t) = sys.kin_input.eval(t)   # shape: (num_kinases,)
-        S(t) = sys.W_global.dot( K(t) * sys.c_k )
-
-    Parameters
-    ----------
-    sys : system object
-        Must provide:
-          - sys.W_global : (n_sites x n_kinases) dense or sparse matrix
-          - sys.kin_input : KinaseInput-like object with .grid and .eval(t)
-        Optional:
-          - sys.c_k : (n_kinases,) scaling vector (defaults to ones)
-          - sys.site_ids : identifiers for sites (defaults to 0..n_sites-1)
-    idx : int
-        Solution index (written into output).
-    output_dir : str
-        Directory to save into (created if missing).
-    filename : str
-        Output CSV filename.
-    long : bool
-        If True: long format (idx,time,site,S). If False: wide format.
-    times : array-like or None
-        If None, uses sys.kin_input.grid
-    site_ids : array-like or None
-        If None, tries sys.site_ids else uses integers 0..n_sites-1
-    float_format : str
-        Float format for CSV.
-    chunksize_sites : int
-        Only used for long=True to stream large outputs without huge memory.
-
-    Returns
-    -------
-    str
-        Full path to the written CSV.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, filename)
-
-    kin_input = getattr(sys, "kin_input", None)
-    if kin_input is None or not hasattr(kin_input, "eval"):
-        raise AttributeError("sys must have sys.kin_input with an eval(t) method (KinaseInput).")
-
-    if times is None:
-        grid = getattr(kin_input, "grid", None)
-        if grid is None:
-            raise AttributeError("times is None and sys.kin_input.grid is missing.")
-        times = np.asarray(grid, dtype=float)
-    else:
-        times = np.asarray(times, dtype=float)
-
-    W = getattr(sys, "W_global", None)
-    if W is None:
-        raise AttributeError("sys must have sys.W_global matrix.")
-
-    n_sites = int(W.shape[0])
-
-    c_k = getattr(sys, "c_k", None)
-    if c_k is None:
-        # default: no scaling
-        # infer n_kinases from W
-        c_k = np.ones(int(W.shape[1]), dtype=float)
-    else:
-        c_k = np.asarray(c_k, dtype=float)
-
-    if site_ids is None:
-        site_ids = getattr(sys, "site_ids", None)
-    if site_ids is None:
-        site_ids = np.arange(n_sites)
-    else:
-        site_ids = np.asarray(site_ids)
-        if site_ids.shape[0] != n_sites:
-            raise ValueError(f"site_ids length {site_ids.shape[0]} != n_sites {n_sites}")
-
-    # ---- helper: compute S(t) ----
-    def _S_at_time(t: float) -> np.ndarray:
-        Kt = np.asarray(kin_input.eval(float(t)), dtype=float)  # (n_kinases,)
-        if Kt.shape[0] != W.shape[1]:
-            raise ValueError(f"kin_input.eval(t) length {Kt.shape[0]} != n_kinases {W.shape[1]}")
-        Kt = Kt * c_k
-        St = W.dot(Kt)  # works for numpy arrays and scipy sparse
-        return np.asarray(St).reshape(-1)
-
-    # ---- write output ----
-    if not long:
-        # Wide format: rows = times, columns = sites (WARNING: can be huge)
-        data = np.empty((times.size, n_sites), dtype=float)
-        for i, t in enumerate(times):
-            data[i, :] = _S_at_time(float(t))
-
-        df = pd.DataFrame(data, columns=[f"S_{sid}" for sid in site_ids])
-        df.insert(0, "time", times)
-        df.insert(0, "idx", idx)
-        df.to_csv(out_path, index=False, float_format=float_format)
-        return out_path
-
-    # Long format: stream to CSV to avoid big memory
-    # Columns: idx,time,site,S
-    header_written = False
-    for t in times:
-        Svec = _S_at_time(float(t))
-
-        # stream in chunks across sites
-        for start in range(0, n_sites, chunksize_sites):
-            end = min(start + chunksize_sites, n_sites)
-            df_chunk = pd.DataFrame({
-                "idx": idx,
-                "time": float(t),
-                "site": site_ids[start:end],
-                "S": Svec[start:end],
-            })
-            df_chunk.to_csv(
-                out_path,
-                index=False,
-                mode="a",
-                header=(not header_written),
-                float_format=float_format,
-            )
-            header_written = True
-
-    return out_path

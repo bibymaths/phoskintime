@@ -25,7 +25,7 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates, export_S_rates_with_times
+    scan_prior_reg, export_S_rates
 
 
 def main():
@@ -280,16 +280,6 @@ def main():
     # Save the phosphorylation rates
     export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
     print("[Output] Saved phosphorylation rates for picked solution.")
-
-    export_S_rates_with_times(
-        sys,
-        idx,
-        args.output_dir,
-        filename="S_rates_picked_times.csv",
-        times=TIME_POINTS_PHOSPHO,
-    )
-
-    print("[Output] Saved phosphorylation rates for picked solution at specific times.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
