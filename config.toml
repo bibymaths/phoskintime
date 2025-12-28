@@ -7,6 +7,7 @@ default_language = "en"
 enable_logging = true
 log_level = "info"
 data_directory = "data"
+output_directory = "out"
 
 [timepoints]
 protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
@@ -24,7 +25,7 @@ tf_scale = [0.01, 0.5]
 
 [models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "distributive"
+default_model = "sequential"
 model_description = """
 - distributive: Each phosphorylation occurs independently for each site on the protein.
 - sequential: Phosphorylation occurs in a specific order, one site after another.
@@ -32,7 +33,13 @@ model_description = """
 """
 
 [optimization]
-max_optimization_iterations = 1000
+max_iterations = 100
+population_size = 25
+seed = 42
+
+[regularization]
+lambda = 1e-4
+rna = 1.0
 
 [solver]
 absolute_tolerance = 1e-5

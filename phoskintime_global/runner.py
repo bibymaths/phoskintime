@@ -13,7 +13,8 @@ from pymoo.optimize import minimize as pymoo_minimize
 
 from phoskintime_global.buildmat import build_W_parallel, build_tf_matrix
 from phoskintime_global.cache import prepare_fast_loss_data
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
+from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
+    POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA
 from phoskintime_global.io import load_data
 from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO
@@ -31,17 +32,17 @@ def main():
     parser.add_argument("--tf-net", required=True)
     parser.add_argument("--ms", required=True)
     parser.add_argument("--rna", required=True)
-    parser.add_argument("--output-dir", default="out_unsga3")
+    parser.add_argument("--output-dir", default=RESULTS_DIR)
     parser.add_argument("--cores", type=int, default=os.cpu_count())
 
     # Pymoo
-    parser.add_argument("--n-gen", type=int, default=1000)
-    parser.add_argument("--pop", type=int, default=500)
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--n-gen", type=int, default=MAX_ITERATIONS)
+    parser.add_argument("--pop", type=int, default=POPULATION_SIZE)
+    parser.add_argument("--seed", type=int, default=SEED)
 
     # Loss weights
-    parser.add_argument("--lambda-prior", type=float, default=1e-4)
-    parser.add_argument("--lambda-rna", type=float, default=1.0)
+    parser.add_argument("--lambda-prior", type=float, default=REGULARIZATION_LAMBDA)
+    parser.add_argument("--lambda-rna", type=float, default=REGULARIZATION_RNA)
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)

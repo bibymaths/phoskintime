@@ -109,6 +109,13 @@ class PhosKinConfig:
     ode_abs_tol: float
     ode_rel_tol: float
     ode_max_steps: int
+    maximum_iterations: int
+    population_size: int
+    seed: int
+    regularization_rna: float
+    regularization_lambda: float
+    results_dir: str | Path
+
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
     path = Path(path)
@@ -128,6 +135,12 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     ode_abs_tol = cfg["solver"]["absolute_tolerance"]
     ode_rel_tol = cfg["solver"]["relative_tolerance"]
     ode_max_steps = cfg["solver"]["max_timesteps"]
+    max_iter = cfg["optimization"]["max_iterations"]
+    pop_size = cfg["optimization"]["population_size"]
+    seed = cfg["optimization"]["seed"]
+    reg_rna = cfg["regularization"]["rna"]
+    reg_lambda = cfg["regularization"]["lambda"]
+    res_dir = cfg["general"]["output_directory"]
 
     b = cfg["bounds"]
     bounds_config: dict[str, tuple[float, float]] = {}
@@ -147,5 +160,11 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         model=model,
         ode_abs_tol=ode_abs_tol,
         ode_rel_tol=ode_rel_tol,
-        ode_max_steps=ode_max_steps
+        ode_max_steps=ode_max_steps,
+        maximum_iterations=max_iter,
+        population_size=pop_size,
+        seed=seed,
+        regularization_rna=reg_rna,
+        regularization_lambda=reg_lambda,
+        results_dir=res_dir
     )
