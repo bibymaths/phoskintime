@@ -20,10 +20,9 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     y0 = sys.y0().astype(np.float64)
 
     if MODEL == 2:
-        Kt_mat = sys.kin_Kmat * sys.c_k[:, None]
-        S_cache = sys.W_global.dot(Kt_mat)
-        S_cache = np.asarray(S_cache, dtype=np.float64)
-        S_cache = np.ascontiguousarray(S_cache)
+        S_cache = sys.W_global.dot(sys.kin_Kmat * sys.c_k[:, None])
+        S_cache = np.ascontiguousarray(np.asarray(S_cache, dtype=np.float64))
+        sys.S_cache = S_cache
         args = sys.odeint_args(S_cache)
     else:
         args = sys.odeint_args()

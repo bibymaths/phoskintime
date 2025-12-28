@@ -19,6 +19,8 @@ from scipy.stats import linregress
 import warnings
 from scipy.integrate import odeint, ODEintWarning
 
+from phoskintime_global.config import MODEL
+
 warnings.filterwarnings("ignore", category=ODEintWarning)
 warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -1171,7 +1173,10 @@ class Index:
 
     def block(self, i: int) -> slice:
         start = self.offset_y[i]
-        end = start + 1 + self.n_states[i]
+        if MODEL == 2:
+            end = start + 1 + self.n_states[i]
+        else:
+            end = start + 2 + self.n_sites[i]
         return slice(start, end)
 
 def build_tf_matrix(tf_net, idx):

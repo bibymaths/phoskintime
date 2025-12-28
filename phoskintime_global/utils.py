@@ -36,7 +36,7 @@ def time_bucket(t, grid):
         j = grid.size - 1
     return j
 
-@njit(cache=True, fastmath=True, nogil=True, nopython=True)
+@njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
     out = np.empty_like(x)
     for i in range(x.size):
@@ -48,7 +48,7 @@ def softplus(x):
     return out
 
 
-@njit(cache=True, fastmath=True, nogil=True, nopython=True)
+@njit(cache=True, fastmath=True, nogil=True)
 def inv_softplus(y):
     out = np.empty_like(y)
     for i in range(y.size):
@@ -58,7 +58,7 @@ def inv_softplus(y):
         out[i] = np.log(np.expm1(yi))
     return out
 
-@njit(cache=True, fastmath=True, nogil=True, nopython=True)
+@njit(cache=True, fastmath=True, nogil=True)
 def pick_best_lamdas(F, weights):
     F = np.asarray(F, dtype=np.float64)
     weights = np.asarray(weights, dtype=np.float64)

@@ -22,7 +22,9 @@ class Index:
             for p in self.proteins
         ]
         if MODEL == 2:
+            self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
             self.n_states = np.array([1 << int(ns) for ns in self.n_sites], dtype=np.int32)
+
         self.kinases = sorted(interactions["kinase"].unique().tolist())
         self.k2i = {k: i for i, k in enumerate(self.kinases)}
         self.N = len(self.proteins)
@@ -37,7 +39,7 @@ class Index:
             self.offset_y[i] = curr_y
             self.offset_s[i] = curr_s
             if MODEL == 2:
-                curr_y += 1 + self.n_sites[i]
+                curr_y += 1 + self.n_states[i]
             else:
                 curr_y += 2 + self.n_sites[i]
             curr_s += self.n_sites[i]
@@ -47,9 +49,11 @@ class Index:
 
     def block(self, i: int) -> slice:
         start = self.offset_y[i]
-        end = start + 2 + self.n_sites[i]
+        if MODEL == 2:
+            end = start + 1 + self.n_states[i]
+        else:
+            end = start + 2 + self.n_sites[i]
         return slice(start, end)
-
 
 class KinaseInput:
     def __init__(self, kinases, df_fc):
@@ -79,7 +83,7 @@ class System:
         self.W_global = W_global
         self.tf_mat = tf_mat
         self.kin = kin_input
-
+        self.S_cache = None
         if MODEL != 2:
             self.p_indices = self.idx.offset_y + 1
 
@@ -102,6 +106,10 @@ class System:
         self.TF_indices = TF.indices.astype(np.int32)
         self.TF_data = TF.data.astype(np.float64)
         self.n_TF_rows = TF.shape[0]  # == idx.N
+        # Work buffers for MODEL==2
+        if MODEL == 2:
+            self.P_vec_work = np.zeros(int(self.n_TF_rows), dtype=np.float64)
+            self.TF_in_work = np.zeros(int(self.n_TF_rows), dtype=np.float64)
 
         # Kinase input arrays
         self.kin_grid = np.asarray(self.kin.grid, dtype=np.float64)
@@ -140,7 +148,7 @@ class System:
         for i in range(self.idx.N):
             st = self.idx.offset_y[i]
             if MODEL == 2:
-                ns = int(self.idx.n_sites[i])
+                ns = int(self.idx.n_states[i])
                 tot = 0.0
                 for m in range(ns):
                     tot += y[st + 1 + m]
@@ -169,11 +177,23 @@ class System:
                 self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
             )
         elif MODEL == 2:
+
+            if self.S_cache is None:
+                raise ValueError("MODEL==2: System.S_cache is None. simulate_odeint must set it.")
+
+            jb = int(np.searchsorted(self.kin_grid, t, side="right") - 1)
+            if jb < 0:
+                jb = 0
+            elif jb >= self.kin_grid.size:
+                jb = self.kin_grid.size - 1
+
             combinatorial_rhs(
                 y, dy,
                 self.A_i, self.B_i, self.C_i, self.D_i, self.E_i, self.tf_scale,
-                TF_inputs, S_all,
-                self.idx.offset_y, self.idx.offset_s, self.idx.n_sites,
+                TF_inputs,
+                self.S_cache, jb,
+                self.idx.offset_y, self.idx.offset_s,
+                self.idx.n_sites, self.idx.n_states,
                 self.trans_from, self.trans_to, self.trans_site, self.trans_off, self.trans_n
             )
         return dy
@@ -183,9 +203,9 @@ class System:
         for i in range(self.idx.N):
             st = self.idx.offset_y[i]
             y[st] = 1.0
-            if MODEL != 2:
+            if MODEL == 2:
                 y[st + 1 + 0] = 1.0
-                ns = int(self.idx.n_sites[i])
+                ns = int(self.idx.n_states[i])
                 if ns > 1:
                     y[st + 1 + 1: st + 1 + ns] = 0.01
             else:
@@ -195,20 +215,11 @@ class System:
                     y[st + 2: st + 2 + ns] = 0.01
         return y
 
-    def odeint_args(self, S_cache=None, jb=None):
-        """
-        Prepare arguments for njit-compiled ODE integrator.
-
-        For MODEL != 2: returns args for rhs_nb_distributive / rhs_nb_sequential style.
-        For MODEL == 2: returns args for combinatorial_rhs (expects S_cache and jb).
-        """
+    def odeint_args(self, S_cache=None):
         if MODEL == 2:
             if S_cache is None:
-                raise ValueError("MODEL==2 requires S_cache (e.g., precomputed site-rate cache).")
-            if jb is None:
-                raise ValueError("MODEL==2 requires jb (time-bin index into S_cache).")
+                raise ValueError("MODEL==2 requires S_cache (total_sites x n_timebins).")
 
-            # For Combinatorial model
             return (
                 self.c_k.astype(np.float64),
                 self.A_i.astype(np.float64),
@@ -217,20 +228,26 @@ class System:
                 self.D_i.astype(np.float64),
                 self.E_i.astype(np.float64),
                 float(self.tf_scale),
+
                 self.kin_grid,
-                np.asarray(S_cache, dtype=np.float64),
-                int(jb),
+                np.ascontiguousarray(np.asarray(S_cache, dtype=np.float64)),
+
                 self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
+
                 self.idx.offset_y.astype(np.int32),
                 self.idx.offset_s.astype(np.int32),
                 self.idx.n_sites.astype(np.int32),
                 self.idx.n_states.astype(np.int32),
+
                 self.trans_from,
                 self.trans_to,
                 self.trans_site,
                 self.trans_off,
                 self.trans_n,
+
                 self.tf_deg,
+                self.P_vec_work,
+                self.TF_in_work
             )
 
         # For Distributive and Sequential model

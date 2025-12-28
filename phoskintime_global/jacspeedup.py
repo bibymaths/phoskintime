@@ -20,6 +20,16 @@ def csr_matvec(indptr, indices, data, x, n_rows):
 
 
 @njit(cache=True, fastmath=True, nogil=True)
+def csr_matvec_into(out, indptr, indices, data, x, n_rows):
+    for i in range(n_rows):
+        s = 0.0
+        start = indptr[i]
+        end = indptr[i + 1]
+        for p in range(start, end):
+            s += data[p] * x[indices[p]]
+        out[i] = s
+
+@njit(cache=True, fastmath=True, nogil=True)
 def kin_eval_step(t, grid, Kmat):
     if t <= grid[0]:
         return Kmat[:, 0].copy()
@@ -123,14 +133,14 @@ def rhs_nb_combinatorial(
     offset_y, offset_s, n_sites, n_states,
     trans_from, trans_to, trans_site, trans_off, trans_n,
     tf_deg,
+    P_vec, TF_inputs
 ):
     dy = np.zeros_like(y)
 
     # pick bucket (stepwise hold)
     jb = time_bucket(t, kin_grid)
 
-    # build protein totals (P_vec)
-    P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+    # build protein totals into preallocated P_vec
     for i in range(n_TF_rows):
         y_start = offset_y[i]
         nst = n_states[i]
@@ -140,8 +150,8 @@ def rhs_nb_combinatorial(
             tot += y[p0 + m]
         P_vec[i] = tot
 
-    # TF inputs
-    TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
+    # TF_inputs = TF_mat * P_vec (in-place, no allocation)
+    csr_matvec_into(TF_inputs, TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
     for i in range(n_TF_rows):
         TF_inputs[i] /= tf_deg[i]
 
@@ -278,6 +288,8 @@ def fd_jacobian_nb_core_combinatorial(
 ):
     n = y.size
     J = np.empty((n, n), dtype=np.float64)
+    P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+    TF_inputs = np.zeros(n_TF_rows, dtype=np.float64)
 
     f0 = rhs_nb_combinatorial(
         y, t,
@@ -286,7 +298,7 @@ def fd_jacobian_nb_core_combinatorial(
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
-        tf_deg
+        tf_deg, P_vec, TF_inputs
     )
 
     for j in range(n):
@@ -301,7 +313,7 @@ def fd_jacobian_nb_core_combinatorial(
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites, n_states,
             trans_from, trans_to, trans_site, trans_off, trans_n,
-            tf_deg
+            tf_deg, P_vec, TF_inputs
         )
 
         invh = 1.0 / h

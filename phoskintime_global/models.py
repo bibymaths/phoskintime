@@ -1,5 +1,5 @@
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
 
 @njit(fastmath=True, cache=True, nogil=True)
@@ -140,7 +140,7 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         dy[idx_last] = k_last * Pprev - (Ei + Di) * Plast
 
 
-@njit(fastmath=True, cache=True)
+@njit(fastmath=True, cache=True, nogil=True)
 def combinatorial_rhs(
     y, dy,
     A_i, B_i, C_i, D_i, E_i, tf_scale,

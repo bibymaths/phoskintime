@@ -349,7 +349,7 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, out
     g.fig.suptitle("Goodness of Fit: Global ODE Model", y=1.05)
 
     # 4. Save
-    out_path = os.path.join(output_dir, "goodness_of_fit.png")
+    out_path = os.path.join(output_dir, f"{file_prefix}goodness_of_fit.png")
     plt.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"[Output] Saved Goodness of Fit plot to: {out_path}")
