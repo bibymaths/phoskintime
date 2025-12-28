@@ -181,9 +181,9 @@ def get_weight_options(
     schemes["log_early"] = lambda tt: 1.0 + np.log1p((tmax - np.asarray(tt, float)) / max(trng, eps))
 
     # 11) Piecewise: upweight early window only
-    schemes["piecewise_early_boost"] = lambda tt: np.where(
+    schemes["piecewise_early_boost"] = lambda tt, boost=4.0: np.where(
         ((np.asarray(tt, float) - tmin) / max(trng, eps)) <= ewin,
-        3.0,  # early boost factor
+        boost,
         1.0
     )
 

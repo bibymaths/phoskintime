@@ -19,7 +19,7 @@ from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESU
     REGULARIZATION_PROTEIN
 from phoskintime_global.io import load_data
 from phoskintime_global.network import Index, KinaseInput, System
-from phoskintime_global.optproblem import GlobalODE_MOO
+from phoskintime_global.optproblem import GlobalODE_MOO, get_weight_options
 from phoskintime_global.params import init_raw_params, unpack_params
 from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0, _base_idx
@@ -80,20 +80,35 @@ def main():
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
     df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
 
-    # Weights (early emphasis)
-    all_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
-    wmap = {t: 1.0 + (all_times.max() - t) / all_times.max() for t in all_times}
-    df_prot["w"] = df_prot["time"].map(wmap).fillna(1.0)
-    df_rna["w"] = df_rna["time"].map(wmap).fillna(1.0)
-    df_pho["w"] = df_pho["time"].map(wmap).fillna(1.0)
+    # Weights - Piecewise Early Boost
+    # times
+    tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)  # protein/phospho grid
+    tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)  # rna grid
+
+    # early windows: "first 5" and "first 3"
+    ew_prot_pho = float(tp_prot_pho[4])  # 5th time point
+    ew_rna = float(tp_rna[2])  # 3rd time point
+
+    # build schemes
+    schemes_prot_pho = get_weight_options(tp_prot_pho, early_window=ew_prot_pho)
+    schemes_rna = get_weight_options(tp_rna, early_window=ew_rna)
+
+    # pick weights
+    w_prot_pho = schemes_prot_pho["piecewise_early_boost_mean1"]
+    w_rna = schemes_rna["piecewise_early_boost_mean1"]
+
+    # apply
+    df_prot["w"] = w_prot_pho(df_prot["time"].values)
+    df_pho["w"] = w_prot_pho(df_pho["time"].values)
+    df_rna["w"] = w_rna(df_rna["time"].values)
 
     # 3) Build W + TF
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
     tf_mat = build_tf_matrix(df_tf, idx)
     kin_in = KinaseInput(idx.kinases, df_prot)
 
-    print("[Debug] KinaseInput coverage:",
-          (kin_in.Kmat != 1.0).any(axis=1).sum(), "/", kin_in.Kmat.shape[0], "kinases have non-1 input")
+    # print("[Debug] KinaseInput coverage:",
+    #       (kin_in.Kmat != 1.0).any(axis=1).sum(), "/", kin_in.Kmat.shape[0], "kinases have non-1 input")
 
     tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)
     tf_deg[tf_deg == 0.0] = 1.0
