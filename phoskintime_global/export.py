@@ -668,3 +668,17 @@ def scan_prior_reg(out_dir):
     print(" - lambda_scan.csv")
     print(" - lambda_scan_unique_picks.csv")
     print(" - lambda_scan_recommended.json")
+
+
+# Plot the quartiles and median over generations
+def plot_kkt_stats(generations, stats_by_gen, output_path):
+    plt.figure(figsize=(10, 10))
+    plt.plot(generations, stats_by_gen['25%'], label="Q1 (25th percentile)")
+    plt.plot(generations, stats_by_gen['50%'], label="Median")
+    plt.plot(generations, stats_by_gen['75%'], label="Q3 (75th percentile)")
+    plt.yscale("log")
+    plt.legend()
+    plt.xlabel("Generation")
+    plt.ylabel("KKTM")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(output_path)

@@ -6,7 +6,10 @@ import multiprocessing as mp
 
 import pandas as pd
 from pymoo.algorithms.moo.unsga3 import UNSGA3
+from pymoo.core.evaluator import Evaluator
 from pymoo.core.problem import StarmapParallelization
+from pymoo.indicators.kktpm import KKTPM
+from pymoo.operators.sampling.rnd import FloatRandomSampling
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
@@ -23,7 +26,7 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg
+    scan_prior_reg, plot_kkt_stats
 
 
 def main():
@@ -125,17 +128,19 @@ def main():
     # 9) UNSGA3 needs reference directions for n_obj=3
     ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
     algorithm = UNSGA3(pop_size=args.pop, ref_dirs=ref_dirs)
+    evaluator = Evaluator(evaluate_values_of=["F", "G", "dF", "dG"])
 
     termination = DefaultMultiObjectiveTermination(
         xtol=1e-8,
         cvtol=1e-6,
         ftol=0.0025,
         period=30,
-        n_max_gen=1000,
+        n_max_gen=args.n_gen,
         n_max_evals=100000
     )
 
     print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+
     res = pymoo_minimize(
         problem,
         algorithm,
@@ -148,6 +153,39 @@ def main():
     if pool is not None:
         pool.close()
         pool.join()
+
+    # Collect KKTPM data for each generation
+    kkt_data = []
+    for algorithm in res.history:
+        if algorithm.n_gen % 5 == 0:
+            X = algorithm.pop.get("X")
+            kktpm = KKTPM().calc(X, problem)
+
+            # Add each individual's KKTPM value with generation info
+            for i, value in enumerate(kktpm):
+                kkt_data.append({
+                    'generation': algorithm.n_gen,
+                    'individual': i,
+                    'kktpm': value
+                })
+
+    kkt_df = pd.DataFrame(kkt_data)
+    kkt_df.to_csv(os.path.join(args.output_dir, "kkt_data.csv"), index=False)
+
+    print(f"[Output] Saved KKT data to {args.output_dir}/kkt_data.csv")
+
+    # Get summary stats for each generation
+    stats_by_gen = kkt_df.groupby('generation')['kktpm'].describe()
+    generations = stats_by_gen.index
+    kkt_output_path = os.path.join(args.output_dir, "kkt_violation.png")
+
+    plot_kkt_stats(
+        generations=generations,
+        stats_by_gen=stats_by_gen,
+        output_path=kkt_output_path
+    )
+
+    print(f"[Output] Saved KKT violation plot to {kkt_output_path}")
 
     # 10) Save Pareto set
     X = res.X

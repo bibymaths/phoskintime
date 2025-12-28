@@ -23,6 +23,12 @@ def normalize_fc_to_t0(df):
     df["fc"] = df.apply(lambda r: r["fc"] / t0.get(r["protein"], np.nan), axis=1)
     return df.dropna(subset=["fc"])
 
+
+@njit(cache=True, fastmath=True, nogil=True)
+def _zero_vec(a):
+    for i in range(a.size):
+        a[i] = 0.0
+
 @njit(cache=True, fastmath=True, nogil=True)
 def time_bucket(t, grid):
     if t <= grid[0]:
@@ -106,6 +112,7 @@ class PhosKinConfig:
     time_points_phospho: np.ndarray
     bounds_config: dict[str, tuple[float, float]]
     model: str
+    use_custom_solver: bool
     ode_abs_tol: float
     ode_rel_tol: float
     ode_max_steps: int
@@ -115,6 +122,7 @@ class PhosKinConfig:
     regularization_rna: float
     regularization_lambda: float
     results_dir: str | Path
+
 
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
@@ -132,6 +140,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     time_points_phospho = np.asarray(tp_phospho, dtype=float)
 
     model = cfg["models"]["default_model"]
+    use_custom_solver = cfg["solver"]["use_custom_solver"]
     ode_abs_tol = cfg["solver"]["absolute_tolerance"]
     ode_rel_tol = cfg["solver"]["relative_tolerance"]
     ode_max_steps = cfg["solver"]["max_timesteps"]
@@ -158,6 +167,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         time_points_phospho=time_points_phospho,
         bounds_config=bounds_config,
         model=model,
+        use_custom_solver=use_custom_solver,
         ode_abs_tol=ode_abs_tol,
         ode_rel_tol=ode_rel_tol,
         ode_max_steps=ode_max_steps,

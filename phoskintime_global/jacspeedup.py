@@ -1,10 +1,20 @@
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
 from phoskintime_global.config import MODEL
 from phoskintime_global.models import distributive_rhs, sequential_rhs, combinatorial_rhs
+from phoskintime_global.solvers import adaptive_rk45_model01, adaptive_rk45_model2
 from phoskintime_global.utils import time_bucket
 
+def solve_custom(sys, y0, t_eval, rtol, atol):
+    if MODEL == 2:
+        build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
+        args_full = sys.odeint_args(sys.S_cache)
+        args2 = args_full[:7] + args_full[8:]  # drop kin_grid
+        return adaptive_rk45_model2(y0, t_eval, sys.kin_grid, args2, rtol=rtol, atol=atol)
+    else:
+        args = sys.odeint_args()
+        return adaptive_rk45_model01(MODEL, y0, t_eval, sys.kin_grid, args, rtol=rtol, atol=atol)
 
 @njit(cache=True, fastmath=True, nogil=True)
 def csr_matvec(indptr, indices, data, x, n_rows):
@@ -28,6 +38,20 @@ def csr_matvec_into(out, indptr, indices, data, x, n_rows):
         for p in range(start, end):
             s += data[p] * x[indices[p]]
         out[i] = s
+
+@njit(cache=True, fastmath=True, nogil=True, parallel=True)
+def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
+    n_rows = S_out.shape[0]
+    n_bins = S_out.shape[1]
+    for i in prange(n_rows):
+        row_start = W_indptr[i]
+        row_end = W_indptr[i + 1]
+        for b in range(n_bins):
+            s = 0.0
+            for p in range(row_start, row_end):
+                k = W_indices[p]
+                s += W_data[p] * (kin_Kmat[k, b] * c_k[k])
+            S_out[i, b] = s
 
 @njit(cache=True, fastmath=True, nogil=True)
 def kin_eval_step(t, grid, Kmat):
@@ -122,7 +146,7 @@ def rhs_nb_sequential(
     )
     return dy
 
-@njit(cache=True, fastmath=True)
+@njit(cache=True, fastmath=True, nogil=True)
 def rhs_nb_combinatorial(
     y,
     t,
@@ -284,12 +308,13 @@ def fd_jacobian_nb_core_combinatorial(
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
         tf_deg,
+        P_vec, TF_inputs,
         eps=1e-8
 ):
     n = y.size
     J = np.empty((n, n), dtype=np.float64)
-    P_vec = np.zeros(n_TF_rows, dtype=np.float64)
-    TF_inputs = np.zeros(n_TF_rows, dtype=np.float64)
+    # P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+    # TF_inputs = np.zeros(n_TF_rows, dtype=np.float64)
 
     f0 = rhs_nb_combinatorial(
         y, t,
@@ -298,7 +323,8 @@ def fd_jacobian_nb_core_combinatorial(
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
-        tf_deg, P_vec, TF_inputs
+        tf_deg,
+        P_vec, TF_inputs
     )
 
     for j in range(n):
@@ -313,7 +339,8 @@ def fd_jacobian_nb_core_combinatorial(
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites, n_states,
             trans_from, trans_to, trans_site, trans_off, trans_n,
-            tf_deg, P_vec, TF_inputs
+            tf_deg,
+            P_vec, TF_inputs
         )
 
         invh = 1.0 / h

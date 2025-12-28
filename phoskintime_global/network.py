@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from alive_progress.animations.spinner_compiler import sequential
 
 from phoskintime_global.buildmat import site_key
 from phoskintime_global.config import TIME_POINTS_PROTEIN, MODEL
@@ -84,59 +83,86 @@ class System:
         self.tf_mat = tf_mat
         self.kin = kin_input
         self.S_cache = None
-        if MODEL != 2:
-            self.p_indices = self.idx.offset_y + 1
 
-        self.c_k = defaults["c_k"]
-        self.A_i = defaults["A_i"]
-        self.B_i = defaults["B_i"]
-        self.C_i = defaults["C_i"]
-        self.D_i = defaults["D_i"]
-        self.E_i = defaults["E_i"]
-        self.tf_scale = defaults["tf_scale"]
-        # --- CSR buffers for njit RHS ---
+        # ------------------------------------------------------------
+        # Parameters (force dtype/contiguity ONCE)
+        # ------------------------------------------------------------
+        self.c_k = np.ascontiguousarray(defaults["c_k"], dtype=np.float64)
+        self.A_i = np.ascontiguousarray(defaults["A_i"], dtype=np.float64)
+        self.B_i = np.ascontiguousarray(defaults["B_i"], dtype=np.float64)
+        self.C_i = np.ascontiguousarray(defaults["C_i"], dtype=np.float64)
+        self.D_i = np.ascontiguousarray(defaults["D_i"], dtype=np.float64)
+        self.E_i = np.ascontiguousarray(defaults["E_i"], dtype=np.float64)
+        self.tf_scale = float(defaults["tf_scale"])
+
+        # ------------------------------------------------------------
+        # Offsets / sizes (force int32 ONCE)
+        # ------------------------------------------------------------
+        self.idx.offset_y = np.ascontiguousarray(self.idx.offset_y, dtype=np.int32)
+        self.idx.offset_s = np.ascontiguousarray(self.idx.offset_s, dtype=np.int32)
+        self.idx.n_sites = np.ascontiguousarray(self.idx.n_sites, dtype=np.int32)
+
+        if MODEL == 2:
+            self.idx.n_states = np.ascontiguousarray(self.idx.n_states, dtype=np.int32)
+        else:
+            # used only in non-combinatorial models
+            self.p_indices = np.ascontiguousarray(self.idx.offset_y + 1, dtype=np.int32)
+
+        # ------------------------------------------------------------
+        # CSR buffers for njit RHS (W matrix)
+        # ------------------------------------------------------------
         W = self.W_global.tocsr()
-        self.W_indptr = W.indptr.astype(np.int32)
-        self.W_indices = W.indices.astype(np.int32)
-        self.W_data = W.data.astype(np.float64)
+        self.W_indptr = W.indptr.astype(np.int32, copy=False)
+        self.W_indices = W.indices.astype(np.int32, copy=False)
+        self.W_data = W.data.astype(np.float64, copy=False)
         self.n_W_rows = W.shape[0]
 
+        # ------------------------------------------------------------
+        # CSR buffers for TF matrix
+        # ------------------------------------------------------------
         TF = self.tf_mat.tocsr()
-        self.TF_indptr = TF.indptr.astype(np.int32)
-        self.TF_indices = TF.indices.astype(np.int32)
-        self.TF_data = TF.data.astype(np.float64)
+        self.TF_indptr = TF.indptr.astype(np.int32, copy=False)
+        self.TF_indices = TF.indices.astype(np.int32, copy=False)
+        self.TF_data = TF.data.astype(np.float64, copy=False)
         self.n_TF_rows = TF.shape[0]  # == idx.N
-        # Work buffers for MODEL==2
+
+        # ------------------------------------------------------------
+        # TF degree (force dtype once)
+        # ------------------------------------------------------------
+        self.tf_deg = np.ascontiguousarray(tf_deg, dtype=np.float64)
+
+        # ------------------------------------------------------------
+        # Kinase input arrays (read-only, contiguous)
+        # ------------------------------------------------------------
+        self.kin_grid = np.ascontiguousarray(self.kin.grid, dtype=np.float64)
+        self.kin_Kmat = np.ascontiguousarray(self.kin.Kmat, dtype=np.float64)
+
+        # ------------------------------------------------------------
+        # MODEL == 2 specific setup
+        # ------------------------------------------------------------
         if MODEL == 2:
-            self.P_vec_work = np.zeros(int(self.n_TF_rows), dtype=np.float64)
-            self.TF_in_work = np.zeros(int(self.n_TF_rows), dtype=np.float64)
+            # reusable work buffers (NO allocs in RHS)
+            self.P_vec_work = np.zeros(self.n_TF_rows, dtype=np.float64)
+            self.TF_in_work = np.zeros(self.n_TF_rows, dtype=np.float64)
+            self.S_cache = np.zeros((self.n_W_rows, self.kin_Kmat.shape[1]), dtype=np.float64)
 
-        # Kinase input arrays
-        self.kin_grid = np.asarray(self.kin.grid, dtype=np.float64)
-        self.kin_Kmat = np.asarray(self.kin.Kmat, dtype=np.float64)
-
-        # p_indices must be int32 for njit indexing
-        if MODEL != 2:
-            self.p_indices = self.p_indices.astype(np.int32)
-        # Degree of target TFs
-        self.tf_deg = tf_deg
-
-        # Random transitions
-        if MODEL == 2:
-            (self.trans_from,
-             self.trans_to,
-             self.trans_site,
-             self.trans_off,
-             self.trans_n) = build_random_transitions(idx)
+            # precomputed transition lists
+            (
+                self.trans_from,
+                self.trans_to,
+                self.trans_site,
+                self.trans_off,
+                self.trans_n,
+            ) = build_random_transitions(idx)
 
     def update(self, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale):
-        self.c_k = c_k
-        self.A_i = A_i
-        self.B_i = B_i
-        self.C_i = C_i
-        self.D_i = D_i
-        self.E_i = E_i
-        self.tf_scale = tf_scale
+        self.c_k[:] = c_k
+        self.A_i[:] = A_i
+        self.B_i[:] = B_i
+        self.C_i[:] = C_i
+        self.D_i[:] = D_i
+        self.E_i[:] = E_i
+        self.tf_scale = float(tf_scale)
 
     def rhs(self, t, y):
         dy = np.zeros_like(y)
@@ -221,23 +247,23 @@ class System:
                 raise ValueError("MODEL==2 requires S_cache (total_sites x n_timebins).")
 
             return (
-                self.c_k.astype(np.float64),
-                self.A_i.astype(np.float64),
-                self.B_i.astype(np.float64),
-                self.C_i.astype(np.float64),
-                self.D_i.astype(np.float64),
-                self.E_i.astype(np.float64),
+                self.c_k,
+                self.A_i,
+                self.B_i,
+                self.C_i,
+                self.D_i,
+                self.E_i,
                 float(self.tf_scale),
 
                 self.kin_grid,
-                np.ascontiguousarray(np.asarray(S_cache, dtype=np.float64)),
+                S_cache,
 
                 self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
 
-                self.idx.offset_y.astype(np.int32),
-                self.idx.offset_s.astype(np.int32),
-                self.idx.n_sites.astype(np.int32),
-                self.idx.n_states.astype(np.int32),
+                self.idx.offset_y,
+                self.idx.offset_s,
+                self.idx.n_sites,
+                self.idx.n_states,
 
                 self.trans_from,
                 self.trans_to,
@@ -252,19 +278,19 @@ class System:
 
         # For Distributive and Sequential model
         return (
-            self.c_k.astype(np.float64),
-            self.A_i.astype(np.float64),
-            self.B_i.astype(np.float64),
-            self.C_i.astype(np.float64),
-            self.D_i.astype(np.float64),
-            self.E_i.astype(np.float64),
+            self.c_k,
+            self.A_i,
+            self.B_i,
+            self.C_i,
+            self.D_i,
+            self.E_i,
             float(self.tf_scale),
             self.kin_grid,
             self.kin_Kmat,
             self.W_indptr, self.W_indices, self.W_data, int(self.n_W_rows),
             self.TF_indptr, self.TF_indices, self.TF_data, int(self.n_TF_rows),
-            self.idx.offset_y.astype(np.int32),
-            self.idx.offset_s.astype(np.int32),
-            self.idx.n_sites.astype(np.int32),
+            self.idx.offset_y,
+            self.idx.offset_s,
+            self.idx.n_sites,
             self.tf_deg,
         )

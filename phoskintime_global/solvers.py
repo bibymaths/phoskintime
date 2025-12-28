@@ -1,0 +1,1024 @@
+import numpy as np
+from numba import njit
+from phoskintime_global.models import distributive_rhs, sequential_rhs, combinatorial_rhs
+from phoskintime_global.utils import _zero_vec
+
+
+@njit(cache=True, fastmath=True, nogil=True)
+def csr_matvec_into(out, indptr, indices, data, x, n_rows):
+    for i in range(n_rows):
+        s = 0.0
+        start = indptr[i]
+        end = indptr[i + 1]
+        for p in range(start, end):
+            s += data[p] * x[indices[p]]
+        out[i] = s
+
+@njit(cache=True, fastmath=True, nogil=True)
+def rhs_model0_bucketed_into(
+    dy, y, jb,
+    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+    kin_Kmat,                      # (n_kin, n_bins)
+    W_indptr, W_indices, W_data, n_W_rows,
+    TF_indptr, TF_indices, TF_data, n_TF_rows,
+    offset_y, offset_s, n_sites,
+    tf_deg,
+    Kt_work, S_all_work, P_vec_work, TF_in_work
+):
+    _zero_vec(dy)
+
+    # Kt_work = kin_Kmat[:, jb] * c_k
+    for k in range(Kt_work.size):
+        Kt_work[k] = kin_Kmat[k, jb] * c_k[k]
+
+    # S_all_work = W * Kt_work
+    csr_matvec_into(S_all_work, W_indptr, W_indices, W_data, Kt_work, n_W_rows)
+
+    # P_vec_work = total protein per target
+    for i in range(n_TF_rows):
+        y_start = offset_y[i]
+        ns = n_sites[i]
+        tot = y[y_start + 1]              # P0
+        for j in range(ns):
+            tot += y[y_start + 2 + j]     # P1..Pns
+        P_vec_work[i] = tot
+
+    # TF_in_work = TF * P_vec_work
+    csr_matvec_into(TF_in_work, TF_indptr, TF_indices, TF_data, P_vec_work, n_TF_rows)
+    for i in range(n_TF_rows):
+        TF_in_work[i] /= tf_deg[i]
+
+    distributive_rhs(
+        y, dy,
+        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        TF_in_work, S_all_work,
+        offset_y, offset_s, n_sites
+    )
+
+
+@njit(cache=True, fastmath=True, nogil=True)
+def rhs_model1_bucketed_into(
+    dy, y, jb,
+    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+    kin_Kmat,
+    W_indptr, W_indices, W_data, n_W_rows,
+    TF_indptr, TF_indices, TF_data, n_TF_rows,
+    offset_y, offset_s, n_sites,
+    tf_deg,
+    Kt_work, S_all_work, P_vec_work, TF_in_work
+):
+    _zero_vec(dy)
+
+    # Kt_work = kin_Kmat[:, jb] * c_k
+    for k in range(Kt_work.size):
+        Kt_work[k] = kin_Kmat[k, jb] * c_k[k]
+
+    # S_all_work = W * Kt_work
+    csr_matvec_into(S_all_work, W_indptr, W_indices, W_data, Kt_work, n_W_rows)
+
+    # P_vec_work
+    for i in range(n_TF_rows):
+        y_start = offset_y[i]
+        ns = n_sites[i]
+        tot = y[y_start + 1]
+        for j in range(ns):
+            tot += y[y_start + 2 + j]
+        P_vec_work[i] = tot
+
+    # TF_in_work
+    csr_matvec_into(TF_in_work, TF_indptr, TF_indices, TF_data, P_vec_work, n_TF_rows)
+    for i in range(n_TF_rows):
+        TF_in_work[i] /= tf_deg[i]
+
+    sequential_rhs(
+        y, dy,
+        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        TF_in_work, S_all_work,
+        offset_y, offset_s, n_sites
+    )
+
+@njit(cache=True, fastmath=True, nogil=True)
+def rhs_model2_bucketed_into(
+    dy, y, jb,
+    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+    S_cache,
+    TF_indptr, TF_indices, TF_data, n_TF_rows,
+    offset_y, offset_s, n_sites, n_states,
+    trans_from, trans_to, trans_site, trans_off, trans_n,
+    tf_deg,
+    P_vec, TF_inputs
+):
+    _zero_vec(dy)
+
+    # P_vec
+    for i in range(n_TF_rows):
+        y_start = offset_y[i]
+        nst = n_states[i]
+        p0 = y_start + 1
+        tot = 0.0
+        for m in range(nst):
+            tot += y[p0 + m]
+        P_vec[i] = tot
+
+    # TF_inputs = TF_mat * P_vec
+    csr_matvec_into(TF_inputs, TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
+    for i in range(n_TF_rows):
+        TF_inputs[i] /= tf_deg[i]
+
+    # core
+    combinatorial_rhs(
+        y, dy,
+        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        TF_inputs,
+        S_cache, jb,
+        offset_y, offset_s,
+        n_sites, n_states,
+        trans_from, trans_to, trans_site, trans_off, trans_n
+    )
+
+
+# -----------------------------------------------------------------------------
+# Shared Helper: Cubic Hermite Interpolation
+# -----------------------------------------------------------------------------
+@njit(cache=True, fastmath=True, nogil=True)
+def _hermite_interpolate_into(out, t_want, t0, t1, y0, y1, f0, f1, n):
+    """
+    Computes y(t_want) using values (y0, y1) and slopes (f0, f1)
+    at the interval endpoints [t0, t1].
+    """
+    h = t1 - t0
+    if h < 1e-16:
+        out[:] = y1
+        return
+
+    # Normalized time tau in [0, 1]
+    tau = (t_want - t0) / h
+    tau2 = tau * tau
+    tau3 = tau2 * tau
+
+    # Hermite Basis functions
+    # H00(t) = 2t^3 - 3t^2 + 1
+    # H10(t) = t^3 - 2t^2 + t
+    # H01(t) = -2t^3 + 3t^2
+    # H11(t) = t^3 - t^2
+
+    h00 = 2 * tau3 - 3 * tau2 + 1
+    h10 = tau3 - 2 * tau2 + tau
+    h01 = -2 * tau3 + 3 * tau2
+    h11 = tau3 - tau2
+
+    # y(t) = h00*y0 + h10*h*f0 + h01*y1 + h11*h*f1
+    for i in range(n):
+        out[i] = (h00 * y0[i] +
+                  h10 * h * f0[i] +
+                  h01 * y1[i] +
+                  h11 * h * f1[i])
+
+
+# -----------------------------------------------------------------------------
+# Solver 1: Adaptive RK45 for Model 0 and 1
+# -----------------------------------------------------------------------------
+@njit(cache=True, fastmath=True, nogil=True)
+def adaptive_rk45_model01(
+        model_id,  # 0 or 1
+        y0, t_eval, kin_grid,
+        args,  # Unpacked internally
+        rtol=1e-5, atol=1e-7,
+        dt_init=0.05, dt_min=1e-6, dt_max=1.0,
+        safety=0.9, max_steps=2_000_000
+):
+    # --- 1. Unpack Args ---
+    (c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+     _kin_grid, kin_Kmat,
+     W_indptr, W_indices, W_data, n_W_rows,
+     TF_indptr, TF_indices, TF_data, n_TF_rows,
+     offset_y, offset_s, n_sites,
+     tf_deg) = args
+
+    # --- 2. Setup Output & State ---
+    T_out_count = t_eval.size
+    n = y0.size
+    Y = np.empty((T_out_count, n), dtype=np.float64)
+
+    y = y0.copy()
+    Y[0] = y  # Assumes t_eval[0] == t_start
+
+    # Current time state
+    jb = 0
+    tcur = t_eval[0]
+    t_final = t_eval[-1]
+
+    # Fast-forward bucket index to start time
+    while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+        jb += 1
+
+    # Next output index we need to fill
+    next_eval_idx = 1
+
+    # --- 3. Memory Allocation (Avoid re-alloc in loop) ---
+    # Model workspaces
+    n_kin = kin_Kmat.shape[0]
+    Kt_work = np.empty(n_kin, dtype=np.float64)
+    S_all_work = np.empty(int(n_W_rows), dtype=np.float64)
+    P_vec_work = np.empty(int(n_TF_rows), dtype=np.float64)
+    TF_in_work = np.empty(int(n_TF_rows), dtype=np.float64)
+
+    # RK45 stages (k1..k7)
+    # Note: k7 is reused as the 'k1' for the next step (FSAL property)
+    k1 = np.empty(n, dtype=np.float64)
+    k2 = np.empty(n, dtype=np.float64)
+    k3 = np.empty(n, dtype=np.float64)
+    k4 = np.empty(n, dtype=np.float64)
+    k5 = np.empty(n, dtype=np.float64)
+    k6 = np.empty(n, dtype=np.float64)
+    k7 = np.empty(n, dtype=np.float64)
+
+    y_tmp = np.empty(n, dtype=np.float64)
+
+    # --- 4. Dormand-Prince 5(4) Coefficients ---
+    # c2=1/5, c3=3/10, c4=4/5, c5=8/9, c6=1, c7=1
+    a21 = 0.2
+    a31, a32 = 0.075, 0.225
+    a41, a42, a43 = 44 / 45, -56 / 15, 32 / 9
+    a51, a52, a53, a54 = 19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729
+    a61, a62, a63, a64, a65 = 9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656
+    # 5th order solution weights (b)
+    b1, b3, b4, b5, b6 = 35 / 384, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84
+    # Error estimation weights (E = b - b_hat)
+    e1, e3, e4, e5, e6, e7 = 71 / 57600, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40
+
+    # --- 5. Initial Derivative ---
+    if model_id == 0:
+        rhs_model0_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr, W_indices,
+                                 W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y, offset_s,
+                                 n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+    else:
+        rhs_model1_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr, W_indices,
+                                 W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y, offset_s,
+                                 n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+    dt = dt_init
+    steps = 0
+    hit_boundary = False
+
+    # --- 6. Integration Loop ---
+    while tcur < t_final and next_eval_idx < T_out_count:
+        steps += 1
+        if steps > max_steps:
+            raise RuntimeError("adaptive_rk45_natural_model01: max_steps exceeded")
+
+        # Update Bucket (if we just crossed one)
+        while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+            jb += 1
+            hit_boundary = True  # Flag that physics changed
+
+        # If we hit a boundary or physics changed, we MUST re-evaluate k1
+        # because the 'k7' from the previous step assumed old parameters.
+        if hit_boundary:
+            if model_id == 0:
+                rhs_model0_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                         W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows,
+                                         offset_y, offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work,
+                                         TF_in_work)
+            else:
+                rhs_model1_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                         W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows,
+                                         offset_y, offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work,
+                                         TF_in_work)
+            hit_boundary = False
+
+        # --- Step Size Limiting (Boundary Clamping) ---
+        dt_use = dt
+        dist_bnd = 1e9
+
+        # Check distance to next bucket boundary
+        if jb + 1 < kin_grid.size:
+            dist_bnd = kin_grid[jb + 1] - tcur
+            # If step would cross boundary, clamp to boundary
+            if dist_bnd > 1e-15 and dt_use > dist_bnd:
+                dt_use = dist_bnd
+
+        # Check distance to final time (don't overshoot end of simulation)
+        rem_final = t_final - tcur
+        if dt_use > rem_final:
+            dt_use = rem_final
+
+        if dt_use < dt_min:
+            dt_use = dt_min
+
+        # --- RK45 Stages ---
+        # k2
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a21 * k1[i])
+        if model_id == 0:
+            rhs_model0_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # k3
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a31 * k1[i] + a32 * k2[i])
+        if model_id == 0:
+            rhs_model0_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # k4
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a41 * k1[i] + a42 * k2[i] + a43 * k3[i])
+        if model_id == 0:
+            rhs_model0_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # k5
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a51 * k1[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i])
+        if model_id == 0:
+            rhs_model0_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # k6
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (
+                    a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
+        if model_id == 0:
+            rhs_model0_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # y_new (candidate)
+        for i in range(n):
+            y_tmp[i] = y[i] + dt_use * (b1 * k1[i] + b3 * k3[i] + b4 * k4[i] + b5 * k5[i] + b6 * k6[i])
+
+        # k7 (f at y_new) - Needed for Error Est AND FSAL
+        if model_id == 0:
+            rhs_model0_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+        else:
+            rhs_model1_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, kin_Kmat, W_indptr,
+                                     W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                     offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
+
+        # --- Error Estimate ---
+        err = 0.0
+        for i in range(n):
+            # Error = dt * sum(E_i * k_i)
+            diff = dt_use * (e1 * k1[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k7[i])
+
+            # Scale
+            sc = atol + rtol * (abs(y[i]) if abs(y[i]) > abs(y_tmp[i]) else abs(y_tmp[i]))
+            if sc < 1e-12: sc = 1e-12
+
+            ratio = abs(diff) / sc
+            if ratio > err:
+                err = ratio
+
+        # --- Accept or Reject ---
+        if err <= 1.0:
+            # === ACCEPT STEP ===
+            t_next = tcur + dt_use
+
+            # 1. Dense Output: Fill all t_eval points in [tcur, t_next]
+            while next_eval_idx < T_out_count and t_eval[next_eval_idx] <= t_next:
+                te = t_eval[next_eval_idx]
+                if te >= tcur:
+                    # Hermite Interpolation using endpoints and slopes
+                    _hermite_interpolate_into(Y[next_eval_idx], te, tcur, t_next, y, y_tmp, k1, k7, n)
+                next_eval_idx += 1
+
+            # 2. Advance State
+            y[:] = y_tmp
+            tcur = t_next
+
+            # 3. FSAL (First Same As Last)
+            # k7 is the derivative at t_next. If we didn't cross a boundary, it is valid k1 for next step.
+            # If we clamped dt_use == dist_bnd, we are exactly at boundary.
+            # In that case, we set hit_boundary=True for next loop to force re-eval.
+            if abs(dt_use - dist_bnd) < 1e-14:
+                hit_boundary = True  # Will trigger re-eval of k1 at top of loop
+                # We can't trust k7 for next step if parameters jump
+            else:
+                k1[:] = k7  # Valid FSAL optimization
+
+            # 4. Controller (PI-like / Simple)
+            if err < 1e-12:
+                fac = 5.0
+            else:
+                fac = safety * (err ** -0.2)
+
+            if fac > 5.0: fac = 5.0
+            if fac < 0.2: fac = 0.2
+
+            dt = dt * fac
+            if dt > dt_max: dt = dt_max
+
+        else:
+            # === REJECT STEP ===
+            fac = safety * (err ** -0.2)
+            if fac < 0.1: fac = 0.1
+            dt = dt_use * fac
+            if dt < dt_min: dt = dt_min
+            # Do not update y or tcur
+
+    return Y
+
+
+# -----------------------------------------------------------------------------
+# Solver 2: Adaptive RK45 for Model 2
+# -----------------------------------------------------------------------------
+@njit(cache=True, fastmath=True, nogil=True)
+def adaptive_rk45_model2(
+        y0, t_eval, kin_grid, args2,
+        rtol=1e-5, atol=1e-7,
+        dt_init=0.05, dt_min=1e-6, dt_max=1.0,
+        safety=0.9, max_steps=2_000_000
+):
+    # --- 1. Unpack Args ---
+    (c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+     S_cache,
+     TF_indptr, TF_indices, TF_data, n_TF_rows,
+     offset_y, offset_s, n_sites, n_states,
+     trans_from, trans_to, trans_site, trans_off, trans_n,
+     tf_deg,
+     P_vec, TF_inputs) = args2
+
+    # --- 2. Setup Output & State ---
+    T_out_count = t_eval.size
+    n = y0.size
+    Y = np.empty((T_out_count, n), dtype=np.float64)
+
+    y = y0.copy()
+    Y[0] = y
+
+    jb = 0
+    tcur = t_eval[0]
+    t_final = t_eval[-1]
+
+    while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+        jb += 1
+
+    next_eval_idx = 1
+
+    # --- 3. Work Buffers ---
+    k1 = np.empty(n, dtype=np.float64)
+    k2 = np.empty(n, dtype=np.float64)
+    k3 = np.empty(n, dtype=np.float64)
+    k4 = np.empty(n, dtype=np.float64)
+    k5 = np.empty(n, dtype=np.float64)
+    k6 = np.empty(n, dtype=np.float64)
+    k7 = np.empty(n, dtype=np.float64)
+    y_tmp = np.empty(n, dtype=np.float64)
+
+    # --- 4. Constants (Same as above) ---
+    a21 = 0.2
+    a31, a32 = 0.075, 0.225
+    a41, a42, a43 = 44 / 45, -56 / 15, 32 / 9
+    a51, a52, a53, a54 = 19372 / 6561, -25360 / 2187, 64448 / 6561, -212 / 729
+    a61, a62, a63, a64, a65 = 9017 / 3168, -355 / 33, 46732 / 5247, 49 / 176, -5103 / 18656
+    b1, b3, b4, b5, b6 = 35 / 384, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84
+    e1, e3, e4, e5, e6, e7 = 71 / 57600, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40
+
+    # --- 5. Init ---
+    rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices, TF_data,
+                             n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to, trans_site,
+                             trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+    dt = dt_init
+    steps = 0
+    hit_boundary = False
+
+    # --- 6. Loop ---
+    while tcur < t_final and next_eval_idx < T_out_count:
+        steps += 1
+        if steps > max_steps:
+            raise RuntimeError("adaptive_rk45_natural_model2: max_steps exceeded")
+
+        while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+            jb += 1
+            hit_boundary = True
+
+        if hit_boundary:
+            rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                     TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                     trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+            hit_boundary = False
+
+        # Clamping
+        dt_use = dt
+        dist_bnd = 1e9
+        if jb + 1 < kin_grid.size:
+            dist_bnd = kin_grid[jb + 1] - tcur
+            if dist_bnd > 1e-15 and dt_use > dist_bnd:
+                dt_use = dist_bnd
+
+        rem_final = t_final - tcur
+        if dt_use > rem_final:
+            dt_use = rem_final
+        if dt_use < dt_min:
+            dt_use = dt_min
+
+        # Stages
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a21 * k1[i])
+        rhs_model2_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a31 * k1[i] + a32 * k2[i])
+        rhs_model2_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a41 * k1[i] + a42 * k2[i] + a43 * k3[i])
+        rhs_model2_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (a51 * k1[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i])
+        rhs_model2_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (
+                    a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
+        rhs_model2_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        for i in range(n): y_tmp[i] = y[i] + dt_use * (b1 * k1[i] + b3 * k3[i] + b4 * k4[i] + b5 * k5[i] + b6 * k6[i])
+        rhs_model2_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                                 TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
+                                 trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
+
+        # Error
+        err = 0.0
+        for i in range(n):
+            diff = dt_use * (e1 * k1[i] + e3 * k3[i] + e4 * k4[i] + e5 * k5[i] + e6 * k6[i] + e7 * k7[i])
+            sc = atol + rtol * (abs(y[i]) if abs(y[i]) > abs(y_tmp[i]) else abs(y_tmp[i]))
+            if sc < 1e-12: sc = 1e-12
+            ratio = abs(diff) / sc
+            if ratio > err: err = ratio
+
+        # Update
+        if err <= 1.0:
+            # Accept
+            t_next = tcur + dt_use
+
+            while next_eval_idx < T_out_count and t_eval[next_eval_idx] <= t_next:
+                te = t_eval[next_eval_idx]
+                if te >= tcur:
+                    _hermite_interpolate_into(Y[next_eval_idx], te, tcur, t_next, y, y_tmp, k1, k7, n)
+                next_eval_idx += 1
+
+            y[:] = y_tmp
+            tcur = t_next
+
+            if abs(dt_use - dist_bnd) < 1e-14:
+                hit_boundary = True
+            else:
+                k1[:] = k7
+
+            if err < 1e-12:
+                fac = 5.0
+            else:
+                fac = safety * (err ** -0.2)
+            if fac > 5.0: fac = 5.0
+            if fac < 0.2: fac = 0.2
+            dt = dt * fac
+            if dt > dt_max: dt = dt_max
+        else:
+            # Reject
+            fac = safety * (err ** -0.2)
+            if fac < 0.1: fac = 0.1
+            dt = dt_use * fac
+            if dt < dt_min: dt = dt_min
+
+    return Y
+
+# ----------------------------------------------------------------------------------------------------
+# DEPRECATED: First version of Adaptive Heun Bucketed Solver for model 0/1
+# ----------------------------------------------------------------------------------------------------
+# @njit(cache=True, fastmath=True, nogil=True)
+# def adaptive_heun_bucketed_model01(
+#     model_id,          # 0 or 1 only
+#     y0, t_eval, kin_grid,
+#     args,              # MUST be len==21 (sys.odeint_args() for model 0/1)
+#     rtol=1e-5, atol=1e-7,
+#     dt_init=0.05, dt_min=1e-6, dt_max=1.0,
+#     safety=0.9, max_steps=2_000_000
+# ):
+#     # unpack ONCE (len==21)
+#     (c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#      _kin_grid, kin_Kmat,
+#      W_indptr,W_indices,W_data,n_W_rows,
+#      TF_indptr,TF_indices,TF_data,n_TF_rows,
+#      offset_y,offset_s,n_sites,
+#      tf_deg) = args
+#
+#     T = t_eval.size
+#     n = y0.size
+#     Y = np.empty((T, n), dtype=np.float64)
+#
+#     y = y0.copy()
+#     Y[0] = y
+#
+#     # allocate work buffers ONCE
+#     n_kin = kin_Kmat.shape[0]
+#     Kt_work   = np.empty(n_kin, dtype=np.float64)
+#     S_all_work = np.empty(int(n_W_rows), dtype=np.float64)
+#     P_vec_work = np.empty(int(n_TF_rows), dtype=np.float64)
+#     TF_in_work = np.empty(int(n_TF_rows), dtype=np.float64)
+#
+#     y_big = np.empty(n, dtype=np.float64)
+#     y_half = np.empty(n, dtype=np.float64)
+#     y_twohalf = np.empty(n, dtype=np.float64)
+#     k1 = np.empty(n, dtype=np.float64)
+#     k2 = np.empty(n, dtype=np.float64)
+#     tmp = np.empty(n, dtype=np.float64)
+#
+#     jb = 0
+#     tcur = t_eval[0]
+#     while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+#         jb += 1
+#
+#     dt = dt_init
+#     steps = 0
+#
+#     for ti in range(1, T):
+#         tend = t_eval[ti]
+#         while tcur < tend:
+#             steps += 1
+#             if steps > max_steps:
+#                 raise RuntimeError("adaptive_heun_bucketed_model01: max_steps exceeded")
+#
+#             while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+#                 jb += 1
+#
+#             dt_use = dt
+#             rem = tend - tcur
+#             if dt_use > rem:
+#                 dt_use = rem
+#             if jb + 1 < kin_grid.size:
+#                 bnd = kin_grid[jb + 1] - tcur
+#                 if bnd > 0.0 and dt_use > bnd:
+#                     dt_use = bnd
+#             if dt_use < dt_min:
+#                 dt_use = dt_min
+#
+#             # big step
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k1, y, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k1, y, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 tmp[i] = y[i] + dt_use * k1[i]
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 y_big[i] = y[i] + 0.5 * dt_use * (k1[i] + k2[i])
+#
+#             # two half steps
+#             h = 0.5 * dt_use
+#
+#             # half1
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k1, y, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k1, y, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 tmp[i] = y[i] + h * k1[i]
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 y_half[i] = y[i] + 0.5 * h * (k1[i] + k2[i])
+#
+#             # half2
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k1, y_half, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k1, y_half, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 tmp[i] = y_half[i] + h * k1[i]
+#             if model_id == 0:
+#                 rhs_model0_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             else:
+#                 rhs_model1_bucketed_into(k2, tmp, jb, c_k,A_i,B_i,C_i,D_i,E_i,tf_scale,
+#                                          kin_Kmat, W_indptr,W_indices,W_data,n_W_rows,
+#                                          TF_indptr,TF_indices,TF_data,n_TF_rows,
+#                                          offset_y,offset_s,n_sites, tf_deg,
+#                                          Kt_work,S_all_work,P_vec_work,TF_in_work)
+#             for i in range(n):
+#                 y_twohalf[i] = y_half[i] + 0.5 * h * (k1[i] + k2[i])
+#
+#             # error
+#             err = 0.0
+#             for i in range(n):
+#                 a = abs(y_twohalf[i]); b = abs(y[i])
+#                 sc = atol + rtol * (a if a > b else b)
+#                 if sc <= 0.0:
+#                     sc = 1e-12
+#                 e = abs(y_twohalf[i] - y_big[i]) / sc
+#                 if e > err:
+#                     err = e
+#
+#             if err <= 1.0:
+#                 y[:] = y_twohalf
+#                 tcur += dt_use
+#                 fac = 2.0 if err < 1e-12 else safety * (1.0 / err) ** (1.0 / 3.0)
+#                 if fac > 2.0: fac = 2.0
+#                 if fac < 0.5: fac = 0.5
+#                 dt = dt_use * fac
+#                 if dt > dt_max:
+#                     dt = dt_max
+#             else:
+#                 fac = safety * (1.0 / err) ** (1.0 / 3.0)
+#                 if fac < 0.1: fac = 0.1
+#                 dt = dt_use * fac
+#                 if dt < dt_min:
+#                     dt = dt_min
+#
+#         Y[ti] = y
+#
+#     return Y
+#
+# @njit(cache=True, fastmath=True, nogil=True)
+# def adaptive_heun_bucketed_model2(
+#     y0,
+#     t_eval,
+#     kin_grid,
+#     args2,                 # args WITHOUT kin_grid
+#     rtol=1e-5,
+#     atol=1e-7,
+#     dt_init=0.05,
+#     dt_min=1e-6,
+#     dt_max=1.0,
+#     safety=0.9,
+#     max_steps=2_000_000
+# ):
+#     """
+#     MODEL==2 integrator:
+#       - bucketed time: jb updated incrementally, no time_bucket/searchsorted per RHS call
+#       - adaptive Heun (RK2) with step-doubling error control
+#       - clamps dt to bucket boundary so jb stays valid during the step
+#
+#     Call-site (Python):
+#         args = sys.odeint_args(S_cache)
+#         args2 = args[:7] + args[8:]   # drop kin_grid
+#         Y = adaptive_heun_bucketed_model2(y0, t_eval, sys.kin_grid, args2, ...)
+#     """
+#     T = t_eval.size
+#     n = y0.size
+#     Y = np.empty((T, n), dtype=np.float64)
+#
+#     # unpack args2 (fixed order)
+#     (c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#      S_cache,
+#      TF_indptr, TF_indices, TF_data, n_TF_rows,
+#      offset_y, offset_s, n_sites, n_states,
+#      trans_from, trans_to, trans_site, trans_off, trans_n,
+#      tf_deg,
+#      P_vec, TF_inputs) = args2
+#
+#     y = y0.copy()
+#     Y[0, :] = y
+#
+#     # work arrays (avoid temporaries)
+#     y_big = np.empty(n, dtype=np.float64)
+#     y_half = np.empty(n, dtype=np.float64)
+#     y_twohalf = np.empty(n, dtype=np.float64)
+#     k1 = np.empty(n, dtype=np.float64)
+#     k2 = np.empty(n, dtype=np.float64)
+#     tmp = np.empty(n, dtype=np.float64)
+#
+#     # helper: Heun step (in-place into y_out)
+#     # y_out = y + 0.5*dt*(f(y,t) + f(y+dt*f, t+dt))
+#     # implemented inline for speed in the main loop.
+#
+#     step_counter = 0
+#
+#     # initial bucket index (assumes kin_grid sorted ascending)
+#     jb = 0
+#     tcur = t_eval[0]
+#     # advance jb if tcur beyond boundaries
+#     while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+#         jb += 1
+#
+#     dt = dt_init
+#
+#     for ti in range(1, T):
+#         tend = t_eval[ti]
+#
+#         while tcur < tend:
+#             step_counter += 1
+#             if step_counter > max_steps:
+#                 raise RuntimeError("adaptive_heun_bucketed_model2: max_steps exceeded")
+#
+#             # ensure bucket index is correct (incremental, no searchsorted)
+#             while jb + 1 < kin_grid.size and tcur >= kin_grid[jb + 1]:
+#                 jb += 1
+#
+#             # clamp dt to:
+#             #  - not overshoot tend
+#             #  - not cross bucket boundary (keep jb valid during the whole step)
+#             dt_use = dt
+#             rem = tend - tcur
+#             if dt_use > rem:
+#                 dt_use = rem
+#
+#             if jb + 1 < kin_grid.size:
+#                 bnd = kin_grid[jb + 1] - tcur
+#                 if bnd > 0.0 and dt_use > bnd:
+#                     dt_use = bnd
+#
+#             if dt_use < dt_min:
+#                 dt_use = dt_min
+#
+#             # ---- Step-doubling error estimate ----
+#             # big step: dt_use
+#             rhs_model2_bucketed_into(k1,
+#                 y, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 tmp[i] = y[i] + dt_use * k1[i]
+#
+#             rhs_model2_bucketed_into(k2,
+#                 tmp, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 y_big[i] = y[i] + 0.5 * dt_use * (k1[i] + k2[i])
+#
+#             # two half steps: dt_use/2 twice
+#             h = 0.5 * dt_use
+#
+#             # half step 1
+#             rhs_model2_bucketed_into(k1,
+#                 y, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 tmp[i] = y[i] + h * k1[i]
+#             rhs_model2_bucketed_into(k2,
+#                 tmp, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 y_half[i] = y[i] + 0.5 * h * (k1[i] + k2[i])
+#
+#             # half step 2 (note: still same jb because dt_use clamped to boundary)
+#             rhs_model2_bucketed_into(k1,
+#                 y_half, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 tmp[i] = y_half[i] + h * k1[i]
+#             rhs_model2_bucketed_into(k2,
+#                 tmp, jb,
+#                 c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+#                 S_cache,
+#                 TF_indptr, TF_indices, TF_data, n_TF_rows,
+#                 offset_y, offset_s, n_sites, n_states,
+#                 trans_from, trans_to, trans_site, trans_off, trans_n,
+#                 tf_deg,
+#                 P_vec, TF_inputs
+#             )
+#             for i in range(n):
+#                 y_twohalf[i] = y_half[i] + 0.5 * h * (k1[i] + k2[i])
+#
+#             # ---- error metric (infinity norm with rtol/atol scaling) ----
+#             err = 0.0
+#             for i in range(n):
+#                 sc = atol + rtol * (abs(y_twohalf[i]) if abs(y_twohalf[i]) > abs(y[i]) else abs(y[i]))
+#                 if sc <= 0.0:
+#                     sc = 1e-12
+#                 e = abs(y_twohalf[i] - y_big[i]) / sc
+#                 if e > err:
+#                     err = e
+#
+#             # accept/reject + step size update
+#             if err <= 1.0:
+#                 # accept: use the higher-quality two-half result
+#                 y[:] = y_twohalf
+#                 tcur += dt_use
+#
+#                 # grow dt (Heun is order 2, use exponent 1/3 for step-doubling estimate)
+#                 if err < 1e-12:
+#                     fac = 2.0
+#                 else:
+#                     fac = safety * (1.0 / err) ** (1.0 / 3.0)
+#                 if fac > 2.0:
+#                     fac = 2.0
+#                 if fac < 0.5:
+#                     fac = 0.5
+#                 dt = dt_use * fac
+#                 if dt > dt_max:
+#                     dt = dt_max
+#             else:
+#                 # reject: shrink dt
+#                 fac = safety * (1.0 / err) ** (1.0 / 3.0)
+#                 if fac < 0.1:
+#                     fac = 0.1
+#                 dt = dt_use * fac
+#                 if dt < dt_min:
+#                     dt = dt_min
+#                 # do not advance time
+#
+#         Y[ti, :] = y
+#
+#     return Y

@@ -25,7 +25,7 @@ tf_scale = [0.01, 0.5]
 
 [models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "combinatorial"
+default_model = "distributive"
 model_description = """
 - distributive: Each phosphorylation occurs independently for each site on the protein.
 - sequential: Phosphorylation occurs in a specific order, one site after another.
@@ -33,8 +33,8 @@ model_description = """
 """
 
 [optimization]
-max_iterations = 50
-population_size = 25
+max_iterations = 500
+population_size = 200
 seed = 42
 
 [regularization]
@@ -45,3 +45,4 @@ rna = 1.0
 absolute_tolerance = 1e-5
 relative_tolerance = 1e-6
 max_timesteps = 5000
+use_custom_solver = true

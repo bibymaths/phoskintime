@@ -3,36 +3,52 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import odeint, ODEintWarning
 
-from phoskintime_global.config import MODEL
-
 warnings.filterwarnings("ignore", category=ODEintWarning)
 warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from phoskintime_global.jacspeedup import fd_jacobian_odeint, rhs_odeint
+from phoskintime_global.config import MODEL, USE_CUSTOM_SOLVER
+from phoskintime_global.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
 
+if USE_CUSTOM_SOLVER:
+    print("[Solver] Using Adaptive Heun Bucketed Solver")
+else:
+    print("[Solver] Using Scipy ODEint")
+
+if MODEL == 0:
+    print("[Model] Using Distributive Model")
+elif MODEL == 1:
+    print("[Model] Using Sequential Model")
+elif MODEL == 2:
+    print("[Model] Using Combinatorial Model")
+else:
+    raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
 
 def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
     """
     y0 = sys.y0().astype(np.float64)
+    t_eval = t_eval.astype(np.float64)
 
+    if USE_CUSTOM_SOLVER:
+        xs = solve_custom(sys, y0, t_eval, rtol=rtol, atol=atol)
+        return np.ascontiguousarray(xs, dtype=np.float64)
+
+    # odeint path
     if MODEL == 2:
-        S_cache = sys.W_global.dot(sys.kin_Kmat * sys.c_k[:, None])
-        S_cache = np.ascontiguousarray(np.asarray(S_cache, dtype=np.float64))
-        sys.S_cache = S_cache
-        args = sys.odeint_args(S_cache)
+        build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
+        args = sys.odeint_args(sys.S_cache)
     else:
         args = sys.odeint_args()
 
     xs = odeint(
         rhs_odeint,
         y0,
-        t_eval.astype(np.float64),
+        t_eval,
         args=args,
-        Dfun=fd_jacobian_odeint,
+        Dfun=fd_jacobian_odeint,   # keep if you want; for MODEL==2 you can set None if it causes issues
         col_deriv=False,
         rtol=rtol,
         atol=atol,
