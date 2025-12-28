@@ -1,5 +1,5 @@
 # PhosKinTime
- 
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
