@@ -70,7 +70,7 @@ def kin_eval_step(t, grid, Kmat):
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_nb_distributive(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -100,7 +100,7 @@ def rhs_nb_distributive(
 
     distributive_rhs(
         y, dy,
-        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         TF_inputs, S_all,
         offset_y, offset_s, n_sites
     )
@@ -110,7 +110,7 @@ def rhs_nb_distributive(
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_nb_sequential(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -140,7 +140,7 @@ def rhs_nb_sequential(
 
     sequential_rhs(
         y, dy,
-        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         TF_inputs, S_all,
         offset_y, offset_s, n_sites
     )
@@ -150,7 +150,7 @@ def rhs_nb_sequential(
 def rhs_nb_combinatorial(
     y,
     t,
-    c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+    c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
     kin_grid,
     S_cache,
     TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -182,7 +182,7 @@ def rhs_nb_combinatorial(
     # core dynamics using cached phosphorylation rates
     combinatorial_rhs(
         y, dy,
-        A_i, B_i, C_i, D_i, E_i, tf_scale,
+        A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         TF_inputs,
         S_cache, jb,
         offset_y, offset_s,
@@ -208,7 +208,7 @@ def rhs_odeint(y, t, *args):
 @njit(cache=True, fastmath=True, nogil=True)
 def fd_jacobian_nb_core_distributive(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -221,7 +221,7 @@ def fd_jacobian_nb_core_distributive(
 
     f0 = rhs_nb_distributive(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -237,7 +237,7 @@ def fd_jacobian_nb_core_distributive(
 
         fj = rhs_nb_distributive(
             y_pert, t,
-            c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+            c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
             kin_grid, kin_Kmat,
             W_indptr, W_indices, W_data, n_W_rows,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -255,7 +255,7 @@ def fd_jacobian_nb_core_distributive(
 @njit(cache=True, fastmath=True, nogil=True)
 def fd_jacobian_nb_core_sequential(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -268,7 +268,7 @@ def fd_jacobian_nb_core_sequential(
 
     f0 = rhs_nb_sequential(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, kin_Kmat,
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -284,7 +284,7 @@ def fd_jacobian_nb_core_sequential(
 
         fj = rhs_nb_sequential(
             y_pert, t,
-            c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+            c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
             kin_grid, kin_Kmat,
             W_indptr, W_indices, W_data, n_W_rows,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
@@ -302,7 +302,7 @@ def fd_jacobian_nb_core_sequential(
 def fd_jacobian_nb_core_combinatorial(
         y,
         t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, S_cache,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
@@ -318,7 +318,7 @@ def fd_jacobian_nb_core_combinatorial(
 
     f0 = rhs_nb_combinatorial(
         y, t,
-        c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
         kin_grid, S_cache,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
@@ -334,7 +334,7 @@ def fd_jacobian_nb_core_combinatorial(
 
         fj = rhs_nb_combinatorial(
             y_pert, t,
-            c_k, A_i, B_i, C_i, D_i, E_i, tf_scale,
+            c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
             kin_grid, S_cache,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites, n_states,

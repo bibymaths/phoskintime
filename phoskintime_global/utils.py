@@ -21,6 +21,9 @@ def _find_col(df, cands):
             return c
     return None
 
+def slen(s: slice) -> int:
+    return int(s.stop) - int(s.start)
+
 def normalize_fc_to_t0(df):
     df = df.copy()
 

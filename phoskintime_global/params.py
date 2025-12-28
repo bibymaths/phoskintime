@@ -10,7 +10,7 @@ def init_raw_params(defaults):
     bounds = []
     curr = 0
 
-    for k in ["c_k", "A_i", "B_i", "C_i", "D_i", "E_i"]:
+    for k in ["c_k", "A_i", "B_i", "C_i", "D_i", "Dp_i", "E_i"]:
         raw = inv_softplus(defaults[k])
         vecs.append(raw)
         length = len(raw)
@@ -44,6 +44,7 @@ def unpack_params(theta, slices):
         "B_i": softplus(theta[slices["B_i"]]),
         "C_i": softplus(theta[slices["C_i"]]),
         "D_i": softplus(theta[slices["D_i"]]),
+        "Dp_i": softplus(theta[slices["Dp_i"]]),
         "E_i": softplus(theta[slices["E_i"]]),
         "tf_scale": softplus(theta[slices["tf_scale"]])[0]
     }

@@ -22,10 +22,10 @@ from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO, get_weight_options
 from phoskintime_global.params import init_raw_params, unpack_params
 from phoskintime_global.simulate import simulate_and_measure
-from phoskintime_global.utils import normalize_fc_to_t0, _base_idx
+from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg
+    scan_prior_reg, export_S_rates, export_S_rates_with_times
 
 
 def main():
@@ -120,6 +120,7 @@ def main():
         "B_i": np.full(idx.N, 0.2),
         "C_i": np.full(idx.N, 0.5),
         "D_i": np.full(idx.N, 0.05),
+        "Dp_i": np.full(idx.total_sites, 0.05),
         "E_i": np.ones(idx.N),
         "tf_scale": 0.1
     }
@@ -164,6 +165,27 @@ def main():
         xu=xu,
         elementwise_runner=runner
     )
+
+    # Sanity Check - Decision vector
+    sizes = {
+        "c_k": slen(slices["c_k"]),
+        "A_i": slen(slices["A_i"]),
+        "B_i": slen(slices["B_i"]),
+        "C_i": slen(slices["C_i"]),
+        "D_i": slen(slices["D_i"]),
+        "Dp_i": slen(slices["Dp_i"]),
+        "E_i": slen(slices["E_i"]),
+        "tf_scale": slen(slices["tf_scale"]),
+    }
+
+    print(f"n_var = {problem.n_var}")
+    for k, v in sizes.items():
+        print(f"{k}[{v}]")
+
+    total = sum(sizes.values())
+    print(f"sum_slices = {total}")
+
+    assert total == problem.n_var, f"Mismatch: sum_slices={total} != n_var={problem.n_var}"
 
     # 9) UNSGA3 needs reference directions
     ref_dirs = get_reference_directions(
@@ -254,6 +276,20 @@ def main():
     F_best = F[I]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
+
+    # Save the phosphorylation rates
+    export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
+    print("[Output] Saved phosphorylation rates for picked solution.")
+
+    export_S_rates_with_times(
+        sys,
+        idx,
+        args.output_dir,
+        filename="S_rates_picked_times.csv",
+        times=TIME_POINTS_PHOSPHO,
+    )
+
+    print("[Output] Saved phosphorylation rates for picked solution at specific times.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)

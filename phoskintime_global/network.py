@@ -44,6 +44,7 @@ class Index:
             curr_s += self.n_sites[i]
 
         self.state_dim = curr_y
+        self.total_sites = int(curr_s)
         print(f"[Model] {self.N} proteins, {len(self.kinases)} kinases, {self.state_dim} state variables.")
 
     def block(self, i: int) -> slice:
@@ -92,6 +93,7 @@ class System:
         self.B_i = np.ascontiguousarray(defaults["B_i"], dtype=np.float64)
         self.C_i = np.ascontiguousarray(defaults["C_i"], dtype=np.float64)
         self.D_i = np.ascontiguousarray(defaults["D_i"], dtype=np.float64)
+        self.Dp_i = np.ascontiguousarray(defaults["Dp_i"], dtype=np.float64)
         self.E_i = np.ascontiguousarray(defaults["E_i"], dtype=np.float64)
         self.tf_scale = float(defaults["tf_scale"])
 
@@ -155,12 +157,13 @@ class System:
                 self.trans_n,
             ) = build_random_transitions(idx)
 
-    def update(self, c_k, A_i, B_i, C_i, D_i, E_i, tf_scale):
+    def update(self, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale):
         self.c_k[:] = c_k
         self.A_i[:] = A_i
         self.B_i[:] = B_i
         self.C_i[:] = C_i
         self.D_i[:] = D_i
+        self.Dp_i[:] = Dp_i
         self.E_i[:] = E_i
         self.tf_scale = float(tf_scale)
 
@@ -191,14 +194,14 @@ class System:
         if MODEL == 0:
             distributive_rhs(
                 y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.E_i, self.tf_scale,
+                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
                 TF_inputs, S_all,
                 self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
             )
         elif MODEL == 1:
             sequential_rhs(
                 y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.E_i, self.tf_scale,
+                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
                 TF_inputs, S_all,
                 self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
             )
@@ -215,7 +218,7 @@ class System:
 
             combinatorial_rhs(
                 y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.E_i, self.tf_scale,
+                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
                 TF_inputs,
                 self.S_cache, jb,
                 self.idx.offset_y, self.idx.offset_s,
@@ -252,6 +255,7 @@ class System:
                 self.B_i,
                 self.C_i,
                 self.D_i,
+                self.Dp_i,
                 self.E_i,
                 float(self.tf_scale),
 
@@ -283,6 +287,7 @@ class System:
             self.B_i,
             self.C_i,
             self.D_i,
+            self.Dp_i,
             self.E_i,
             float(self.tf_scale),
             self.kin_grid,

@@ -3,16 +3,38 @@ import os
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt, animation
+import matplotlib.colors as mcolors
 import seaborn as sns
 from pymoo.visualization.pcp import PCP
 from pymoo.visualization.scatter import Scatter
 from scipy.stats import linregress
 
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL
 from phoskintime_global.params import unpack_params
 from phoskintime_global.simulate import simulate_and_measure
-from phoskintime_global.utils import pick_best_lamdas
+from phoskintime_global.jacspeedup import build_S_cache_into
 
+def build_site_meta(idx):
+    """
+    Returns parallel arrays of length idx.total_sites:
+      site_protein[s] = protein name for global site s
+      site_psite[s]   = psite label for global site s
+      site_local[s]   = local site index within that protein
+    """
+    total = int(idx.total_sites)
+    site_protein = np.empty(total, dtype=object)
+    site_psite   = np.empty(total, dtype=object)
+    site_local   = np.empty(total, dtype=np.int32)
+
+    for i, prot in enumerate(idx.proteins):
+        off = int(idx.offset_s[i])
+        for j, psite in enumerate(idx.sites[i]):
+            s = off + j
+            site_protein[s] = prot
+            site_psite[s]   = psite
+            site_local[s]   = j
+
+    return site_protein, site_psite, site_local
 
 def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     """
@@ -220,6 +242,7 @@ def export_pareto_front_to_excel(
     # ---- Collect params + trajectories ----
     params_genes_rows = []
     params_kin_rows = []
+    deg_site_rows = []
     traj_p_list = []
     traj_r_list = []
     traj_ph_list = []
@@ -227,6 +250,8 @@ def export_pareto_front_to_excel(
     # Cache these for speed
     proteins = idx.proteins
     kinases = idx.kinases
+
+    site_protein, site_psite, site_local = build_site_meta(idx)
 
     for sol_id in range(X.shape[0]):
         theta = X[sol_id].astype(float)
@@ -246,6 +271,31 @@ def export_pareto_front_to_excel(
             params_genes_rows.append((sol_id, g, "D_i", float(p["D_i"][i])))
             params_genes_rows.append((sol_id, g, "E_i", float(p["E_i"][i])))
             params_genes_rows.append((sol_id, g, "tf_scale", tf_scale_val))
+
+        # ---- per-site degradation rates ----
+        # Prefer params dict if present, else sys attribute set by update().
+        deg_vec = (
+                p.get("deg_site", None)
+                or p.get("kdeg_site", None)
+                or getattr(sys, "deg_site", None)
+                or getattr(sys, "kdeg_site", None)
+        )
+
+        if deg_vec is not None:
+            deg_vec = np.asarray(deg_vec, dtype=float).reshape(-1)
+            if deg_vec.size != idx.total_sites:
+                raise ValueError(f"deg_vec has size {deg_vec.size}, expected idx.total_sites={idx.total_sites}")
+
+            # store long format: one row per site per solution
+            for s in range(idx.total_sites):
+                deg_site_rows.append((
+                    sol_id,
+                    int(s),  # global site id
+                    site_protein[s],
+                    site_psite[s],
+                    int(site_local[s]),
+                    float(deg_vec[s]),
+                ))
 
         # ----- parameters: kinases (c_k) -----
         for j, k in enumerate(kinases):
@@ -283,11 +333,16 @@ def export_pareto_front_to_excel(
     df_traj_ph = pd.concat(traj_ph_list, ignore_index=True) if traj_ph_list else pd.DataFrame(
         columns=["sol_id", "protein", "psite", "time", "pred_fc"]
     )
+    df_deg_sites = pd.DataFrame(
+        deg_site_rows,
+        columns=["sol_id", "site_id", "protein", "psite", "local_site", "k_deg"]
+    )
 
     # ---- Write Excel ----
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         df_summary.to_excel(writer, sheet_name="summary", index=False)
         df_params_genes.to_excel(writer, sheet_name="params_genes", index=False)
+        df_deg_sites.to_excel(writer, sheet_name="deg_sites", index=False)
         df_params_kin.to_excel(writer, sheet_name="params_kinases", index=False)
         df_traj_p.to_excel(writer, sheet_name="traj_protein", index=False)
         df_traj_r.to_excel(writer, sheet_name="traj_rna", index=False)
@@ -295,7 +350,6 @@ def export_pareto_front_to_excel(
 
     print(f"[Output] Pareto export saved: {output_path}")
     print(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
-
 
 
 def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
@@ -536,59 +590,152 @@ def plot_gof_from_pareto_excel(
     print(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
 
 
-def export_results(sys, idx, df_prot_obs, df_rna_obs, df_phos_obs, df_pred_p, df_pred_r, df_pred_ph, output_dir):
+def export_results(
+    sys,
+    idx,
+    df_prot_obs,
+    df_rna_obs,
+    df_phos_obs,
+    df_pred_p,
+    df_pred_r,
+    df_pred_ph,
+    output_dir,
+):
     """
-    Exports results using PRE-CALCULATED prediction dataframes.
-    Avoids re-running the simulation.
+    Export pre-computed observed + predicted trajectories and model parameters.
+
+    Writes:
+      - model_trajectories.csv
+      - model_parameters_genes.csv
+      - model_parameters_genes_psites.csv   (long format: protein x psite)
+      - model_parameters_kinases.csv
     """
+    os.makedirs(output_dir, exist_ok=True)
+
+    def _merge_traj(obs_df, pred_df, on_cols, traj_type):
+        obs = obs_df.rename(columns={"fc": "fc_obs"}).copy()
+        pred = pred_df.rename(columns={"pred_fc": "fc_pred"}).copy()
+        merged = obs.merge(pred, on=on_cols, how="outer")
+        merged["type"] = traj_type
+        if "psite" not in merged.columns:
+            merged["psite"] = np.nan
+        return merged
+
     print("[Output] Exporting Trajectories...")
 
-    # 1. Merge Protein
-    # Rename cols to ensure clean merge
-    obs_p = df_prot_obs.rename(columns={"fc": "fc_obs"})
-    pred_p = df_pred_p.rename(columns={"pred_fc": "fc_pred"})
-    merged_p = obs_p.merge(pred_p, on=["protein", "time"], how="outer")
-    merged_p["type"] = "Protein"
+    merged_p = _merge_traj(df_prot_obs, df_pred_p, on_cols=["protein", "time"], traj_type="Protein")
+    merged_r = _merge_traj(df_rna_obs,  df_pred_r, on_cols=["protein", "time"], traj_type="RNA")
+    merged_ph = _merge_traj(df_phos_obs, df_pred_ph, on_cols=["protein", "psite", "time"], traj_type="Phosphorylation")
 
-    # 2. Merge RNA
-    obs_r = df_rna_obs.rename(columns={"fc": "fc_obs"})
-    pred_r = df_pred_r.rename(columns={"pred_fc": "fc_pred"})
-    merged_r = obs_r.merge(pred_r, on=["protein", "time"], how="outer")
-    merged_r["type"] = "RNA"
-
-    # 3. Merge Phosphorylation
-    obs_ph = df_phos_obs.rename(columns={"fc": "fc_obs"})
-    pred_ph = df_pred_ph.rename(columns={"pred_fc": "fc_pred"})
-    merged_ph = obs_ph.merge(pred_ph, on=["protein", "psite", "time"], how="outer")
-    merged_ph["type"] = "Phosphorylation"
-
-    # 3. Combine & Save
     full_traj = pd.concat([merged_p, merged_r, merged_ph], ignore_index=True)
     full_traj = full_traj[["type", "protein", "psite", "time", "fc_obs", "fc_pred"]]
-    full_traj.sort_values(["type", "protein", "time"], inplace=True)
+    full_traj.sort_values(["type", "protein", "psite", "time"], inplace=True)
 
     full_traj.to_csv(os.path.join(output_dir, "model_trajectories.csv"), index=False)
 
-    # --- Export Parameters ---
     print("[Output] Exporting Parameters...")
 
-    df_params = pd.DataFrame({
-        "Protein_Gene": idx.proteins,
-        "Synthesis_A": sys.A_i,
-        "mRNA_Degradation_B": sys.B_i,
-        "Translation_C": sys.C_i,
-        "Protein_Degradation_D": sys.D_i,
-        "Phosphorylation_E": sys.E_i
-    })
+    # --- Gene/protein-level parameters (one row per protein) ---
+    N = len(idx.proteins)
 
-    df_params["Global_TF_Scale"] = sys.tf_scale
-    df_params.to_csv(os.path.join(output_dir, "model_parameters_genes.csv"), index=False)
+    dp_mean = np.full(N, np.nan, dtype=float)
+    dp_min = np.full(N, np.nan, dtype=float)
+    dp_max = np.full(N, np.nan, dtype=float)
 
-    df_kin_params = pd.DataFrame({
-        "Kinase": idx.kinases,
-        "Activity_Scale_ck": sys.c_k,
-    })
+    for i in range(N):
+        ns = int(idx.n_sites[i])
+        if ns > 0:
+            s0 = int(idx.offset_s[i])
+            dps = np.asarray(sys.Dp_i[s0:s0 + ns], dtype=float)  # per-site Dp for this protein
+            dp_mean[i] = float(np.mean(dps))
+            dp_min[i] = float(np.min(dps))
+            dp_max[i] = float(np.max(dps))
 
+    df_params_genes = pd.DataFrame(
+        {
+            "Protein_Gene": idx.proteins,
+            "Synthesis_A": sys.A_i,
+            "mRNA_Degradation_B": sys.B_i,
+            "Translation_C": sys.C_i,
+            "Protein_Degradation_D": sys.D_i,
+            "Phospho_Degradation_Dp_mean": dp_mean,
+            "Phospho_Degradation_Dp_min": dp_min,
+            "Phospho_Degradation_Dp_max": dp_max,
+            "De-Phosphorylation_E": sys.E_i,
+            "Global_TF_Scale": np.full(N, sys.tf_scale, dtype=float),
+        }
+    )
+
+    df_params_genes.to_csv(os.path.join(output_dir, "model_parameters_genes.csv"), index=False)
+
+    # --- Gene/protein x psite parameters (long format) ---
+    # psites come from observed phos dataframe (can switch to df_pred_ph if preferred)
+    psites_by_protein = (
+        df_phos_obs[["protein", "psite"]]
+        .dropna()
+        .drop_duplicates()
+        .groupby("protein")["psite"]
+        .apply(lambda s: sorted(s.unique()))
+        .to_dict()
+    )
+
+    rows = []
+    for i, prot in enumerate(idx.proteins):
+        ns = int(idx.n_sites[i])
+        s0 = int(idx.offset_s[i])
+
+        if ns == 0:
+            # no sites -> one row with NaNs for site-specific values
+            rows.append(
+                {
+                    "Protein_Gene": prot,
+                    "psite": np.nan,
+                    "Synthesis_A": sys.A_i[i],
+                    "mRNA_Degradation_B": sys.B_i[i],
+                    "Translation_C": sys.C_i[i],
+                    "Protein_Degradation_D": sys.D_i[i],
+                    "Phospho_Degradation_Dp": np.nan,
+                    "De-Phosphorylation_E": sys.E_i[i],
+                    "Global_TF_Scale": sys.tf_scale,
+                }
+            )
+            continue
+
+        # map psite -> local index j
+        site_to_j = {ps: j for j, ps in enumerate(idx.sites[i])}
+
+        psite_list = psites_by_protein.get(prot, [])
+        for psite in psite_list:
+            j = site_to_j.get(psite, None)
+            dp_val = float(sys.Dp_s[s0 + j]) if j is not None else np.nan
+
+            rows.append(
+                {
+                    "Protein_Gene": prot,
+                    "psite": psite,
+                    "Synthesis_A": sys.A_i[i],
+                    "mRNA_Degradation_B": sys.B_i[i],
+                    "Translation_C": sys.C_i[i],
+                    "Protein_Degradation_D": sys.D_i[i],
+                    "Phospho_Degradation_Dp": dp_val,
+                    "De-Phosphorylation_E": sys.E_i[i],
+                    "Global_TF_Scale": sys.tf_scale,
+                }
+            )
+
+    df_params_genes_psites = pd.DataFrame(rows)
+    df_params_genes_psites.to_csv(
+        os.path.join(output_dir, "model_parameters_genes_psites.csv"),
+        index=False,
+    )
+
+    # --- Kinase parameters ---
+    df_kin_params = pd.DataFrame(
+        {
+            "Kinase": idx.kinases,
+            "Activity_Scale_ck": sys.c_k,
+        }
+    )
     df_kin_params.to_csv(os.path.join(output_dir, "model_parameters_kinases.csv"), index=False)
 
     print(f"[Output] Exports saved to {output_dir}")
@@ -647,6 +794,10 @@ def save_gene_timeseries_plots(
         out.sort_values(time_col, inplace=True)
         return out
 
+    def _lighten(color, amount=0.65):
+        r, g, b = mcolors.to_rgb(color)
+        return (1 - amount) * r + amount, (1 - amount) * g + amount, (1 - amount) * b + amount
+
     # Normalize preds
     prot_pred = _norm_pred(df_prot_pred) if df_prot_pred is not None else pd.DataFrame()
     rna_pred  = _norm_pred(df_rna_pred)  if df_rna_pred  is not None else pd.DataFrame()
@@ -690,14 +841,28 @@ def save_gene_timeseries_plots(
         ph_pre = _clean_ts(ph_pre, "fc_pred")
 
     # ---- Plot ----
-    fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=False)
+    fig, axes = plt.subplots(1, 3, figsize=(12, 6), sharex=False)
     ax_p, ax_r, ax_ph = axes
+    prot_c = "C0"
+    rna_c = "C1"
+    phos_c = "C2"
+
+    obs_alpha = 0.35
+    pred_alpha = 1.0
+
+    prot_obs_c = _lighten(prot_c, 0.65)
+    rna_obs_c = _lighten(rna_c, 0.65)
+    phos_obs_c = _lighten(phos_c, 0.65)
 
     # Protein
     if not p_obs.empty:
-        ax_p.plot(p_obs["time"].to_numpy(), p_obs["fc"].to_numpy(), marker="o", linewidth=2, label="Protein obs")
+        ax_p.plot(p_obs["time"].to_numpy(), p_obs["fc"].to_numpy(),
+                  marker="o", linewidth=2, label="obs",
+                  color=prot_obs_c, alpha=obs_alpha)
     if not p_pre.empty:
-        ax_p.plot(p_pre["time"].to_numpy(), p_pre["fc_pred"].to_numpy(), marker="o", linewidth=2, label="Protein pred")
+        ax_p.plot(p_pre["time"].to_numpy(), p_pre["fc_pred"].to_numpy(),
+                  marker="o", linewidth=2, label="pred",
+                  color=prot_c, alpha=pred_alpha)
     ax_p.set_title(f"{gene} — Protein")
     ax_p.set_xlabel("Time")
     ax_p.set_ylabel("FC")
@@ -706,9 +871,14 @@ def save_gene_timeseries_plots(
 
     # RNA
     if not r_obs.empty:
-        ax_r.plot(r_obs["time"].to_numpy(), r_obs["fc"].to_numpy(), marker="o", linewidth=2, label="mRNA obs")
+        ax_r.plot(r_obs["time"].to_numpy(), r_obs["fc"].to_numpy(),
+                  marker="o", linewidth=2, label="obs",
+                  color=rna_obs_c, alpha=obs_alpha)
     if not r_pre.empty:
-        ax_r.plot(r_pre["time"].to_numpy(), r_pre["fc_pred"].to_numpy(), marker="o", linewidth=2, label="mRNA pred")
+        ax_r.plot(r_pre["time"].to_numpy(), r_pre["fc_pred"].to_numpy(),
+                  marker="o", linewidth=2, label="pred",
+                  color=rna_c, alpha=pred_alpha)
+
     ax_r.set_title(f"{gene} — mRNA")
     ax_r.set_xlabel("Time")
     ax_r.set_ylabel("FC")
@@ -730,11 +900,14 @@ def save_gene_timeseries_plots(
             if not ph_obs.empty:
                 obs_mean = ph_obs.groupby("time", as_index=False)["fc"].mean()
                 ax_ph.plot(obs_mean["time"].to_numpy(), obs_mean["fc"].to_numpy(),
-                           marker="o", linewidth=2, label="Phos obs (mean)")
+                           marker="o", linewidth=2, label="obs (mean)",
+                           color=phos_obs_c, alpha=obs_alpha)
+
             if not ph_pre.empty:
                 pre_mean = ph_pre.groupby("time", as_index=False)["fc_pred"].mean()
                 ax_ph.plot(pre_mean["time"].to_numpy(), pre_mean["fc_pred"].to_numpy(),
-                           marker="o", linewidth=2, label="Phos pred (mean)")
+                           marker="o", linewidth=2, label="pred (mean)",
+                           color=phos_c, alpha=pred_alpha)
         else:
             # per-psite lines (capped)
             psites = sorted(set(ph_obs["psite"].unique()).union(set(ph_pre["psite"].unique()))) if ("psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
@@ -743,14 +916,22 @@ def save_gene_timeseries_plots(
             #     psites = psites[:max_psites]
 
             for ps in psites:
+                ps_color = f"C{hash(ps) % 10}"
+                ps_obs_color = _lighten(ps_color, 0.65)
+
                 if not ph_obs.empty:
                     subo = ph_obs[ph_obs["psite"] == ps]
                     if not subo.empty:
-                        ax_ph.plot(subo["time"].to_numpy(), subo["fc"].to_numpy(), marker="o", linewidth=1, label=f"obs {ps}")
+                        ax_ph.plot(subo["time"].to_numpy(), subo["fc"].to_numpy(),
+                                   marker="o", linewidth=1, label=f"obs {ps}",
+                                   color=ps_obs_color, alpha=obs_alpha)
+
                 if not ph_pre.empty:
                     subp = ph_pre[ph_pre["psite"] == ps]
                     if not subp.empty:
-                        ax_ph.plot(subp["time"].to_numpy(), subp["fc_pred"].to_numpy(), marker="o", linewidth=1, label=f"pred {ps}")
+                        ax_ph.plot(subp["time"].to_numpy(), subp["fc_pred"].to_numpy(),
+                                   marker="o", linewidth=1, label=f"pred {ps}",
+                                   color=ps_color, alpha=pred_alpha)
 
         ax_ph.legend(ncol=2, fontsize=8)
 
@@ -838,3 +1019,198 @@ def scan_prior_reg(out_dir):
     print(" - lambda_scan_recommended.json")
 
     return df, uniq, rec
+
+def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=True):
+    """
+    Export phosphorylation drive S for optimized parameters.
+    S is per-site and per time-bin (TIME_POINTS_PROTEIN / sys.kin_grid).
+
+    long=True  -> columns: protein, psite, time, S
+    long=False -> wide: protein, psite, S_t0, S_t1, ...
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # ---- compute S matrix: shape (total_sites, n_bins) ----
+    if MODEL == 2:
+        # Ensure cache matches current optimized c_k
+        build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
+        S_mat = np.asarray(sys.S_cache, dtype=np.float64)
+        times = np.asarray(sys.kin_grid, dtype=float)
+    else:
+        # Dense kinase signal scaled by c_k
+        K_scaled = (np.asarray(sys.kin_Kmat, dtype=np.float64) *
+                    np.asarray(sys.c_k, dtype=np.float64)[:, None])      # (n_kin, n_bins)
+        # Sparse (total_sites x n_kin) dot dense (n_kin x n_bins) -> (total_sites x n_bins)
+        S_mat = sys.W_global.dot(K_scaled)
+        S_mat = np.asarray(S_mat, dtype=np.float64)
+        times = np.asarray(sys.kin_grid, dtype=float)
+
+    # ---- build (protein, psite) mapping in the exact row order of W / S_mat ----
+    proteins = []
+    psites = []
+    for i, p in enumerate(idx.proteins):
+        for s in idx.sites[i]:
+            proteins.append(p)
+            psites.append(s)
+
+    if len(proteins) != S_mat.shape[0]:
+        raise RuntimeError(
+            f"Row mapping mismatch: mapped {len(proteins)} sites but S_mat has {S_mat.shape[0]} rows. "
+            f"Check idx.sites ordering vs W construction."
+        )
+
+    if long:
+        # long format: repeat each site across all time bins
+        n_sites, n_bins = S_mat.shape
+        df = pd.DataFrame({
+            "protein": np.repeat(np.array(proteins, dtype=object), n_bins),
+            "psite":   np.repeat(np.array(psites, dtype=object),   n_bins),
+            "time":    np.tile(times, n_sites),
+            "S":       S_mat.reshape(-1),
+        })
+    else:
+        # wide format: one row per site, one column per time
+        cols = [f"S_t{t:g}" for t in times]
+        df = pd.DataFrame(S_mat, columns=cols)
+        df.insert(0, "psite", psites)
+        df.insert(0, "protein", proteins)
+
+    out_path = os.path.join(output_dir, filename)
+    df.to_csv(out_path, index=False)
+    print(f"[Output] Saved S rates to: {out_path}")
+    return df
+
+def export_S_rates_with_times(
+    sys,
+    idx,
+    output_dir: str,
+    filename: str = "S_rates.csv",
+    long: bool = True,
+    times: np.ndarray | None = None,
+    site_ids: list | np.ndarray | None = None,
+    float_format: str = "%.8g",
+    chunksize_sites: int = 200_000,
+) -> str:
+    """
+    Export phosphorylation rates S(t) for each site across time.
+
+    Assumes stepwise-hold kinase input:
+        K(t) = sys.kin_input.eval(t)   # shape: (num_kinases,)
+        S(t) = sys.W_global.dot( K(t) * sys.c_k )
+
+    Parameters
+    ----------
+    sys : system object
+        Must provide:
+          - sys.W_global : (n_sites x n_kinases) dense or sparse matrix
+          - sys.kin_input : KinaseInput-like object with .grid and .eval(t)
+        Optional:
+          - sys.c_k : (n_kinases,) scaling vector (defaults to ones)
+          - sys.site_ids : identifiers for sites (defaults to 0..n_sites-1)
+    idx : int
+        Solution index (written into output).
+    output_dir : str
+        Directory to save into (created if missing).
+    filename : str
+        Output CSV filename.
+    long : bool
+        If True: long format (idx,time,site,S). If False: wide format.
+    times : array-like or None
+        If None, uses sys.kin_input.grid
+    site_ids : array-like or None
+        If None, tries sys.site_ids else uses integers 0..n_sites-1
+    float_format : str
+        Float format for CSV.
+    chunksize_sites : int
+        Only used for long=True to stream large outputs without huge memory.
+
+    Returns
+    -------
+    str
+        Full path to the written CSV.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(output_dir, filename)
+
+    kin_input = getattr(sys, "kin_input", None)
+    if kin_input is None or not hasattr(kin_input, "eval"):
+        raise AttributeError("sys must have sys.kin_input with an eval(t) method (KinaseInput).")
+
+    if times is None:
+        grid = getattr(kin_input, "grid", None)
+        if grid is None:
+            raise AttributeError("times is None and sys.kin_input.grid is missing.")
+        times = np.asarray(grid, dtype=float)
+    else:
+        times = np.asarray(times, dtype=float)
+
+    W = getattr(sys, "W_global", None)
+    if W is None:
+        raise AttributeError("sys must have sys.W_global matrix.")
+
+    n_sites = int(W.shape[0])
+
+    c_k = getattr(sys, "c_k", None)
+    if c_k is None:
+        # default: no scaling
+        # infer n_kinases from W
+        c_k = np.ones(int(W.shape[1]), dtype=float)
+    else:
+        c_k = np.asarray(c_k, dtype=float)
+
+    if site_ids is None:
+        site_ids = getattr(sys, "site_ids", None)
+    if site_ids is None:
+        site_ids = np.arange(n_sites)
+    else:
+        site_ids = np.asarray(site_ids)
+        if site_ids.shape[0] != n_sites:
+            raise ValueError(f"site_ids length {site_ids.shape[0]} != n_sites {n_sites}")
+
+    # ---- helper: compute S(t) ----
+    def _S_at_time(t: float) -> np.ndarray:
+        Kt = np.asarray(kin_input.eval(float(t)), dtype=float)  # (n_kinases,)
+        if Kt.shape[0] != W.shape[1]:
+            raise ValueError(f"kin_input.eval(t) length {Kt.shape[0]} != n_kinases {W.shape[1]}")
+        Kt = Kt * c_k
+        St = W.dot(Kt)  # works for numpy arrays and scipy sparse
+        return np.asarray(St).reshape(-1)
+
+    # ---- write output ----
+    if not long:
+        # Wide format: rows = times, columns = sites (WARNING: can be huge)
+        data = np.empty((times.size, n_sites), dtype=float)
+        for i, t in enumerate(times):
+            data[i, :] = _S_at_time(float(t))
+
+        df = pd.DataFrame(data, columns=[f"S_{sid}" for sid in site_ids])
+        df.insert(0, "time", times)
+        df.insert(0, "idx", idx)
+        df.to_csv(out_path, index=False, float_format=float_format)
+        return out_path
+
+    # Long format: stream to CSV to avoid big memory
+    # Columns: idx,time,site,S
+    header_written = False
+    for t in times:
+        Svec = _S_at_time(float(t))
+
+        # stream in chunks across sites
+        for start in range(0, n_sites, chunksize_sites):
+            end = min(start + chunksize_sites, n_sites)
+            df_chunk = pd.DataFrame({
+                "idx": idx,
+                "time": float(t),
+                "site": site_ids[start:end],
+                "S": Svec[start:end],
+            })
+            df_chunk.to_csv(
+                out_path,
+                index=False,
+                mode="a",
+                header=(not header_written),
+                float_format=float_format,
+            )
+            header_written = True
+
+    return out_path

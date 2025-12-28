@@ -3,7 +3,7 @@ from numba import njit, prange
 
 
 @njit(fastmath=True, cache=True, nogil=True)
-def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
+def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                      offset_y, offset_s, n_sites):
     N = A_i.shape[0]
 
@@ -23,12 +23,9 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         Bi = B_i[i]
         Ci = C_i[i]
         Di = D_i[i]
+        Dpi = Dp_i[i]
         Ei = E_i[i]
 
-        # u = TF_inputs[i]
-        # if u < -1.0: u = -1.0
-        # if u > 1.0: u = 1.0
-        # synth = Ai * (1.0 + tf_scale * u)
 
         # squashed TF input in (-1, 1)
         u = TF_inputs[i]
@@ -44,7 +41,6 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         else:
             sum_S = 0.0
             sum_back = 0.0
-            Ei_plus_Di = Ei + Di
 
             # phospho states
             for j in range(ns):
@@ -57,14 +53,15 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
                 sum_S += s_rate
                 sum_back += Ei * ps_val
 
-                dy[yi] = s_rate * P - Ei_plus_Di * ps_val
+                Dpi = Dp_i[si]
+                dy[yi] = s_rate * P - (Ei + Dpi) * ps_val
 
             # unphosph protein
             dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_back
 
 
 @njit(fastmath=True, cache=True, nogil=True)
-def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
+def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
     N = A_i.shape[0]
 
@@ -86,11 +83,6 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
         Di = D_i[i]
         Ei = E_i[i]
 
-        # u = TF_inputs[i]
-        # if u < -1.0: u = -1.0
-        # if u > 1.0: u = 1.0
-        # synth = Ai * (1.0 + tf_scale * u)
-
         # squashed TF input in (-1, 1)
         u = TF_inputs[i]
         u = u / (1.0 + np.abs(u))
@@ -110,13 +102,15 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
 
         if ns == 1:
             # --- last state is P1 ---
-            dy[base + 0] = k0 * P0 - (Ei + Di) * P1
+            Dp1 = Dp_i[s_start + 0]
+            dy[base + 0] = k0 * P0 - (Ei + Dp1) * P1
             continue
 
         # --- P1 (first phospho) handled separately to avoid branch in loop ---
         k1 = S_all[s_start + 1]
         P2 = y[base + 1]
-        dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Di) * P1
+        Dp1 = Dp_i[s_start + 0]
+        dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Dp1) * P1
 
         # --- middle states: P2..P(ns-1) ---
         # indices base+1 .. base+(ns-2)
@@ -130,20 +124,29 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, E_i, tf_scale, TF_inputs, S_all,
             P_prev = y[idx - 1]
             P_next = y[idx + 1]
 
-            dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Di) * Pj
+            Dpj = Dp_i[s_start + j]  # j=1 corresponds to P2, etc.
+            dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Dpj) * Pj
 
         # --- last state: Pns (index base + ns - 1) ---
         idx_last = base + (ns - 1)
         Plast = y[idx_last]
         k_last = S_all[s_start + (ns - 1)]
         Pprev = y[idx_last - 1]
-        dy[idx_last] = k_last * Pprev - (Ei + Di) * Plast
+        Dp_last = Dp_i[s_start + (ns - 1)]
+        dy[idx_last] = k_last * Pprev - (Ei + Dp_last) * Plast
 
+@njit(cache=True, nogil=True)
+def _bit_index_from_lsb(lsb):
+    j = 0
+    while lsb > 1:
+        lsb >>= 1
+        j += 1
+    return j
 
 @njit(fastmath=True, cache=True, nogil=True)
 def combinatorial_rhs(
     y, dy,
-    A_i, B_i, C_i, D_i, E_i, tf_scale,
+    A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
     TF_inputs, S_cache, jb,
     offset_y, offset_s,
     n_sites, n_states,
@@ -187,11 +190,39 @@ def combinatorial_rhs(
         # translation into mask=0
         dy[idx_P0] += Ci * R
 
-        # decay for all states (tight loop, fewer index recomputations)
+        # decay for all states
         base = idx_P0
-        for m in range(nstates):
+
+        # m = 0 state uses Di
+        P0 = y[base]
+        dy[base] += -Di * P0
+
+        # m > 0 states: dephosph transitions + per-site decay
+        for m in range(1, nstates):
             Pm = y[base + m]
-            dy[base + m] += -Di * Pm
+            if Pm == 0.0:
+                continue
+
+            mm = m
+            dp_rate = 0.0
+
+            while mm != 0:
+                lsb = mm & -mm
+                mm -= lsb
+
+                j = _bit_index_from_lsb(lsb)  # 0..ns-1
+                to = m ^ lsb
+
+                # dephosph transition: m -> to at rate Ei * Pm (per set bit)
+                flux = Ei * Pm
+                dy[base + m] -= flux
+                dy[base + to] += flux
+
+                # per-site decay contribution (sink)
+                dp_rate += Dp_i[s_start + j]
+
+            # apply summed per-site decay to this mask
+            dy[base + m] -= dp_rate * Pm
 
         # forward phosphorylation transitions
         off = trans_off[i]
@@ -206,24 +237,6 @@ def combinatorial_rhs(
 
             dy[base + frm] -= flux
             dy[base + to]  += flux
-
-        # dephosph: iterate only over set bits (no scan over ns)
-        # each set bit gives a transition m -> m without that bit at rate Ei*Pm
-        for m in range(1, nstates):
-            Pm = y[base + m]
-            if Pm <= 0.0:
-                continue
-
-            flux_each = Ei * Pm
-
-            mm = m
-            # iterate over set bits of m
-            while mm != 0:
-                lsb = mm & -mm          # lowest set bit (power of two)
-                mm -= lsb
-                to = m ^ lsb            # clear that bit
-                dy[base + m]  -= flux_each
-                dy[base + to] += flux_each
 
 def build_random_transitions(idx):
     """

@@ -20,12 +20,13 @@ A_i      = [0.01, 1.0]
 B_i      = [0.01, 1.0]
 C_i      = [0.01, 1.0]
 D_i      = [0.05, 1.0]
+Dp_i     = [0.05, 1.0]
 E_i      = [1e-3, 2.0]
 tf_scale = [0.01, 0.5]
 
 [models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "combinatorial"
+default_model = "distributive"
 model_description = """
 - distributive: Each phosphorylation occurs independently for each site on the protein.
 - sequential: Phosphorylation occurs in a specific order, one site after another.
@@ -33,7 +34,7 @@ model_description = """
 """
 
 [optimization]
-max_iterations = 1000
+max_iterations = 500
 population_size = 300
 seed = 42
 
