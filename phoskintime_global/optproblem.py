@@ -1,7 +1,7 @@
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-from phoskintime_global.config import ODE_MAX_STEPS, ODE_ABS_TOL
+from phoskintime_global.config import ODE_MAX_STEPS, ODE_ABS_TOL, ODE_REL_TOL
 from phoskintime_global.lossfn import LOSS_FN
 from phoskintime_global.params import unpack_params
 from phoskintime_global.simulate import simulate_odeint
@@ -54,7 +54,7 @@ class GlobalODE_MOO(ElementwiseProblem):
             Y = simulate_odeint(
                 self.sys,
                 self.time_grid,
-                rtol=ODE_ABS_TOL,
+                rtol=ODE_REL_TOL,
                 atol=ODE_ABS_TOL,
                 mxstep=ODE_MAX_STEPS
             )
@@ -72,17 +72,18 @@ class GlobalODE_MOO(ElementwiseProblem):
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
             self.loss_data["p_rna"],  self.loss_data["t_rna"],  self.loss_data["obs_rna"],  self.loss_data["w_rna"],
-            self.loss_data["p_pho"],  self.loss_data["t_pho"],  self.loss_data["obs_pho"],  self.loss_data["w_pho"],
-            self.loss_data["prot_map"], self.loss_data["rna_base_idx"]
+            self.loss_data["p_pho"],  self.loss_data["s_pho"], self.loss_data["t_pho"],  self.loss_data["obs_pho"],  self.loss_data["w_pho"],
+            self.loss_data["prot_map"],
+            self.loss_data["prot_base_idx"], self.loss_data["rna_base_idx"], self.loss_data["pho_base_idx"]
         )
 
         prot_mse = loss_p_sum  / self.loss_data["n_p"]
         rna_mse  = loss_r_sum  / self.loss_data["n_r"]
         pho_mse  = loss_ph_sum / self.loss_data["n_ph"]
 
-        prot_obj = prot_mse * reg_protein * reg_loss
-        rna_obj  = rna_mse * reg_rna * reg_loss
-        pho_obj  = pho_mse * reg_phospho * reg_loss
+        prot_obj = prot_mse + reg_protein + reg_loss
+        rna_obj = rna_mse + reg_rna + reg_loss
+        pho_obj = pho_mse + reg_phospho + reg_loss
 
         out["F"] = np.array([prot_obj, rna_obj, pho_obj], dtype=float)
 

@@ -22,7 +22,7 @@ from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO
 from phoskintime_global.params import init_raw_params, unpack_params
 from phoskintime_global.simulate import simulate_and_measure
-from phoskintime_global.utils import normalize_fc_to_t0
+from phoskintime_global.utils import normalize_fc_to_t0, _base_idx
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg
@@ -112,11 +112,11 @@ def main():
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
-    rna_base_time = 4.0
-    rna_base_idx = int(np.where(solver_times == rna_base_time)[0][0])
 
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
-    loss_data["rna_base_idx"] = np.int32(rna_base_idx)
+    loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
+    loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
+    loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
 
     # 6) Decision vector bounds (raw space)
     theta0, slices, xl, xu = init_raw_params(defaults)
@@ -176,7 +176,7 @@ def main():
         n_max_evals=100000
     )
 
-    print(f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho")
+    print(f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
     print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
 
     res = pymoo_minimize(

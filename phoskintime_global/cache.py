@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from phoskintime_global.config import MODEL
 
@@ -50,38 +51,40 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         site_maps.append(mp)
 
     def get_indices_phospho(df):
-        prots = df["protein"].values
-        psite = df["psite"].values
+        p_idxs = []
+        s_idxs = []
+        t_idxs = []
+        obs = []
+        ws = []
 
-        p_idxs = np.empty(len(prots), dtype=np.int32)
-        s_idxs = np.empty(len(prots), dtype=np.int32)
-
-        for r in range(len(prots)):
-            p = prots[r]
+        for _, row in df.iterrows():
+            p = row["protein"]
             if p not in idx.p2i:
-                raise ValueError(f"Protein '{p}' not in idx.p2i (interaction network index).")
-            pi = idx.p2i[p]
-            p_idxs[r] = pi
-
-            s = psite[r]
-            if s not in site_maps[pi]:
-                # Drop phospho sites not in the network
                 continue
-            s_idxs[r] = site_maps[pi][s]
+            pi = idx.p2i[p]
 
-        t_idxs = _map_times(df["time"].values)
+            s = row["psite"]
+            if s not in site_maps[pi]:
+                continue  # truly drop it
 
-        obs = np.ascontiguousarray(df["fc"].values, dtype=np.float64)
-        if "w" in df.columns:
-            ws = np.ascontiguousarray(df["w"].values, dtype=np.float64)
-        else:
-            ws = np.ones(len(df), dtype=np.float64)
+            p_idxs.append(pi)
+            s_idxs.append(site_maps[pi][s])
 
-        return (np.ascontiguousarray(p_idxs, dtype=np.int32),
-                np.ascontiguousarray(s_idxs, dtype=np.int32),
-                np.ascontiguousarray(t_idxs, dtype=np.int32),
-                obs,
-                ws)
+            t = float(row["time"])
+            if t not in t_map:
+                raise ValueError(f"Time {t} not found in time_grid")
+            t_idxs.append(t_map[t])
+
+            obs.append(float(row["fc"]))
+            ws.append(float(row["w"]) if "w" in row and pd.notna(row["w"]) else 1.0)
+
+        return (
+            np.asarray(p_idxs, dtype=np.int32),
+            np.asarray(s_idxs, dtype=np.int32),
+            np.asarray(t_idxs, dtype=np.int32),
+            np.asarray(obs, dtype=np.float64),
+            np.asarray(ws, dtype=np.float64),
+        )
 
     p_prot, t_prot, obs_prot, w_prot = get_indices_basic(df_prot, idx.p2i)
     p_rna,  t_rna,  obs_rna,  w_rna  = get_indices_basic(df_rna,  idx.p2i)

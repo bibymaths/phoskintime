@@ -12,6 +12,8 @@ def _normcols(df):
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     return df
 
+def _base_idx(times, t0):
+    return np.int32(int(np.argmin(np.abs(times - float(t0)))))
 
 def _find_col(df, cands):
     for c in cands:

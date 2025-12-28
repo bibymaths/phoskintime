@@ -33,12 +33,12 @@ model_description = """
 """
 
 [optimization]
-max_iterations = 500
+max_iterations = 1000
 population_size = 300
 seed = 42
 
 [regularization]
-lambda = 1e-4
+lambda = 1e-3
 protein = 1.0
 rna = 1.0
 phospho = 1.0

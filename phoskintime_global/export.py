@@ -608,7 +608,7 @@ def save_gene_timeseries_plots(
     phos_times: np.ndarray = None,
     filename_prefix: str = "ts",
     dpi: int = 300,
-    phos_mode: str = "per-psite",   # "mean" or "per_psite"
+    phos_mode: str = "per_psite",   # "mean" or "per_psite"
     max_psites: int = None,      # only used for per_psite
 ):
     """
