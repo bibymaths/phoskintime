@@ -283,7 +283,7 @@ def export_pareto_front_to_excel(
     print(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
 
-def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir):
+def plot_goodness_of_fit(df_prot_obs, df_prot_pred, df_rna_obs, df_rna_pred, output_dir, file_prefix=""):
     """
     Generates a Goodness of Fit (Parity Plot) for Protein and RNA data.
     """
@@ -359,15 +359,14 @@ def plot_gof_from_pareto_excel(
         excel_path: str,
         output_dir: str,
         plot_goodness_of_fit_func,
-        df_prot_obs_all: pd.DataFrame,  # your df_prot (columns: protein,time,fc)
-        df_rna_obs_all: pd.DataFrame,  # your df_rna  (columns: protein,time,fc)
+        df_prot_obs_all: pd.DataFrame,
+        df_rna_obs_all: pd.DataFrame,
         traj_protein_sheet: str = "traj_protein",
         traj_rna_sheet: str = "traj_rna",
         summary_sheet: str = "summary",
         top_k: int = None,
-        only_solutions=None,  # iterable of sol_id
+        only_solutions=None,
         score_col: str = "scalar_score",
-        make_subdirs: bool = True,
 ):
     """
     Uses the Excel produced by export_pareto_front_to_excel (your current version):
@@ -458,16 +457,14 @@ def plot_gof_from_pareto_excel(
             df_rna_obs = df_rna_obs_all.iloc[0:0].copy()
 
         sol_dir = output_dir
-        if make_subdirs:
-            sol_dir = os.path.join(output_dir, f"sol_{sid:05d}")
-            os.makedirs(sol_dir, exist_ok=True)
 
         plot_goodness_of_fit_func(
             df_prot_obs=df_prot_obs,
             df_prot_pred=df_prot_pred,
             df_rna_obs=df_rna_obs,
             df_rna_pred=df_rna_pred,
-            output_dir=sol_dir
+            output_dir=sol_dir,
+            file_prefix=f"sol_{sid}_"
         )
 
     print(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
