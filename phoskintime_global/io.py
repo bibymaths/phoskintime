@@ -1,5 +1,8 @@
+import re
+
 import pandas as pd
 
+from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
 from phoskintime_global.utils import _normcols, _find_col
 
 
@@ -54,7 +57,7 @@ def load_data(args):
         tidy["protein"] = tidy[gcol].astype(str).str.strip()
         tidy["psite"] = tidy[scol]
         x_idx = tidy["xcol"].str.replace("x", "", regex=False).astype(int) - 1
-        tidy["time"] = TIME_POINTS[x_idx.to_numpy()]
+        tidy["time"] = TIME_POINTS_PROTEIN[x_idx.to_numpy()]
     else:
         tcol = _find_col(df_ms, ["time", "t"])
         mcol = _find_col(df_ms, ["mean", "fc"])

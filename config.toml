@@ -1,113 +1,40 @@
-#PhosKinTime Configuration
-#=========================
-#
-#This file consolidates settings for both transcription factor (TF) optimization (`tfopt`)
-#and kinase-phosphorylation site optimization (`kinopt`) used in the PhosKinTime pipeline.
+# Phoskintime Global Configuration File
 
-#Sections
-#--------
-#
-#[paths]
-#    Shared file-system paths for data, output, logs, and ODE model directories.
-#
-#[tfopt]
-#    - Settings for TF-mRNA optimization tasks.
-#    - Includes input files, optimization bounds, loss functions, and vectorization toggle.
-#    - Defines mode-specific overrides for `local` and `evol` solvers.
-#
-#[kinopt]
-#    - Settings for kinase-site optimization using evolutionary and local optimizers.
-#    - Includes loss types, missing kinase estimation, time scaling strategies, and regularization flags.
-#    - Supports segmented or temporal scaling methods and multiple loss options.
-#
-#[model]
-#    - ODE model selection: distributive, successive, or random.
-#    - Estimation strategy: `normal` (all time points) or `sequential` (point-by-point).
-#    - Normalization of model output to fold change and CI level for parameter confidence.
-#
-#[scoring]
-#    - Weights for a composite scoring function:
-#      combines RMSE, MAE, residual variance, MSE, and L2 regularization.
-#
-#[plotting]
-#    - Plot rendering options and Tikhonov regularization parameters.
-#
-#Usage:
-#------
-#The file is read directly in `constants.py` using TOML parsing (e.g., `tomli.load`),
-#and its contents are used to override default arguments and globals programmatically.
+[general]
+app_name = "Phoskintime-Global"
+version = "0.1.0"
+default_language = "en"
+enable_logging = true
+log_level = "info"
+data_directory = "data"
 
-####################################
-# 1. Common file‑system paths      #
-####################################
-[paths]
-out_dir = "results"
-data_dir = "data"
-logs_dir = "results/logs"
-ode_data_dir = "data/ode"
+[timepoints]
+protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+phospho_protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
-####################################
-# 2. Transcription‑Factor (tfopt)  #
-####################################
-[tfopt]
-# inputs & outputs
-input_files = ["data/input1.csv", "data/input3.csv", "data/input4.csv"]
-output_file = "results/tfopt_results.xlsx"
-# sampling times (minutes)
-time_points = [4, 8, 15, 30, 60, 120, 240, 480, 960]
+[bounds]
+c_k      = [1e-4, 5.0]
+A_i      = [0.01, 1.0]
+B_i      = [0.01, 1.0]
+C_i      = [0.01, 1.0]
+D_i      = [0.05, 1.0]
+E_i      = [1e-3, 2.0]
+tf_scale = [0.01, 0.5]
 
-# optimization defaults
-bounds = { lower = -2.0, upper = 2.0 }
-loss = { default = 3, options = [0, 1, 2, 3, 4, 5, 6] }
-vectorized = false               # default: local mode
-optimizer = 0                   # default: NGSA2
+[models]
+available_models = ["distributive", "sequential", "combinatorial"]
+default_model = "distributive"
+model_description = """
+- distributive: Each phosphorylation occurs independently for each site on the protein.
+- sequential: Phosphorylation occurs in a specific order, one site after another.
+- combinatorial: All possible phosphorylation states are considered simultaneously.
+"""
 
-# mode‑specific overrides
-[tfopt.modes]
-evol = { vectorized = true, optimizer = 0 }
-local = { vectorized = false, optimizer = 0 }
+[optimization]
+max_optimization_iterations = 1000
 
-####################################
-# 3. Kinase‑Phospho (kinopt)       #
-####################################
-[kinopt]
-# inputs & outputs
-input_files = ["data/input1.csv", "data/input2.csv"]
-output_file = "results/kinopt_results.xlsx"
-# sampling times (minutes)
-time_points = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
-
-# optimization defaults
-bounds = { lower = -2.0, upper = 2.0 }
-loss = { default = "base", options = ["base", "weighted", "softl1", "cauchy", "arctan", "autocorrelation", "huber", "mape"] }
-estimate_missing = true
-scaling = { method = "none", split_point = 9, segment_points = [0, 3, 6, 9, 14] }
-algorithm = "slsqp"    # default: local mode
-regularization = false      # default: local mode
-
-# mode‑specific overrides
-[kinopt.modes]
-evol = { algorithm = "NSGA-II", regularization = false }
-local = { algorithm = "slsqp", regularization = false }
-
-####################################
-# 4. ODE / model settings          #
-####################################
-[model]
-ode_model = "distmod"   # one of "distmod","succmod","randmod","testmod"
-estimation_mode = "normal"    # "normal" | "sequential"
-alpha_ci = 0.95
-normalize_output = false
-model_names = { distmod = "Distributive", succmod = "Successive", randmod = "Random", testmod = "Test" }
-
-####################################
-# 5. Composite scoring             #
-####################################
-[scoring]
-weights = { delta = 1.0, alpha = 1.0, beta = 1.0, gamma = 1.0, mu_reg = 1.0 }
-
-####################################
-# 6. Plotting & regularization     #
-####################################
-[plotting]
-use_regularization = true
+[solver]
+absolute_tolerance = 1e-6
+relative_tolerance = 1e-4
+max_timesteps = 5000

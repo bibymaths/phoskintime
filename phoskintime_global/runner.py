@@ -13,6 +13,7 @@ from pymoo.optimize import minimize as pymoo_minimize
 
 from phoskintime_global.buildmat import build_W_parallel, build_tf_matrix
 from phoskintime_global.cache import prepare_fast_loss_data
+from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
 from phoskintime_global.io import load_data
 from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO
@@ -20,7 +21,8 @@ from phoskintime_global.params import init_raw_params, unpack_params
 from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
-    export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots
+    export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
+    scan_prior_reg
 
 
 def main():
@@ -59,7 +61,7 @@ def main():
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
 
     # Weights (early emphasis)
-    all_times = np.unique(np.concatenate([TIME_POINTS, TIME_POINTS_RNA]))
+    all_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA]))
     wmap = {t: 1.0 + (all_times.max() - t) / all_times.max() for t in all_times}
     df_prot["w"] = df_prot["time"].map(wmap).fillna(1.0)
     df_rna["w"] = df_rna["time"].map(wmap).fillna(1.0)
@@ -85,7 +87,7 @@ def main():
     sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
 
     # 5) Precompute loss data on solver time grid
-    solver_times = np.unique(np.concatenate([TIME_POINTS, TIME_POINTS_RNA]))
+    solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA]))
     rna_base_time = 4.0
     rna_base_idx = int(np.where(solver_times == rna_base_time)[0][0])
 
@@ -194,7 +196,7 @@ def main():
     sys.update(**params)
 
     # 12) Export picked solution
-    dfp, dfr = simulate_and_measure(sys, idx, TIME_POINTS, TIME_POINTS_RNA)
+    dfp, dfr = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA)
     # Save raw preds
     if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
     if dfr is not None: dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
@@ -224,7 +226,7 @@ def main():
             df_rna_obs=df_rna,
             df_rna_pred=dfr,
             output_dir=ts_dir,
-            prot_times=TIME_POINTS,
+            prot_times=TIME_POINTS_PROTEIN,
             rna_times=TIME_POINTS_RNA,
             filename_prefix="fit"
         )
@@ -253,6 +255,9 @@ def main():
     create_convergence_video(res, output_dir=args.output_dir)
     print("[Done] Convergence video saved.")
 
+    # 4. Prior Regularization Scan
+    scan_prior_reg(out_dir=args.output_dir)
+    print("[Done] Prior regularization scan saved.")
 
 if __name__ == "__main__":
     try:

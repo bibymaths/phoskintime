@@ -1,6 +1,12 @@
+import warnings
 import numpy as np
 import pandas as pd
-from scipy.integrate import odeint
+from scipy.integrate import odeint, ODEintWarning
+
+warnings.filterwarnings("ignore", category=ODEintWarning)
+warnings.filterwarnings("ignore", message="Excess work done on this call")
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 from phoskintime_global.jacspeedup import fd_jacobian_odeint, rhs_odeint
 

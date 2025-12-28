@@ -1,5 +1,6 @@
 import numpy as np
 
+from phoskintime_global.config import BOUNDS_CONFIG
 from phoskintime_global.utils import inv_softplus, softplus
 
 

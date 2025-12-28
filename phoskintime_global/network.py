@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from phoskintime_global.config import TIME_POINTS_PROTEIN
 from phoskintime_global.models import distributive_rhs
 
 
@@ -36,7 +37,7 @@ class Index:
 
 class KinaseInput:
     def __init__(self, kinases, df_fc):
-        self.grid = TIME_POINTS
+        self.grid = TIME_POINTS_PROTEIN
         self.Kmat = np.ones((len(kinases), len(self.grid)), float)
         if not df_fc.empty:
             for i, k in enumerate(kinases):
