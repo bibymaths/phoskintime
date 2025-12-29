@@ -50,7 +50,7 @@ rna = 2.0
 phospho = 1.0
 
 [solver]
-absolute_tolerance = 1e-5
-relative_tolerance = 1e-6
-max_timesteps = 5000
-use_custom_solver = true
+absolute_tolerance = 1e-8
+relative_tolerance = 1e-8
+max_timesteps = 200000
+use_custom_solver = false
