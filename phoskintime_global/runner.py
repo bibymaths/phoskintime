@@ -305,8 +305,8 @@ def main():
     print("[Output] Saved phosphorylation rates for picked solution.")
 
     out = plot_s_rates_report(
-        f"{args.outdir}/S_rates_picked.csv",
-        f"{args.outdir}/S_rates_report.pdf",
+        f"{args.output_dir}/S_rates_picked.csv",
+        f"{args.output_dir}/S_rates_report.pdf",
         top_k_sites_per_protein=24,
         max_sites_per_page=12,
         ncols=3,
@@ -315,10 +315,11 @@ def main():
         heatmap_cap_sites=80,
     )
 
-    print(f"[Output] Saved phosphorylation rates report for picked solution {args.outdir}/S_rates_report.pdf.")
+    print(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
+
     # Save raw preds
     if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
     if dfr is not None: dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
