@@ -23,14 +23,14 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
         Bi = B_i[i]
         Ci = C_i[i]
         Di = D_i[i]
-        Dpi = Dp_i[i]
         Ei = E_i[i]
 
-
         # squashed TF input in (-1, 1)
-        u = TF_inputs[i]
-        u = u / (1.0 + np.abs(u))
-        synth = Ai * (1.0 + tf_scale * u)
+        # TODO - allow for repression from TF (negative values too) - check for other models
+        u = np.tanh(TF_inputs[i])  # (-1,1), preserves sign
+        synth = Ai * np.exp(tf_scale * u)  # always positive, repression allowed
+        # u = u / (1.0 + np.abs(u))
+        # synth = Ai * (1.0 + tf_scale * u)
 
         # mRNA
         dy[idx_R] = synth - Bi * R
@@ -54,7 +54,10 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
                 sum_back += Ei * ps_val
 
                 Dpi = Dp_i[si]
-                dy[yi] = s_rate * P - (Ei + Dpi) * ps_val
+
+                # Added protein degradation term to each phospho state decay
+                # Explanation - Phosphorylated protein is still the same protein, but has a different state
+                dy[yi] = s_rate * P - (Ei + Dpi + Di) * ps_val
 
             # unphosph protein
             dy[idx_P] = Ci * R - (Di + sum_S) * P + sum_back
@@ -103,14 +106,20 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         if ns == 1:
             # --- last state is P1 ---
             Dp1 = Dp_i[s_start + 0]
-            dy[base + 0] = k0 * P0 - (Ei + Dp1) * P1
+
+            # Added protein degradation term to each phospho state decay
+            # Explanation - Phosphorylated protein is still the same protein, but has a different state
+            dy[base + 0] = k0 * P0 - (Ei + Dp1 + Di) * P1
             continue
 
         # --- P1 (first phospho) handled separately to avoid branch in loop ---
         k1 = S_all[s_start + 1]
         P2 = y[base + 1]
         Dp1 = Dp_i[s_start + 0]
-        dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Dp1) * P1
+
+        # Added protein degradation term to each phospho state decay
+        # Explanation - Phosphorylated protein is still the same protein, but has a different state
+        dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Dp1 + Di) * P1
 
         # --- middle states: P2..P(ns-1) ---
         # indices base+1 .. base+(ns-2)
@@ -125,7 +134,10 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
             P_next = y[idx + 1]
 
             Dpj = Dp_i[s_start + j]  # j=1 corresponds to P2, etc.
-            dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Dpj) * Pj
+
+            # Added protein degradation term to each phospho state decay
+            # Explanation - Phosphorylated protein is still the same protein, but has a different state
+            dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Dpj + Di) * Pj
 
         # --- last state: Pns (index base + ns - 1) ---
         idx_last = base + (ns - 1)
@@ -133,7 +145,10 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         k_last = S_all[s_start + (ns - 1)]
         Pprev = y[idx_last - 1]
         Dp_last = Dp_i[s_start + (ns - 1)]
-        dy[idx_last] = k_last * Pprev - (Ei + Dp_last) * Plast
+
+        # Added protein degradation term to each phospho state decay
+        # Explanation - Phosphorylated protein is still the same protein, but has a different state
+        dy[idx_last] = k_last * Pprev - (Ei + Dp_last + Di) * Plast
 
 @njit(cache=True, nogil=True)
 def _bit_index_from_lsb(lsb):
@@ -219,7 +234,9 @@ def combinatorial_rhs(
                 dy[base + to] += flux
 
                 # per-site decay contribution (sink)
-                dp_rate += Dp_i[s_start + j]
+                # Added protein degradation term to each phospho state decay
+                # Explanation - Phosphorylated protein is still the same protein, but has a different state
+                dp_rate += Dp_i[s_start + j] + Di
 
             # apply summed per-site decay to this mask
             dy[base + m] -= dp_rate * Pm

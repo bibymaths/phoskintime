@@ -19,18 +19,18 @@ phospho_protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 
 rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
 [bounds]
-c_k      = [1e-4, 5.0]
-A_i      = [0.01, 2.0]
-B_i      = [0.01, 2.0]
-C_i      = [0.01, 5.0]
-D_i      = [0.05, 2.0]
-Dp_i     = [0.05, 1.0]
-E_i      = [1e-3, 1.0]
-tf_scale = [0.01, 0.5]
+c_k      = [1e-3, 1e2]
+A_i      = [1e-6, 1e1]
+B_i      = [1e-4, 2e-1]
+C_i      = [1e-5, 5.0]
+D_i      = [1e-6, 5e-2]
+Dp_i     = [0.0, 5e-2]
+E_i      = [1e-4, 5.0]
+tf_scale = [-5.0, 5.0]
 
 [models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "sequential"
+default_model = "distributive"
 model_description = """
 - distributive: Each phosphorylation occurs independently for each site on the protein.
 - sequential: Phosphorylation occurs in a specific order, one site after another.
@@ -39,12 +39,12 @@ model_description = """
 
 [optimization]
 loss = 2  # 0:L2, 1:Huber, 2:log+pHuber, 3:rel+Charbonnier
-max_iterations = 500
-population_size = 400
+max_iterations = 1000
+population_size = 300
 seed = 42
 
 [regularization]
-lambda = 1e-4
+lambda = 1e-2
 protein = 2.0
 rna = 2.0
 phospho = 1.0
@@ -53,4 +53,4 @@ phospho = 1.0
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = false
+use_custom_solver = true

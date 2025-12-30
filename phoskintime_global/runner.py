@@ -72,6 +72,10 @@ def main():
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna = load_data(args)
 
+    # print("\n[TF input sanity]")
+    # print("df_tf shape:", df_tf.shape)
+    # print("df_tf columns:", list(df_tf.columns))
+
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)
         df_pho = normalize_fc_to_t0(df_pho)
@@ -115,11 +119,88 @@ def main():
     tf_mat = build_tf_matrix(df_tf, idx)
     kin_in = KinaseInput(idx.kinases, df_prot)
 
-    # print("[Debug] KinaseInput coverage:",
-    #       (kin_in.Kmat != 1.0).any(axis=1).sum(), "/", kin_in.Kmat.shape[0], "kinases have non-1 input")
+    #TODO - Check for sum of absolute weight to allow for TF repression dynamics
+    tf_deg = np.asarray(np.abs(tf_mat).sum(axis=1)).ravel().astype(np.float64)
+    tf_deg[tf_deg < 1e-12] = 1.0
+    # tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)
 
-    tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)
-    tf_deg[tf_deg == 0.0] = 1.0
+    #TODO - Add mRNA - TF - Psite dynamics to the workflow and model
+
+    # df_tf = df_tf[
+    #     df_tf["tf"].isin(idx.proteins) &
+    #     df_tf["target"].isin(idx.proteins)
+    #     ]
+    #
+    # # adapt these column names to your df_tf
+    # src_col = "tf"  # or "source"
+    # tgt_col = "target"  # or "protein"
+    #
+    # tf_src = set(df_tf[src_col].astype(str).str.strip().unique())
+    # tf_tgt = set(df_tf[tgt_col].astype(str).str.strip().unique())
+    # model_genes = set(idx.proteins)
+    #
+    # print("unique TF src:", len(tf_src), "unique TF tgt:", len(tf_tgt))
+    # print("overlap src∩model:", len(tf_src & model_genes))
+    # print("overlap tgt∩model:", len(tf_tgt & model_genes))
+    #
+    # # show examples that fail to match
+    # print("example src not in model:", list(tf_src - model_genes)[:10])
+    # print("example tgt not in model:", list(tf_tgt - model_genes)[:10])
+    #
+    # print("\n===== NETWORK / INPUT SANITY CHECK =====")
+    #
+    # # --- W_global (kinase -> site) ---
+    # print("\n[W_global]")
+    # print(f"  type        : {type(W_global)}")
+    # print(f"  shape       : {W_global.shape}")
+    # print(f"  nnz         : {W_global.nnz}")
+    # print(f"  density     : {W_global.nnz / (W_global.shape[0] * W_global.shape[1] + 1e-12):.4e}")
+    #
+    # if W_global.nnz > 0:
+    #     print(f"  data stats  : min={W_global.data.min():.3e}, "
+    #           f"max={W_global.data.max():.3e}, "
+    #           f"mean={W_global.data.mean():.3e}")
+    #
+    #     print("  first 10 entries (row, col, value):")
+    #     rows, cols = W_global.nonzero()
+    #     for i in range(min(10, len(rows))):
+    #         print(f"    ({rows[i]}, {cols[i]}) = {W_global.data[i]}")
+    #
+    # # --- TF matrix ---
+    # print("\n[tf_mat]")
+    # print(f"  type        : {type(tf_mat)}")
+    # print(f"  shape       : {tf_mat.shape}")
+    # print(f"  nnz         : {tf_mat.nnz}")
+    # print(f"  density     : {tf_mat.nnz / (tf_mat.shape[0] * tf_mat.shape[1] + 1e-12):.4e}")
+    #
+    # if tf_mat.nnz > 0:
+    #     print(f"  data stats  : min={tf_mat.data.min():.3e}, "
+    #           f"max={tf_mat.data.max():.3e}, "
+    #           f"mean={tf_mat.data.mean():.3e}")
+    #
+    # # --- TF degree normalization ---
+    # print("\n[tf_deg]")
+    # print(f"  shape       : {tf_deg.shape}")
+    # print(f"  min/max     : {tf_deg.min():.3e} / {tf_deg.max():.3e}")
+    # print(f"  zeros       : {(tf_deg == 0).sum()}")
+    # print("  first 10 tf_deg:", tf_deg[:10])
+    #
+    # # --- KinaseInput ---
+    # print("\n[KinaseInput]")
+    # print(f"  kinases     : {len(idx.kinases)}")
+    # print(f"  grid        : {kin_in.grid}")
+    # print(f"  Kmat shape  : {kin_in.Kmat.shape}")
+    # print(f"  Kmat stats  : min={kin_in.Kmat.min():.3e}, "
+    #       f"max={kin_in.Kmat.max():.3e}, "
+    #       f"mean={kin_in.Kmat.mean():.3e}")
+    #
+    # # show first kinase trajectory
+    # if kin_in.Kmat.shape[0] > 0:
+    #     print("  first kinase activity over time:")
+    #     for t, v in zip(kin_in.grid, kin_in.Kmat[0]):
+    #         print(f"    t={t:>6}: {v:.4f}")
+    #
+    # print("\n===== END NETWORK CHECK =====\n")
 
     # 4) Defaults/system
     defaults = {
@@ -144,7 +225,7 @@ def main():
             df_pho=df_pho
         )
         print("[Model] Initial conditions set from data.")
-    
+
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
 
@@ -265,6 +346,8 @@ def main():
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
 
+    #TODO - Add optimization history to save files to study optimization
+
     export_pareto_front_to_excel(
         res=res,
         sys=sys,
@@ -277,18 +360,18 @@ def main():
 
     print(f"[Output] Saved Pareto front Excel: {excel_path}")
 
-    plot_gof_from_pareto_excel(
-        excel_path=excel_path,
-        output_dir=os.path.join(args.output_dir, "gof_all"),
-        plot_goodness_of_fit_func=plot_goodness_of_fit,
-        df_prot_obs_all=df_prot,
-        df_rna_obs_all=df_rna,
-        df_phos_obs_all=df_pho,
-        top_k=None,
-        score_col="scalar_score",
-    )
-
-    print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+    # plot_gof_from_pareto_excel(
+    #     excel_path=excel_path,
+    #     output_dir=os.path.join(args.output_dir, "gof_all"),
+    #     plot_goodness_of_fit_func=plot_goodness_of_fit,
+    #     df_prot_obs_all=df_prot,
+    #     df_rna_obs_all=df_rna,
+    #     df_phos_obs_all=df_pho,
+    #     top_k=None,
+    #     score_col="scalar_score",
+    # )
+    #
+    # print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
 
     # 11) Pick one solution
     F = res.F
