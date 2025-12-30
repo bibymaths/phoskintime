@@ -45,8 +45,8 @@ seed = 42
 
 [regularization]
 lambda = 1e-3
-protein = 2.0
-rna = 2.0
+protein = 1.0
+rna = 1.0
 phospho = 1.0
 
 [solver]
