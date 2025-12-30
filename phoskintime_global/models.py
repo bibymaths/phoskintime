@@ -27,10 +27,9 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 
         # squashed TF input in (-1, 1)
         # TODO - allow for repression from TF (negative values too) - check for other models
-        u = np.tanh(TF_inputs[i])  # (-1,1), preserves sign
-        synth = Ai * np.exp(tf_scale * u)  # always positive, repression allowed
-        # u = u / (1.0 + np.abs(u))
-        # synth = Ai * (1.0 + tf_scale * u)
+        u = TF_inputs[i]
+        u = u / (1.0 + np.abs(u))
+        synth = Ai * (1.0 + tf_scale * u)
 
         # mRNA
         dy[idx_R] = synth - Bi * R
