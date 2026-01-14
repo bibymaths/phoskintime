@@ -75,7 +75,7 @@ def main():
     logger.info(f"      Sensitivity Analysis: {SENSITIVITY_ANALYSIS}")
     if SENSITIVITY_ANALYSIS:
         logger.info(f"      - Metric: {' '.join(part.upper() for part in Y_METRIC.split('_'))}")
-        logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, "No description available.")}")
+        logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, 'No description available.')}")
         logger.info(f"      - Number of Trajectories: {NUM_TRAJECTORIES}")
         logger.info(f"      - Parameter Space: {PARAMETER_SPACE}")
         logger.info(f"      - Perturbations: {PERTURBATIONS_VALUE}")

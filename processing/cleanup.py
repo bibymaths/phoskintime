@@ -94,7 +94,8 @@ def process_msgauss():
     df['Psite'] = df['site'].fillna('').astype(str)
 
     # Compute 2^(predict_mean)
-    df['predict_trans'] = 2 ** df['predict_mean']
+    # df['predict_trans'] = 2 ** df['predict_mean']
+    df['predict_trans'] = df['predict_mean']
 
     # Pivot so that each (GeneID, Psite) pair has time series values per unit_time (0-13)
     pivot_df = df.pivot_table(
@@ -128,7 +129,9 @@ def process_msgauss_std():
     """
     df = pd.read_csv(os.path.join(base_dir, "MS_Gaussian_updated_09032023.csv"))
     df['Psite'] = df['site'].fillna('').astype(str)
-    df['predict_trans'] = 2 ** df['predict_mean']
+    # df['predict_trans'] = 2 ** df['predict_mean']
+
+    df['predict_trans'] = df['predict_mean']
 
     # Error propagation: sigma_y = 2^(x) * ln(2) * sigma_x
     df['predict_trans_std'] = df['predict_trans'] * np.log(2) * df['predict_std']
@@ -195,7 +198,9 @@ def process_routlimma():
 
     # Convert each value in x1 to x9 as 2^(value)
     for col in rename_mapping.values():
-        df_new[col] = 2 ** df_new[col]
+
+        # df_new[col] = 2 ** df_new[col]
+        df_new[col] = df_new[col]
 
     # Save the resulting time series to input3.csv
     df_new.to_csv("input3.csv", index=False)
