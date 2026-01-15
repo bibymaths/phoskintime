@@ -1,5 +1,4 @@
-import io
-import contextlib
+
 import numpy as np
 import subprocess
 import pandas as pd
@@ -18,7 +17,6 @@ from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.core.problem import StarmapParallelization
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.termination.default import DefaultSingleObjectiveTermination
-from pymoo.util.normalization import denormalize
 
 from kinopt.evol.config import METHOD
 from kinopt.evol.config.constants import OUT_DIR
@@ -100,28 +98,11 @@ def run_optimization(
         # for single-objective optimization
         pop_size = choose_de_pop_size(problem)
 
-        # algorithm = DE(
-        #     pop_size=pop_size,
-        #     sampling=LHS(),  # good initial coverage
-        #     variant="DE/rand/1/bin",  # robust baseline
-        #     CR=0.9,  # strong recombination
-        #     F=0.8,  # (explicit > implicit)
-        #     dither="vector",  # diversity preservation
-        #     jitter=False,
-        #     vectorized=True,
-        #     verbose=True
-        # )
-        np.random.seed(1)
-
-        #TODO - Find alternative to DE or fix it
-        algorithm = CMAES(x0 = denormalize(np.random.random(problem.n_var), problem.xl, problem.xu),
-                  sigma=0.5,
-                  restarts=2,
-                  maxfevals=np.inf,
-                  tolfun=1e-6,
-                  tolx=1e-6,
-                  restart_from_best=True,
-                  bipop=True)
+        algorithm = DE(
+            pop_size=pop_size,
+            jitter=True,
+            verbose=True
+        )
 
         termination = DefaultSingleObjectiveTermination(
             xtol=1e-8,
@@ -156,8 +137,6 @@ def run_optimization(
         )
 
     # 5) Run the optimization
-    # buf = io.StringIO()
-    # with contextlib.redirect_stdout(buf):
     result = minimize(
         problem,
         algorithm,
@@ -165,11 +144,6 @@ def run_optimization(
         verbose=True,
         save_history=True
     )
-
-    # # Log the captured pymoo progress
-    # pymoo_progress = buf.getvalue()
-    # if pymoo_progress.strip():  # only log if there's actual text
-    #     logger.info("--- Progress Output ---\n" + pymoo_progress)
 
     # 6) Grab execution time and close the pool
     # Convert execution time to minutes and hours

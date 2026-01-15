@@ -159,4 +159,4 @@ regularization = false
 
 # Evolutionary optimizer backend
 # DE | NSGA-II (string, passed through)
-method = "NSGA-II"
+method = "DE"
