@@ -1,9 +1,6 @@
 import numpy as np
 from numba import prange, njit
 
-from tfopt.local.config.constants import VECTORIZED_LOSS_FUNCTION
-
-
 @njit(cache=True, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
