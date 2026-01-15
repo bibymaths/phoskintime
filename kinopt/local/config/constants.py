@@ -52,13 +52,13 @@ def parse_args():
     )
 
     # lower_bound and upper_bound are the bounds for the optimization.
-    parser.add_argument("--lower_bound", type=float, default=-2, help="Lower Beta bound.")
-    parser.add_argument("--upper_bound", type=float, default=2, help="Upper Beta bound.")
+    parser.add_argument("--lower_bound", type=float, default=-4, help="Lower Beta bound.")
+    parser.add_argument("--upper_bound", type=float, default=4, help="Upper Beta bound.")
 
     # loss_type is the type of loss function to use.
     parser.add_argument("--loss_type", type=str,
                         choices=["base", "weighted", "softl1", "cauchy", "arctan"],
-                        default="base", help="Loss function to use.")
+                        default="weighted", help="Loss function to use.")
 
     # estimate_missing_kinases indicates whether to estimate missing kinase-psite values.
     parser.add_argument("--estimate_missing_kinases", type=str, choices=["yes", "no"], default="yes",

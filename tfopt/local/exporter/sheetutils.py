@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -81,3 +83,58 @@ def save_results_to_excel(
         df_observed.to_excel(writer, sheet_name="Observed", index=False)
         df_estimated.to_excel(writer, sheet_name="Estimated", index=False)
         df_metrics.to_excel(writer, sheet_name="Optimization Results", index=False)
+
+
+def export_multistart_results(results):
+    rows = []
+    for r in results:
+        rows.append({
+            "start_id": getattr(r, "start_id", None),
+            "fun": float(getattr(r, "fun", np.nan)),
+            "success": bool(getattr(r, "success", False)),
+            "constraint_violation": float(
+                getattr(r, "constr_violation", np.nan)
+            ) if hasattr(r, "constr_violation") else np.nan,
+            "nit": getattr(r, "nit", None),
+            "seed": getattr(r, "seed", None),
+        })
+    return pd.DataFrame(rows)
+
+def save_multistart_solutions_npz(all_results, out_path):
+    """
+    Save all multistart optimization solutions to a compressed NPZ file.
+
+    Args:
+        all_results (list): List of optimizer result objects. Each must expose:
+                            - r.x      : optimized parameter vector
+                            - r.fun    : objective value
+                            - r.success (optional)
+                            - r.start_id (optional)
+        out_path (str | Path): Output .npz file path
+
+    Saved arrays:
+        X         : (n_starts, n_params) parameter matrix
+        fun       : (n_starts,) objective values
+        success   : (n_starts,) solver success flags
+        start_id  : (n_starts,) multistart indices
+    """
+    out_path = Path(out_path)
+
+    X = np.vstack([np.asarray(r.x, dtype=float) for r in all_results])
+    fun = np.asarray([float(r.fun) for r in all_results], dtype=float)
+    success = np.asarray(
+        [bool(getattr(r, "success", False)) for r in all_results],
+        dtype=bool,
+    )
+    start_id = np.asarray(
+        [int(getattr(r, "start_id", -1)) for r in all_results],
+        dtype=int,
+    )
+
+    np.savez_compressed(
+        out_path,
+        X=X,
+        fun=fun,
+        success=success,
+        start_id=start_id,
+    )

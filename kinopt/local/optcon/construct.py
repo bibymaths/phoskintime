@@ -277,10 +277,6 @@ def _eq_constraint(s, c):
         return np.sum(p[s: s + c]) - 1
     return f
 
-def _eq_constraint_zero(start, count):
-    def f(x):
-        return np.sum(x[start:start + count])  # equals 0
-    return f
 
 def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alpha, kinase_beta_counts, n_params):
     """
@@ -304,44 +300,36 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
         A = np.zeros((total, n_params))
         row = 0
         alpha_start = 0
-
-        # alpha sum-to-1 unchanged
         for count in gene_kinase_counts:
             A[row, alpha_start:alpha_start + count] = 1.0
             row += 1
             alpha_start += count
-
-        # beta: sum of phosphosite betas = 0 (exclude beta0)
         beta_start = total_alpha
-        for k in range(n_beta):
+        for k in range(len(unique_kinases)):
             cnt = kinase_beta_counts[k]
-            if cnt > 1:
-                A[row, beta_start + 1:beta_start + cnt] = 1.0
-            # if cnt <= 1: no psites; leave as zeros (no effective constraint)
+            A[row, beta_start:beta_start + cnt] = 1.0
             row += 1
             beta_start += cnt
-
-        lb = np.ones(total)
-        ub = np.ones(total)
-        lb[n_alpha:] = 0.0
-        ub[n_alpha:] = 0.0
-
-        return [LinearConstraint(A, lb=lb, ub=ub)]
+        return [LinearConstraint(A, lb=1, ub=1)]
     else:
         cons = []
         alpha_start = 0
         for count in gene_kinase_counts:
-            cons.append({'type': 'eq', 'fun': _eq_constraint(alpha_start, count)})
+            cons.append({
+                'type': 'eq',
+                'fun': _eq_constraint(alpha_start, count)
+            })
             alpha_start += count
 
         beta_start = total_alpha
         for bc in kinase_beta_counts:
-            if bc > 1:
-                cons.append({'type': 'eq', 'fun': _eq_constraint_zero(beta_start + 1, bc - 1)})
+            cons.append({
+                'type': 'eq',
+                'fun': _eq_constraint(beta_start, bc)
+            })
             beta_start += bc
 
         return cons
-
 
 def load_geneid_to_psites(input1_path=INPUT1):
     """

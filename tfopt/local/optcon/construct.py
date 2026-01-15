@@ -113,18 +113,10 @@ def constraint_beta_func(x, n_alpha, n_TF, beta_start_indices, num_psites, no_ps
     """
     cons = []
     for tf in range(n_TF):
-        length = 1 + num_psites[tf]
+        length = 1 + num_psites[tf]  # Total beta parameters for TF tf.
         start = n_alpha + beta_start_indices[tf]
         beta_vec = x[start: start + length]
-
-        # NEW: constrain only phosphosite betas to sum to 0 (exclude beta0)
-        if length > 1:
-            cons.append(np.sum(beta_vec[1:]) - 0.0)
-        else:
-            # no phosphosites -> no sum constraint needed
-            cons.append(0.0)
-
-        # keep your existing deactivation constraints
+        cons.append(np.sum(beta_vec) - 1.0)
         if no_psite_tf[tf]:
             for q in range(1, length):
                 cons.append(beta_vec[q])
@@ -151,7 +143,6 @@ def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, 
 
     # --- Alpha constraints ---
     alpha_constraints_matrix = []
-    # Populates constraint row with alpha coefficients
     for i in range(n_genes):
         row = np.zeros(total_vars)
         for j in range(n_reg):
@@ -165,25 +156,15 @@ def build_linear_constraints(n_genes, n_TF, n_reg, n_alpha, beta_start_indices, 
     lb_list = []
     ub_list = []
 
-    # Enforces beta sum to one; deactivates inactive TFs
     for tf in range(n_TF):
         start = n_alpha + beta_start_indices[tf]
         length = 1 + num_psites[tf]
-
         row = np.zeros(total_vars)
+        row[start: start + length] = 1.0
+        beta_constraint_rows.append(row)
+        lb_list.append(1.0)
+        ub_list.append(1.0)
 
-        # NEW: sum only phosphosite betas (exclude beta0)
-        if length > 1:
-            row[start + 1: start + length] = 1.0
-            beta_constraint_rows.append(row)
-            lb_list.append(0.0)
-            ub_list.append(0.0)
-        else:
-            # no phosphosites -> either skip constraint, or add a dummy 0=0 row
-            # minimal safe: skip
-            pass
-
-        # keep your existing "inactive TF" constraints
         if no_psite_tf[tf]:
             for q in range(1, length):
                 row = np.zeros(total_vars)

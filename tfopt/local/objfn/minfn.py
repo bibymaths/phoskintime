@@ -65,7 +65,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
             R_pred += a * tf_effect
 
         # Ensure non-negative predictions
-        # np.clip(R_pred, 0.0, None, out=R_pred)
+        np.clip(R_pred, 0.0, None, out=R_pred)
 
         # Residuals computed timepoint-by-timepoint
         for t in range(T_use):
