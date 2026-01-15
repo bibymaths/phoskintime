@@ -3,7 +3,7 @@ from functools import partial
 
 from kinopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from kinopt.local.config.helpers import location
-from kinopt.local.exporter.plotout import export_outcomes_to_csv
+from kinopt.local.exporter.plotout import export_outcomes_to_csv, plot_multistart_summary_runtime_overlay
 from kinopt.local.exporter.sheetutils import output_results, export_params_npz
 from kinopt.local.opt.optrun import run_optimization, multistart_run_optimization
 from kinopt.local.optcon.construct import check_kinases
@@ -109,6 +109,13 @@ def main():
 
     # Save optimized parameters for each start
     export_params_npz(outcomes, OUT_DIR / "multistart_params.npz")
+
+    # Save runtime vs objective function value plot
+    plot_multistart_summary_runtime_overlay(
+        OUT_DIR / "multistart_summary.csv",
+        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        figsize=(8, 8),
+    )
 
     # Extract optimized parameters.
     alpha_values, beta_values = extract_parameters(P_initial, gene_kinase_counts, total_alpha, unique_kinases, K_index,

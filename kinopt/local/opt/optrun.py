@@ -3,6 +3,9 @@ import time
 import numpy as np
 from dataclasses import dataclass
 from joblib import Parallel, delayed
+from kinopt.local.config.logconf import setup_logger
+
+logger = setup_logger()
 
 def run_optimization(obj_fun, params_initial, opt_method, bounds, constraints):
     """
@@ -118,6 +121,8 @@ def _run_one_start(start_id, seed, obj_fun, params_initial, opt_method, bounds, 
     fun = _extract_fun(result)
     success = _extract_success(result)
     cv = _extract_constr_violation(result)
+
+    logger.info(f"[Start {start_id}] fun={fun:.6g} cv={cv:.3g} success={success} runtime={runtime_s:.2f}s")
 
     return StartOutcome(
         start_id=start_id,

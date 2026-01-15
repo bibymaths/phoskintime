@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence, Tuple
 import numpy as np
 from joblib import Parallel, delayed
+from tfopt.local.config.logconf import setup_logger
 
+logger = setup_logger()
 
 def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use,
                   n_genes, beta_start_indices, num_psites, loss_type):
@@ -182,6 +184,10 @@ def _run_single_start(
         res.start_id = start_id
         res.start_x0 = x0_i
         res.seed = base_seed + start_id
+
+        logger.info(f"Start {start_id}: fun={getattr(res, 'fun', np.nan):.4f}, success={getattr(res, 'success', False)}, "
+                    f"cv={_get_constraint_violation(res):.2e}")
+
     except Exception:
         pass
 

@@ -360,7 +360,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.ylabel("f", fontsize=8, fontstyle='italic')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('{OUT_DIR}/convergence_2.png', dpi=300)
+    plt.savefig(f'{OUT_DIR}/convergence_2.png', dpi=300)
     plt.close()
 
     plt.figure(figsize=(8, 8))

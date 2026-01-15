@@ -4,25 +4,54 @@ import numpy as np
 import subprocess
 import pandas as pd
 from multiprocessing.pool import ThreadPool
-
+from pymoo.util.ref_dirs import get_reference_directions
+from pymoo.algorithms.moo.unsga3 import UNSGA3
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
 from pymoo.decomposition.asf import ASF
 from pymoo.indicators.hv import Hypervolume
 from pymoo.mcdm.pseudo_weights import PseudoWeights
 from pymoo.indicators.igd_plus import IGDPlus
-from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.core.problem import StarmapParallelization
-from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.termination.default import DefaultSingleObjectiveTermination
+from pymoo.util.normalization import denormalize
+
 from kinopt.evol.config import METHOD
 from kinopt.evol.config.constants import OUT_DIR
 from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
+def choose_de_pop_size(problem):
+    n_var = int(problem.n_var)
+
+    pop = 10 * n_var
+    pop = max(100, pop)
+    pop = min(600, pop)
+
+    # DE benefits from even population sizes
+    pop = int(10 * round(pop / 10))
+    return pop
+
+def choose_nsga_pop_size(problem, n_obj=3):
+    n_var = int(problem.n_var)
+
+    if n_var <= 50:
+        pop = 200
+    elif n_var <= 150:
+        pop = 400
+    elif n_var <= 400:
+        pop = 600
+    else:
+        pop = 800
+
+    pop = int(50 * round(pop / 50))
+    pop = max(pop, 10 * n_obj)  # never below 30 for 3 objectives
+    return pop
 
 def run_optimization(
         P_initial,
@@ -69,24 +98,62 @@ def run_optimization(
     if METHOD == "DE":
         # 4) Set up the algorithm and termination criteria
         # for single-objective optimization
-        algorithm = DE(
-            pop_size=100,
-            sampling=LHS(),
-            variant="DE/rand/1/bin",
-            CR=0.9,
-            dither="vector",
-            jitter=False
+        pop_size = choose_de_pop_size(problem)
+
+        # algorithm = DE(
+        #     pop_size=pop_size,
+        #     sampling=LHS(),  # good initial coverage
+        #     variant="DE/rand/1/bin",  # robust baseline
+        #     CR=0.9,  # strong recombination
+        #     F=0.8,  # (explicit > implicit)
+        #     dither="vector",  # diversity preservation
+        #     jitter=False,
+        #     vectorized=True,
+        #     verbose=True
+        # )
+        np.random.seed(1)
+
+        #TODO - Find alternative to DE or fix it
+        algorithm = CMAES(x0 = denormalize(np.random.random(problem.n_var), problem.xl, problem.xu),
+                  sigma=0.5,
+                  restarts=2,
+                  maxfevals=np.inf,
+                  tolfun=1e-6,
+                  tolx=1e-6,
+                  restart_from_best=True,
+                  bipop=True)
+
+        termination = DefaultSingleObjectiveTermination(
+            xtol=1e-8,
+            cvtol=1e-6,
+            ftol=1e-6,
+            period=100,
+            n_max_gen=1000,
+            n_max_evals=100000
         )
-        termination = DefaultSingleObjectiveTermination()
+
     else:
         # 4) Set up the algorithm and termination criteria
         # for multi-objective optimization
-        algorithm = NSGA2(
-            pop_size=500,
-            crossover=TwoPointCrossover(),
-            eliminate_duplicates=True
+        pop_size = choose_nsga_pop_size(problem)
+
+        algorithm = UNSGA3(
+            ref_dirs= get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
+            pop_size=pop_size,
+            sampling=LHS(),
+            crossover=SBX(prob=0.9, eta=15),
+            mutation=PM(eta=20),
+            eliminate_duplicates=True,
         )
-        termination = DefaultMultiObjectiveTermination()
+
+        termination = DefaultMultiObjectiveTermination(
+            xtol=1e-8,
+            cvtol=1e-6,
+            ftol=0.0025,
+            period=30,
+            n_max_gen=1000,
+            n_max_evals=100000
+        )
 
     # 5) Run the optimization
     # buf = io.StringIO()
@@ -116,6 +183,90 @@ def run_optimization(
 
     return problem, result
 
+def pick_best_loss_with_constraints_as_objectives(
+    result,
+    eps_cv=1e-10,
+    cv_mode="l1",              # "l1" | "linf" | "l2"
+    tie_tol=1e-12,
+    tie_break="loss_then_l2",  # "loss_then_l2" | "loss_only"
+):
+    """
+    Select best solution when:
+      F[:,0] = loss (minimize)
+      F[:,1] = constraint violation 1 (minimize, ideally 0)
+      F[:,2] = constraint violation 2 (minimize, ideally 0)
+
+    Rule:
+      A) If any feasible (cv1<=eps and cv2<=eps): choose min loss among feasible.
+      B) Else: choose min aggregated CV; tie-break by loss; optional tie-break by ||X||2.
+
+    Returns:
+      best_solution, best_index_in_pop, info
+    """
+    pop = result.pop
+    F = np.asarray([ind.F for ind in pop], dtype=float)
+    X = np.asarray([ind.X for ind in pop], dtype=float)
+
+    if F.shape[1] < 3:
+        raise ValueError(f"Expected at least 3 objectives (loss, cv1, cv2). Got {F.shape[1]}")
+
+    loss = F[:, 0]
+    cv1 = np.abs(F[:, 1])
+    cv2 = np.abs(F[:, 2])
+
+    feas = (cv1 <= eps_cv) & (cv2 <= eps_cv)
+
+    info = {
+        "n_total": len(pop),
+        "n_feasible": int(np.sum(feas)),
+        "eps_cv": float(eps_cv),
+    }
+
+    # --- A) Feasible exists: minimize loss
+    if np.any(feas):
+        idx = np.where(feas)[0]
+        best_local = idx[np.argmin(loss[idx])]
+        best_solution = pop[int(best_local)]
+
+        info.update({
+            "selection_case": "feasible_min_loss",
+            "best_index": int(best_local),
+            "best_F": np.asarray(best_solution.F, dtype=float),
+        })
+        return best_solution, int(best_local), info
+
+    # --- B) No feasible: minimize aggregated violation, tie-break by loss
+    if cv_mode == "l1":
+        agg = cv1 + cv2
+    elif cv_mode == "linf":
+        agg = np.maximum(cv1, cv2)
+    elif cv_mode == "l2":
+        agg = np.sqrt(cv1**2 + cv2**2)
+    else:
+        raise ValueError("cv_mode must be one of: 'l1', 'linf', 'l2'")
+
+    best_agg = float(np.min(agg))
+    cand = np.where(np.abs(agg - best_agg) <= tie_tol)[0]
+
+    if len(cand) > 1:
+        # tie-break by loss
+        cand = cand[np.argsort(loss[cand])]
+        if tie_break == "loss_then_l2" and len(cand) > 1:
+            # if still tied, prefer smaller parameter norm
+            l2 = np.linalg.norm(X[cand], axis=1)
+            cand = cand[np.argsort(l2)]
+
+    best_idx = int(cand[0])
+    best_solution = pop[best_idx]
+
+    info.update({
+        "selection_case": "infeasible_min_violation_then_loss",
+        "cv_mode": cv_mode,
+        "best_index": best_idx,
+        "best_F": np.asarray(best_solution.F, dtype=float),
+        "best_agg_cv": best_agg,
+    })
+    return best_solution, best_idx, info
 
 def post_optimization_nsga(
         result,
@@ -141,14 +292,18 @@ def post_optimization_nsga(
             'convergence_df': The DataFrame with iteration vs. best objective value
                 for each iteration in the result history.
     """
-    # 1) Extract the Pareto front from the final population
-    pareto_front = np.array([ind.F for ind in result.pop])
+    best_solution, best_index, sel_info = pick_best_loss_with_constraints_as_objectives(
+        result,
+        eps_cv=1e-10,
+        cv_mode="linf",  # recommended: minimizes the worst constraint
+        tie_break="loss_then_l2"
+    )
 
-    # Weighted scoring for picking a single 'best' solution from Pareto
-    scores = pareto_front[:, 0] + weights[1] * np.abs(pareto_front[:, 1]) + weights[2] * np.abs(pareto_front[:, 2])
-    best_index = np.argmin(scores)
-    best_solution = result.pop[best_index]
-    best_objectives = pareto_front[best_index]
+    logger.info(f"Best solution selected by: {sel_info['selection_case']} with index: {best_index}")
+    logger.info(f"Best solution F: {sel_info['best_F']}")
+
+    scores = sel_info["best_F"]
+    best_objectives = np.asarray(best_solution.F, dtype=float)
     optimized_params = best_solution.X
 
     # Additional references from the result

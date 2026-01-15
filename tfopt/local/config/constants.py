@@ -1,60 +1,60 @@
+from __future__ import annotations
+
 import argparse
-import numpy as np
 from pathlib import Path
+import numpy as np
 
-# Top-Level Directory Configuration:
-# - PROJECT_ROOT: The root directory of the project, determined by moving one level up from the current file.
-# - OUT_DIR: Directory to store all output results.
-# - OUT_RESULTS_DIR: Full path to the Excel file where results are saved.
-# - DATA_DIR: Directory containing input data files.
-# - INPUT_EXCEL: Full path to the Excel file with optimization results.
-# - LOG_DIR: Directory to store log files.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = PROJECT_ROOT / 'results'
-DATA_DIR = PROJECT_ROOT / 'data'
-INPUT1 = DATA_DIR / 'input1.csv'
-INPUT3 = DATA_DIR / 'input3.csv'
-INPUT4 = DATA_DIR / 'input4.csv'
-OUT_FILE = OUT_DIR / 'tfopt_results.xlsx'
-LOG_DIR = OUT_DIR / 'logs'
-ODE_DATA_DIR = PROJECT_ROOT.parent / "data"
-ODE_DATA_DIR.mkdir(parents=True, exist_ok=True)
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+from config_loader import load
 
-# TIME_POINTS:
-# A numpy array representing the discrete time points (in minutes) obtained from experimental Rout_Limma TF data.
-# These time points capture the dynamics of the system, with finer resolution at early times (4.0 to 60.0 minutes)
-# to account for rapid changes and broader intervals later up to 960.0 minutes.
-TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960])
+
+# ---- Config load ----
+_CFG = load("local", "tfopt")
+_PATHS = _CFG.get("_paths", {}) or {}
+PROJECT_ROOT = Path(_CFG["_root"])
+
+
+# ---- Directories ----
+DATA_DIR = PROJECT_ROOT / _PATHS.get("data_dir", "data")
+OUT_DIR = PROJECT_ROOT / _PATHS.get("results_dir", "results")
+LOG_DIR = PROJECT_ROOT / _PATHS.get("logs_dir", "results/logs")
+ODE_DATA_DIR = PROJECT_ROOT / _PATHS.get("ode_data_dir", "data/ode")
+
+for d in (DATA_DIR, OUT_DIR, LOG_DIR, ODE_DATA_DIR):
+    d.mkdir(parents=True, exist_ok=True)
+
+
+# ---- Inputs / outputs ----
+INPUT1 = DATA_DIR / _CFG.get("input1", "input1.csv")
+INPUT3 = DATA_DIR / _CFG.get("input3", "input3.csv")
+INPUT4 = DATA_DIR / _CFG.get("input4", "input4.csv")
+
+OUT_FILE = OUT_DIR / _CFG.get("out_file", "tfopt_results.xlsx")
+
+
+# ---- Time points ----
+TIME_POINTS = np.asarray(
+    _CFG.get("time_points", [4, 8, 15, 30, 60, 120, 240, 480, 960]),
+    dtype=float,
+)
+
 
 def parse_args():
     """
-    Parse command line arguments for the PhosKinTime optimization problem.
-    This function uses argparse to handle input parameters for the optimization process.
-    The parameters include:
-    - lower_bound: Lower bound for the optimization variables (default: -2).
-    - upper_bound: Upper bound for the optimization variables (default: 2).
-    - loss_type: Type of loss function to use (default: 0).
-        Options:
-        0: MSE
-        1: MAE
-        2: soft L1
-        3: Cauchy
-        4: Arctan
-        5: Elastic Net
-        6: Tikhonov
-
-    :return: lower_bound, upper_bound, loss_type
+    tfopt.local CLI: bounds and loss selection.
+    Defaults come from config.toml.
     """
     parser = argparse.ArgumentParser(
         description="PhosKinTime - SLSQP mRNA-TF Optimization Problem."
     )
-    parser.add_argument("--lower_bound", type=float, default=-4, help="Lower Beta bound.")
-    parser.add_argument("--upper_bound", type=float, default=4, help="Upper Beta bound.")
-    parser.add_argument("--loss_type", type=int, choices=[0, 1, 2, 3, 4, 5, 6], default=5,
-                        help="Loss function to use:  "
-                             "0: MSE, 1: MAE, 2: soft L1, 3: Cauchy,"
-                             "4: Arctan, 5: Elastic Net, 6: Tikhonov.")
+    parser.add_argument("--lower_bound", type=float, default=float(_CFG.get("lower_bound", -4.0)))
+    parser.add_argument("--upper_bound", type=float, default=float(_CFG.get("upper_bound", 4.0)))
+    parser.add_argument(
+        "--loss_type",
+        type=int,
+        choices=[0, 1, 2, 3, 4, 5, 6],
+        default=int(_CFG.get("loss_type", 5)),
+        help="0:MSE 1:MAE 2:softl1 3:cauchy 4:arctan 5:elastic-net 6:tikhonov",
+    )
+
     args = parser.parse_args()
     return args.lower_bound, args.upper_bound, args.loss_type

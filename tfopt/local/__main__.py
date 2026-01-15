@@ -4,7 +4,7 @@ from config.helpers import location
 from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report, summarize_stats
-from tfopt.local.exporter.plotout import plot_estimated_vs_observed
+from tfopt.local.exporter.plotout import plot_estimated_vs_observed, plot_multistart_summary_runtime_overlay
 from tfopt.local.exporter.sheetutils import save_results_to_excel, export_multistart_results, \
     save_multistart_solutions_npz
 from tfopt.local.objfn.minfn import compute_predictions
@@ -84,6 +84,13 @@ def main():
     save_multistart_solutions_npz(
         all_results,
         OUT_DIR / "multistart_params.npz",
+    )
+
+    # Save waterfall plot.
+    plot_multistart_summary_runtime_overlay(
+        OUT_DIR / "multistart_summary.csv",
+        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        figsize=(8, 8),
     )
 
     logger.info("--- Best Solution ---")

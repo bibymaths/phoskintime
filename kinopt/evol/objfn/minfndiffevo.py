@@ -3,92 +3,77 @@ from pymoo.core.problem import ElementwiseProblem
 from kinopt.evol.config import include_regularization, lb, ub, loss_type
 from kinopt.evol.optcon import n, P_initial_array
 
-
 class PhosphorylationOptimizationProblem(ElementwiseProblem):
     """
-    Custom optimization problem for phosphorylation analysis.
+    Single-objective constrained optimization.
 
-    Defines the constraints, bounds, and objective function for optimizing
-    alpha and beta parameters across gene-psite-kinase relationships.
+    Objective:
+      - minimize loss
 
-    Attributes:
-        P_initial (dict): Mapping of gene-psite pairs to kinase relationships and time-series data.
-        P_initial_array (np.ndarray): Observed time-series data for gene-psite pairs.
-        K_index (dict): Mapping of kinases to their respective psite data.
-        K_array (np.ndarray): Array containing time-series data for kinase-psite combinations.
-        gene_psite_counts (list): Number of kinases per gene-psite combination.
-        beta_counts (dict): Mapping of kinase indices to the number of associated psites.
+    Constraints (inequalities g(x) <= 0):
+      - for each alpha group: |sum(alpha_group) - 1| <= eps
+      - for each kinase beta group: |sum(beta_group) - 1| <= eps
     """
 
-    def __init__(self, P_initial, P_initial_array, K_index, K_array, gene_psite_counts, beta_counts, **kwargs):
-        """
-        Initializes the optimization problem with given data and constraints.
+    def __init__(self, P_initial, P_initial_array, K_index, K_array,
+                 gene_psite_counts, beta_counts, eps_eq=1e-10, **kwargs):
 
-        Args:
-            P_initial (dict): Mapping of gene-psite pairs to kinase relationships and time-series data.
-            P_initial_array (np.ndarray): Observed time-series data for gene-psite pairs.
-            K_index (dict): Mapping of kinases to their respective psite data.
-            K_array (np.ndarray): Array containing time-series data for kinase-psite combinations.
-            gene_psite_counts (list): Number of kinases per gene-psite combination.
-            beta_counts (dict): Mapping of kinase indices to the number of associated psites.
-        """
         self.P_initial = P_initial
         self.P_initial_array = P_initial_array
         self.K_index = K_index
         self.K_array = K_array
         self.gene_psite_counts = gene_psite_counts
         self.beta_counts = beta_counts
-        self.num_alpha = sum(gene_psite_counts)
-        self.num_beta = sum(beta_counts.values())
 
-        # Define the problem with pymoo
+        self.num_alpha = int(sum(gene_psite_counts))
+        self.num_beta = int(sum(beta_counts.values()))
+        self.eps_eq = float(eps_eq)
+
+        # number of equality groups
+        n_alpha_groups = len(gene_psite_counts)
+        n_beta_groups = len(K_index)  # one per kinase in K_index
+
+        # each equality -> 2 inequalities
+        n_ieq = 2 * (n_alpha_groups + n_beta_groups)
+
+        xl = np.concatenate([np.zeros(self.num_alpha), np.full(self.num_beta, lb)], axis=0)
+        xu = np.concatenate([np.ones(self.num_alpha),  np.full(self.num_beta, ub)], axis=0)
+
         super().__init__(
             n_var=self.num_alpha + self.num_beta,
-            n_obj=1,  # Single objective (sum of squared residuals)
-            n_ieq_constr=self.num_alpha + len(beta_counts),  # Constraints for alpha and beta
-            xl=np.concatenate([(0,) * self.num_alpha, (lb,) * self.num_beta]),
-            xu=np.concatenate([(1,) * self.num_alpha, (ub,) * self.num_beta])
+            n_obj=1,
+            n_ieq_constr=n_ieq,
+            xl=xl,
+            xu=xu,
+            **kwargs
         )
 
     def _evaluate(self, x, out, *args, **kwargs):
-        """
-        Evaluates the objective function and constraints for the given decision variables.
+        loss = self.objective_function(x)
+        out["F"] = [loss]
 
-        Args:
-            x (np.ndarray): Decision variable vector.
-            out (dict): Dictionary to store objective function value and constraint values.
+        # Build constraints g(x) <= 0
+        g = []
 
-        Returns:
-            None
-        """
-        # Calculate the residuals for the objective function
-        error = self.objective_function(x)
-
-        # Initialize an empty list for constraints
-        constraints = []
-
-        # Constraints for alphas (sum to 1 for each gene-psite-kinase group)
+        # alpha group equalities
         alpha_start = 0
         for count in self.gene_psite_counts:
-            constraints.append(np.sum(x[alpha_start:alpha_start + count]) - 1)
+            s = float(np.sum(x[alpha_start:alpha_start + count]))
+            # s ~= 1  ->  s - 1 <= eps  and  1 - s <= eps
+            g.append((s - 1.0) - self.eps_eq)
+            g.append((1.0 - s) - self.eps_eq)
             alpha_start += count
 
-        # Constraints for betas (sum to 1 for each kinase across its psites)
+        # beta group equalities
         beta_start = self.num_alpha
         for kinase, psites in self.K_index.items():
-            num_psites = len(psites)
-            constraints.append(np.sum(x[beta_start:beta_start + num_psites]) - 1)
-            beta_start += num_psites
+            m = len(psites)
+            s = float(np.sum(x[beta_start:beta_start + m]))
+            g.append((s - 1.0) - self.eps_eq)
+            g.append((1.0 - s) - self.eps_eq)
+            beta_start += m
 
-        # Ensure constraints list matches the expected length (self.n_ieq_constr)
-        # Pad constraints with zeros if fewer constraints are defined
-        constraints = np.array(constraints)
-        if constraints.shape[0] < self.n_ieq_constr:
-            constraints = np.concatenate([constraints, np.zeros(self.n_ieq_constr - constraints.shape[0])])
-
-        # Output the objective and constraints, reshaping G to have shape (1, n_ieq_constr)
-        out["F"] = error
-        out["G"] = constraints.reshape(1, self.n_ieq_constr)
+        out["G"] = np.asarray(g, dtype=float)
 
     def objective_function(self, params):
         """
