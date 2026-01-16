@@ -70,7 +70,7 @@ loss_type   = 5
 # Global evolutionary search defaults
 lower_bound = -4.0
 upper_bound =  4.0
-loss_type   = 0
+loss_type   = 5
 
 # Optimizer choices:
 # 0: NSGA-II

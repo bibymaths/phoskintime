@@ -2,8 +2,178 @@ import numpy as np
 from numba import njit, prange
 from pymoo.core.problem import Problem
 
-from tfopt.evol.config.constants import VECTORIZED_LOSS_FUNCTION
 
+# -------------------------------
+# Numba helpers
+# -------------------------------
+
+@njit(cache=True, nogil=True)
+def _alpha_violation_sq(x, n_mRNA, n_reg):
+    # sum_r alpha_{i,r} == 1 for each mRNA i
+    v = 0.0
+    for i in range(n_mRNA):
+        s = 0.0
+        base = i * n_reg
+        for r in range(n_reg):
+            s += x[base + r]
+        d = s - 1.0
+        v += d * d
+    return v
+
+
+@njit(cache=True, nogil=True)
+def _beta_violation_sq(x, n_TF, n_alpha, beta_starts, beta_lens, no_psite_tf):
+    # sum beta_vec == 1 for each TF
+    # if TF has no psite: penalize beta_vec[1:] toward 0
+    v = 0.0
+    for tf in range(n_TF):
+        start = n_alpha + beta_starts[tf]
+        length = beta_lens[tf]
+
+        s = 0.0
+        for j in range(length):
+            s += x[start + j]
+
+        d = s - 1.0
+        v += d * d
+
+        if no_psite_tf[tf]:
+            # penalize non-protein components (beta[1:]) if TF has no psite
+            for j in range(1, length):
+                bj = x[start + j]
+                v += bj * bj
+    return v
+
+
+@njit(cache=True, fastmath=False, nogil=True)
+def _loss_single(
+    x,
+    mRNA_mat, regulators, protein_mat, psite_tensor,
+    n_reg, T_use, n_mRNA, n_alpha,
+    beta_starts, num_psites, loss_type,
+    lam1, lam2
+):
+    """
+    Single-individual loss. This mirrors your original objective_ but:
+      - avoids slicing beta_vec (Numba-friendly, faster)
+      - keeps correctness identical
+    """
+    total_loss = 0.0
+    nT = n_mRNA * T_use
+
+    for i in range(n_mRNA):
+        # build prediction for this mRNA i
+        # NOTE: allocate per-i vector
+        R_pred = np.zeros(T_use, dtype=np.float64)
+
+        for r in range(n_reg):
+            tf_idx = regulators[i, r]
+            if tf_idx == -1:
+                continue
+
+            a = x[i * n_reg + r]
+
+            # beta vector layout: [beta0 (protein), beta1..betaK (psites)]
+            b_start = n_alpha + beta_starts[tf_idx]
+            k_ps = num_psites[tf_idx]
+            length = 1 + k_ps
+
+            # protein effect
+            b0 = x[b_start]
+            for t in range(T_use):
+                R_pred[t] += a * (b0 * protein_mat[tf_idx, t])
+
+            # psite effects
+            for k in range(k_ps):
+                bk = x[b_start + 1 + k]
+                if bk == 0.0:
+                    continue
+                for t in range(T_use):
+                    R_pred[t] += a * (bk * psite_tensor[tf_idx, k, t])
+
+        # clip non-negative
+        for t in range(T_use):
+            if R_pred[t] < 0.0:
+                R_pred[t] = 0.0
+
+        # accumulate loss
+        for t in range(T_use):
+            e = mRNA_mat[i, t] - R_pred[t]
+
+            if loss_type == 0:      # MSE
+                total_loss += e * e
+            elif loss_type == 1:    # MAE
+                total_loss += abs(e)
+            elif loss_type == 2:    # soft L1
+                total_loss += 2.0 * (np.sqrt(1.0 + e * e) - 1.0)
+            elif loss_type == 3:    # Cauchy
+                total_loss += np.log(1.0 + e * e)
+            elif loss_type == 4:    # Arctan
+                total_loss += np.arctan(e * e)
+            else:
+                total_loss += e * e
+
+    loss = total_loss / float(nT)
+
+    # Elastic net (loss_type 5): penalties on beta portion only
+    if loss_type == 5:
+        l1 = 0.0
+        l2 = 0.0
+        for i in range(n_alpha, x.shape[0]):
+            v = x[i]
+            l1 += abs(v)
+            l2 += v * v
+        loss += lam1 * l1 + lam2 * l2
+
+    # Tikhonov (loss_type 6): L2 penalty on beta portion only
+    if loss_type == 6:
+        l2 = 0.0
+        for i in range(n_alpha, x.shape[0]):
+            v = x[i]
+            l2 += v * v
+        loss += lam1 * l2
+
+    return loss
+
+
+@njit(cache=True, fastmath=False, nogil=True)
+def _evaluate_population(
+    X,
+    mRNA_mat, regulators, protein_mat, psite_tensor,
+    n_reg, T_use, n_mRNA, n_TF, n_alpha,
+    beta_starts, num_psites, no_psite_tf,
+    loss_type, lam1, lam2
+):
+    """
+    Batched evaluation: returns F (n_pop, 3).
+    """
+    n_pop = X.shape[0]
+    F = np.empty((n_pop, 3), dtype=np.float64)
+
+    # Precompute beta length per TF once (Numba-friendly)
+    beta_lens = np.empty(n_TF, dtype=np.int32)
+    for tf in range(n_TF):
+        beta_lens[tf] = 1 + num_psites[tf]
+
+    for p in range(n_pop):
+        x = X[p]
+
+        f1 = _loss_single(
+            x,
+            mRNA_mat, regulators, protein_mat, psite_tensor,
+            n_reg, T_use, n_mRNA, n_alpha,
+            beta_starts, num_psites, loss_type,
+            lam1, lam2
+        )
+
+        f2 = _alpha_violation_sq(x, n_mRNA, n_reg)
+        f3 = _beta_violation_sq(x, n_TF, n_alpha, beta_starts, beta_lens, no_psite_tf)
+
+        F[p, 0] = f1
+        F[p, 1] = f2
+        F[p, 2] = f3
+
+    return F
 
 # -------------------------------
 # Multi-Objective Problem Definition
@@ -48,20 +218,40 @@ class TFOptimizationMultiObjectiveProblem(Problem):
             xu (np.ndarray, optional): Upper bounds for decision variables. Defaults to None.
         """
         super().__init__(n_var=n_var, n_obj=3, n_constr=0, xl=xl, xu=xu)
-        self.n_mRNA = n_mRNA
-        self.n_TF = n_TF
-        self.n_reg = n_reg
-        self.n_psite_max = n_psite_max
-        self.n_alpha = n_alpha
-        self.mRNA_mat = mRNA_mat
-        self.regulators = regulators
-        self.protein_mat = protein_mat
-        self.psite_tensor = psite_tensor
-        self.T_use = T_use
-        self.beta_start_indices = beta_start_indices
-        self.num_psites = num_psites
-        self.no_psite_tf = no_psite_tf
-        self.loss_type = kwargs.get("loss_type", 0)
+
+        # Store scalars
+        self.n_mRNA = int(n_mRNA)
+        self.n_TF = int(n_TF)
+        self.n_reg = int(n_reg)
+        self.n_psite_max = int(n_psite_max)
+        self.n_alpha = int(n_alpha)
+        self.T_use = int(T_use)
+
+        # Ensure arrays are NumPy arrays with stable dtypes (required for Numba)
+        self.mRNA_mat = np.asarray(mRNA_mat, dtype=np.float64)
+        self.regulators = np.asarray(regulators, dtype=np.int32)
+        self.protein_mat = np.asarray(protein_mat, dtype=np.float64)
+        self.psite_tensor = np.asarray(psite_tensor, dtype=np.float64)
+
+        self.beta_start_indices = np.asarray(beta_start_indices, dtype=np.int32)
+        self.num_psites = np.asarray(num_psites, dtype=np.int32)
+        self.no_psite_tf = np.asarray(no_psite_tf, dtype=np.bool_)
+
+        # Loss config
+        self.loss_type = int(kwargs.get("loss_type", 0))
+        self.lam1 = float(kwargs.get("lam1", 1e-3))
+        self.lam2 = float(kwargs.get("lam2", 1e-3))
+
+        # warm up compilation once
+        # Create a tiny dummy X with correct shape.
+        dummy = np.zeros((1, self.n_var), dtype=np.float64)
+        _ = _evaluate_population(
+            dummy,
+            self.mRNA_mat, self.regulators, self.protein_mat, self.psite_tensor,
+            self.n_reg, self.T_use, self.n_mRNA, self.n_TF, self.n_alpha,
+            self.beta_start_indices, self.num_psites, self.no_psite_tf,
+            self.loss_type, self.lam1, self.lam2
+        )
 
     def _evaluate(self, X, out, *args, **kwargs):
         """
@@ -73,36 +263,14 @@ class TFOptimizationMultiObjectiveProblem(Problem):
             *args: Additional arguments.
             **kwargs: Additional keyword arguments.
         """
-        n_pop = X.shape[0]
-        F = np.empty((n_pop, 3))
-        n_alpha = self.n_alpha
-        for i in range(n_pop):
-            xi = X[i]
-            f1 = objective_(xi, self.mRNA_mat, self.regulators, self.protein_mat,
-                            self.psite_tensor, self.n_reg, self.T_use, self.n_mRNA, self.beta_start_indices,
-                            self.num_psites, self.loss_type)
-            f2 = 0.0
-            for m in range(self.n_mRNA):
-                s = 0.0
-                for r in range(self.n_reg):
-                    s += xi[m * self.n_reg + r]
-                f2 += (s - 1.0) ** 2
-            f3 = 0.0
-            for tf in range(self.n_TF):
-                start = n_alpha + self.beta_start_indices[tf]
-                length = 1 + self.num_psites[tf]
-                beta_vec = xi[start: start + length]
-                f3 += (np.sum(beta_vec) - 1.0) ** 2
-                if self.no_psite_tf[tf]:
-                    for q in range(1, length):
-                        f3 += beta_vec[q] ** 2
-            # Three objectives:
-            # f1 (error)
-            F[i, 0] = f1
-            # f2 (alpha violation)
-            F[i, 1] = f2
-            # f3 (beta violation)
-            F[i, 2] = f3
+        X = np.asarray(X, dtype=np.float64)
+        F = _evaluate_population(
+            X,
+            self.mRNA_mat, self.regulators, self.protein_mat, self.psite_tensor,
+            self.n_reg, self.T_use, self.n_mRNA, self.n_TF, self.n_alpha,
+            self.beta_start_indices, self.num_psites, self.no_psite_tf,
+            self.loss_type, self.lam1, self.lam2
+        )
         out["F"] = F
 
 @njit(cache=True, fastmath=False, parallel=True, nogil=False)
