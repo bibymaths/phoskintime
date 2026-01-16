@@ -144,87 +144,91 @@ def plot_multistart_summary_runtime_overlay(
     cv_col="constr_violation",
     annotate_best=True,
 ):
-    """
-    Read a multistart summary CSV and plot objective vs rank with point color = runtime.
-
-    Minimal, information-dense conventions:
-      - x: rank (best -> worst)
-      - y: final objective (fun)
-      - color: runtime in seconds
-      - optional: de-emphasize non-success / infeasible points (if columns exist)
-
-    Args:
-        summary_csv (str | Path): Path to the multistart_summary.csv
-        out_path (str | Path | None): If provided, saves the figure (e.g. .png)
-        figsize (tuple): Figure size in inches
-        x_col, y_col, c_col: Column names
-        success_col, cv_col: Optional columns for styling (used if present)
-        annotate_best (bool): Annotate the best run (rank=1 or min fun)
-
-    Returns:
-        (fig, ax, df): Matplotlib figure/axis and the loaded DataFrame
-    """
     summary_csv = Path(summary_csv)
     df = pd.read_csv(summary_csv)
 
-    # Basic sanitization / sorting
+    # ---- Column reconciliation (your CSV vs defaults) ----
+    # 1) Constraint violation column name
+    if cv_col not in df.columns:
+        for alt in ("constraint_violation", "constr_violation", "constraintViolation", "cv"):
+            if alt in df.columns:
+                cv_col = alt
+                break
+
+    # 2) Rank column (create from objective if missing)
+    if x_col not in df.columns:
+        # best objective gets rank 1
+        df[x_col] = df[y_col].rank(method="first", ascending=True).astype(int)
+
+    # 3) Runtime column (fallback to iterations if missing)
+    c_label = "Runtime (s)"
+    if c_col not in df.columns:
+        if "nit" in df.columns:
+            c_col = "nit"
+            c_label = "Iterations (nit)"
+        else:
+            # constant color if nothing usable exists
+            df[c_col] = 0.0
+            c_label = c_col
+
+    # 4) Parse/clean success
+    has_success = success_col in df.columns
+    if has_success:
+        s = df[success_col]
+        if s.dtype == bool:
+            success_ok = s.to_numpy()
+        else:
+            # handles "True"/"False", "1"/"0", etc.
+            success_ok = s.astype(str).str.strip().str.lower().isin({"true", "1", "yes", "y"})
+    else:
+        success_ok = np.ones(len(df), dtype=bool)
+
+    # 5) Parse/clean constraint violation (blank -> 0.0)
+    has_cv = cv_col in df.columns
+    if has_cv:
+        cv = pd.to_numeric(df[cv_col], errors="coerce").fillna(0.0).to_numpy()
+    else:
+        cv = np.zeros(len(df), dtype=float)
+
+    # ---- Sorting / arrays ----
     df = df.sort_values(by=x_col, ascending=True).reset_index(drop=True)
 
     x = df[x_col].to_numpy(dtype=float)
     y = df[y_col].to_numpy(dtype=float)
-    c = df[c_col].to_numpy(dtype=float)
+    c = pd.to_numeric(df[c_col], errors="coerce").fillna(0.0).to_numpy(dtype=float)
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    # If success/feasibility exists, de-emphasize problematic points without changing structure
-    has_success = success_col in df.columns
-    has_cv = cv_col in df.columns
+    # Feasible + successful points emphasized
+    ok = success_ok
+    if has_cv:
+        ok = ok & (cv <= 1e-8)
 
-    if has_success or has_cv:
-        ok = np.ones(len(df), dtype=bool)
-        if has_success:
-            ok &= df[success_col].astype(int).to_numpy() == 1
-        if has_cv:
-            ok &= df[cv_col].to_numpy(dtype=float) <= 1e-8
+    sc_ok = ax.scatter(x[ok], y[ok], c=c[ok], s=28, linewidths=0)
+    if (~ok).any():
+        ax.scatter(x[~ok], y[~ok], c=c[~ok], s=28, linewidths=0, alpha=0.25)
 
-        # Plot "ok" points normally, and "not ok" faintly
-        sc_ok = ax.scatter(x[ok], y[ok], c=c[ok], s=28, linewidths=0)
-        if (~ok).any():
-            ax.scatter(x[~ok], y[~ok], c=c[~ok], s=28, linewidths=0, alpha=0.25)
-    else:
-        sc_ok = ax.scatter(x, y, c=c, s=28, linewidths=0)
-
-    # Colorbar (runtime overlay)
     cbar = fig.colorbar(sc_ok, ax=ax)
-    cbar.set_label("Runtime (s)")
+    cbar.set_label(c_label)
 
-    # Labels: minimal but explicit
     ax.set_xlabel("Run rank")
     ax.set_ylabel("Final objective")
 
-    # Tick strategy: keep it readable for 64+ points
     n = len(df)
     if n >= 16:
         step = max(1, n // 8)
         ax.set_xticks(np.arange(1, n + 1, step))
     ax.set_xlim(0.5, n + 0.5)
 
-    # y-limits with small padding
     y_min, y_max = float(np.min(y)), float(np.max(y))
     pad = 0.03 * (y_max - y_min) if y_max > y_min else 0.01
     ax.set_ylim(y_min - pad, y_max + pad)
 
-    # Subtle grid for reading slopes
     ax.grid(True, alpha=0.25)
 
-    # Optional annotation of best
     if annotate_best:
-        # Prefer rank==1; fallback to min fun
-        if (df[x_col] == 1).any():
-            i_best = int(df.index[df[x_col] == 1][0])
-        else:
-            i_best = int(np.argmin(y))
-
+        # With rank created from fun, rank==1 always exists
+        i_best = int(df.index[df[x_col] == 1][0])
         ax.annotate(
             f"best: {y[i_best]:.6g}",
             xy=(x[i_best], y[i_best]),

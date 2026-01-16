@@ -4,8 +4,8 @@
 
 [paths]
 data_dir      = "data"
-results_dir   = "results_kinopt"
-logs_dir      = "results_kinopt/logs"
+results_dir   = "results"
+logs_dir      = "results/logs"
 ode_data_dir  = "data"
 
 
