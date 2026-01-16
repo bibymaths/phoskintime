@@ -158,8 +158,8 @@ loss_type = "base"
 regularization = false
 
 # Evolutionary optimizer backend
-# DE | NSGA-II (string, passed through)
-method = "DE"
+# DE | NSGA-II (string)
+method = "NSGA-II"
 
 # ============================================================
 # ODE PIPELINE (downstream of kinopt + tfopt)

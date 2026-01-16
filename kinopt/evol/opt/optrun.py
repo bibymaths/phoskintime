@@ -5,6 +5,8 @@ import numpy as np
 import subprocess
 import pandas as pd
 from multiprocessing.pool import ThreadPool
+
+from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.operators.sampling.rnd import FloatRandomSampling
 from pymoo.operators.selection.tournament import TournamentSelection
@@ -261,13 +263,23 @@ def run_optimization(
                 )
             )
 
-            algorithm = GA(
+            # algorithm = GA(
+            #     pop_size=pop_size,
+            #     sampling=FloatRandomSampling(),
+            #     selection=selection,
+            #     crossover=SBX(prob=0.9, eta=25),
+            #     mutation=PM(eta=40),
+            #     eliminate_duplicates=True
+            # )
+
+            algorithm = DE(
                 pop_size=pop_size,
                 sampling=FloatRandomSampling(),
-                selection=selection,
-                crossover=SBX(prob=0.9, eta=25),
-                mutation=PM(eta=40),
-                eliminate_duplicates=True
+                variant="DE/rand/1/bin",
+                CR=0.9,  # crossover rate (binomial crossover)
+                F=0.8,  # differential weight
+                dither="vector",  # recommended for robustness
+                jitter=False
             )
 
             termination = get_termination("n_gen", 2000)
@@ -293,7 +305,7 @@ def run_optimization(
                 eliminate_duplicates=True,
             )
 
-            termination = get_termination("n_gen", 1000)
+            termination = get_termination("n_gen", 2000)
 
         # 5) Run the optimization
         result = _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True)
