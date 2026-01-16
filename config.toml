@@ -1,11 +1,19 @@
 # ============================================================
-# Global project paths (relative to PROJECT ROOT)
+# Global project paths and settings
 # ============================================================
+
+# Update these directory names for the different commmands to write data and results
+# for each mode to separate folders.
+# Otherwise, results may be overwritten when running different modes.
+# Example, for running let's say kinopt in local mode:
+# Command - python phoskintime kinopt --mode local
+# Directories can be named accordingly, e.g., results_kinopt_local
+# Updating both, results_dir and logs_dir is recommended.
 
 [paths]
 data_dir      = "data"
-results_dir   = "results"
-logs_dir      = "results/logs"
+results_dir   = "results_model"
+logs_dir      = "results_model/logs"
 ode_data_dir  = "data"
 
 
@@ -19,7 +27,7 @@ ode_data_dir  = "data"
 [tfopt]
 
 # --------------------
-# Input files (relative to data_dir)
+# Input files
 # --------------------
 input1 = "input1.csv"     # expression / mRNA
 input3 = "input3.csv"     # TF activity / Rout-Limma
@@ -76,7 +84,7 @@ loss_type   = 5
 # 0: NSGA-II
 # 1: SMSEMOA
 # 2: AGEMOEA
-optimizer = 1
+optimizer = 0
 
 
 # ============================================================
@@ -171,6 +179,10 @@ method = "NSGA-II"
 
 # Which ODE model
 # distmod | succmod | randmod
+
+# After setting the results_dir and logs_dir globally above,
+# you can set the model type here to have separate output folders
+# for each model type.
 model = "distmod"
 
 # Upper bounds used in parameter fitting / priors
@@ -221,7 +233,7 @@ perturb_trace_opacity = 0.02
 # Make these explicit and stable (no importing from other modules).
 [ode.inputs]
 # These are paths relative to PROJECT ROOT. You can also make them relative to data_dir if you prefer.
-protein_excel = "data/kinopt_results.xlsx"   # or the actual protein sheet you need
+protein_excel = "data/input1.csv"
 psite_excel   = "data/kinopt_results.xlsx"
 rna_excel     = "data/tfopt_results.xlsx"
 
