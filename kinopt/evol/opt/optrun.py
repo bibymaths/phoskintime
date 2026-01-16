@@ -1,3 +1,6 @@
+import signal
+import time
+
 import numpy as np
 import subprocess
 import pandas as pd
@@ -25,6 +28,39 @@ from kinopt.evol.config.constants import OUT_DIR
 from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
+
+def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True):
+    """
+    Runs pymoo algorithm in a manual loop so Ctrl+C returns best-so-far safely.
+    """
+    # Optional: make Ctrl+C deterministic (convert SIGINT into KeyboardInterrupt consistently)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+
+    t0 = time.perf_counter()
+
+    # IMPORTANT: setup happens on the same algorithm instance you will finalize later
+    algorithm.setup(
+        problem,
+        termination=termination,
+        verbose=verbose,
+        save_history=save_history
+    )
+
+    interrupted = False
+
+    try:
+        while algorithm.has_next():
+            algorithm.next()
+    except KeyboardInterrupt:
+        interrupted = True
+        logger.warning("Optimization interrupted by user (Ctrl+C). Finalizing best-so-far...")
+    finally:
+        res = algorithm.result()
+        # Pymoo may not set exec_time in this path; set it yourself
+        res.exec_time = time.perf_counter() - t0
+        res.interrupted = interrupted
+
+    return res
 
 def choose_de_pop_size(problem):
     n_var = int(problem.n_var)
@@ -199,86 +235,80 @@ def run_optimization(
 
     # 2) Create a thread pool and a parallelization runner
     pool = ThreadPool(n_threads)
-    runner = StarmapParallelization(pool.starmap)
 
-    # 3) Instantiate the problem
-    problem = PhosphorylationOptimizationProblem(
-        P_initial=P_initial,
-        P_initial_array=P_initial_array,
-        K_index=K_index,
-        K_array=K_array,
-        gene_psite_counts=gene_psite_counts,
-        beta_counts=beta_counts,
-        elementwise_runner=runner
-    )
-    if METHOD == "DE":
-        # 4) Set up the algorithm and termination criteria
-        # for single-objective optimization
-        pop_size = choose_de_pop_size(problem)
-
-        selection = TournamentSelection(
-            pressure=2,
-            func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
-                pop, P, eps_cv=1e-10, cv_mode="linf", **kw
-            )
-        )
-
-        algorithm = GA(
-            pop_size=pop_size,
-            sampling=FloatRandomSampling(),
-            selection=selection,
-            crossover=SBX(prob=0.9, eta=25),
-            mutation=PM(eta=40),
-            eliminate_duplicates=True
-        )
-
-        termination = get_termination("n_gen", 1000)
-
-    else:
-        # Multi-objective optimization (UNSGA3)
-        pop_size = choose_nsga_pop_size(problem)
-
-        selection = TournamentSelection(
-            pressure=2,
-            func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
-                pop, P, eps_cv=1e-10, cv_mode="linf", **kw
-            )
-        )
-
-        algorithm = UNSGA3(
-            ref_dirs=get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
-            pop_size=pop_size,
-            sampling=LHS(),
-            selection=selection,
-            crossover=SBX(prob=0.9, eta=15),
-            mutation=PM(eta=20),
-            eliminate_duplicates=True,
-        )
-
-        termination = get_termination("n_gen", 1000)
-
-    # 5) Run the optimization
     try:
-        result = minimize(
-            problem,
-            algorithm,
-            termination=termination,
-            verbose=True,
-            save_history=True
-        )
-    except KeyboardInterrupt:
-        logger.warning("Optimization interrupted by user (Ctrl+C). Finalizing safely...")
-        result = algorithm.result()  # returns best-so-far result
+        runner = StarmapParallelization(pool.starmap)
 
-    # 6) Grab execution time and close the pool
-    # Convert execution time to minutes and hours
-    exec_time_seconds = result.exec_time
-    exec_time_minutes = exec_time_seconds / 60
-    exec_time_hours = exec_time_seconds / 3600
-    logger.info(f"Execution Time: {exec_time_seconds:.2f} seconds |  "
-                f"{exec_time_minutes:.2f} minutes |  "
-                f"{exec_time_hours:.2f} hours")
-    pool.close()
+        # 3) Instantiate the problem
+        problem = PhosphorylationOptimizationProblem(
+            P_initial=P_initial,
+            P_initial_array=P_initial_array,
+            K_index=K_index,
+            K_array=K_array,
+            gene_psite_counts=gene_psite_counts,
+            beta_counts=beta_counts,
+            elementwise_runner=runner
+        )
+        if METHOD == "DE":
+            # 4) Set up the algorithm and termination criteria
+            # for single-objective optimization
+            pop_size = choose_de_pop_size(problem)
+
+            selection = TournamentSelection(
+                pressure=2,
+                func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                    pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+                )
+            )
+
+            algorithm = GA(
+                pop_size=pop_size,
+                sampling=FloatRandomSampling(),
+                selection=selection,
+                crossover=SBX(prob=0.9, eta=25),
+                mutation=PM(eta=40),
+                eliminate_duplicates=True
+            )
+
+            termination = get_termination("n_gen", 2000)
+
+        else:
+            # Multi-objective optimization (UNSGA3)
+            pop_size = choose_nsga_pop_size(problem)
+
+            selection = TournamentSelection(
+                pressure=2,
+                func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                    pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+                )
+            )
+
+            algorithm = UNSGA3(
+                ref_dirs=get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
+                pop_size=pop_size,
+                sampling=LHS(),
+                selection=selection,
+                crossover=SBX(prob=0.9, eta=15),
+                mutation=PM(eta=20),
+                eliminate_duplicates=True,
+            )
+
+            termination = get_termination("n_gen", 1000)
+
+        # 5) Run the optimization
+        result = _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True)
+
+        # 6) Grab execution time and close the pool
+        # Convert execution time to minutes and hours
+        exec_time_seconds = result.exec_time
+        exec_time_minutes = exec_time_seconds / 60
+        exec_time_hours = exec_time_seconds / 3600
+        logger.info(f"Execution Time: {exec_time_seconds:.2f} seconds |  "
+                    f"{exec_time_minutes:.2f} minutes |  "
+                    f"{exec_time_hours:.2f} hours")
+    finally:
+        pool.close()
+        pool.join()
 
     return problem, result
 

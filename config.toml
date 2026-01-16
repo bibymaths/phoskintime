@@ -160,3 +160,72 @@ regularization = false
 # Evolutionary optimizer backend
 # DE | NSGA-II (string, passed through)
 method = "DE"
+
+# ============================================================
+# ODE PIPELINE (downstream of kinopt + tfopt)
+# Used by:
+#   - config.constants
+# ============================================================
+
+[ode]
+
+# Which ODE model
+# distmod | succmod | randmod
+model = "randmod"
+
+# Upper bounds used in parameter fitting / priors
+[ode.bounds]
+mRNA_prod    = 20
+mRNA_deg     = 20
+protein_prod = 20
+protein_deg  = 20
+phospho_prod = 20
+phospho_deg  = 20
+
+# Bootstrap settings
+[ode.bootstrap]
+n = 0
+
+# Time grids (minutes)
+[ode.time]
+protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+
+# Fit controls
+[ode.fit]
+normalize_model_output = false
+use_custom_weights     = false
+use_regularization     = true
+
+[ode.fit.composite_weights]
+rmse = 1.0
+mae  = 1.0
+var  = 1.0
+mse  = 1.0
+l2   = 1.0
+
+# Sensitivity
+[ode.sensitivity]
+enabled      = true
+perturbation = 0.5
+
+[ode.sensitivity.morris]
+num_trajectories = 1000
+num_levels       = 400
+
+# Plot
+[ode.plot]
+perturb_trace_opacity = 0.02
+
+# Inputs to the ODE pipeline.
+# Make these explicit and stable (no importing from other modules).
+[ode.inputs]
+# These are paths relative to PROJECT ROOT. You can also make them relative to data_dir if you prefer.
+protein_excel = "data/kinopt_results.xlsx"   # or the actual protein sheet you need
+psite_excel   = "data/kinopt_results.xlsx"
+rna_excel     = "data/tfopt_results.xlsx"
+
+# Output naming (optional)
+[ode.output]
+out_dir_name = ""   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"

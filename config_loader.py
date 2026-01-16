@@ -1,3 +1,4 @@
+# config_loader.py
 from __future__ import annotations
 
 from functools import lru_cache
@@ -11,7 +12,16 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parent
+    """
+    Find repo root robustly by walking upwards until config.toml is found.
+    This avoids 'root = folder containing config_loader.py' which is wrong
+    when config/ is a subdir.
+    """
+    start = Path(__file__).resolve().parent
+    for p in [start, *start.parents]:
+        if (p / "config.toml").is_file():
+            return p
+    return start
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -24,15 +34,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return out
 
 
-def _as_bool(v: Any) -> bool:
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, str):
-        return v.strip().lower() in {"1", "true", "yes", "y", "on"}
-    return bool(v)
-
-
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=8)
 def load(mode: str, section: str) -> dict[str, Any]:
     root = _project_root()
     with (root / "config.toml").open("rb") as f:
@@ -41,20 +43,26 @@ def load(mode: str, section: str) -> dict[str, Any]:
     base = raw.get(section, {}) or {}
     modes = (base.get("modes", {}) or {})
     merged = _deep_merge(base, modes.get(mode, {}))
-    merged["_paths"] = raw.get("paths", {}) or {}
 
-    # ADD THIS LINE
+    merged["_paths"] = raw.get("paths", {}) or {}
     merged["_root"] = str(root)
 
     return merged
 
 
-
 def ensure_dirs() -> None:
     root = _project_root()
-    cfg = load("local", "tfopt")  # just to get `_paths`
-    paths = cfg["_paths"]
-    (root / paths.get("out_dir", "results")).mkdir(parents=True, exist_ok=True)
-    (root / paths.get("data_dir", "data")).mkdir(parents=True, exist_ok=True)
-    (root / paths.get("logs_dir", "results/logs")).mkdir(parents=True, exist_ok=True)
-    (root / paths.get("ode_data_dir", "data/ode")).mkdir(parents=True, exist_ok=True)
+    with (root / "config.toml").open("rb") as f:
+        raw = tomllib.load(f)
+
+    paths = raw.get("paths", {}) or {}
+
+    data_dir = paths.get("data_dir", "data")
+    results_dir = paths.get("results_dir", "results")
+    logs_dir = paths.get("logs_dir", "results/logs")
+    ode_data_dir = paths.get("ode_data_dir", "data")
+
+    (root / data_dir).mkdir(parents=True, exist_ok=True)
+    (root / results_dir).mkdir(parents=True, exist_ok=True)
+    (root / logs_dir).mkdir(parents=True, exist_ok=True)
+    (root / ode_data_dir).mkdir(parents=True, exist_ok=True)
