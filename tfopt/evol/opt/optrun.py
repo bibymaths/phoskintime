@@ -4,8 +4,7 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.pm import PolynomialMutation
 from pymoo.optimize import minimize as pymoo_minimize
-from pymoo.termination.default import DefaultMultiObjectiveTermination
-from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.termination import get_termination
 from pymoo.util.ref_dirs import get_reference_directions
 
 from tfopt.evol.config.logconf import setup_logger
@@ -83,7 +82,7 @@ def run_optimization(problem, total_dim, optimizer):
     else:
         logger.error("Unknown optimizer type. Please choose 0 (NSGA2), 1 (SMSEMOA), or 2 (AGEMOEA).")
 
-    termination = DefaultMultiObjectiveTermination()
+    termination = get_termination("n_gen", 1000)
 
     # Run the optimization
     res = pymoo_minimize(problem=problem,

@@ -4,8 +4,8 @@
 
 [paths]
 data_dir      = "data"
-results_dir   = "results"
-logs_dir      = "results/logs"
+results_dir   = "results_kinopt"
+logs_dir      = "results_kinopt/logs"
 ode_data_dir  = "data"
 
 
@@ -76,7 +76,7 @@ loss_type   = 5
 # 0: NSGA-II
 # 1: SMSEMOA
 # 2: AGEMOEA
-optimizer = 0
+optimizer = 1
 
 
 # ============================================================
@@ -171,7 +171,7 @@ method = "NSGA-II"
 
 # Which ODE model
 # distmod | succmod | randmod
-model = "randmod"
+model = "distmod"
 
 # Upper bounds used in parameter fitting / priors
 [ode.bounds]
