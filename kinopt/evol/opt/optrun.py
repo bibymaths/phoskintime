@@ -1,8 +1,11 @@
-
 import numpy as np
 import subprocess
 import pandas as pd
 from multiprocessing.pool import ThreadPool
+from pymoo.algorithms.soo.nonconvex.ga import GA
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.operators.selection.tournament import TournamentSelection
+from pymoo.termination import get_termination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.operators.crossover.sbx import SBX
@@ -13,7 +16,6 @@ from pymoo.decomposition.asf import ASF
 from pymoo.indicators.hv import Hypervolume
 from pymoo.mcdm.pseudo_weights import PseudoWeights
 from pymoo.indicators.igd_plus import IGDPlus
-from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.core.problem import StarmapParallelization
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.termination.default import DefaultSingleObjectiveTermination
@@ -50,6 +52,122 @@ def choose_nsga_pop_size(problem, n_obj=3):
     pop = int(50 * round(pop / 50))
     pop = max(pop, 10 * n_obj)  # never below 30 for 3 objectives
     return pop
+
+def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
+    """
+    Robust binary tournament comparator.
+
+    Works for:
+      A) single-objective: F has length 1
+         - if CV exists, use constraint-domination (CV first, then F)
+         - else compare by F only
+      B) pseudo-constrained objectives: F = [loss, alpha_violation, beta_violation]
+         - feasibility-first based on F[1], F[2], then loss
+    """
+    n_tournaments, n_competitors = P.shape
+    if n_competitors != 2:
+        raise ValueError("Only pressure=2 allowed for binary tournament!")
+
+    S = np.full(n_tournaments, -1, dtype=int)
+
+    def agg_cv_from_two(F_row):
+        cv1 = abs(float(F_row[1]))
+        cv2 = abs(float(F_row[2]))
+        if cv_mode == "linf":
+            return max(cv1, cv2)
+        elif cv_mode == "l1":
+            return cv1 + cv2
+        elif cv_mode == "l2":
+            return (cv1 * cv1 + cv2 * cv2) ** 0.5
+        else:
+            raise ValueError("cv_mode must be 'linf', 'l1', or 'l2'")
+
+    def get_cv(ind):
+        # Prefer true constraint violation if present (pymoo sets CV when n_ieq_constr>0)
+        cv = getattr(ind, "CV", None)
+        if cv is None:
+            return None
+        cv = float(np.asarray(cv).reshape(-1)[0])
+        if not np.isfinite(cv):
+            return np.inf
+        return cv
+
+    for i in range(n_tournaments):
+        a, b = P[i]
+        ia, ib = pop[a], pop[b]
+
+        Fa = np.asarray(ia.F, dtype=float).reshape(-1)
+        Fb = np.asarray(ib.F, dtype=float).reshape(-1)
+
+        # Defensive: treat non-finite objective as worst
+        if not np.all(np.isfinite(Fa)) and np.all(np.isfinite(Fb)):
+            S[i] = b
+            continue
+        if not np.all(np.isfinite(Fb)) and np.all(np.isfinite(Fa)):
+            S[i] = a
+            continue
+
+        # --- Case A: single-objective (typical GA/DE/PSO setup)
+        if Fa.size == 1 and Fb.size == 1:
+            cva = get_cv(ia)
+            cvb = get_cv(ib)
+
+            # If CV exists, use constraint-domination
+            if cva is not None and cvb is not None:
+                a_feas = cva <= eps_cv
+                b_feas = cvb <= eps_cv
+
+                if a_feas and not b_feas:
+                    S[i] = a
+                    continue
+                if b_feas and not a_feas:
+                    S[i] = b
+                    continue
+
+                if not a_feas and not b_feas:
+                    # both infeasible -> smaller CV wins, tie-break by F
+                    if cva < cvb:
+                        S[i] = a
+                    elif cvb < cva:
+                        S[i] = b
+                    else:
+                        S[i] = a if Fa[0] <= Fb[0] else b
+                    continue
+
+            # Otherwise (no CV), compare by objective only
+            S[i] = a if Fa[0] <= Fb[0] else b
+            continue
+
+        # --- Case B: 3-objective layout (loss, alpha_violation, beta_violation)
+        if Fa.size >= 3 and Fb.size >= 3:
+            a_feas = (abs(Fa[1]) <= eps_cv) and (abs(Fa[2]) <= eps_cv)
+            b_feas = (abs(Fb[1]) <= eps_cv) and (abs(Fb[2]) <= eps_cv)
+
+            if a_feas and not b_feas:
+                S[i] = a
+                continue
+            if b_feas and not a_feas:
+                S[i] = b
+                continue
+
+            if a_feas and b_feas:
+                S[i] = a if Fa[0] <= Fb[0] else b
+                continue
+
+            cva = agg_cv_from_two(Fa)
+            cvb = agg_cv_from_two(Fb)
+            if cva < cvb:
+                S[i] = a
+            elif cvb < cva:
+                S[i] = b
+            else:
+                S[i] = a if Fa[0] <= Fb[0] else b
+            continue
+
+        # --- Mixed/unexpected shapes: fall back to compare by first objective
+        S[i] = a if Fa[0] <= Fb[0] else b
+
+    return S
 
 def run_optimization(
         P_initial,
@@ -98,52 +216,59 @@ def run_optimization(
         # for single-objective optimization
         pop_size = choose_de_pop_size(problem)
 
-        algorithm = DE(
-            pop_size=pop_size,
-            jitter=True,
-            verbose=True
+        selection = TournamentSelection(
+            pressure=2,
+            func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+            )
         )
 
-        termination = DefaultSingleObjectiveTermination(
-            xtol=1e-8,
-            cvtol=1e-6,
-            ftol=1e-6,
-            period=100,
-            n_max_gen=1000,
-            n_max_evals=100000
+        algorithm = GA(
+            pop_size=pop_size,
+            sampling=FloatRandomSampling(),
+            selection=selection,
+            crossover=SBX(prob=0.9, eta=25),
+            mutation=PM(eta=40),
+            eliminate_duplicates=True
         )
+
+        termination = get_termination("n_gen", 1000)
 
     else:
-        # 4) Set up the algorithm and termination criteria
-        # for multi-objective optimization
+        # Multi-objective optimization (UNSGA3)
         pop_size = choose_nsga_pop_size(problem)
 
+        selection = TournamentSelection(
+            pressure=2,
+            func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+            )
+        )
+
         algorithm = UNSGA3(
-            ref_dirs= get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
+            ref_dirs=get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
             pop_size=pop_size,
             sampling=LHS(),
+            selection=selection,
             crossover=SBX(prob=0.9, eta=15),
             mutation=PM(eta=20),
             eliminate_duplicates=True,
         )
 
-        termination = DefaultMultiObjectiveTermination(
-            xtol=1e-8,
-            cvtol=1e-6,
-            ftol=0.0025,
-            period=30,
-            n_max_gen=1000,
-            n_max_evals=100000
-        )
+        termination = get_termination("n_gen", 1000)
 
     # 5) Run the optimization
-    result = minimize(
-        problem,
-        algorithm,
-        termination=termination,
-        verbose=True,
-        save_history=True
-    )
+    try:
+        result = minimize(
+            problem,
+            algorithm,
+            termination=termination,
+            verbose=True,
+            save_history=True
+        )
+    except KeyboardInterrupt:
+        logger.warning("Optimization interrupted by user (Ctrl+C). Finalizing safely...")
+        result = algorithm.result()  # returns best-so-far result
 
     # 6) Grab execution time and close the pool
     # Convert execution time to minutes and hours
@@ -334,12 +459,12 @@ def post_optimization_nsga(
     pops = []
     # You could populate 'pops' with relevant info from each generation if desired
     for i, individual in enumerate(result.pop):  # Displaying first 5 individuals for brevity
-        row = {"Individual": i + 1, "Objective Value (F)": individual.F[0]}  # Add individual info
-        row.update({f"α_{j}": x for j, x in enumerate(individual.X)})  # Add decision variables
+        row = {"Individual": i + 1, "Objective Value (F)": float(individual.F[0])}  # Add individual info
+        row.update({f"α_{j}": float(x) for j, x in enumerate(individual.X)})  # Add decision variables
         pops.append(row)
 
     waterfall_df = pd.DataFrame(pops)
-    waterfall_df.to_csv(f'{OUT_DIR}/parameter_scan.csv', index=False)
+    waterfall_df.to_csv(f"{OUT_DIR}/parameter_scan.csv", index=False)
 
     # 5) Convergence data (best objective value each generation)
     val = [e.opt.get("F")[0] for e in hist]  # each iteration's best F

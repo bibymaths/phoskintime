@@ -120,6 +120,9 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
 
             P_i_t_matrix[i, :] = gene_psite_prediction
 
+        # Clip negative values to zero
+        np.clip(P_i_t_matrix, a_min=0, a_max=None, out=P_i_t_matrix)
+
         # Calculate residuals and sum of squared errors
         residuals = self.P_initial_array - P_i_t_matrix
 

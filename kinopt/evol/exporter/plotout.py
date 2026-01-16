@@ -12,7 +12,6 @@ from matplotlib.animation import FuncAnimation
 from pymoo.visualization.radar import Radar
 from kinopt.evol.config.constants import OUT_DIR, TIME_POINTS
 
-
 def plot_residuals_for_gene(gene, gene_data):
     """
     Generates and saves combined residual-related plots for one gene with all psites in the legend.
@@ -371,91 +370,6 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/convergence.png", dpi=300)
     plt.close()
-
-    # Combine alpha and beta labels with Greek symbols
-    param_labels = []
-
-    # Add alpha labels
-    for (gene, psite), kinases in alpha_values.items():
-        for kinase in kinases.keys():
-            param_labels.append(f"α_{gene}_{psite}_{kinase}")
-
-    # Add beta labels
-    for (kinase, psite), _ in beta_values.items():
-        param_labels.append(f"β_{kinase}_{psite}")
-
-    # Melt the DataFrame to make it long-form for easy plotting
-    long_df = waterfall_df.melt(id_vars=["Individual", "Objective Value (F)"],
-                                value_vars=param_labels,
-                                var_name="Parameter",
-                                value_name="Parameter Value")
-
-    # Add a column to classify parameters as 'α' or 'β'
-    long_df["Type"] = long_df["Parameter"].apply(
-        lambda x: "α" if x.startswith("α") else ("β" if x.startswith("β") else "Other"))
-
-    # Sort the DataFrame by "Parameter Value"
-    long_df = long_df.sort_values(by="Objective Value (F)")
-
-    plt.figure(figsize=(8, 8))
-    style = {"α": {"color": 'teal', "marker": "o"},
-             "β": {"color": 'indigo', "marker": "o"}}
-    for param_type, props in style.items():
-        subset = long_df[long_df["Type"] == param_type]
-        plt.scatter(
-            subset["Parameter Value"],
-            subset["Objective Value (F)"],
-            label=param_type,
-            alpha=0.4,
-            color=props["color"],
-            marker=props["marker"]
-        )
-    plt.title("")
-    plt.xlabel("Optimized Values", fontsize=10)
-    plt.ylabel("f", fontsize=8, fontstyle='italic')
-    plt.legend(title="Parameter")
-    plt.tight_layout()
-    plt.savefig(f'{OUT_DIR}/parameter_trend.png', dpi=300)
-    plt.close()
-
-    # Use a hexbin plot to visualize distributions of parameter values across the objective function
-    plt.figure(figsize=(8, 8))
-
-    hb = plt.hexbin(
-        long_df["Parameter Value"],
-        long_df["Objective Value (F)"],
-        gridsize=50,
-        cmap="viridis",
-        mincnt=1
-    )
-    plt.colorbar(hb, label="Frequency")
-    plt.title("")
-    plt.xlabel("Optimized Values", fontsize=8)
-    plt.ylabel("f", fontsize=10, fontstyle='italic')
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/parameter_scan.png", dpi=300)
-    plt.close()
-
-    # Plot the distributional plot
-    plt.figure(figsize=(8, 8))  # Adjust width to accommodate many parameters
-    sns.violinplot(
-        x="Parameter",
-        y="Parameter Value",
-        hue="Objective Value (F)",  # This shows the distribution with respect to objective values
-        data=long_df,
-        palette="viridis",
-        density_norm='width',
-        cut=0,
-        legend=False,
-    )
-    plt.xticks([])  # Remove x-axis ticks
-    plt.title("")
-    plt.xlabel("")  # Remove the x-axis label
-    plt.ylabel("Optimized Values", fontsize=8)
-    plt.tight_layout()
-    plt.savefig(f"{OUT_DIR}/parameter_scatter.png", format="png", dpi=300)
-    plt.close()
-
 
 def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
                    x_values, y_values, val):
