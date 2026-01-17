@@ -183,7 +183,7 @@ method = "NSGA-II"
 # After setting the results_dir and logs_dir globally above,
 # you can set the model type here to have separate output folders
 # for each model type.
-model = "distmod"
+model = "randmod"
 
 # Upper bounds used in parameter fitting / priors
 [ode.bounds]
