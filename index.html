@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="phoskintime - a toolkit for ODE based parameter estimation and optimization for phosphorylation models." /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/index.html" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>phoskintime</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Home";
+        var mkdocs_page_input_path = "index.md";
+        var mkdocs_page_url = "/phoskintime/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Home</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#acknowledgments">Acknowledgments</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#core-modules">Core Modules</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#optimization-frameworks">Optimization Frameworks</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#kinopt">kinopt</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#evol">evol</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#local">local</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#optimality">optimality</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#fitanalysis">fitanalysis</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#tfopt">tfopt</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#evol_1">evol</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#local_1">local</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#objfn">objfn</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#optcon">optcon</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#utils">utils</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-entry-point-for-the-phoskintime-pipeline">Command-Line Entry Point for the Phoskintime Pipeline</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#run-all-stages">Run All Stages</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#run-preprocessing-only">Run Preprocessing Only</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#run-transcription-factor-mrna-optimization-tfopt">Run Transcription-Factor-mRNA Optimization (TFOPT)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#run-kinase-phosphorylation-optimization-kinopt">Run Kinase-Phosphorylation Optimization (KINOPT)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#run-the-model">Run the Model</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#quick-start-setting-up-environment">Quick Start: Setting up environment</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#scenario-1-pip-virtualenv-debianubuntufedora">Scenario 1: pip + virtualenv (Debian/Ubuntu/Fedora)</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#for-debianubuntu">For Debian/Ubuntu</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#for-fedora">For Fedora</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#setup">Setup</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#scenario-2-poetry-pyprojecttoml">Scenario 2: Poetry + pyproject.toml</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#install-poetry-all-platforms">Install Poetry (all platforms)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#setup_1">Setup</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#scenario-3-using-uv-fast-isolated-pip-alternative">Scenario 3: Using uv (fast, isolated pip alternative)</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#install-uv">Install uv</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#setup_2">Setup</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#scenario-4-conda-or-mamba-anacondaminiconda-users">Scenario 4: Conda or Mamba (Anaconda/Miniconda users)</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#setup_3">Setup</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="Documentation/CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="Documentation/utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html" class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Home</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/index.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="phoskintime-documentation">PhosKinTime Documentation</h1>
+<p>Welcome to the official documentation for <strong>PhosKinTime</strong>, an ODE-based modeling toolkit for phosphorylation kinetics
+and transcriptional time-series analysis. This index page provides an overview of each package and submodule in the
+project.</p>
+<p><a href="https://doi.org/10.5281/zenodo.15351017"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg" /></a>   </p>
+<hr />
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>This project originated as part of my master's thesis work at Theoretical Biophysics group (
+now, <a href="https://rumo.biologie.hu-berlin.de/tbp/index.php/en/">Klipp-Linding Lab</a>), Humboldt Universität zu Berlin.</p>
+<ul>
+<li><strong>Conceptual framework and mathematical modeling</strong> were developed under the supervision of <strong><a href="https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/52-klipp">Prof. Dr. Dr. H.C. Edda Klipp</a></strong>.</li>
+<li><strong>Experimental datasets</strong> were provided by the <strong><a href="https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/278-rune-linding">(Retd. Prof.) Dr. Rune Linding</a></strong>.</li>
+<li>The subpackage <code>tfopt</code> is an optimized and efficient derivative
+  of <a href="https://github.com/Normann-BPh/Transcription-Optimization">original work</a> by my colleague <strong><a href="https://github.com/Normann-BPh">Julius Normann</a></strong>, adapted with permission.</li>
+</ul>
+<p>I am especially grateful
+to <a href="https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/54-people/6-staff/60-maintz">Ivo Maintz</a> for his generous
+technical support, enabling seamless experimentation with packages and server setups.</p>
+<ul>
+<li>The package is built on the shoulders of giants, leveraging the power
+  of <a href="https://numpy.org/">NumPy</a>, <a href="https://www.scipy.org/">SciPy</a>, <a href="https://matplotlib.org/">Matplotlib</a>,
+  and <a href="https://pandas.pydata.org/">Pandas</a> for numerical computations and data handling.</li>
+<li>The package also utilizes <a href="https://numba.pydata.org/">Numba</a> for JIT compilation, enhancing performance for
+  computationally intensive tasks.</li>
+<li>The package is designed to be compatible with <a href="https://www.python.org/downloads/">Python 3.8+</a> and is tested on
+  various platforms, including Windows, macOS, and Linux.</li>
+</ul>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>PhosKinTime integrates:</p>
+<ul>
+<li>Parameter estimation </li>
+<li>Mechanistic ODE models (distributive, successive, random)</li>
+<li>Steady-state computation</li>
+<li>Morris sensitivity analysis</li>
+<li>Static and interactive visualization</li>
+<li>Modular design for extensibility</li>
+</ul>
+<p>PhosKinTime uses ordinary differential equations (ODEs) to model phosphorylation kinetics and supports multiple
+mechanistic hypotheses, including:</p>
+<ul>
+<li><strong>Distributive Model:</strong> Phosphorylation events occur independently.</li>
+<li><strong>Successive Model:</strong> Phosphorylation events occur sequentially.</li>
+<li><strong>Random Model:</strong> Phosphorylation events occur in a random manner.</li>
+</ul>
+<hr />
+<h2 id="core-modules">Core Modules</h2>
+<p><strong>config</strong></p>
+<ul>
+<li>Holds global constants, CLI parsing, and logging setup.</li>
+</ul>
+<p><strong>models</strong></p>
+<ul>
+<li>Implements ODE systems for different phosphorylation hypotheses. </li>
+</ul>
+<p><strong>models</strong></p>
+<ul>
+<li>Parameter estimation routines for ODE models.</li>
+</ul>
+<p><strong>steady</strong></p>
+<ul>
+<li>Computes steady-state initial conditions for each model.</li>
+</ul>
+<p><strong>sensitivity</strong></p>
+<ul>
+<li>Morris sensitivity analysis for parameter sensitivity.</li>
+</ul>
+<p><strong>plotting</strong></p>
+<ul>
+<li>Visualization tools for plotting results.</li>
+</ul>
+<p><strong>utils</strong></p>
+<ul>
+<li>Helper functions for data loading, saving, and plotting. </li>
+</ul>
+<hr />
+<h2 id="optimization-frameworks">Optimization Frameworks</h2>
+<h3 id="kinopt">kinopt</h3>
+<p>The <strong>kinopt</strong> package provides advanced optimization and post-processing:</p>
+<h4 id="evol">evol</h4>
+<p>Global evolutionary optimization using pymoo (DE, NSGA-II):</p>
+<ul>
+<li>Problem formulation, data construction, exporter for Excel and plots</li>
+</ul>
+<h4 id="local">local</h4>
+<p>Local constrained optimization using SciPy solvers (SLSQP, TRUST-CONSTR) with Numba-accelerated objectives</p>
+<h4 id="optimality">optimality</h4>
+<p>Post-optimization analysis: feasibility checks, sensitivity reporting, LaTeX table generation, diagnostic plots</p>
+<h4 id="fitanalysis">fitanalysis</h4>
+<p>Additional fit-evaluation utilities for residual and performance analysis</p>
+<hr />
+<h3 id="tfopt">tfopt</h3>
+<p><em>Originally implemented by Julius Normann.</em></p>
+<p><em>This version has been modified and optimized by Abhinav Mishra.</em></p>
+<p>The <strong>tfopt</strong> package estimates transcriptional regulation using mRNA and TF time-series data through constrained
+optimization.</p>
+<h4 id="evol_1">evol</h4>
+<p>Global evolutionary optimization using pymoo (NSGA-II, AGEMOEA, SMSEMOA):</p>
+<ul>
+<li>Multi-objective loss (fit error, α and β constraint violations)</li>
+<li>Parallel evaluation, Excel export, and HTML/plot reports</li>
+</ul>
+<h4 id="local_1">local</h4>
+<p>Local constrained optimization using SciPy solvers (SLSQP):</p>
+<ul>
+<li>Fast deterministic optimization under linear constraints</li>
+<li>Numba-accelerated objectives, identical output and reports as <code>evol</code></li>
+</ul>
+<h4 id="objfn">objfn</h4>
+<p>Shared objective logic and prediction functions for both backends</p>
+<h4 id="optcon">optcon</h4>
+<p>Data construction and constraint generation from TF–mRNA interaction files</p>
+<h4 id="utils">utils</h4>
+<p>Input parsing, Excel + plot output, and HTML report generation</p>
+<hr />
+<h2 id="command-line-entry-point-for-the-phoskintime-pipeline">Command-Line Entry Point for the Phoskintime Pipeline</h2>
+<p>The <code>phoskintime</code> pipeline provides a command-line interface to execute various stages of the workflow,<br />
+including preprocessing, optimization, and modeling. Below are the usage instructions and examples for running<br />
+the pipeline.</p>
+<p>Before running any commands, ensure you are in the working directory one level above the project root (where the project<br />
+directory is visible).</p>
+<h3 id="run-all-stages">Run All Stages</h3>
+<p>Run the entire pipeline with the default (local) solver:
+<pre class="highlight"><code class="language-bash">python phoskintime all</code></pre></p>
+<h3 id="run-preprocessing-only">Run Preprocessing Only</h3>
+<p>Execute only the preprocessing stage:
+<pre class="highlight"><code class="language-bash">python phoskintime prep</code></pre></p>
+<h3 id="run-transcription-factor-mrna-optimization-tfopt">Run Transcription-Factor-mRNA Optimization (TFOPT)</h3>
+<p>Run TFOPT with the local solver:
+<pre class="highlight"><code class="language-bash">python phoskintime tfopt --mode local</code></pre></p>
+<p>Run TFOPT with the evolutionary solver:
+<pre class="highlight"><code class="language-bash">python phoskintime tfopt --mode evol</code></pre></p>
+<h3 id="run-kinase-phosphorylation-optimization-kinopt">Run Kinase-Phosphorylation Optimization (KINOPT)</h3>
+<p>Run KINOPT with the local solver:
+<pre class="highlight"><code class="language-bash">python phoskintime kinopt --mode local</code></pre></p>
+<p>Run KINOPT with the evolutionary solver:
+<pre class="highlight"><code class="language-bash">python phoskintime kinopt --mode evol</code></pre></p>
+<h3 id="run-the-model">Run the Model</h3>
+<p>Execute the modeling stage:
+<pre class="highlight"><code class="language-bash">python phoskintime model</code></pre></p>
+<h3 id="quick-start-setting-up-environment">Quick Start: Setting up environment</h3>
+<p>This guide provides clean setup instructions for running the <code>phoskintime</code> package on a new machine. Choose the scenario
+that best fits your environment and preferences. </p>
+<p>Before proceeding, ensure you have the following prerequisites installed: </p>
+<ul>
+<li>graphviz (for generating diagrams)   </li>
+</ul>
+<pre class="highlight"><code class="language-bash"># For Debian/Ubuntu
+sudo apt-get install graphviz   
+
+# For Fedora
+sudo dnf install graphviz    
+
+# For MacOS
+brew install graphviz </code></pre>
+<ul>
+<li>python 3.10 or higher </li>
+</ul>
+<pre class="highlight"><code class="language-bash"># Check python version 
+python3 --version  
+
+# If not installed, install python 3.10 or higher 
+
+# For Debian/Ubuntu  
+sudo apt-get install python3.10 
+
+# For Fedora 
+sudo dnf install python3.10 
+
+# For MacOS
+brew install python@3.10</code></pre>
+<ul>
+<li>git (for cloning the repository) </li>
+</ul>
+<pre class="highlight"><code class="language-bash"># For Debian/Ubuntu 
+sudo apt-get install git  
+
+# For Fedora 
+sudo dnf install git  
+
+# For MacOS 
+brew install git </code></pre>
+<hr />
+<h3 id="scenario-1-pip-virtualenv-debianubuntufedora">Scenario 1: pip + virtualenv (Debian/Ubuntu/Fedora)</h3>
+<h4 id="for-debianubuntu">For <strong>Debian/Ubuntu</strong></h4>
+<pre class="highlight"><code class="language-bash">sudo apt update &amp;&amp; sudo apt install -y python3 python3-pip python3-venv git</code></pre>
+<h4 id="for-fedora">For <strong>Fedora</strong></h4>
+<pre class="highlight"><code class="language-bash">sudo dnf install -y python3 python3-pip python3-virtualenv git</code></pre>
+<h4 id="setup">Setup</h4>
+<pre class="highlight"><code class="language-bash">git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt</code></pre>
+<hr />
+<h3 id="scenario-2-poetry-pyprojecttoml">Scenario 2: Poetry + <code>pyproject.toml</code></h3>
+<h4 id="install-poetry-all-platforms">Install Poetry (all platforms)</h4>
+<pre class="highlight"><code class="language-bash">curl -sSL https://install.python-poetry.org | python3 -
+# Or: pip install poetry</code></pre>
+<h4 id="setup_1">Setup</h4>
+<pre class="highlight"><code class="language-bash">git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Install dependencies
+poetry install
+
+# Optional: activate shell within poetry env
+poetry shell</code></pre>
+<hr />
+<h3 id="scenario-3-using-uv-fast-isolated-pip-alternative">Scenario 3: Using <a href="https://github.com/astral-sh/uv"><code>uv</code></a> (fast, isolated pip alternative)</h3>
+<h4 id="install-uv">Install <code>uv</code></h4>
+<pre class="highlight"><code class="language-bash">curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+<h4 id="setup_2">Setup</h4>
+<pre class="highlight"><code class="language-bash">git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Create virtual environment and install deps fast
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt</code></pre>
+<hr />
+<h3 id="scenario-4-conda-or-mamba-anacondaminiconda-users">Scenario 4: Conda or Mamba (Anaconda/Miniconda users)</h3>
+<h4 id="setup_3">Setup</h4>
+<pre class="highlight"><code class="language-bash">git clone git@github.com:bibymaths/phoskintime.git
+cd phoskintime
+
+# Create and activate conda environment
+conda create -n phoskintime python=3.10 -y
+conda activate phoskintime
+
+# Install dependencies
+pip install -r requirements.txt</code></pre>
+<p>Or if using <code>pyproject.toml</code>, add:</p>
+<pre class="highlight"><code class="language-bash">pip install poetry
+poetry install</code></pre>
+<p>For making illustration diagrams, you need to install Graphviz. You can do this via conda or apt-get:</p>
+<pre class="highlight"><code class="language-bash">conda install graphviz</code></pre>
+<p>or</p>
+<pre class="highlight"><code class="language-bash">apt-get install graphviz</code></pre>
+<p>or download it from the <a href="https://graphviz.gitlab.io/download/">Graphviz website</a>.
+For macusers, you can use Homebrew:</p>
+<pre class="highlight"><code class="language-bash">brew install graphviz</code></pre>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="reference.html" class="btn btn-neutral float-right" title="Reference">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+    
+      <span><a href="reference.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="js/katex-setup.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2026-01-18 23:48:48.189341+00:00
+-->

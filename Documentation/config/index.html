@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/config/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Configuration - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Configuration";
+        var mkdocs_page_input_path = "Documentation/config/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/config/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Configuration</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#global-configuration">Global Configuration</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#logging">Logging</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#customization">Customization</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Configuration</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/config/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="config-module">Config Module</h1>
+<p>The <strong>config</strong> module centralizes all configuration, constant definitions, command-line argument parsing, and logging
+setup for the PhosKinTime package. This module is designed to standardize configuration settings across the package,
+making it easy to adjust model parameters, file paths, logging behavior, and other key settings.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>The config module is composed of several submodules:</p>
+<ul>
+<li>
+<p><strong><code>constants.py</code></strong><br />
+  This file defines global constants used throughout the package. It includes:</p>
+<ul>
+<li><strong>Model Settings:</strong><ul>
+<li><code>ODE_MODEL</code>: Selects the ODE model type (e.g., "distmod" for Distributive, "succmod" for Successive, "randmod"
+  for Random).</li>
+<li><code>ESTIMATION_MODE</code>: Chooses the parameter estimation strategy ("sequential" or "normal").</li>
+<li>A mapping (<code>model_names</code>) that converts internal model identifiers to human-readable names (stored in
+  <code>model_type</code>).</li>
+</ul>
+</li>
+<li><strong>Time Points and Directories:</strong><ul>
+<li><code>TIME_POINTS</code>: A NumPy array of time points for phosphorylation.</li>
+<li><code>TIME_POINTS_RNA</code>: A NumPy array of time points for mRNA measurements.</li>
+<li>Directory paths such as <code>PROJECT_ROOT</code>, <code>OUT_DIR</code>, <code>DATA_DIR</code>, <code>INPUT_EXCEL</code>, and <code>LOG_DIR</code>.</li>
+</ul>
+</li>
+<li><strong>Plotting and Regularization Settings:</strong><ul>
+<li><code>COLOR_PALETTE</code>: A list of colors for plotting.</li>
+<li><code>USE_REGULARIZATION</code>: A boolean flag to enable or disable regularization.</li>
+</ul>
+</li>
+<li><strong>Scoring Weights:</strong><br />
+  Weights for the composite scoring function (<code>ALPHA_WEIGHT</code>, <code>BETA_WEIGHT</code>, <code>GAMMA_WEIGHT</code>, <code>DELTA_WEIGHT</code>,
+  <code>MU_REG</code>) that combine error metrics such as RMSE, MAE, variance, MSE, and the L2 norm of parameters.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>config.py</code></strong><br />
+  This file handles command-line argument parsing and configuration extraction. It provides:</p>
+<ul>
+<li>The <code>parse_args</code> function to define and parse the necessary CLI arguments (such as parameter bounds, fixed
+  parameter values, bootstrapping iterations, and input file paths).</li>
+<li>Utility functions like <code>ensure_output_directory</code> to create necessary directories.</li>
+<li>The <code>extract_config</code> function, which aggregates all command-line arguments and constants into a unified
+  configuration dictionary used by the rest of the package.</li>
+<li>A composite scoring function (<code>score_fit</code>) that calculates a combined error score based on various error metrics
+  and the L2 regularization penalty.</li>
+</ul>
+</li>
+<li>
+<p><strong><code>logconf.py</code></strong><br />
+  This file sets up the logging system for the package. Key features include:</p>
+<ul>
+<li><strong>Colored Console Logging:</strong><br />
+  A custom <code>ColoredFormatter</code> formats log messages with colors (e.g., blue for INFO, red for ERROR) to improve
+  readability in the console.</li>
+<li><strong>Rotating File Logging:</strong><br />
+  Log messages are also saved to files in the directory specified by <code>LOG_DIR</code>, with rotation settings (maximum
+  bytes and backup count) to prevent log files from becoming too large.</li>
+<li><strong>Setup Function:</strong><br />
+  The <code>setup_logger</code> function initializes and returns a logger configured with both file and stream (console)
+  handlers.</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h3 id="global-configuration">Global Configuration</h3>
+<p>The constants defined in <code>constants.py</code> control major aspects of the modeling and estimation processes. For example, to
+switch between different kinetic models, update the <code>ODE_MODEL</code> value. </p>
+<h3 id="logging">Logging</h3>
+<p>The logger configured in <code>logconf.py</code> is used to log progress, warnings, and errors. Both console and file logging are
+available. Log messages include time stamps, module names, log levels, and elapsed time, formatted with colors for
+easier debugging.</p>
+<hr />
+<h2 id="customization">Customization</h2>
+<ul>
+<li>
+<p><strong>Model &amp; Estimation Settings:</strong><br />
+  Adjust <code>ODE_MODEL</code> in <code>constants.py</code> to select different modeling strategies and parameter estimation routines.</p>
+</li>
+<li>
+<p><strong>Parameter Bounds and Fixed Values:</strong><br />
+  These can be set via command-line arguments or within the configuration file. Custom parsers ensure values are
+  correctly converted (e.g., converting "inf" to Python’s infinity).</p>
+</li>
+<li>
+<p><strong>Output Directories:</strong><br />
+  Paths for data, results, and logs are automatically generated relative to <code>PROJECT_ROOT</code>. Modify these if necessary
+  for your environment.</p>
+</li>
+<li>
+<p><strong>Logging Behavior:</strong><br />
+  The logging format and rotation settings can be adjusted in <code>logconf.py</code> to suit your needs.</p>
+</li>
+<li>
+<p><strong>Scoring Function:</strong><br />
+  The composite scoring function in <code>config.py</code> can be tuned by modifying the weights (<code>ALPHA_WEIGHT</code>, <code>BETA_WEIGHT</code>,
+  etc.) to reflect the priorities of your analysis.</p>
+</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../processing/index.html" class="btn btn-neutral float-left" title="Processing & Mapping"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../kinopt/index.html" class="btn btn-neutral float-right" title="Kinase Optimization">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../processing/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../kinopt/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/kinopt/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Kinase Optimization - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Kinase Optimization";
+        var mkdocs_page_input_path = "Documentation/kinopt/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/kinopt/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Kinase Optimization</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#directory-structure">Directory Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#model-equation">Model Equation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#features">Features</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#running-global-optimization-evol">Running Global Optimization (evol)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#running-local-optimization-local">Running Local Optimization (local)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#post-optimization-processing">Post-Optimization Processing</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Kinase Optimization</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/kinopt/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="kinopt-a-comprehensive-optimization-framework-for-phoskintime">kinopt: A Comprehensive Optimization Framework for PhosKinTime</h1>
+<p><strong>kinopt</strong> is a modular framework designed for the analysis and optimization of gene–phosphorylation time-series data.
+It integrates several specialized submodules that cater to different optimization strategies and post-processing
+analyses. Whether you need a global evolutionary approach, a local constrained optimization, or a Julia-based Powell
+optimization routine, <strong>kinopt</strong> offers the tools to process your experimental data and generate in-depth reports on
+model performance.</p>
+<hr />
+<h2 id="directory-structure">Directory Structure</h2>
+<pre class="highlight"><code>kinopt/
+├── data
+│   ├── input1.csv             # Primary input data file with phosphorylation time series data.
+│   └── input2.csv             # Interaction data file containing protein-phosphorylation-kinase information.
+├── evol
+│   ├── config                 # Configuration files (constants, logging, etc.) for the evolutionary approach.
+│   ├── exporter               # Plotting and Excel sheet export functions.
+│   ├── __init__.py
+│   ├── __main__.py            # Entry point for global optimization using evolutionary algorithms.
+│   ├── objfn                  # Objective function implementations (single- and multi-objective).
+│   ├── opt                    # Optimization routines (integration with pymoo).
+│   ├── optcon                 # Functions to construct input data, constraints, and precomputed mappings.
+│   ├── README.md              # Detailed readme for the evol module.
+│   └── utils                  # Utility functions for data I/O and parameter extraction.
+├── fitanalysis
+│   ├── helpers                # Auxiliary scripts for additional performance evaluation.
+│   ├── __init__.py
+│   ├── __main__.py            # Entry point for fit analysis.
+├── local
+│   ├── config                 # Configuration files specific to local optimization.
+│   ├── exporter               # Functions for exporting local optimization results and diagnostic plots.
+│   ├── __init__.py
+│   ├── __main__.py            # Entry point for local optimization (SLSQP/TRUST-CONSTR based).
+│   ├── objfn                  # Local objective function implementations with Numba acceleration.
+│   ├── opt                    # Local optimization routines using SciPy.
+│   ├── optcon                 # Construction of local constraints and precomputation of mappings.
+│   ├── README.md              # Detailed readme for the local module.
+│   └── utils                  # Utilities for data scaling, file organization, and report generation.
+├── optimality
+│   ├── __init__.py
+│   ├── KKT.py                 # Post-optimization analysis: feasibility, sensitivity, and reporting.
+│   └── README.md              # Detailed readme for the optimality module.
+├── __init__.py</code></pre>
+<hr />
+<h2 id="overview">Overview</h2>
+<p><strong>kinopt</strong> provides an end-to-end solution for:</p>
+<ul>
+<li>
+<p><strong>Data Preparation:</strong><br />
+  Preprocess and scale input CSV files containing time-series data and kinase interactions.</p>
+</li>
+<li>
+<p><strong>Global Optimization (evol):</strong><br />
+  Uses evolutionary algorithms (via pymoo) to search the global parameter space for optimal α (mixing) and β (scaling)
+  values.</p>
+</li>
+<li>
+<p><strong>Local Optimization (local):</strong><br />
+  Implements local constrained optimization using SciPy's solvers (SLSQP or TRUST-CONSTR) with efficient objective
+  evaluation via Numba.</p>
+</li>
+<li>
+<p><strong>Optimality Analysis (optimality):</strong><br />
+  Post-processes optimization results to check constraint feasibility, perform sensitivity analysis, generate LaTeX
+  summary tables, and produce diagnostic plots.</p>
+</li>
+<li>
+<p><strong>Fit Analysis (fitanalysis):</strong><br />
+  Provides additional tools to evaluate the fit and performance of the optimized model.</p>
+</li>
+</ul>
+<hr />
+<h2 id="model-equation">Model Equation</h2>
+<p>$$
+P_i(t) = \sum_{j} Q_{i,j} \, \alpha_{i,j} \left( \sum_{k} \beta_{k,j} \cdot P^k_j(t) \right)
+$$</p>
+<p><strong>Subject to:</strong></p>
+<p>$$
+0 \leq \alpha_{i,j} \leq 1, \quad \sum_{j} \alpha_{i,j} = 1
+$$</p>
+<p>$$
+-2 \leq \beta_{k,j} \leq 2, \quad \sum_{k} \beta_{k,j} = 1
+$$</p>
+<p><strong>Where:</strong></p>
+<ul>
+<li>$P_i(t)$: predicted phosphorylation level of protein $i$ at time $t$  </li>
+<li>$Q_{i,j}$: binary indicator (1 if kinase $j$ targets protein $i$, 0 otherwise)  </li>
+<li>$\alpha_{i,j}$: effect of kinase $j$ on protein $i$ (non-negative, normalized per protein)  </li>
+<li>$\beta_{k,j}$: effect of phosphorylation site $k$ on kinase $j$ (can be positive or negative, normalized per kinase)  </li>
+<li>$P^k_j(t)$: observed phosphorylation level of site $k$ on kinase $j$ at time $t$</li>
+</ul>
+<hr />
+<h2 id="features">Features</h2>
+<ul>
+<li>
+<p><strong>Modular Architecture:</strong><br />
+  Each submodule (evol, local, optimality, fitanalysis) is designed to operate independently while integrating
+  seamlessly into the overall workflow.</p>
+</li>
+<li>
+<p><strong>Flexible Optimization Strategies:</strong><br />
+  Choose between global evolutionary algorithms, local constrained solvers depending on your specific needs.</p>
+</li>
+<li>
+<p><strong>Robust Post-Processing:</strong><br />
+  Comprehensive post-optimization analysis includes constraint validation, sensitivity analysis, detailed reporting (
+  both in LaTeX and Excel), and extensive plotting of diagnostic metrics.</p>
+</li>
+<li>
+<p><strong>Automated Reporting:</strong><br />
+  After running optimization routines, the framework organizes outputs into structured directories and generates a
+  global HTML report summarizing key results and diagnostic plots.</p>
+</li>
+<li>
+<p><strong>User-Friendly Logging:</strong><br />
+  Custom logging configurations provide real-time feedback during execution, ensuring transparency in the optimization
+  process.</p>
+</li>
+</ul>
+<hr />
+<h2 id="usage">Usage</h2>
+<p>Go to the one top level up in the terminal from root and run:</p>
+<h3 id="running-global-optimization-evol">Running Global Optimization (evol)</h3>
+<pre class="highlight"><code class="language-bash">python -m phoskintime kinopt --mode evol</code></pre>
+<h3 id="running-local-optimization-local">Running Local Optimization (local)</h3>
+<pre class="highlight"><code class="language-bash">python -m phoskintime kinopt --mode local</code></pre>
+<h3 id="post-optimization-processing">Post-Optimization Processing</h3>
+<p>After any optimization run, the <strong>optimality</strong> module is invoked (either directly or as part of the workflow) to analyze
+the results, validate constraints, and generate comprehensive reports.</p>
+<hr />
+<p>This README provides an overview of the <strong>kinopt</strong> framework, outlining its structure, features, and usage instructions.
+For detailed documentation on each submodule, please refer to the individual README.md files within the respective
+directories.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../config/index.html" class="btn btn-neutral float-left" title="Configuration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../tfopt/index.html" class="btn btn-neutral float-right" title="Transcription Factor Optimization">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../config/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../tfopt/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

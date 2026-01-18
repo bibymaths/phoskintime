@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/utils/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Utils - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Utils";
+        var mkdocs_page_input_path = "Documentation/utils/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/utils/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Utils</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#scripts-overview">Scripts Overview</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#displaypy">display.py</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#tablespy">tables.py</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#latexitpy">latexit.py</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#outputs">Outputs</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Utils</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/utils/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="utils">Utils</h1>
+<p>The <code>utils</code> module provides a set of helper scripts to streamline data processing, table generation, file organization, and report creation for the project. These utilities ensure consistent handling of outputs, formatting, and organization across the pipeline.</p>
+<h2 id="scripts-overview">Scripts Overview</h2>
+<h3 id="displaypy"><code>display.py</code></h3>
+<ul>
+<li><strong>Purpose</strong>: Handles data loading, output directory management, and report generation.</li>
+<li><strong>Key Features</strong>:</li>
+<li>Ensures output directories exist.</li>
+<li>Loads data from Excel files.</li>
+<li>Merges observed and estimated data for analysis.</li>
+<li>Saves results to Excel with multiple sheets for parameters, errors, PCA, t-SNE, and sensitivity analysis.</li>
+<li>Generates a global HTML report summarizing results with plots and tables.</li>
+</ul>
+<h3 id="tablespy"><code>tables.py</code></h3>
+<ul>
+<li><strong>Purpose</strong>: Generates hierarchical tables for alpha and beta values and saves them in LaTeX and CSV formats.</li>
+<li><strong>Key Features</strong>:</li>
+<li>Processes alpha and beta values from Excel files.</li>
+<li>Creates hierarchical tables with multi-index columns for easy comparison.</li>
+<li>Saves tables as LaTeX and CSV files for further analysis.</li>
+<li>Generates a master LaTeX file to include all individual tables.</li>
+</ul>
+<h3 id="latexitpy"><code>latexit.py</code></h3>
+<ul>
+<li><strong>Purpose</strong>: Converts Excel data and PNG plots into LaTeX tables and figures for documentation.</li>
+<li><strong>Key Features</strong>:</li>
+<li>Processes Excel sheets and generates LaTeX tables.</li>
+<li>Converts PNG plots into LaTeX figure blocks.</li>
+<li>Outputs a structured LaTeX file for integration into larger documents.</li>
+</ul>
+<h2 id="outputs">Outputs</h2>
+<ul>
+<li><strong>Excel Files</strong>: Organized results with multiple sheets for parameters, errors, and analysis.</li>
+<li><strong>LaTeX Files</strong>: Tables and figures for documentation.</li>
+<li><strong>CSV Files</strong>: Processed data tables for further analysis.</li>
+<li><strong>HTML Reports</strong>: Interactive summaries of results with plots and tables.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../plotting/index.html" class="btn btn-neutral float-left" title="Plotting"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../plotting/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

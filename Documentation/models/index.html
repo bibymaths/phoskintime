@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/models/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Models - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Models";
+        var mkdocs_page_input_path = "Documentation/models/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/models/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Models</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#1-distributive-model">1. Distributive Model</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#2-successive-model">2. Successive Model</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#3-random-model">3. Random Model</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#weights">Weights</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#without-regularization">Without Regularization</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#with-regularization">With Regularization</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#tikhonov-regularization-in-ode-parameter-estimation">Tikhonov Regularization in ODE Parameter Estimation</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#interpretation">Interpretation</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#post-regularization-checks">Post-Regularization Checks</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#note">Note</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#automatic-model-selection">Automatic Model Selection</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#units-in-the-ode-model">Units in the ODE Model</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#1-dimensionless-model-scaled">1. Dimensionless Model (Scaled)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#2-dimensional-mass-action-style">2. Dimensional (Mass-Action Style)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fold-change-normalization-in-phoskintime">Fold Change Normalization in PhosKinTime</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#why-normalize">Why Normalize?</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#references">References</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Models</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/models/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="models">Models</h1>
+<p>The <strong>models</strong> module provides the implementation of various ODE-based kinetic models used in the PhosKinTime package
+for phosphorylation dynamics. It is designed to support multiple model types, each corresponding to a different
+mechanistic hypothesis about how phosphorylation occurs.</p>
+<hr />
+<h3 id="1-distributive-model"><strong>1. Distributive Model</strong></h3>
+<ul>
+<li>$R$: mRNA concentration</li>
+<li>$P$: protein concentration</li>
+<li>$P_i$: phosphorylated site $i$</li>
+<li>$A, B, C, D$: rate constants</li>
+<li>$S_i$: phosphorylation rate for site $i$</li>
+<li>$D_i$: dephosphorylation rate for site $i$</li>
+</ul>
+<p>Equations:</p>
+<ul>
+<li>$ \frac{dR}{dt} = A - B R $</li>
+<li>$ \frac{dP}{dt} = C R - (D + \sum_i S_i) P + \sum_i P_i $</li>
+<li>$ \frac{dP_i}{dt} = S_i P - (1 + D_i) P_i \quad \forall i $</li>
+</ul>
+<hr />
+<h3 id="2-successive-model"><strong>2. Successive Model</strong></h3>
+<ul>
+<li>$R, P, P_i$ as above</li>
+<li>Phosphorylation proceeds in sequence</li>
+</ul>
+<p>Equations:</p>
+<ul>
+<li>$ \frac{dR}{dt} = A - B R $</li>
+<li>$ \frac{dP}{dt} = C R - D P - S_0 P + P_0 $</li>
+</ul>
+<p>Phosphorylation sites:</p>
+<ul>
+<li>
+<p>First site ($i = 0$):<br />
+  $ \frac{dP_0}{dt} = S_0 P - (1 + S_1 + D_0) P_0 + P_1 $</p>
+</li>
+<li>
+<p>Intermediate sites ($0 &lt; i &lt; n-1$):<br />
+  $ \frac{dP_i}{dt} = S_i P_{i-1} - (1 + S_{i+1} + D_i) P_i + P_{i+1} $</p>
+</li>
+<li>
+<p>Last site ($i = n - 1$):<br />
+  $ \frac{dP_{n-1}}{dt} = S_{n-1} P_{n-2} - (1 + D_{n-1}) P_{n-1} $</p>
+</li>
+</ul>
+<hr />
+<h3 id="3-random-model"><strong>3. Random Model</strong></h3>
+<ul>
+<li>$X_j$: phosphorylated state $j$, total $2^n - 1$ states</li>
+<li>$S_i$: phosphorylation rates for each site</li>
+<li>$D_j$: degradation rate for state $j$</li>
+<li>Binary transitions determine phosphorylation and dephosphorylation</li>
+</ul>
+<p>Equations:</p>
+<ul>
+<li>$ \frac{dR}{dt} = A - B R $</li>
+<li>$ \frac{dP}{dt} = C R - D P - (\sum_i S_i) P + \sum_{j \in \text{1-site}} X_j + \sum_{j \in \text{dephospho exit}} S_i X_j $</li>
+</ul>
+<p>Each state $X_j$:</p>
+<ul>
+<li>$ \frac{dX_j}{dt} = \sum_{\text{phospho from}} S_i X_{src} - (\sum_i S_i + D_j) X_j + \sum_{\text{dephospho to}} S_i X_{src} $</li>
+</ul>
+<hr />
+<h2 id="weights">Weights</h2>
+<h3 id="without-regularization"><strong>Without Regularization</strong></h3>
+<p>Let:</p>
+<ul>
+<li>$x_i$: the data point at time $i$</li>
+<li>$t_i$: the time point index ($i = 1, 2, \dots$)</li>
+<li>$T$: total number of time points</li>
+<li>$w_i$: weight at time $i$</li>
+</ul>
+<p><strong>Uncertanities from data</strong>:<br />
+ They are interpreted as the <strong>standard deviations</strong> of the data points. The formula for the weighted least squares fit<br />
+ becomes:</p>
+<p>$$
+  \chi^2 = \sum_{i=1}^N \left( \frac{y_i - f(x_i, \theta)}{\sigma_i} \right)^2
+  $$ 
+where $y_i$ is the observed data point, $f(x_i, \theta)$ is the model function with parameters $\theta$, and $\sigma_i$ 
+  is the standard deviation (weights) for the $i^{th}$ data point.</p>
+<p>The <code>absolute_sigma=True</code> argument ensures that the covariance matrix of the parameter estimates is scaled by the provided<br />
+$\sigma_i$ values, rather than being rescaled by the reduced chi-squared value. This means the uncertainties in the data<br />
+(as given by the weights) are treated as absolute.</p>
+<p>When the estimations are not ideal, the weights can be adjusted to improve the fit. The <code>absoulute_sigma = False</code> for<br />
+<code>curve_fit</code> will rescale the covariance matrix by the reduced chi-squared value, which can be useful when the uncertainties<br />
+in the data are not well characterized.</p>
+<p>The following are some common weighting schemes:</p>
+<ul>
+<li>
+<p><strong>Inverse Data</strong>:<br />
+  $w_i = \frac{1}{|x_i| + \epsilon}$</p>
+</li>
+<li>
+<p><strong>Exponential Decay</strong>:<br />
+  $w_i = \exp(-0.5 \cdot x_i)$</p>
+</li>
+<li>
+<p><strong>Log Scale</strong>:<br />
+  $w_i = \frac{1}{\log(1 + |x_i|)}$</p>
+</li>
+<li>
+<p><strong>Time Difference</strong>:<br />
+  $w_i = \frac{1}{|x_i - x_{i-1}| + \epsilon}$</p>
+</li>
+<li>
+<p><strong>Moving Average Deviation</strong>:<br />
+  $w_i = \frac{1}{|x_i - \text{MA}_i| + \epsilon}$<br />
+  where $\text{MA}_i$ is a moving average (e.g., over 3 points)</p>
+</li>
+<li>
+<p><strong>Sigmoid Time Decay</strong>:<br />
+  $w_i = \frac{1}{1 + \exp(t_i - 5)}$</p>
+</li>
+<li>
+<p><strong>Exponential Early Emphasis</strong>:<br />
+  $w_i = \exp(-0.5 \cdot t_i)$</p>
+</li>
+<li>
+<p><strong>Polynomial Decay</strong>:<br />
+  $w_i = \frac{1}{1 + 0.5 \cdot t_i}$</p>
+</li>
+<li>
+<p><strong>MS SNR Model (Signal-Noise Ratio)</strong>:<br />
+  $w_i = \frac{1}{\sqrt{|x_i| + \epsilon}}$</p>
+</li>
+<li>
+<p><strong>MS Inverse Variance Model</strong>:<br />
+  $w_i = \frac{1}{|x_i|^{0.7} + \epsilon}$</p>
+</li>
+<li>
+<p><strong>Flat Region Penalty</strong>:<br />
+  $w_i = \frac{1}{|\nabla x_i| + \epsilon}$</p>
+</li>
+<li>
+<p><strong>Steady State Decay</strong>:<br />
+  $w_i = \exp(-0.1 \cdot t_i)$</p>
+</li>
+<li>
+<p><strong>Inverse Sqrt Data</strong>:<br />
+  $w_i = \frac{1}{\sqrt{|x_i| + \epsilon}}$</p>
+</li>
+<li>
+<p><strong>Early Emphasis (moderate or steep decay)</strong>:<br />
+  $w_i = 1$ (or pre-defined stepwise decay vector)</p>
+</li>
+<li>
+<p><strong>Custom Early Emphasis</strong>:<br />
+  Based on:<br />
+  $w_i = \frac{1}{(|x_i| + \epsilon)(\Delta t_i + \epsilon)}$ for early $t_i$, else $w_i = 1$  </p>
+</li>
+</ul>
+<h3 id="with-regularization"><strong>With Regularization</strong></h3>
+<p>Let $w_i$ be any of the above weights and $R$ be the number of regularization parameters:</p>
+<ul>
+<li><strong>Extended Weight Vector</strong>:<br />
+  $w = [w_1, w_2, \dots, w_T, 1, 1, \dots, 1]$<br />
+  where the last $R$ entries are <code>1</code> (flat regularization penalty weights)</li>
+</ul>
+<p>This simply appends a vector of ones of length equal to the number of regularization parameters to each weight vector.</p>
+<h4 id="tikhonov-regularization-in-ode-parameter-estimation"><strong>Tikhonov Regularization in ODE Parameter Estimation</strong></h4>
+<p>This project applies <strong>Tikhonov regularization</strong> (λ = 1e-3) to stabilize parameter estimates and improve identifiability
+in ODE-based model fitting.</p>
+<ul>
+<li>Computes <strong>unregularized estimates</strong> and their <strong>covariance matrix</strong>.</li>
+<li>Applies Tikhonov regularization post hoc:</li>
+<li>
+<p><strong>Regularized estimates</strong>:<br />
+  $$
+  \theta_{\text{reg}} = \theta_{\text{fit}} - \lambda C \Gamma \theta_{\text{fit}}
+  $$</p>
+</li>
+<li>
+<p><strong>Regularized covariance</strong>:<br />
+  $$
+  C_{\text{reg}} = \left(C^{-1} + \lambda \Gamma \right)^{-1}
+  $$</p>
+</li>
+<li>Typically, <code>Γ</code> is the identity matrix.</li>
+</ul>
+<h4 id="interpretation">Interpretation</h4>
+<ul>
+<li><strong>Estimates are shrunk</strong> toward zero (or prior).</li>
+<li><strong>Uncertainty (covariance)</strong> is reduced, reflecting added prior information.</li>
+<li>Regularization improves <strong>numerical stability</strong> and reduces <strong>overfitting</strong>.</li>
+</ul>
+<h4 id="post-regularization-checks">Post-Regularization Checks</h4>
+<ul>
+<li>Compare <code>θ_fit</code> vs <code>θ_reg</code> and <code>C</code> vs <code>C_reg</code>.</li>
+<li>Assess model fit with regularized parameters.</li>
+<li>Examine parameter correlations and identifiability.</li>
+<li>Optionally test sensitivity to different <code>λ</code> values.</li>
+</ul>
+<h4 id="note">Note</h4>
+<p>This approach assumes the likelihood is locally quadratic—valid for most ODE-based models near optimum.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>This module includes implementations of the following model types:</p>
+<ul>
+<li>
+<p><strong>Random Model (<code>randmod.py</code>):</strong><br />
+  Implements a vectorized and optimized ODE system using Numba. This model represents a random mechanism of
+  phosphorylation, where transitions between phosphorylation states are computed based on binary representations. The
+  module prepares vectorized arrays (e.g., binary states, phosphorylation/dephosphorylation targets) and defines the ODE
+  system accordingly.</p>
+</li>
+<li>
+<p><strong>Distributive Model (<code>distmod.py</code>):</strong><br />
+  Implements a distributive phosphorylation mechanism. In this model, a kinase adds phosphate groups in a manner where
+  each phosphorylation event is independent, and the ODE system is defined with explicit state variables for the
+  phosphorylated forms.</p>
+</li>
+<li>
+<p><strong>Successive Model (<code>succmod.py</code>):</strong><br />
+  Implements a successive phosphorylation mechanism, where phosphorylation occurs in a sequential, stepwise manner. This
+  model's ODE system is tailored to capture the sequential nature of the modification.</p>
+</li>
+<li>
+<p><strong>Weighting Functions (<code>weights.py</code>):</strong><br />
+  Provides functions to compute various weighting schemes (e.g., early emphasis, inverse data, exponential decay) used
+  during parameter estimation. These weights help tailor the fitting process to the dynamics of the observed data.</p>
+</li>
+</ul>
+<h2 id="automatic-model-selection">Automatic Model Selection</h2>
+<p>The package’s <code>__init__.py</code> file in the models module automatically imports the correct model module based on the
+configuration constant <code>ODE_MODEL</code>. The selected module’s <code>solve_ode</code> function is then exposed as the default ODE solver
+for the package. This enables seamless switching between different mechanistic models without changing the rest of the
+code.</p>
+<hr />
+<h3 id="units-in-the-ode-model">Units in the ODE Model</h3>
+<p>These ODE models supports <strong>two interpretations</strong> depending on whether quantities are scaled:</p>
+<h4 id="1-dimensionless-model-scaled">1. <strong>Dimensionless Model (Scaled)</strong></h4>
+<ul>
+<li>All parameters and variables are <strong>unitless</strong>.</li>
+<li>Time and concentrations are <strong>rescaled</strong> to reference values (e.g., max input, steady state).</li>
+<li>Useful for qualitative dynamics, numerical stability, or fitting fold-change data.</li>
+<li>Interpretation:<ul>
+<li><code>A, B, C, D, S_rates[i], D_rates[i]</code> → <strong>unitless</strong></li>
+<li><code>y</code> (state vector: R, P, P_sites) → <strong>unitless</strong></li>
+</ul>
+</li>
+</ul>
+<h4 id="2-dimensional-mass-action-style">2. <strong>Dimensional (Mass-Action Style)</strong></h4>
+<ul>
+<li>Variables represent <strong>concentration</strong> (e.g., μM), and time is in seconds.</li>
+<li>Parameters follow biochemical units:<ul>
+<li><code>A</code> → concentration/time (e.g., μM/s)</li>
+<li><code>B, C, D, S_rates[i], D_rates[i]</code> → 1/time (e.g., 1/s)</li>
+<li><code>R, P, y[2+i]</code> → concentration (e.g., μM)</li>
+</ul>
+</li>
+<li>Caveat: Dimensional consistency requires adjustment (e.g., replacing hardcoded <code>1.0</code> with a rate constant and scaling
+  summed terms accordingly).</li>
+</ul>
+<p>Here’s a concise and clear <code>README</code> section tailored for your <strong>PhosKinTime</strong> tool, explaining the normalization logic
+for fold change data:</p>
+<hr />
+<h3 id="fold-change-normalization-in-phoskintime">Fold Change Normalization in PhosKinTime</h3>
+<p><strong>PhosKinTime</strong> supports modeling and parameter estimation of phosphorylation dynamics using time series data. Often,
+such experimental data is provided not in absolute concentration units but as <strong>fold change (FC)</strong> relative to a
+baseline (usually time point 0). To ensure accurate and biologically meaningful comparison between model output and
+experimental data, <strong>PhosKinTime includes built-in support to normalize model output to fold change form.</strong></p>
+<h4 id="why-normalize">Why Normalize?</h4>
+<p>Experimental FC data is typically defined as:</p>
+<p>$$
+\text{FC}(t) = \frac{X(t)}{X(t_0)}
+$$</p>
+<p>where $X(t)$ is the measured signal (e.g., intensity or concentration) at time $t$, and $X(t_0)$ is the baseline (often
+the 0 min time point). It reflects <strong>relative change</strong>, not absolute concentration.</p>
+<p>However, PhosKinTime's ODE models simulate <strong>absolute concentrations</strong> over time:</p>
+<p>$$
+Y(t) = \text{ODE solution}
+$$</p>
+<p>Directly comparing $Y(t)$ to FC data is <strong>invalid</strong>, as it compares mismatched scales and units. To bridge this gap,
+PhosKinTime transforms the model output into comparable fold change form by:</p>
+<p>$$
+\text{FC}_{\text{model}}(t) = \frac{Y(t)}{Y(t_0) + \epsilon}
+$$</p>
+<p>($\epsilon$ is a small constant to avoid division by zero.)</p>
+<p>This transformation is applied per phosphorylation site (or species) independently, ensuring robust and interpretable
+parameter fitting.</p>
+<h3 id="references">References</h3>
+<ul>
+<li>Klipp, E., et al. (2016). <em>Systems Biology: A Textbook</em> (2nd ed.). Wiley-VCH.</li>
+<li>Raue, A., et al. (2013). Lessons learned from quantitative dynamical modeling in systems biology. <em>PLoS ONE</em>, 8(9),
+  e74335.</li>
+<li>BioModels Documentation: <a href="https://www.ebi.ac.uk/biomodels/docs/">https://www.ebi.ac.uk/biomodels/docs/</a></li>
+</ul>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../tfopt/index.html" class="btn btn-neutral float-left" title="Transcription Factor Optimization"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../steady/index.html" class="btn btn-neutral float-right" title="Steady State Calculation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../tfopt/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../steady/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
