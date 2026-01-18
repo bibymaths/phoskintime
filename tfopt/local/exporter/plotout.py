@@ -144,10 +144,47 @@ def plot_multistart_summary_runtime_overlay(
     cv_col="constr_violation",
     annotate_best=True,
 ):
+    """
+    Creates a scatter plot visualizing multi-start optimization results with runtime overlay.
+
+    This function reads a CSV summary of multiple optimization runs and generates a scatter plot
+    showing the relationship between run rank and final objective value, with runtime (or iterations)
+    represented as color intensity. Successful and feasible runs are emphasized while unsuccessful
+    or infeasible runs are shown with reduced opacity.
+
+    Args:
+        summary_csv (str or Path): Path to the CSV file containing multi-start optimization results.
+        out_path (str or Path, optional): Path to save the output figure. If None, figure is not saved.
+            Defaults to None.
+        figsize (tuple, optional): Figure size as (width, height) in inches. Defaults to (8, 8).
+        x_col (str, optional): Column name for x-axis (run rank). If missing, will be created from
+            y_col ranking. Defaults to "rank".
+        y_col (str, optional): Column name for y-axis (final objective value). Defaults to "fun".
+        c_col (str, optional): Column name for color mapping (typically runtime). Falls back to "nit"
+            (iterations) if not found. Defaults to "runtime_s".
+        success_col (str, optional): Column name indicating optimization success status.
+            Defaults to "success".
+        cv_col (str, optional): Column name for constraint violation values. Falls back to common
+            alternatives if not found. Defaults to "constr_violation".
+        annotate_best (bool, optional): Whether to annotate the best (rank 1) point on the plot.
+            Defaults to True.
+
+    Returns:
+        tuple: A tuple containing:
+            - fig (matplotlib.figure.Figure): The generated figure object.
+            - ax (matplotlib.axes.Axes): The axes object of the plot.
+            - df (pd.DataFrame): The processed DataFrame with sorted results.
+
+    Notes:
+        - Points are considered feasible if constraint violation <= 1e-8
+        - Infeasible or unsuccessful runs are plotted with reduced opacity (0.25)
+        - If rank column is missing, it's automatically generated from objective values
+        - If runtime column is missing, falls back to iteration count or constant color
+    """
+
     summary_csv = Path(summary_csv)
     df = pd.read_csv(summary_csv)
-
-    # ---- Column reconciliation (your CSV vs defaults) ----
+    # ---- Column handling ----
     # 1) Constraint violation column name
     if cv_col not in df.columns:
         for alt in ("constraint_violation", "constr_violation", "constraintViolation", "cv"):

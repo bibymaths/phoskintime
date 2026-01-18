@@ -7,12 +7,22 @@ from kinopt.evol.optcon import n, P_initial_array
 @njit(cache=True, fastmath=False)
 def _predict_matrix_numba(params, i_idx, a_idx, b_idx, k_row_idx, K_array, i_max, t_max):
     """
-    Build P_i_t_matrix using a flat edge list.
-      i_idx[e]      -> gene-psite row i
-      a_idx[e]      -> absolute alpha param index in params
-      b_idx[e]      -> absolute beta param index in params
-      k_row_idx[e]  -> row in K_array holding the kinase-psite time series
+    Predicts the phosphorylation matrix using the edge list representation.
+
+    Args:
+        params (np.ndarray): Parameter vector containing alpha and beta values.
+        i_idx (np.ndarray): Array of gene-psite indices.
+        a_idx (np.ndarray): Array of alpha parameter indices.
+        b_idx (np.ndarray): Array of beta parameter indices.
+        k_row_idx (np.ndarray): Array of kinase row indices in K_array.
+        K_array (np.ndarray): Array of kinase-psite time-series data.
+        i_max (int): Number of gene-psite combinations.
+        t_max (int): Number of time points.
+
+    Returns:
+        np.ndarray: Predicted phosphorylation matrix (i_max x t_max) with negative values clipped to zero.
     """
+
     P = np.zeros((i_max, t_max), dtype=np.float64)
     n_edges = i_idx.shape[0]
 
@@ -36,6 +46,18 @@ def _predict_matrix_numba(params, i_idx, a_idx, b_idx, k_row_idx, K_array, i_max
 
 @njit(cache=True)
 def _alpha_violation_numba(params, alpha_starts, alpha_counts, eps=0.0):
+    """
+    Calculates the sum-to-one constraint violation for alpha parameters.
+
+    Args:
+        params (np.ndarray): Parameter vector containing alpha and beta values.
+        alpha_starts (np.ndarray): Starting indices for each alpha block.
+        alpha_counts (np.ndarray): Number of alpha parameters in each block.
+        eps (float, optional): Tolerance for constraint violation. Defaults to 0.0.
+
+    Returns:
+        float: Total alpha constraint violation.
+    """
     v = 0.0
     for i in range(alpha_counts.shape[0]):
         s = 0.0
@@ -51,6 +73,18 @@ def _alpha_violation_numba(params, alpha_starts, alpha_counts, eps=0.0):
 
 @njit(cache=True)
 def _beta_violation_numba(params, beta_starts, beta_counts, eps=0.0):
+    """
+    Calculates the sum-to-one constraint violation for beta parameters.
+
+    Args:
+        params (np.ndarray): Parameter vector containing alpha and beta values.
+        beta_starts (np.ndarray): Starting indices for each beta block.
+        beta_counts (np.ndarray): Number of beta parameters in each block.
+        eps (float, optional): Tolerance for constraint violation. Defaults to 0.0.
+
+    Returns:
+        float: Total beta constraint violation.
+    """
     v = 0.0
     for k in range(beta_counts.shape[0]):
         s = 0.0
@@ -66,6 +100,17 @@ def _beta_violation_numba(params, beta_starts, beta_counts, eps=0.0):
 
 @njit(cache=True)
 def _mse_sse_numba(P_obs, P_pred, n):
+    """
+    Calculates the mean squared error (MSE) between observed and predicted matrices.
+
+    Args:
+        P_obs (np.ndarray): Observed phosphorylation matrix.
+        P_pred (np.ndarray): Predicted phosphorylation matrix.
+        n (float): Normalization factor (typically the number of observations).
+
+    Returns:
+        float: Mean squared error.
+    """
     err = 0.0
     i_max, t_max = P_obs.shape
     for i in range(i_max):
@@ -204,6 +249,15 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         self._k_row_idx = np.asarray(krow_list, dtype=np.int64)
 
     def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluates the multi-objective function for the given parameter vector.
+
+        Args:
+            x (np.ndarray): Parameter vector to evaluate.
+            out (dict): Output dictionary to store objective values.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
         # Main objective (loss)
         err = self.objective_function(x)
 
@@ -214,6 +268,15 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         out["F"] = [float(err), float(alpha_v), float(beta_v)]
 
     def objective_function(self, params):
+        """
+        Computes the main objective function (loss) for the given parameters.
+
+        Args:
+            params (np.ndarray): Parameter vector containing alpha and beta values.
+
+        Returns:
+            float: Computed loss value based on the selected loss type (base, autocorrelation, huber, or mape).
+        """
         i_max, t_max = self.P_initial_array.shape
 
         # Fast prediction (Numba)
@@ -258,8 +321,6 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         # Fallback
         return float(_mse_sse_numba(self.P_initial_array, P_pred, float(n)))
 
-
-# Function to calculate the estimated series using optimized alpha and beta values
 def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, beta_counts):
     """
     Calculates the estimated time series for each gene-psite based on the optimized parameters.
@@ -332,8 +393,6 @@ def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, be
 
     return P_est
 
-
-# Function to calculate residuals
 def _residuals(P_initial_array, P_estimated):
     """
     Calculates the residuals (difference between observed and estimated values).

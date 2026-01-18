@@ -33,8 +33,24 @@ logger = setup_logger()
 
 def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True):
     """
-    Runs pymoo algorithm in a manual loop so Ctrl+C returns best-so-far safely.
+    Run optimization with graceful handling of Ctrl+C interruption.
+
+    This function allows the optimization to be interrupted by the user (via Ctrl+C)
+    while still returning the best solution found so far. The algorithm is properly
+    finalized even when interrupted.
+
+    Args:
+        problem: The optimization problem instance to be solved.
+        algorithm: The optimization algorithm instance (e.g., GA, DE, NSGA3).
+        termination: Termination criterion for the optimization.
+        verbose (bool, optional): Whether to print verbose output. Defaults to True.
+        save_history (bool, optional): Whether to save optimization history. Defaults to True.
+
+    Returns:
+        result: The pymoo result object containing the optimized population, objectives,
+            execution time, and an 'interrupted' flag indicating if Ctrl+C was pressed.
     """
+
     # Optional: make Ctrl+C deterministic (convert SIGINT into KeyboardInterrupt consistently)
     signal.signal(signal.SIGINT, signal.default_int_handler)
 
@@ -65,6 +81,20 @@ def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=
     return res
 
 def choose_de_pop_size(problem):
+    """
+    Determine an appropriate population size for Differential Evolution (DE) algorithms.
+
+    The population size is calculated based on the number of decision variables,
+    with bounds to ensure reasonable performance. DE algorithms benefit from
+    population sizes that are multiples of 10.
+
+    Args:
+        problem: The optimization problem instance with an 'n_var' attribute
+            indicating the number of decision variables.
+
+    Returns:
+        int: The calculated population size (multiple of 10, between 100 and 600).
+    """
     n_var = int(problem.n_var)
 
     pop = 10 * n_var
@@ -76,6 +106,21 @@ def choose_de_pop_size(problem):
     return pop
 
 def choose_nsga_pop_size(problem, n_obj=3):
+    """
+    Determine an appropriate population size for NSGA-based multi-objective algorithms.
+
+    The population size is scaled based on the problem dimensionality (number of
+    decision variables) with heuristic thresholds. The size is rounded to multiples
+    of 50 and enforced to be at least 10 times the number of objectives.
+
+    Args:
+        problem: The optimization problem instance with an 'n_var' attribute
+            indicating the number of decision variables.
+        n_obj (int, optional): Number of objectives in the problem. Defaults to 3.
+
+    Returns:
+        int: The calculated population size (multiple of 50, at least 10*n_obj).
+    """
     n_var = int(problem.n_var)
 
     if n_var <= 50:
@@ -93,7 +138,11 @@ def choose_nsga_pop_size(problem, n_obj=3):
 
 def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
     """
-    Robust binary tournament comparator.
+    Robust binary tournament comparator for constrained optimization.
+
+    This function performs binary tournament selection with constraint handling
+    using either true constraint violations (CV) or pseudo-constrained objectives.
+    It supports both single-objective and multi-objective formulations.
 
     Works for:
       A) single-objective: F has length 1
@@ -101,6 +150,24 @@ def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
          - else compare by F only
       B) pseudo-constrained objectives: F = [loss, alpha_violation, beta_violation]
          - feasibility-first based on F[1], F[2], then loss
+
+    Args:
+        pop: Population of individuals with 'F' (objectives) and optionally 'CV' attributes.
+        P (np.ndarray): Tournament pairs array of shape (n_tournaments, 2), where each
+            row contains indices of two competing individuals.
+        eps_cv (float, optional): Feasibility tolerance for constraint violations. 
+            Defaults to 1e-10.
+        cv_mode (str, optional): Mode for aggregating constraint violations when using
+            pseudo-constrained objectives. Options: 'linf' (max), 'l1' (sum), 'l2' (norm).
+            Defaults to "linf".
+        **kwargs: Additional keyword arguments (unused, for compatibility).
+
+    Returns:
+        np.ndarray: Array of winning indices for each tournament, shape (n_tournaments,).
+
+    Raises:
+        ValueError: If pressure is not 2 (only binary tournaments supported) or
+            if cv_mode is not one of 'linf', 'l1', 'l2'.
     """
     n_tournaments, n_competitors = P.shape
     if n_competitors != 2:
@@ -332,17 +399,37 @@ def pick_best_loss_with_constraints_as_objectives(
     tie_break="loss_then_l2",  # "loss_then_l2" | "loss_only"
 ):
     """
-    Select best solution when:
+    Select the best solution from a population with constraints formulated as objectives.
+
+    This function assumes a specific objective structure where:
       F[:,0] = loss (minimize)
       F[:,1] = constraint violation 1 (minimize, ideally 0)
       F[:,2] = constraint violation 2 (minimize, ideally 0)
 
-    Rule:
-      A) If any feasible (cv1<=eps and cv2<=eps): choose min loss among feasible.
-      B) Else: choose min aggregated CV; tie-break by loss; optional tie-break by ||X||2.
+    Selection rule:
+      A) If any feasible solutions exist (cv1<=eps and cv2<=eps): choose minimum loss among feasible.
+      B) Else: choose minimum aggregated CV; tie-break by loss; optional tie-break by ||X||2.
+
+    Args:
+        result: Pymoo result object containing the final population with 'F' and 'X' attributes.
+        eps_cv (float, optional): Feasibility tolerance for constraint violations. 
+            Defaults to 1e-10.
+        cv_mode (str, optional): Mode for aggregating constraint violations.
+            Options: 'l1' (sum), 'linf' (max), 'l2' (Euclidean norm). Defaults to "l1".
+        tie_tol (float, optional): Tolerance for considering values as tied. Defaults to 1e-12.
+        tie_break (str, optional): Tie-breaking strategy. Options: 'loss_then_l2' or 'loss_only'.
+            Defaults to "loss_then_l2".
 
     Returns:
-      best_solution, best_index_in_pop, info
+        tuple: A tuple containing:
+            - best_solution: The selected individual from the population.
+            - best_index_in_pop (int): The index of the best solution in the population.
+            - info (dict): Dictionary with selection metadata including selection case,
+              number of feasible solutions, and best objective values.
+
+    Raises:
+        ValueError: If the objective array has fewer than 3 columns or if cv_mode
+            is not one of 'l1', 'linf', 'l2'.
     """
     pop = result.pop
     F = np.asarray([ind.F for ind in pop], dtype=float)
@@ -414,24 +501,46 @@ def post_optimization_nsga(
         weights=np.array([1.0, 1.0, 1.0]),
         ref_point=np.array([3, 1, 1])):
     """
-    Post-processes the result of a multi-objective optimization run.
+    Post-process the result of a multi-objective NSGA-based optimization run.
+
+    This function analyzes the optimization history, computes convergence metrics
+    (hypervolume, IGD+), identifies the best solution using constraint handling,
+    and generates CSV reports for convergence and parameter scans.
 
     Args:
-        result: The final result object from the optimizer (e.g., a pymoo result).
-        weights (np.ndarray): Array of length 3 for weighting the objectives.
-        ref_point (np.ndarray): Reference point for hypervolume computations.
+        result: The final result object from the pymoo optimizer containing the
+            final population, history, and objective values.
+        weights (np.ndarray, optional): Array of length 3 for weighting the objectives
+            in decomposition-based selection. Defaults to [1.0, 1.0, 1.0].
+        ref_point (np.ndarray, optional): Reference point for hypervolume computation.
+            Defaults to [3, 1, 1].
 
     Returns:
-        dict: A dictionary with keys:
-            'best_solution': The best individual from the weighted scoring.
-            'best_objectives': Its corresponding objective vector.
-            'optimized_params': The individual's decision variables (X).
-            'scores': Weighted scores for each solution in the Pareto front.
-            'best_index': The index of the best solution according to weighted score.
-            'hist_hv': The hypervolume per generation.
-            'hist_igd': The IGD+ per generation.
-            'convergence_df': The DataFrame with iteration vs. best objective value
-                for each iteration in the result history.
+        tuple: A tuple containing 23 elements:
+            - F: Final objective values array
+            - pairs: Objective pairs for plotting [(0,1), (0,2), (1,2)]
+            - n_evals: Number of evaluations per generation
+            - hist_cv: Minimum constraint violation per generation
+            - hist_cv_avg: Average constraint violation per generation
+            - k: Generation index when first feasible solution appeared
+            - metric_igd: IGDPlus metric object
+            - metric_hv: Hypervolume metric object
+            - best_solution: The selected best individual
+            - best_objectives: Objective vector of best solution
+            - optimized_params: Decision variables (X) of best solution
+            - approx_nadir: Approximate nadir point
+            - approx_ideal: Approximate ideal point
+            - scores: Best solution's objective scores
+            - best_index: Index of best solution in population
+            - hist: Full optimization history
+            - hist_hv: Hypervolume values per generation
+            - hist_igd: IGD+ values per generation
+            - convergence_df: DataFrame with iteration vs best objective
+            - waterfall_df: DataFrame with all solutions and parameters
+            - asf_i: Index of best solution by ASF decomposition
+            - pseudo_weights_result: Result of pseudo-weights MCDM method
+            - pairs (duplicate): Objective pairs
+            - val: Best objective value per generation
     """
     best_solution, best_index, sel_info = pick_best_loss_with_constraints_as_objectives(
         result,
@@ -558,22 +667,28 @@ def post_optimization_de(
         alpha_values,
         beta_values):
     """
-    Post-processes the result of a multi-objective optimization run.
+    Post-process the result of a single-objective DE or GA optimization run.
+
+    This function extracts the final population, creates parameter labels from
+    alpha and beta values, generates a parameter scan DataFrame sorted by objective
+    value, and produces a convergence DataFrame showing the best objective per iteration.
 
     Args:
-        result: The final result object from the optimizer (e.g., a pymoo result).
+        result: The final result object from the pymoo optimizer (e.g., GA or DE result)
+            containing the population, history, and objective values.
+        alpha_values (dict): Dictionary mapping (gene, psite) tuples to dictionaries
+            of {kinase: value} for alpha parameters.
+        beta_values (dict): Dictionary mapping (kinase, psite) tuples to beta parameter values.
 
     Returns:
-        dict: A dictionary with keys:
-            'best_solution': The best individual from the weighted scoring.
-            'best_objectives': Its corresponding objective vector.
-            'optimized_params': The individual's decision variables (X).
-            'scores': Weighted scores for each solution in the Pareto front.
-            'best_index': The index of the best solution according to weighted score.
-            'hist_hv': The hyper volume per generation.
-            'hist_igd': The IGD+ per generation.
-            'convergence_df': The DataFrame with iteration vs. best objective value
-                for each iteration in the result history.
+        tuple: A tuple containing 6 elements:
+            - ordered_optimizer_runs: DataFrame of all solutions sorted by objective value
+            - convergence_df: DataFrame with iteration vs best objective value
+            - long_df: Long-form DataFrame for parameter visualization with columns
+              ['Individual', 'Objective Value (F)', 'Parameter', 'Parameter Value', 'Type']
+            - x_values: List of iteration indices selected for plotting
+            - y_values: List of objective values corresponding to x_values
+            - val: Best objective value per generation from history
     """
     # # Display key results
     # print("Optimization Results:\n")

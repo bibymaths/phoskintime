@@ -61,11 +61,12 @@ def main():
     constraints = build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alpha, kinase_beta_counts,
                                     len(params_initial))
 
-    # Define objective wrapper.
+    # Deprecated single start
     # obj_fun = lambda p: objective_wrapper(p, P_init_dense, t_max, gene_alpha_starts, gene_kinase_counts,
     #                                       gene_kinase_idx, total_alpha, kinase_beta_starts, kinase_beta_counts,
     #                                       K_data, K_indices, K_indptr, time_weights, loss_type)
 
+    # Multistart optimization
     obj_fun = partial(
         objective_wrapper,
         P_init_dense=P_init_dense,
@@ -83,9 +84,11 @@ def main():
         loss_type=loss_type
     )
 
-    # Run optimization.
+
+    # Deprecated single start
     # result, optimized_params = run_optimization(obj_fun, params_initial, opt_method, bounds, constraints)
 
+    # Multistart optimization
     result, optimized_params, outcomes = multistart_run_optimization(
         obj_fun=obj_fun,
         params_initial=params_initial,

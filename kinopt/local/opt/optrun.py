@@ -30,6 +30,18 @@ def run_optimization(obj_fun, params_initial, opt_method, bounds, constraints):
 
 @dataclass
 class StartOutcome:
+    """
+    Outcome of a single optimization start.
+
+    :param start_id: ID of the start.
+    :param seed: Seed used for the start.
+    :param result: Result of the optimization.
+    :param optimized_params: Optimized parameters.
+    :param fun: Objective function value.
+    :param success: Whether the optimization was successful.
+    :param constr_violation: Constraint violation.
+    :param runtime_s: Runtime of the optimization.
+    """
     start_id: int
     seed: int
     result: object
@@ -41,7 +53,17 @@ class StartOutcome:
 
 
 def _get_attr(x, name, default=None):
-    # supports both dict-like and attribute-like results
+    """
+    Get attribute or dict item from x by name, with default fallback.
+
+    Args:
+        x: Object or dict to get attribute/item from.
+        name: Name of the attribute/item.
+        default: Default value if not found.
+
+    Returns:
+        Value of the attribute/item or default.
+    """
     if hasattr(x, name):
         return getattr(x, name)
     if isinstance(x, dict) and name in x:
@@ -50,6 +72,14 @@ def _get_attr(x, name, default=None):
 
 
 def _extract_fun(result):
+    """
+    Extract objective function value from result.
+
+    Args:
+        result: Result of the optimization.
+    Returns:
+        float: Objective function value.
+    """
     fun = _get_attr(result, "fun", None)
     if fun is None:
         # some optimizers use "fval" or similar
@@ -58,16 +88,30 @@ def _extract_fun(result):
 
 
 def _extract_success(result):
+    """
+    Extract success flag from result.
+
+    Args:
+        result: Result of the optimization.
+    Returns:
+        bool: Success flag.
+    """
     s = _get_attr(result, "success", None)
     if s is None:
-        # be conservative: treat missing as False
+        # being conservative: treat missing as False
         return False
     return bool(s)
 
 
 def _extract_constr_violation(result):
-    # Try common names; if not available, assume 0 (or treat as unknown).
-    # Scipy trust-constr uses "constr_violation" in some versions.
+    """
+    Extract constraint violation from result.
+
+    Args:
+        result: Result of the optimization.
+    Returns:
+        float: Constraint violation.
+    """
     cv = _get_attr(result, "constr_violation", None)
     if cv is None:
         cv = _get_attr(result, "maxcv", None)
@@ -111,6 +155,24 @@ def _sample_initial(params_initial, bounds, rng, strategy="jitter", jitter_scale
 
 def _run_one_start(start_id, seed, obj_fun, params_initial, opt_method, bounds, constraints,
                    init_strategy="hybrid", jitter_scale=0.15):
+    """
+    Run a single optimization start.
+    
+    Args:
+        start_id: ID of the start.
+        seed: Seed for random number generation.
+        obj_fun: Objective function to optimize.
+        params_initial: Initial parameters for optimization.
+        opt_method: Optimization method to use.
+        bounds: Parameter bounds for optimization.
+        constraints: Constraints for optimization.
+        init_strategy: Strategy for sampling initial parameters.
+        jitter_scale: Scale for jittering initial parameters.
+
+    Returns:
+        StartOutcome: Outcome of the optimization start.
+
+    """
     rng = np.random.default_rng(seed)
     p0 = _sample_initial(params_initial, bounds, rng, strategy=init_strategy, jitter_scale=jitter_scale)
 
@@ -148,6 +210,26 @@ def multistart_run_optimization(obj_fun, params_initial, opt_method, bounds, con
       2) Then lowest objective.
       3) Then success=True as tie-breaker.
       4) Then shortest runtime as final tie-breaker.
+
+    Args:
+        obj_fun: Objective function to optimize.
+        params_initial: Initial parameters for optimization.
+        opt_method: Optimization method to use (e.g., 'SLSQP', 'trust-constr').
+        bounds: Parameter bounds for optimization.
+        constraints: Constraints for optimization.
+        n_starts: Number of optimization starts to run (default: 24).
+        n_jobs: Number of parallel jobs to run. -1 means use all processors (default: -1).
+        base_seed: Base seed for random number generation (default: 1234).
+        init_strategy: Strategy for sampling initial parameters: 'jitter', 'uniform', or 'hybrid' (default: 'hybrid').
+        jitter_scale: Scale for jittering initial parameters (default: 0.15).
+        prefer_feasible: If True, prefer feasible solutions over infeasible ones (default: True).
+        logger: Logger instance for logging messages (default: None).
+
+    Returns:
+        tuple: A tuple containing:
+            - best_result: The optimization result object with the best outcome.
+            - best_params: The optimized parameters corresponding to the best result.
+            - outcomes: List of StartOutcome objects for all optimization starts.
     """
     seeds = [base_seed + i for i in range(n_starts)]
 

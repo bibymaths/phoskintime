@@ -104,6 +104,13 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
     logger.info(f"Optimization results saved for ODE modelling.")
 
 def export_params_npz(outcomes, path):
+    """
+    Export the optimized parameters to a compressed npz file.
+
+    Args:
+         outcomes (list): List of OptimizeResult objects.
+         path (str): Path to save the npz file.
+    """
     np.savez_compressed(
         path,
         params=np.stack([o.optimized_params for o in outcomes]),

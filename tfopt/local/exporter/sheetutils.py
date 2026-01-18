@@ -86,6 +86,15 @@ def save_results_to_excel(
 
 
 def export_multistart_results(results):
+    """
+    Export multiple multistart optimization results to an Excel file.
+
+    Args:
+        results (list): List of optimization results, each containing attributes like 'start_id', 'fun', 'success', etc.
+
+    Returns:
+        None
+    """
     rows = []
     for r in results:
         rows.append({
@@ -102,21 +111,24 @@ def export_multistart_results(results):
 
 def save_multistart_solutions_npz(all_results, out_path):
     """
-    Save all multistart optimization solutions to a compressed NPZ file.
+    Saves multistart optimization solutions to a compressed .npz file format.
+
+    This function aggregates optimization results into a structured format and
+    saves them in a compressed NumPy .npz file. It processes the solutions,
+    extracting relevant attributes such as optimization variables, function values,
+    success status, and starting IDs, before saving them for later use.
 
     Args:
-        all_results (list): List of optimizer result objects. Each must expose:
-                            - r.x      : optimized parameter vector
-                            - r.fun    : objective value
-                            - r.success (optional)
-                            - r.start_id (optional)
-        out_path (str | Path): Output .npz file path
-
-    Saved arrays:
-        X         : (n_starts, n_params) parameter matrix
-        fun       : (n_starts,) objective values
-        success   : (n_starts,) solver success flags
-        start_id  : (n_starts,) multistart indices
+        all_results: list
+            A list of optimization result objects. Each result object must have
+            the attributes `x` (optimization solution vector) and `fun`
+            (objective function value). Optionally, it can have `success`
+            (indicating whether the optimization succeeded, defaults to False if
+            not present) and `start_id` (identifier of the starting point,
+            defaults to -1 if not present).
+        out_path: str or Path
+            The file path where the compressed .npz file will be saved. The path
+            will be converted into a pathlib Path object if it is not already one.
     """
     out_path = Path(out_path)
 

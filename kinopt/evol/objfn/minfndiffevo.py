@@ -19,20 +19,29 @@ _LOSS_MAP = {
 
 
 # -----------------------------
-# 2) Packing helpers (Python)
+# 2) Packing helpers
 # -----------------------------
 def _pack_problem_for_numba(P_initial, K_index, K_array, P_initial_array):
     """
     Convert P_initial + K_index into numeric arrays for Numba kernels.
 
-    Outputs:
-      gp_offsets: int32, shape (n_gp+1,)
-      gp_kinase_ids: int32, shape (num_alpha,)
-         alpha variables are aligned 1:1 with gp_kinase_ids positions
-      k_offsets: int32, shape (n_k+1,)
-      k_psite_rows: int32, shape (num_beta,)
-         beta variables are aligned 1:1 with k_psite_rows positions
-      n_gp, n_k, num_alpha, num_beta, t_max
+    Args:
+        P_initial (dict): Dictionary mapping (gene, psite) tuples to data dictionaries containing kinase information.
+        K_index (dict): Dictionary mapping kinase names to lists of (psite_label, row_idx) tuples.
+        K_array (ndarray): Kinase activity matrix with shape (n_k_rows, t_max).
+        P_initial_array (ndarray): Observed phosphorylation matrix with shape (n_gp, t_max).
+
+    Returns:
+        tuple: A tuple containing:
+            - gp_offsets (ndarray): int32 array of shape (n_gp+1,) with offset indices for gene-psite groups.
+            - gp_kinase_ids (ndarray): int32 array of shape (num_alpha,) with kinase IDs for each alpha variable.
+            - k_offsets (ndarray): int32 array of shape (n_k+1,) with offset indices for kinase groups.
+            - k_psite_rows (ndarray): int32 array of shape (num_beta,) with psite row indices for each beta variable.
+            - n_gp (int): Number of gene-psite pairs.
+            - n_k (int): Number of unique kinases.
+            - num_alpha (int): Total number of alpha variables.
+            - num_beta (int): Total number of beta variables.
+            - t_max (int): Number of time points.
     """
     # stable order
     kinase_names = list(K_index.keys())
@@ -95,8 +104,18 @@ def _pack_problem_for_numba(P_initial, K_index, K_array, P_initial_array):
 # -----------------------------
 @njit(cache=True)
 def _corr_sq_lag1(x):
-    # Pearson correlation between x[:-1] and x[1:], squared.
-    # If variance is zero, return 0.
+    """
+    Compute squared Pearson correlation coefficient for lag-1 autocorrelation.
+
+    Calculates the correlation between x[:-1] and x[1:], then squares the result.
+    Returns 0.0 if the array is too short or if variance is zero.
+
+    Args:
+        x (ndarray): 1D array of residuals or values.
+
+    Returns:
+        float: Squared correlation coefficient (0.0 to 1.0).
+    """
     n = x.size
     if n < 3:
         return 0.0
@@ -130,9 +149,23 @@ def _corr_sq_lag1(x):
 def _compute_pred_matrix(params, P_obs, gp_offsets, gp_kinase_ids,
                          k_offsets, k_psite_rows, K_array):
     """
-    Fast prediction using two-stage accumulation:
-      1) kinase_signal[k, t] = sum_p beta(k,p) * K_array[row(p), t]
-      2) pred[i, t] = sum_{kin in gp(i)} alpha(i,kin) * kinase_signal[kin, t]
+    Compute predicted phosphorylation matrix using two-stage accumulation.
+
+    Stage 1: For each kinase k at time t, compute its signal by summing weighted kinase activities.
+    Stage 2: For each gene-phosphosite i at time t, compute prediction by summing weighted kinase signals.
+    Negative predictions are clipped to zero.
+
+    Args:
+        params (ndarray): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+        P_obs (ndarray): Observed protein matrix with shape (i_max, t_max).
+        gp_offsets (ndarray): int32 array of shape (n_gp+1,) with offset indices for gene-psite groups.
+        gp_kinase_ids (ndarray): int32 array of shape (num_alpha,) with kinase IDs for alpha variables.
+        k_offsets (ndarray): int32 array of shape (n_k+1,) with offset indices for kinase groups.
+        k_psite_rows (ndarray): int32 array of shape (num_beta,) with psite row indices for beta variables.
+        K_array (ndarray): Kinase activity matrix with shape (n_k_rows, t_max).
+
+    Returns:
+        ndarray: Predicted phosphorylation matrix with shape (i_max, t_max).
     """
     i_max, t_max = P_obs.shape
     n_k = k_offsets.size - 1
@@ -175,6 +208,23 @@ def _compute_pred_matrix(params, P_obs, gp_offsets, gp_kinase_ids,
 
 @njit(cache=True)
 def _loss_from_residuals(residuals, P_obs, params, loss_id, include_reg, n_scalar):
+    """
+    Compute loss from residuals based on specified loss type.
+
+    Supports multiple loss types: MSE (0), autocorrelation (1), Huber (2), and MAPE (3).
+    Optionally includes L1 and L2 regularization.
+
+    Args:
+        residuals (ndarray): Residual matrix with shape (i_max, t_max).
+        P_obs (ndarray): Observed protein matrix with shape (i_max, t_max).
+        params (ndarray): 1D array of parameters (alpha, beta).
+        loss_id (int): Loss type identifier (0=MSE, 1=autocorrelation, 2=Huber, 3=MAPE).
+        include_reg (bool): If True, include L1 and L2 regularization in loss calculation.
+        n_scalar (float): Scalar factor for normalization.
+
+    Returns:
+        float: Computed loss value.
+    """
     i_max, t_max = residuals.shape
 
     if loss_id == 0:  # base (MSE)
@@ -271,6 +321,31 @@ def _loss_from_residuals(residuals, P_obs, params, loss_id, include_reg, n_scala
 def _evaluate_loss_and_constraints(params, P_obs, gp_offsets, gp_kinase_ids,
                                   k_offsets, k_psite_rows, K_array,
                                   eps_eq, loss_id, include_reg, n_scalar):
+    """
+    Evaluate objective function and constraint violations for optimization.
+
+    Computes predicted phosphorylation, loss value, and constraint violations.
+    Constraints enforce that alpha and beta weights sum to 1.0 within tolerance eps_eq.
+
+    Args:
+        params (ndarray): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+        P_obs (ndarray): Observed protein matrix with shape (i_max, t_max).
+        gp_offsets (ndarray): int32 array of shape (n_gp+1,) with offset indices for gene-psite groups.
+        gp_kinase_ids (ndarray): int32 array of shape (num_alpha,) with kinase IDs for alpha variables.
+        k_offsets (ndarray): int32 array of shape (n_k+1,) with offset indices for kinase groups.
+        k_psite_rows (ndarray): int32 array of shape (num_beta,) with psite row indices for beta variables.
+        K_array (ndarray): Kinase activity matrix with shape (n_k_rows, t_max).
+        eps_eq (float): Tolerance for equality constraints (converted to inequalities).
+        loss_id (int): Loss type identifier (0=MSE, 1=autocorrelation, 2=Huber, 3=MAPE).
+        include_reg (bool): If True, include L1 and L2 regularization in loss.
+        n_scalar (float): Scalar factor for normalization.
+
+    Returns:
+        tuple: A tuple containing:
+            - loss (float): Computed loss value.
+            - g (ndarray): Constraint violations array of shape (2*(n_gp + n_k),), where g <= 0.
+    """
+
     pred = _compute_pred_matrix(params, P_obs, gp_offsets, gp_kinase_ids,
                                 k_offsets, k_psite_rows, K_array)
 
@@ -314,12 +389,39 @@ def _evaluate_loss_and_constraints(params, P_obs, gp_offsets, gp_kinase_ids,
 @njit(cache=True)
 def _estimated_series_jit(params, P_obs, gp_offsets, gp_kinase_ids,
                           k_offsets, k_psite_rows, K_array):
+    """
+    Compute estimated phosphorylation series using optimized parameters.
+
+    Wrapper around _compute_pred_matrix for JIT-compiled estimation.
+
+    Args:
+        params (ndarray): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+        P_obs (ndarray): Observed protein matrix with shape (i_max, t_max).
+        gp_offsets (ndarray): int32 array of shape (n_gp+1,) with offset indices for gene-psite groups.
+        gp_kinase_ids (ndarray): int32 array of shape (num_alpha,) with kinase IDs for alpha variables.
+        k_offsets (ndarray): int32 array of shape (n_k+1,) with offset indices for kinase groups.
+        k_psite_rows (ndarray): int32 array of shape (num_beta,) with psite row indices for beta variables.
+        K_array (ndarray): Kinase activity matrix with shape (n_k_rows, t_max).
+
+    Returns:
+        ndarray: Predicted phosphorylation matrix with shape (i_max, t_max).
+    """
     return _compute_pred_matrix(params, P_obs, gp_offsets, gp_kinase_ids,
                                 k_offsets, k_psite_rows, K_array)
 
 
 @njit(cache=True)
 def _residuals_jit(P_obs, P_est):
+    """
+    Compute residuals between observed and estimated phosphorylation.
+
+    Args:
+        P_obs (ndarray): Observed phosphorylation matrix with shape (i_max, t_max).
+        P_est (ndarray): Estimated phosphorylation matrix with shape (i_max, t_max).
+
+    Returns:
+        ndarray: Residual matrix (P_obs - P_est) with shape (i_max, t_max).
+    """
     return P_obs - P_est
 
 
@@ -328,14 +430,33 @@ def _residuals_jit(P_obs, P_est):
 # -----------------------------
 class PhosphorylationOptimizationProblem(ElementwiseProblem):
     """
-    Single-objective constrained optimization (Numba-accelerated).
+    Single-objective constrained optimization problem for phosphorylation dynamics (Numba-accelerated).
+
+    Minimizes loss between observed and predicted phosphorylation levels subject to constraints
+    that alpha and beta weights sum to 1.0 for each gene-psite and kinase group, respectively.
 
     Objective:
-      - minimize loss
+        - minimize loss (MSE, autocorrelation, Huber, or MAPE)
 
     Constraints g(x) <= 0:
-      - for each alpha group: |sum(alpha_group) - 1| <= eps
-      - for each kinase beta group: |sum(beta_group) - 1| <= eps
+        - for each alpha group: |sum(alpha_group) - 1| <= eps_eq
+        - for each kinase beta group: |sum(beta_group) - 1| <= eps_eq
+
+    Attributes:
+        P_initial (dict): Dictionary mapping (gene, psite) tuples to data dictionaries.
+        P_initial_array (ndarray): Observed phosphorylation matrix with shape (i_max, t_max).
+        K_index (dict): Dictionary mapping kinase names to lists of (psite_label, row_idx) tuples.
+        K_array (ndarray): Kinase activity matrix with shape (n_k_rows, t_max).
+        gp_offsets (ndarray): Offset indices for gene-psite groups.
+        gp_kinase_ids (ndarray): Kinase IDs for alpha variables.
+        k_offsets (ndarray): Offset indices for kinase groups.
+        k_psite_rows (ndarray): Psite row indices for beta variables.
+        num_alpha (int): Total number of alpha variables.
+        num_beta (int): Total number of beta variables.
+        eps_eq (float): Tolerance for equality constraints.
+        loss_id (int): Loss type identifier.
+        include_reg (bool): Whether to include regularization.
+        n_scalar (float): Scalar factor for normalization.
     """
 
     def __init__(self, P_initial, P_initial_array, K_index, K_array,
@@ -397,6 +518,22 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         self.n_scalar = float(n)
 
     def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluate objective and constraints for a given parameter vector.
+
+        Called by pymoo optimizer during optimization iterations.
+
+        Args:
+            x (ndarray): 1D array of decision variables [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+            out (dict): Output dictionary to store objective value(s) and constraint violations.
+            *args: Additional positional arguments (unused).
+            **kwargs: Additional keyword arguments (unused).
+
+        Returns:
+            None. Updates out dict with keys:
+                - "F": list containing the objective value(s).
+                - "G": array of constraint violations (g <= 0).
+        """
         loss, g = _evaluate_loss_and_constraints(
             np.asarray(x, dtype=np.float64),
             self.P_initial_array,
@@ -413,6 +550,15 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
 
     # Optional: keep these as methods for compatibility
     def estimated_series(self, params):
+        """
+        Compute estimated phosphorylation series for given parameters.
+
+        Args:
+            params (array-like): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+
+        Returns:
+            ndarray: Predicted phosphorylation matrix with shape (i_max, t_max).
+        """
         return _estimated_series_jit(
             np.asarray(params, dtype=np.float64),
             self.P_initial_array,
@@ -422,6 +568,15 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         )
 
     def residuals(self, params):
+        """
+        Compute residuals between observed and estimated phosphorylation for given parameters.
+
+        Args:
+            params (array-like): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+
+        Returns:
+            ndarray: Residual matrix (observed - estimated) with shape (i_max, t_max).
+        """
         est = self.estimated_series(params)
         return _residuals_jit(self.P_initial_array, est)
 
@@ -430,6 +585,23 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
 # 5) Backward-compatible helpers
 # -----------------------------
 def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, beta_counts, P_initial_array):
+    """
+    Compute estimated phosphorylation series using provided data structures (backward-compatible).
+
+    Packs problem data into Numba-compatible arrays and calls JIT-compiled kernel.
+
+    Args:
+        params (array-like): 1D array of parameters [alpha_1, ..., alpha_N, beta_1, ..., beta_M].
+        P_initial (dict): Dictionary mapping (gene, psite) tuples to data dictionaries.
+        K_index (dict): Dictionary mapping kinase names to lists of (psite_label, row_idx) tuples.
+        K_array (ndarray): Kinase activity matrix.
+        gene_psite_counts (list): Counts of kinases per gene-psite (unused but kept for compatibility).
+        beta_counts (dict): Counts of psites per kinase (unused but kept for compatibility).
+        P_initial_array (ndarray): Observed phosphorylation matrix with shape (i_max, t_max).
+
+    Returns:
+        ndarray: Predicted phosphorylation matrix with shape (i_max, t_max).
+    """
     # Use the same packing + jit kernel, without changing your external call sites too much.
     P_obs = np.asarray(P_initial_array, dtype=np.float64)
     K_arr = np.asarray(K_array, dtype=np.float64)
@@ -447,4 +619,14 @@ def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, be
 
 
 def _residuals(P_initial_array, P_estimated):
+    """
+    Compute residuals between observed and estimated phosphorylation (backward-compatible).
+
+    Args:
+        P_initial_array (array-like): Observed phosphorylation matrix with shape (i_max, t_max).
+        P_estimated (array-like): Estimated phosphorylation matrix with shape (i_max, t_max).
+
+    Returns:
+        ndarray: Residual matrix (observed - estimated) with shape (i_max, t_max).
+    """
     return np.asarray(P_initial_array, dtype=np.float64) - np.asarray(P_estimated, dtype=np.float64)

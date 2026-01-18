@@ -13,8 +13,20 @@ logger = setup_logger()
 
 def _choose_partitions(n_obj: int) -> int:
     """
-    Heuristic for Das-Dennis partitions.
-    Larger => more ref directions => larger required population.
+    Determine the number of partitions for Das-Dennis reference directions.
+
+    This heuristic selects an appropriate number of partitions based on the
+    number of objectives in the optimization problem. Larger partition values
+    generate more reference directions, which in turn require larger population
+    sizes for the algorithm to function effectively.
+
+    Args:
+        n_obj (int): Number of objectives in the multi-objective optimization problem.
+
+    Returns:
+        int: Number of partitions to use for Das-Dennis reference direction generation.
+            Returns 50 for 1-2 objectives, 12 for 3 objectives, 8 for 4 objectives,
+            6 for 5 objectives, and 4 for 6 or more objectives.
     """
     if n_obj <= 2:
         return 50
@@ -28,15 +40,41 @@ def _choose_partitions(n_obj: int) -> int:
 
 def run_optimization(problem, total_dim, optimizer):
     """
-    Run the optimization using the specified algorithm and problem.
+    Execute multi-objective optimization using the specified algorithm.
+
+    This function configures and runs one of three multi-objective evolutionary
+    algorithms (UNSGA3, SMSEMOA, or AGEMOEA) on the provided optimization problem.
+    The algorithm is configured with appropriate genetic operators (two-point
+    crossover and polynomial mutation) and terminated after 1000 generations.
 
     Args:
-        problem (Problem): The optimization problem to solve.
-        total_dim (int): Total number of dimensions in the problem.
-        optimizer (int): The optimizer to use (0 for NSGA2, 1 for SMSEMOA, 2 for AGEMOEA).
+        problem (Problem): The pymoo Problem instance defining the optimization
+            problem, including objectives, constraints, and variable bounds.
+        total_dim (int): Total number of decision variables (dimensions) in the
+            optimization problem. Used to determine population size and mutation
+            probability.
+        optimizer (int): Selector for the optimization algorithm:
+            - 0: UNSGA3 (Unified NSGA-III) - Reference direction-based algorithm
+            - 1: SMSEMOA - S-Metric Selection Evolutionary Multi-objective Algorithm
+            - 2: AGEMOEA - Adaptive Geometry Estimation-based Multi-objective
+                          Evolutionary Algorithm
 
     Returns:
-        res (Result): The result of the optimization.
+        Result: A pymoo Result object containing the optimization outcomes, including:
+            - X: Decision variables of the Pareto-optimal solutions
+            - F: Objective function values of the Pareto-optimal solutions
+            - algorithm: The algorithm instance used
+            - Additional statistics and convergence information
+
+    Notes:
+        - Population size is set to 2 * total_dim (or larger for UNSGA3 if needed)
+        - Crossover probability: 0.9
+        - Mutation probability: 1.0 / total_dim
+        - Mutation distribution index (eta): 20
+        - Termination: Fixed at 1000 generations
+        - Random seed: 1 (for reproducibility)
+        - Duplicate elimination is enabled for all algorithms
+        - UNSGA3 automatically adjusts population size to match reference directions
     """
     # Define algorithm settings.
     global algo

@@ -181,17 +181,39 @@ def _curve_fit_multistart(
         seed: int = 42,
 ) -> Tuple[np.ndarray, np.ndarray | None, float]:
     """
-    Multi-start curve_fit wrapper.
-    - Generates candidate initial guesses using:
-        (i) base_p0 (your current p0),
-        (ii) jittered variants around base_p0,
-        (iii) Latin-hypercube-like uniform sampling inside bounds.
-    - Runs curve_fit for each p0 candidate.
-    - Selects the best solution by score_fit(param, target, pred) exactly as your pipeline expects.
+    Perform multi-start curve fitting to find the best parameter estimates.
+
+    This function attempts curve fitting from multiple initial parameter guesses to avoid
+    local minima. It generates candidate starting points using jittering around the base guess
+    and stratified uniform sampling, then evaluates each fit, and returns the best result.
+
+    Args:
+        gene: Gene name for logging purposes.
+        model_func: Model function to fit (callable with signature model_func(tpts, *params)).
+        time_points: Time points for the model fitting.
+        target_fit: Target data to fit (may include regularization terms).
+        base_p0: Base initial parameter guess.
+        free_bounds: Tuple of (lower_bounds, upper_bounds) for parameters.
+        sigma: Weights/uncertainties for fitting (None for uniform weights).
+        init_cond: Initial conditions for the ODE solver.
+        num_psites: Number of phosphorylation sites.
+        target: Target data without regularization terms (for scoring).
+        n_starts: Number of multi-start attempts (default: 24).
+        jitter_frac: Fraction of parameter range to use for jittering (default: 0.10).
+        maxfev: Maximum number of function evaluations per fit (default: 20000).
+        seed: Random seed for reproducibility (default: 42).
 
     Returns:
-        popt_best, pcov_best, best_score
+        Tuple containing:
+            - popt_best: Best-fit parameters found across all starts.
+            - pcov_best: Covariance matrix for the best fit (or None if unavailable).
+            - best_score: Score of the best fit.
+
+    Raises:
+        ValueError: If bounds are not finite.
+        RuntimeError: If all multi-start attempts fail.
     """
+
     lb, ub = free_bounds
     lb = np.asarray(lb, dtype=float)
     ub = np.asarray(ub, dtype=float)
@@ -267,7 +289,7 @@ def _curve_fit_multistart(
             )
             popt_try, pcov_try = result
 
-            # Score based on true ODE prediction (same as your worker)
+            # Score based on true ODE prediction
             _, pred = solve_ode(
                 np.exp(popt_try) if ODE_MODEL == "randmod" else popt_try,
                 init_cond,
@@ -289,7 +311,7 @@ def _curve_fit_multistart(
 
         except Exception as e:
             n_fail += 1
-            # Keep this at DEBUG-level behaviour; do not spam logs
+            # DEBUG-level behaviour; do not spam logs
             # but still provide a hint if all starts fail.
             continue
 

@@ -1,4 +1,3 @@
-# config_loader.py
 from __future__ import annotations
 
 from functools import lru_cache
@@ -16,6 +15,9 @@ def _project_root() -> Path:
     Find repo root robustly by walking upwards until config.toml is found.
     This avoids 'root = folder containing config_loader.py' which is wrong
     when config/ is a subdir.
+
+    Returns:
+        The root directory of the project.
     """
     start = Path(__file__).resolve().parent
     for p in [start, *start.parents]:
@@ -25,6 +27,16 @@ def _project_root() -> Path:
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively merge two dictionaries, with override taking precedence.
+
+    Args:
+        base (dict[str, Any]): The base dictionary to merge into.
+        override (dict[str, Any]): The dictionary containing overrides.
+
+    Returns:
+        dict[str, Any]: The merged dictionary.
+    """
     out = dict(base)
     for k, v in (override or {}).items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
@@ -36,6 +48,16 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 @lru_cache(maxsize=8)
 def load(mode: str, section: str) -> dict[str, Any]:
+    """
+    Load configuration for a specific mode and section.
+
+    Args:
+        mode (str): The mode to load configuration for.
+        section (str): The section to load configuration for.
+
+    Returns:
+        dict[str, Any]: The loaded configuration.
+    """
     root = _project_root()
     with (root / "config.toml").open("rb") as f:
         raw = tomllib.load(f)
@@ -51,6 +73,12 @@ def load(mode: str, section: str) -> dict[str, Any]:
 
 
 def ensure_dirs() -> None:
+    """
+    Ensure that the necessary directories exist for the project.
+
+    Returns:
+        None
+    """
     root = _project_root()
     with (root / "config.toml").open("rb") as f:
         raw = tomllib.load(f)
