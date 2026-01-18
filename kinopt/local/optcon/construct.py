@@ -331,7 +331,6 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
 
         return cons
 
-
 def load_geneid_to_psites(input1_path=INPUT1):
     """
     Load the geneid to psite mapping from a CSV file.

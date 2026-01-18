@@ -2,6 +2,7 @@ import pandas as pd
 from kinopt.evol.exporter.helpers import build_genes_data
 from kinopt.evol.exporter.plotout import plot_residuals_for_gene
 from kinopt.evol.config.logconf import setup_logger
+from kinopt.evol.optcon import observed
 
 logger = setup_logger()
 
@@ -78,5 +79,14 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
             estimated_data.append(estimated_row)
         estimated_df = pd.DataFrame(estimated_data)
         estimated_df.to_excel(writer, sheet_name="Estimated", index=False)
+
+        # Sheet 6: Observed Values with Gene and Psite labels
+        observed_data = []
+        for i, ((gene, psite), data) in enumerate(P_initial.items()):
+            observed_row = {'Gene': gene, 'Psite': psite}
+            observed_row.update({time: P_init_dense[i,t] for t, time in enumerate(timepoints)})
+            observed_data.append(observed_row)
+        observed_df = pd.DataFrame(observed_data)
+        observed_df.to_excel(writer, sheet_name="Observed", index=False)
 
     logger.info(f"Optimization results saved for ODE modelling.")

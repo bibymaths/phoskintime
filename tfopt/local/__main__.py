@@ -4,10 +4,11 @@ from config.helpers import location
 from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report, summarize_stats
-from tfopt.local.exporter.plotout import plot_estimated_vs_observed
-from tfopt.local.exporter.sheetutils import save_results_to_excel
+from tfopt.local.exporter.plotout import plot_estimated_vs_observed, plot_multistart_summary_runtime_overlay
+from tfopt.local.exporter.sheetutils import save_results_to_excel, export_multistart_results, \
+    save_multistart_solutions_npz
 from tfopt.local.objfn.minfn import compute_predictions
-from tfopt.local.opt.optrun import run_optimizer
+from tfopt.local.opt.optrun import run_optimizer, run_optimizer_multistart, MultiStartConfig, _get_constraint_violation
 from tfopt.local.optcon.filter import load_and_filter_data, prepare_data
 from tfopt.local.utils.params import get_optimization_parameters, postprocess_results
 from tfopt.fitanalysis.helper import Plotter
@@ -56,8 +57,41 @@ def main():
                                     psite_labels_arr, num_psites, lb, ub)
 
     # STEP 4: Run the optimization.
-    result = run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
-                           n_reg, T_use, n_genes, beta_start_indices, num_psites, loss_type)
+    cfg = MultiStartConfig(
+        n_starts=48,  # start with 32–64
+        n_jobs=-1,  # all cores
+        seed=123,
+        jitter_frac=0.05,
+        p_random=0.35,
+    )
+
+    result, all_results = run_optimizer_multistart(
+        x0, bounds, lin_cons,
+        expression_matrix, regulators, tf_protein_matrix, psite_tensor,
+        n_reg, T_use, n_genes, beta_start_indices, num_psites, loss_type,
+        run_optimizer_func=run_optimizer,
+        cfg=cfg,
+        polish=True,
+    )
+
+    logger.info(f"[Multistart] best fun={result.fun} success={getattr(result, 'success', None)} "
+                f"cv={_get_constraint_violation(result)} start_id={getattr(result, 'start_id', None)}")
+
+    # Save multistart results to CSV.
+    export_multistart_results(all_results).to_csv(OUT_DIR / "multistart_summary.csv", index=False)
+
+    # Save multistart solutions to NPZ.
+    save_multistart_solutions_npz(
+        all_results,
+        OUT_DIR / "multistart_params.npz",
+    )
+
+    # Save waterfall plot.
+    plot_multistart_summary_runtime_overlay(
+        OUT_DIR / "multistart_summary.csv",
+        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        figsize=(8, 8),
+    )
 
     logger.info("--- Best Solution ---")
     logger.info(f"Objective Value (F): {result.fun}")

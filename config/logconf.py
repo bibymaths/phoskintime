@@ -88,7 +88,8 @@ def setup_logger(
         log_dir=LOG_DIR,
         rotate=True,
         max_bytes=2 * 1024 * 1024,
-        backup_count=5
+        backup_count=5,
+        mp_file_logging="main_only", # off | main_only | per_process
 ):
     """
     Setup a logger with colored output and file logging.
@@ -100,6 +101,10 @@ def setup_logger(
     :param rotate:
     :param max_bytes:
     :param backup_count:
+    :param mp_file_logging:
+        - "off": disable file logging
+        - "main_only": file logging only in main process
+        - "per_process": file logging in each process
     :return: logger
     """
     if not os.path.exists(log_dir):
@@ -112,24 +117,59 @@ def setup_logger(
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
+    # IMPORTANT: do not nuke handlers that might be inherited incorrectly unless you re-add safely
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # File Handler
-    if rotate:
-        file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
-    else:
-        file_handler = logging.FileHandler(log_file)
+    # Detect multiprocessing worker
+    # (safe even if you don't use multiprocessing in some runs)
+    is_worker = False
+    try:
+        import multiprocessing as mp
+        is_worker = (mp.current_process().name != "MainProcess")
+    except Exception:
+        is_worker = False
 
-    file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(file_format)
-    logger.addHandler(file_handler)
+    # Decide file logging policy
+    enable_file = True
+    if mp_file_logging == "off":
+        enable_file = False
+    elif mp_file_logging == "main_only" and is_worker:
+        enable_file = False
+    elif mp_file_logging == "per_process" and is_worker:
+        enable_file = True
 
-    # Stream Handler (Console)
+    # File Handler (ONLY when enabled)
+    if enable_file:
+        if mp_file_logging == "per_process" and is_worker:
+            pid = os.getpid()
+            base, ext = os.path.splitext(log_file)
+            log_file_use = f"{base}.pid{pid}{ext}"
+        else:
+            log_file_use = log_file
+
+        # Avoid RotatingFileHandler across processes on NFS.
+        # Keep rotation ONLY in the main process.
+        if rotate and (not is_worker):
+            file_handler = RotatingFileHandler(
+                log_file_use, maxBytes=max_bytes, backupCount=backup_count
+            )
+        else:
+            file_handler = logging.FileHandler(log_file_use)
+
+        file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_format)
+        file_handler.setLevel(level)
+        logger.addHandler(file_handler)
+
+    # Stream Handler (Console) — safe in all processes
     stream_handler = logging.StreamHandler()
     stream_format = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     stream_handler.setFormatter(stream_format)
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
+
+    # Prevent double logging via root handlers
+    logger.propagate = False
 
     return logger

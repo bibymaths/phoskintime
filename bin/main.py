@@ -1,5 +1,13 @@
+import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+
+import atexit
+import logging
 import pandas as pd
-from tqdm import tqdm
 from config.helpers import location
 from config.config import parse_args, extract_config, log_config
 from config.constants import (model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR, DEV_TEST,
@@ -32,6 +40,16 @@ config = extract_config(args)
 if not config:
     logger.error("Invalid configuration. Exiting.")
     exit(1)
+
+@atexit.register
+def _close_log_handlers():
+    lg = logging.getLogger("phoskintime")
+    for h in list(lg.handlers):
+        try:
+            h.flush()
+            h.close()
+        except Exception:
+            pass
 
 def main():
     """
@@ -75,7 +93,7 @@ def main():
     logger.info(f"      Sensitivity Analysis: {SENSITIVITY_ANALYSIS}")
     if SENSITIVITY_ANALYSIS:
         logger.info(f"      - Metric: {' '.join(part.upper() for part in Y_METRIC.split('_'))}")
-        logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, "No description available.")}")
+        logger.info(f"      - {Y_METRIC_DESCRIPTIONS.get(Y_METRIC, 'No description available.')}")
         logger.info(f"      - Number of Trajectories: {NUM_TRAJECTORIES}")
         logger.info(f"      - Parameter Space: {PARAMETER_SPACE}")
         logger.info(f"      - Perturbations: {PERTURBATIONS_VALUE}")

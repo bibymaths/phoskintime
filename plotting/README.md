@@ -1,6 +1,8 @@
 # Plotting
 
-This module provides a comprehensive set of tools for visualizing data and results from ODE-based models of phosphorylation dynamics. It supports various types of plots to analyze model behavior, parameter estimates, and goodness-of-fit metrics.
+This module provides a comprehensive set of tools for visualizing data and results from ODE-based models of
+phosphorylation dynamics. It supports various types of plots to analyze model behavior, parameter estimates, and
+goodness-of-fit metrics.
 
 ## Features
 
@@ -11,7 +13,8 @@ This module provides a comprehensive set of tools for visualizing data and resul
   Visualize data using PCA, t-SNE, and parallel coordinates to explore patterns and relationships.
 
 - **Parameter Analysis**:  
-  Create scatter plots, bar charts, and density plots to evaluate parameter estimates, confidence intervals, and sensitivity.
+  Create scatter plots, bar charts, and density plots to evaluate parameter estimates, confidence intervals, and
+  sensitivity.
 
 - **Model Fit Evaluation**:  
   Compare observed and fitted data using goodness-of-fit plots, error distributions, and Kullback-Leibler divergence.
