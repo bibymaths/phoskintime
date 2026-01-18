@@ -1,113 +1,243 @@
-#PhosKinTime Configuration
-#=========================
-#
-#This file consolidates settings for both transcription factor (TF) optimization (`tfopt`)
-#and kinase-phosphorylation site optimization (`kinopt`) used in the PhosKinTime pipeline.
+# ============================================================
+# Global project paths and settings
+# ============================================================
 
-#Sections
-#--------
-#
-#[paths]
-#    Shared file-system paths for data, output, logs, and ODE model directories.
-#
-#[tfopt]
-#    - Settings for TF-mRNA optimization tasks.
-#    - Includes input files, optimization bounds, loss functions, and vectorization toggle.
-#    - Defines mode-specific overrides for `local` and `evol` solvers.
-#
-#[kinopt]
-#    - Settings for kinase-site optimization using evolutionary and local optimizers.
-#    - Includes loss types, missing kinase estimation, time scaling strategies, and regularization flags.
-#    - Supports segmented or temporal scaling methods and multiple loss options.
-#
-#[model]
-#    - ODE model selection: distributive, successive, or random.
-#    - Estimation strategy: `normal` (all time points) or `sequential` (point-by-point).
-#    - Normalization of model output to fold change and CI level for parameter confidence.
-#
-#[scoring]
-#    - Weights for a composite scoring function:
-#      combines RMSE, MAE, residual variance, MSE, and L2 regularization.
-#
-#[plotting]
-#    - Plot rendering options and Tikhonov regularization parameters.
-#
-#Usage:
-#------
-#The file is read directly in `constants.py` using TOML parsing (e.g., `tomli.load`),
-#and its contents are used to override default arguments and globals programmatically.
+# Update these directory names for the different commmands to write data and results
+# for each mode to separate folders.
+# Otherwise, results may be overwritten when running different modes.
+# Example, for running let's say kinopt in local mode:
+# Command - python phoskintime kinopt --mode local
+# Directories can be named accordingly, e.g., results_kinopt_local
+# Updating both, results_dir and logs_dir is recommended.
 
-####################################
-# 1. Common file‑system paths      #
-####################################
 [paths]
-out_dir = "results"
-data_dir = "data"
-logs_dir = "results/logs"
-ode_data_dir = "data/ode"
+data_dir      = "data"
+results_dir   = "results_model"
+logs_dir      = "results_model/logs"
+ode_data_dir  = "data"
 
-####################################
-# 2. Transcription‑Factor (tfopt)  #
-####################################
+
+# ============================================================
+# TF OPTIMIZATION (mRNA → TF)
+# Used by:
+#   - tfopt.local.config.constants
+#   - tfopt.evol.config.constants
+# ============================================================
+
 [tfopt]
-# inputs & outputs
-input_files = ["data/input1.csv", "data/input3.csv", "data/input4.csv"]
-output_file = "results/tfopt_results.xlsx"
-# sampling times (minutes)
-time_points = [4, 8, 15, 30, 60, 120, 240, 480, 960]
 
-# optimization defaults
-bounds = { lower = -2.0, upper = 2.0 }
-loss = { default = 3, options = [0, 1, 2, 3, 4, 5, 6] }
-vectorized = false               # default: local mode
-optimizer = 0                   # default: NGSA2
+# --------------------
+# Input files
+# --------------------
+input1 = "input1.csv"     # expression / mRNA
+input3 = "input3.csv"     # TF activity / Rout-Limma
+input4 = "input4.csv"     # TF metadata / network
 
-# mode‑specific overrides
-[tfopt.modes]
-evol = { vectorized = true, optimizer = 0 }
-local = { vectorized = false, optimizer = 0 }
+# --------------------
+# Output
+# --------------------
+out_file = "tfopt_results.xlsx"
 
-####################################
-# 3. Kinase‑Phospho (kinopt)       #
-####################################
+# --------------------
+# Time grid (minutes)
+# --------------------
+time_points = [
+  4, 8, 15, 30, 60,
+  120, 240, 480, 960
+]
+
+# --------------------
+# Default optimization parameters
+# (used unless overridden by CLI or mode)
+# --------------------
+lower_bound = -4.0
+upper_bound =  4.0
+
+# Loss types (integer, matches tfopt code)
+# 0: MSE
+# 1: MAE
+# 2: soft L1
+# 3: Cauchy
+# 4: Arctan
+# 5: Elastic Net
+# 6: Tikhonov
+loss_type = 5
+
+# --------------------
+# Mode-specific overrides
+# --------------------
+
+[tfopt.modes.local]
+# SLSQP / TRUST-CONSTR defaults
+# (keep wide bounds for local refinement)
+lower_bound = -4.0
+upper_bound =  4.0
+loss_type   = 5
+
+[tfopt.modes.evol]
+# Global evolutionary search defaults
+lower_bound = -4.0
+upper_bound =  4.0
+loss_type   = 5
+
+# Optimizer choices:
+# 0: NSGA-II
+# 1: SMSEMOA
+# 2: AGEMOEA
+optimizer = 0
+
+
+# ============================================================
+# KINASE OPTIMIZATION (Kinase → Phosphosite)
+# Used by:
+#   - kinopt.local.config.constants
+#   - kinopt.evol.config.constants
+# ============================================================
+
 [kinopt]
-# inputs & outputs
-input_files = ["data/input1.csv", "data/input2.csv"]
-output_file = "results/kinopt_results.xlsx"
-# sampling times (minutes)
-time_points = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
-# optimization defaults
-bounds = { lower = -2.0, upper = 2.0 }
-loss = { default = "base", options = ["base", "weighted", "softl1", "cauchy", "arctan", "autocorrelation", "huber", "mape"] }
-estimate_missing = true
-scaling = { method = "none", split_point = 9, segment_points = [0, 3, 6, 9, 14] }
-algorithm = "slsqp"    # default: local mode
-regularization = false      # default: local mode
+# --------------------
+# Input files (relative to data_dir)
+# --------------------
+input1 = "input1.csv"   # kinase / protein abundance
+input2 = "input2.csv"   # phosphosite data
 
-# mode‑specific overrides
-[kinopt.modes]
-evol = { algorithm = "NSGA-II", regularization = false }
-local = { algorithm = "slsqp", regularization = false }
+# --------------------
+# Output
+# --------------------
+out_file = "kinopt_results.xlsx"
 
-####################################
-# 4. ODE / model settings          #
-####################################
-[model]
-ode_model = "distmod"   # one of "distmod","succmod","randmod","testmod"
-estimation_mode = "normal"    # "normal" | "sequential"
-alpha_ci = 0.95
-normalize_output = false
-model_names = { distmod = "Distributive", succmod = "Successive", randmod = "Random", testmod = "Test" }
+# --------------------
+# Time grid (minutes)
+# --------------------
+time_points = [
+  0.0, 0.5, 0.75, 1.0,
+  2.0, 4.0, 8.0, 16.0,
+  30.0, 60.0, 120.0,
+  240.0, 480.0, 960.0
+]
 
-####################################
-# 5. Composite scoring             #
-####################################
-[scoring]
-weights = { delta = 1.0, alpha = 1.0, beta = 1.0, gamma = 1.0, mu_reg = 1.0 }
+# --------------------
+# Default optimization parameters
+# --------------------
+lower_bound = -4.0
+upper_bound =  4.0
 
-####################################
-# 6. Plotting & regularization     #
-####################################
-[plotting]
-use_regularization = true
+# Loss types (string, matches kinopt code)
+# base | weighted | softl1 | cauchy | arctan
+loss_type = "weighted"
+
+# Estimate missing kinase–psite pairs?
+estimate_missing_kinases = true
+
+# Scaling options:
+# min_max | log | temporal | segmented | slope | cumulative | none
+scaling_method = "none"
+
+# Used for temporal scaling
+split_point = 9
+
+# Used for segmented scaling
+segment_points = [0, 3, 6, 9, 14]
+
+# Optimization method (local)
+# slsqp | trust-constr
+method = "slsqp"
+
+
+# --------------------
+# Mode-specific overrides
+# --------------------
+
+[kinopt.modes.local]
+# Trust the defaults; override if needed
+method = "slsqp"
+
+[kinopt.modes.evol]
+# Narrower bounds for global search
+lower_bound = -4.0
+upper_bound =  4.0
+
+# Loss choices for evol
+# base | autocorrelation | huber | mape | weighted
+loss_type = "base"
+
+# Regularization (used only in evol)
+regularization = false
+
+# Evolutionary optimizer backend
+# DE | NSGA-II (string)
+method = "NSGA-II"
+
+# ============================================================
+# ODE PIPELINE (downstream of kinopt + tfopt)
+# Used by:
+#   - config.constants
+# ============================================================
+
+[ode]
+
+# Which ODE model
+# distmod | succmod | randmod
+
+# After setting the results_dir and logs_dir globally above,
+# you can set the model type here to have separate output folders
+# for each model type.
+model = "randmod"
+
+# Upper bounds used in parameter fitting / priors
+[ode.bounds]
+mRNA_prod    = 20
+mRNA_deg     = 20
+protein_prod = 20
+protein_deg  = 20
+phospho_prod = 20
+phospho_deg  = 20
+
+# Bootstrap settings
+[ode.bootstrap]
+n = 0
+
+# Time grids (minutes)
+[ode.time]
+protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+
+# Fit controls
+[ode.fit]
+normalize_model_output = false
+use_custom_weights     = false
+use_regularization     = true
+
+[ode.fit.composite_weights]
+rmse = 1.0
+mae  = 1.0
+var  = 1.0
+mse  = 1.0
+l2   = 1.0
+
+# Sensitivity
+[ode.sensitivity]
+enabled      = true
+perturbation = 0.5
+
+[ode.sensitivity.morris]
+num_trajectories = 1000
+num_levels       = 400
+
+# Plot
+[ode.plot]
+perturb_trace_opacity = 0.02
+
+# Inputs to the ODE pipeline.
+# Make these explicit and stable (no importing from other modules).
+[ode.inputs]
+# These are paths relative to PROJECT ROOT. You can also make them relative to data_dir if you prefer.
+protein_excel = "data/input1.csv"
+psite_excel   = "data/kinopt_results.xlsx"
+rna_excel     = "data/tfopt_results.xlsx"
+
+# Output naming (optional)
+[ode.output]
+out_dir_name = ""   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"

@@ -1,9 +1,6 @@
 import numpy as np
 from numba import prange, njit
 
-from tfopt.local.config.constants import VECTORIZED_LOSS_FUNCTION
-
-
 @njit(cache=True, fastmath=False, parallel=True, nogil=False)
 def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                beta_start_indices, num_psites, loss_type, lam1=1e-6, lam2=1e-6):
@@ -63,6 +60,7 @@ def objective_(x, expression_matrix, regulators, tf_protein_matrix, psite_tensor
                 tf_effect += beta_vec[k + 1] * psite_tensor[tf_idx, k, :T_use]
             # Compute the predicted expression
             R_pred += a * tf_effect
+
         # Ensure non-negative predictions
         np.clip(R_pred, 0.0, None, out=R_pred)
 
@@ -118,6 +116,7 @@ def compute_predictions(x, regulators, tf_protein_matrix, psite_tensor, n_reg, T
     predictions = np.zeros((n_genes, T_use))
     for i in range(n_genes):
         R_pred = np.zeros(T_use)
+        # Accumulates TF effect on gene regulation
         for r in range(n_reg):
             tf_idx = regulators[i, r]
             if tf_idx == -1:

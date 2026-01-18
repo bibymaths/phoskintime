@@ -1,8 +1,11 @@
 import shutil
+from functools import partial
+
 from kinopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from kinopt.local.config.helpers import location
-from kinopt.local.exporter.sheetutils import output_results
-from kinopt.local.opt.optrun import run_optimization
+from kinopt.local.exporter.plotout import export_outcomes_to_csv, plot_multistart_summary_runtime_overlay
+from kinopt.local.exporter.sheetutils import output_results, export_params_npz
+from kinopt.local.opt.optrun import run_optimization, multistart_run_optimization
 from kinopt.local.optcon.construct import check_kinases
 from kinopt.local.utils.iodata import load_and_scale_data, organize_output_files, create_report
 from kinopt.local.objfn import objective_wrapper
@@ -58,13 +61,64 @@ def main():
     constraints = build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alpha, kinase_beta_counts,
                                     len(params_initial))
 
-    # Define objective wrapper.
-    obj_fun = lambda p: objective_wrapper(p, P_init_dense, t_max, gene_alpha_starts, gene_kinase_counts,
-                                          gene_kinase_idx, total_alpha, kinase_beta_starts, kinase_beta_counts,
-                                          K_data, K_indices, K_indptr, time_weights, loss_type)
+    # Deprecated single start
+    # obj_fun = lambda p: objective_wrapper(p, P_init_dense, t_max, gene_alpha_starts, gene_kinase_counts,
+    #                                       gene_kinase_idx, total_alpha, kinase_beta_starts, kinase_beta_counts,
+    #                                       K_data, K_indices, K_indptr, time_weights, loss_type)
 
-    # Run optimization.
-    result, optimized_params = run_optimization(obj_fun, params_initial, opt_method, bounds, constraints)
+    # Multistart optimization
+    obj_fun = partial(
+        objective_wrapper,
+        P_init_dense=P_init_dense,
+        t_max=t_max,
+        gene_alpha_starts=gene_alpha_starts,
+        gene_kinase_counts=gene_kinase_counts,
+        gene_kinase_idx=gene_kinase_idx,
+        total_alpha=total_alpha,
+        kinase_beta_starts=kinase_beta_starts,
+        kinase_beta_counts=kinase_beta_counts,
+        K_data=K_data,
+        K_indices=K_indices,
+        K_indptr=K_indptr,
+        time_weights=time_weights,
+        loss_type=loss_type
+    )
+
+
+    # Deprecated single start
+    # result, optimized_params = run_optimization(obj_fun, params_initial, opt_method, bounds, constraints)
+
+    # Multistart optimization
+    result, optimized_params, outcomes = multistart_run_optimization(
+        obj_fun=obj_fun,
+        params_initial=params_initial,
+        opt_method=opt_method,
+        bounds=bounds,
+        constraints=constraints,
+        n_starts=64,  # adjust; 16–64 typical
+        n_jobs=-1,  # all cores
+        base_seed=20260115,  # reproducible
+        init_strategy="hybrid",
+        jitter_scale=0.10,  # conservative perturbation
+        prefer_feasible=True,
+        logger=logger
+    )
+
+    # Save outcomes
+    export_outcomes_to_csv(
+        outcomes,
+        OUT_DIR / "multistart_summary.csv"
+    )
+
+    # Save optimized parameters for each start
+    export_params_npz(outcomes, OUT_DIR / "multistart_params.npz")
+
+    # Save runtime vs objective function value plot
+    plot_multistart_summary_runtime_overlay(
+        OUT_DIR / "multistart_summary.csv",
+        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        figsize=(8, 8),
+    )
 
     # Extract optimized parameters.
     alpha_values, beta_values = extract_parameters(P_initial, gene_kinase_counts, total_alpha, unique_kinases, K_index,

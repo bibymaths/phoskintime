@@ -144,66 +144,68 @@ def _build_k_array(
         kinase_to_psites: dict[str, int]
 ):
     """
-    Function to build the Kinase time series structure.
-
-    Args:
-        interaction_df (pd.DataFrame): DataFrame containing kinase interactions.
-        full_hgnc_df (pd.DataFrame): DataFrame containing scaled HGNC data.
-        time (list[str]): List of time series columns to extract.
-        estimate_missing_kinases (bool): Flag to estimate missing kinases.
-        kinase_to_psites (dict[str, int]): Dictionary mapping kinases to their respective psites.
+    Build kinase time series structures.
 
     Returns:
-        K_index (dict): Mapping of kinases to their respective psite data.
-        K_array (np.ndarray): Array containing time-series data for kinase-psite combinations.
-        beta_counts (dict): Mapping of kinase indices to the number of associated psites.
-
+        K_index: dict[str, list[tuple[str, int]]]
+            kinase -> list of (psite_label, k_row_idx) where k_row_idx indexes rows of K_array
+        K_array: np.ndarray (n_rows, t_max)
+        beta_counts: dict[str, int]
+            kinase -> number of psites (i.e., beta variables) for that kinase
     """
-    K_index = {}
-    K_array = []
-    beta_counts = {}
+    K_index: dict[str, list[tuple[str, int]]] = {}
+    K_array: list[np.ndarray] = []
+    beta_counts: dict[str, int] = {}
 
     synthetic_counter = 1
-    synthetic_rows = []
+    synthetic_rows: list[int] = []
 
-    # Unique kinases from the DataFrame's 'Kinase' column
     unique_kinases = interaction_df['Kinase'].explode().unique()
 
     for kinase in unique_kinases:
-        # Subset rows in full_hgnc_df for that kinase
+        # rows for this kinase
         kinase_psite_data = full_hgnc_df[
             full_hgnc_df['GeneID'] == kinase
-            ][['Psite'] + time]
+        ][['Psite'] + time]
 
         if not kinase_psite_data.empty:
-            # Iterate over all psites for this kinase
             for _, row in kinase_psite_data.iterrows():
                 psite = row['Psite']
                 time_series = np.array(row[time].values, dtype=np.float64)
-                idx = len(K_array)
+
+                k_row_idx = len(K_array)
                 K_array.append(time_series)
-                K_index.setdefault(kinase, []).append((psite, time_series))
-                beta_counts[idx] = 1
+
+                # IMPORTANT: store row index, not time_series
+                K_index.setdefault(kinase, []).append((psite, k_row_idx))
+
+            # count betas per kinase (not per row)
+            beta_counts[kinase] = len(K_index[kinase])
 
         elif estimate_missing_kinases:
             synthetic_label = f"P{synthetic_counter}"
             synthetic_counter += 1
-            # Get protein time series for this kinase where 'Psite' is empty or NaN
-            protein_level_df = full_hgnc_df[(full_hgnc_df['GeneID'] == kinase) & (full_hgnc_df['Psite'].isna())]
+
+            protein_level_df = full_hgnc_df[
+                (full_hgnc_df['GeneID'] == kinase) & (full_hgnc_df['Psite'].isna())
+            ]
+
             if not protein_level_df.empty:
-                # Adding the non-psite time series
                 synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
-            idx = len(K_array)
+            else:
+                # robust fallback: zero series if truly absent
+                synthetic_ts = np.zeros(len(time), dtype=np.float64)
+
+            k_row_idx = len(K_array)
             K_array.append(synthetic_ts)
-            K_index.setdefault(kinase, []).append((synthetic_label, synthetic_ts))
-            beta_counts[idx] = 1
-            synthetic_rows.append(idx)
 
-    # Finalize K_array
-    K_array = np.array(K_array)
+            K_index.setdefault(kinase, []).append((synthetic_label, k_row_idx))
+            beta_counts[kinase] = len(K_index[kinase])
 
+            synthetic_rows.append(k_row_idx)
+
+    K_array = np.asarray(K_array, dtype=np.float64)
     return K_index, K_array, beta_counts
-
 
 def pipeline(
         input1_path: str,

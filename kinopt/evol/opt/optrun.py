@@ -1,28 +1,278 @@
-import io
-import contextlib
+import signal
+import time
+
 import numpy as np
 import subprocess
 import pandas as pd
 from multiprocessing.pool import ThreadPool
 
+from pymoo.algorithms.soo.nonconvex.de import DE
+from pymoo.algorithms.soo.nonconvex.ga import GA
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.operators.selection.tournament import TournamentSelection
+from pymoo.termination import get_termination
+from pymoo.util.ref_dirs import get_reference_directions
+from pymoo.algorithms.moo.unsga3 import UNSGA3
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
 from pymoo.decomposition.asf import ASF
 from pymoo.indicators.hv import Hypervolume
 from pymoo.mcdm.pseudo_weights import PseudoWeights
 from pymoo.indicators.igd_plus import IGDPlus
-from pymoo.algorithms.moo.nsga2 import NSGA2
-from pymoo.algorithms.soo.nonconvex.de import DE
 from pymoo.core.problem import StarmapParallelization
-from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.termination.default import DefaultSingleObjectiveTermination
+
 from kinopt.evol.config import METHOD
 from kinopt.evol.config.constants import OUT_DIR
 from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
+def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True):
+    """
+    Run optimization with graceful handling of Ctrl+C interruption.
+
+    This function allows the optimization to be interrupted by the user (via Ctrl+C)
+    while still returning the best solution found so far. The algorithm is properly
+    finalized even when interrupted.
+
+    Args:
+        problem: The optimization problem instance to be solved.
+        algorithm: The optimization algorithm instance (e.g., GA, DE, NSGA3).
+        termination: Termination criterion for the optimization.
+        verbose (bool, optional): Whether to print verbose output. Defaults to True.
+        save_history (bool, optional): Whether to save optimization history. Defaults to True.
+
+    Returns:
+        result: The pymoo result object containing the optimized population, objectives,
+            execution time, and an 'interrupted' flag indicating if Ctrl+C was pressed.
+    """
+
+    # Optional: make Ctrl+C deterministic (convert SIGINT into KeyboardInterrupt consistently)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+
+    t0 = time.perf_counter()
+
+    # IMPORTANT: setup happens on the same algorithm instance you will finalize later
+    algorithm.setup(
+        problem,
+        termination=termination,
+        verbose=verbose,
+        save_history=save_history
+    )
+
+    interrupted = False
+
+    try:
+        while algorithm.has_next():
+            algorithm.next()
+    except KeyboardInterrupt:
+        interrupted = True
+        logger.warning("Optimization interrupted by user (Ctrl+C). Finalizing best-so-far...")
+    finally:
+        res = algorithm.result()
+        # Pymoo may not set exec_time in this path; set it yourself
+        res.exec_time = time.perf_counter() - t0
+        res.interrupted = interrupted
+
+    return res
+
+def choose_de_pop_size(problem):
+    """
+    Determine an appropriate population size for Differential Evolution (DE) algorithms.
+
+    The population size is calculated based on the number of decision variables,
+    with bounds to ensure reasonable performance. DE algorithms benefit from
+    population sizes that are multiples of 10.
+
+    Args:
+        problem: The optimization problem instance with an 'n_var' attribute
+            indicating the number of decision variables.
+
+    Returns:
+        int: The calculated population size (multiple of 10, between 100 and 600).
+    """
+    n_var = int(problem.n_var)
+
+    pop = 10 * n_var
+    pop = max(100, pop)
+    pop = min(600, pop)
+
+    # DE benefits from even population sizes
+    pop = int(10 * round(pop / 10))
+    return pop
+
+def choose_nsga_pop_size(problem, n_obj=3):
+    """
+    Determine an appropriate population size for NSGA-based multi-objective algorithms.
+
+    The population size is scaled based on the problem dimensionality (number of
+    decision variables) with heuristic thresholds. The size is rounded to multiples
+    of 50 and enforced to be at least 10 times the number of objectives.
+
+    Args:
+        problem: The optimization problem instance with an 'n_var' attribute
+            indicating the number of decision variables.
+        n_obj (int, optional): Number of objectives in the problem. Defaults to 3.
+
+    Returns:
+        int: The calculated population size (multiple of 50, at least 10*n_obj).
+    """
+    n_var = int(problem.n_var)
+
+    if n_var <= 50:
+        pop = 200
+    elif n_var <= 150:
+        pop = 400
+    elif n_var <= 400:
+        pop = 600
+    else:
+        pop = 800
+
+    pop = int(50 * round(pop / 50))
+    pop = max(pop, 10 * n_obj)  # never below 30 for 3 objectives
+    return pop
+
+def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
+    """
+    Robust binary tournament comparator for constrained optimization.
+
+    This function performs binary tournament selection with constraint handling
+    using either true constraint violations (CV) or pseudo-constrained objectives.
+    It supports both single-objective and multi-objective formulations.
+
+    Works for:
+      A) single-objective: F has length 1
+         - if CV exists, use constraint-domination (CV first, then F)
+         - else compare by F only
+      B) pseudo-constrained objectives: F = [loss, alpha_violation, beta_violation]
+         - feasibility-first based on F[1], F[2], then loss
+
+    Args:
+        pop: Population of individuals with 'F' (objectives) and optionally 'CV' attributes.
+        P (np.ndarray): Tournament pairs array of shape (n_tournaments, 2), where each
+            row contains indices of two competing individuals.
+        eps_cv (float, optional): Feasibility tolerance for constraint violations. 
+            Defaults to 1e-10.
+        cv_mode (str, optional): Mode for aggregating constraint violations when using
+            pseudo-constrained objectives. Options: 'linf' (max), 'l1' (sum), 'l2' (norm).
+            Defaults to "linf".
+        **kwargs: Additional keyword arguments (unused, for compatibility).
+
+    Returns:
+        np.ndarray: Array of winning indices for each tournament, shape (n_tournaments,).
+
+    Raises:
+        ValueError: If pressure is not 2 (only binary tournaments supported) or
+            if cv_mode is not one of 'linf', 'l1', 'l2'.
+    """
+    n_tournaments, n_competitors = P.shape
+    if n_competitors != 2:
+        raise ValueError("Only pressure=2 allowed for binary tournament!")
+
+    S = np.full(n_tournaments, -1, dtype=int)
+
+    def agg_cv_from_two(F_row):
+        cv1 = abs(float(F_row[1]))
+        cv2 = abs(float(F_row[2]))
+        if cv_mode == "linf":
+            return max(cv1, cv2)
+        elif cv_mode == "l1":
+            return cv1 + cv2
+        elif cv_mode == "l2":
+            return (cv1 * cv1 + cv2 * cv2) ** 0.5
+        else:
+            raise ValueError("cv_mode must be 'linf', 'l1', or 'l2'")
+
+    def get_cv(ind):
+        # Prefer true constraint violation if present (pymoo sets CV when n_ieq_constr>0)
+        cv = getattr(ind, "CV", None)
+        if cv is None:
+            return None
+        cv = float(np.asarray(cv).reshape(-1)[0])
+        if not np.isfinite(cv):
+            return np.inf
+        return cv
+
+    for i in range(n_tournaments):
+        a, b = P[i]
+        ia, ib = pop[a], pop[b]
+
+        Fa = np.asarray(ia.F, dtype=float).reshape(-1)
+        Fb = np.asarray(ib.F, dtype=float).reshape(-1)
+
+        # Defensive: treat non-finite objective as worst
+        if not np.all(np.isfinite(Fa)) and np.all(np.isfinite(Fb)):
+            S[i] = b
+            continue
+        if not np.all(np.isfinite(Fb)) and np.all(np.isfinite(Fa)):
+            S[i] = a
+            continue
+
+        # --- Case A: single-objective (typical GA/DE/PSO setup)
+        if Fa.size == 1 and Fb.size == 1:
+            cva = get_cv(ia)
+            cvb = get_cv(ib)
+
+            # If CV exists, use constraint-domination
+            if cva is not None and cvb is not None:
+                a_feas = cva <= eps_cv
+                b_feas = cvb <= eps_cv
+
+                if a_feas and not b_feas:
+                    S[i] = a
+                    continue
+                if b_feas and not a_feas:
+                    S[i] = b
+                    continue
+
+                if not a_feas and not b_feas:
+                    # both infeasible -> smaller CV wins, tie-break by F
+                    if cva < cvb:
+                        S[i] = a
+                    elif cvb < cva:
+                        S[i] = b
+                    else:
+                        S[i] = a if Fa[0] <= Fb[0] else b
+                    continue
+
+            # Otherwise (no CV), compare by objective only
+            S[i] = a if Fa[0] <= Fb[0] else b
+            continue
+
+        # --- Case B: 3-objective layout (loss, alpha_violation, beta_violation)
+        if Fa.size >= 3 and Fb.size >= 3:
+            a_feas = (abs(Fa[1]) <= eps_cv) and (abs(Fa[2]) <= eps_cv)
+            b_feas = (abs(Fb[1]) <= eps_cv) and (abs(Fb[2]) <= eps_cv)
+
+            if a_feas and not b_feas:
+                S[i] = a
+                continue
+            if b_feas and not a_feas:
+                S[i] = b
+                continue
+
+            if a_feas and b_feas:
+                S[i] = a if Fa[0] <= Fb[0] else b
+                continue
+
+            cva = agg_cv_from_two(Fa)
+            cvb = agg_cv_from_two(Fb)
+            if cva < cvb:
+                S[i] = a
+            elif cvb < cva:
+                S[i] = b
+            else:
+                S[i] = a if Fa[0] <= Fb[0] else b
+            continue
+
+        # --- Mixed/unexpected shapes: fall back to compare by first objective
+        S[i] = a if Fa[0] <= Fb[0] else b
+
+    return S
 
 def run_optimization(
         P_initial,
@@ -54,101 +304,256 @@ def run_optimization(
 
     # 2) Create a thread pool and a parallelization runner
     pool = ThreadPool(n_threads)
-    runner = StarmapParallelization(pool.starmap)
 
-    # 3) Instantiate the problem
-    problem = PhosphorylationOptimizationProblem(
-        P_initial=P_initial,
-        P_initial_array=P_initial_array,
-        K_index=K_index,
-        K_array=K_array,
-        gene_psite_counts=gene_psite_counts,
-        beta_counts=beta_counts,
-        elementwise_runner=runner
-    )
-    if METHOD == "DE":
-        # 4) Set up the algorithm and termination criteria
-        # for single-objective optimization
-        algorithm = DE(
-            pop_size=100,
-            sampling=LHS(),
-            variant="DE/rand/1/bin",
-            CR=0.9,
-            dither="vector",
-            jitter=False
+    try:
+        runner = StarmapParallelization(pool.starmap)
+
+        # 3) Instantiate the problem
+        problem = PhosphorylationOptimizationProblem(
+            P_initial=P_initial,
+            P_initial_array=P_initial_array,
+            K_index=K_index,
+            K_array=K_array,
+            gene_psite_counts=gene_psite_counts,
+            beta_counts=beta_counts,
+            elementwise_runner=runner
         )
-        termination = DefaultSingleObjectiveTermination()
-    else:
-        # 4) Set up the algorithm and termination criteria
-        # for multi-objective optimization
-        algorithm = NSGA2(
-            pop_size=500,
-            crossover=TwoPointCrossover(),
-            eliminate_duplicates=True
-        )
-        termination = DefaultMultiObjectiveTermination()
+        if METHOD == "DE":
+            # 4) Set up the algorithm and termination criteria
+            # for single-objective optimization
+            pop_size = choose_de_pop_size(problem)
 
-    # 5) Run the optimization
-    # buf = io.StringIO()
-    # with contextlib.redirect_stdout(buf):
-    result = minimize(
-        problem,
-        algorithm,
-        termination=termination,
-        verbose=True,
-        save_history=True
-    )
+            selection = TournamentSelection(
+                pressure=2,
+                func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                    pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+                )
+            )
 
-    # # Log the captured pymoo progress
-    # pymoo_progress = buf.getvalue()
-    # if pymoo_progress.strip():  # only log if there's actual text
-    #     logger.info("--- Progress Output ---\n" + pymoo_progress)
+            algorithm = GA(
+                pop_size=pop_size,
+                sampling=FloatRandomSampling(),
+                selection=selection,
+                crossover=SBX(prob=0.9, eta=25),
+                mutation=PM(eta=40),
+                eliminate_duplicates=True
+            )
 
-    # 6) Grab execution time and close the pool
-    # Convert execution time to minutes and hours
-    exec_time_seconds = result.exec_time
-    exec_time_minutes = exec_time_seconds / 60
-    exec_time_hours = exec_time_seconds / 3600
-    logger.info(f"Execution Time: {exec_time_seconds:.2f} seconds |  "
-                f"{exec_time_minutes:.2f} minutes |  "
-                f"{exec_time_hours:.2f} hours")
-    pool.close()
+            # algorithm = DE(
+            #     pop_size=pop_size,
+            #     sampling=FloatRandomSampling(),
+            #     variant="DE/rand/1/bin",
+            #     CR=0.9,  # crossover rate (binomial crossover)
+            #     F=0.8,  # differential weight
+            #     dither="vector",  # recommended for robustness
+            #     jitter=False
+            # )
+
+            termination = get_termination("n_gen", 10000)
+
+        else:
+            # Multi-objective optimization (UNSGA3)
+            pop_size = choose_nsga_pop_size(problem)
+
+            selection = TournamentSelection(
+                pressure=2,
+                func_comp=lambda pop, P, **kw: binary_tournament_loss_cv(
+                    pop, P, eps_cv=1e-10, cv_mode="linf", **kw
+                )
+            )
+
+            algorithm = UNSGA3(
+                ref_dirs=get_reference_directions("das-dennis", problem.n_obj, n_partitions=12),
+                pop_size=pop_size,
+                sampling=LHS(),
+                selection=selection,
+                crossover=SBX(prob=0.9, eta=15),
+                mutation=PM(eta=20),
+                eliminate_duplicates=True,
+            )
+
+            termination = get_termination("n_gen", 2000)
+
+        # 5) Run the optimization
+        result = _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True)
+
+        # 6) Grab execution time and close the pool
+        # Convert execution time to minutes and hours
+        exec_time_seconds = result.exec_time
+        exec_time_minutes = exec_time_seconds / 60
+        exec_time_hours = exec_time_seconds / 3600
+        logger.info(f"Execution Time: {exec_time_seconds:.2f} seconds |  "
+                    f"{exec_time_minutes:.2f} minutes |  "
+                    f"{exec_time_hours:.2f} hours")
+    finally:
+        pool.close()
+        pool.join()
 
     return problem, result
 
+def pick_best_loss_with_constraints_as_objectives(
+    result,
+    eps_cv=1e-10,
+    cv_mode="l1",              # "l1" | "linf" | "l2"
+    tie_tol=1e-12,
+    tie_break="loss_then_l2",  # "loss_then_l2" | "loss_only"
+):
+    """
+    Select the best solution from a population with constraints formulated as objectives.
+
+    This function assumes a specific objective structure where:
+      F[:,0] = loss (minimize)
+      F[:,1] = constraint violation 1 (minimize, ideally 0)
+      F[:,2] = constraint violation 2 (minimize, ideally 0)
+
+    Selection rule:
+      A) If any feasible solutions exist (cv1<=eps and cv2<=eps): choose minimum loss among feasible.
+      B) Else: choose minimum aggregated CV; tie-break by loss; optional tie-break by ||X||2.
+
+    Args:
+        result: Pymoo result object containing the final population with 'F' and 'X' attributes.
+        eps_cv (float, optional): Feasibility tolerance for constraint violations. 
+            Defaults to 1e-10.
+        cv_mode (str, optional): Mode for aggregating constraint violations.
+            Options: 'l1' (sum), 'linf' (max), 'l2' (Euclidean norm). Defaults to "l1".
+        tie_tol (float, optional): Tolerance for considering values as tied. Defaults to 1e-12.
+        tie_break (str, optional): Tie-breaking strategy. Options: 'loss_then_l2' or 'loss_only'.
+            Defaults to "loss_then_l2".
+
+    Returns:
+        tuple: A tuple containing:
+            - best_solution: The selected individual from the population.
+            - best_index_in_pop (int): The index of the best solution in the population.
+            - info (dict): Dictionary with selection metadata including selection case,
+              number of feasible solutions, and best objective values.
+
+    Raises:
+        ValueError: If the objective array has fewer than 3 columns or if cv_mode
+            is not one of 'l1', 'linf', 'l2'.
+    """
+    pop = result.pop
+    F = np.asarray([ind.F for ind in pop], dtype=float)
+    X = np.asarray([ind.X for ind in pop], dtype=float)
+
+    if F.shape[1] < 3:
+        raise ValueError(f"Expected at least 3 objectives (loss, cv1, cv2). Got {F.shape[1]}")
+
+    loss = F[:, 0]
+    cv1 = np.abs(F[:, 1])
+    cv2 = np.abs(F[:, 2])
+
+    feas = (cv1 <= eps_cv) & (cv2 <= eps_cv)
+
+    info = {
+        "n_total": len(pop),
+        "n_feasible": int(np.sum(feas)),
+        "eps_cv": float(eps_cv),
+    }
+
+    # --- A) Feasible exists: minimize loss
+    if np.any(feas):
+        idx = np.where(feas)[0]
+        best_local = idx[np.argmin(loss[idx])]
+        best_solution = pop[int(best_local)]
+
+        info.update({
+            "selection_case": "feasible_min_loss",
+            "best_index": int(best_local),
+            "best_F": np.asarray(best_solution.F, dtype=float),
+        })
+        return best_solution, int(best_local), info
+
+    # --- B) No feasible: minimize aggregated violation, tie-break by loss
+    if cv_mode == "l1":
+        agg = cv1 + cv2
+    elif cv_mode == "linf":
+        agg = np.maximum(cv1, cv2)
+    elif cv_mode == "l2":
+        agg = np.sqrt(cv1**2 + cv2**2)
+    else:
+        raise ValueError("cv_mode must be one of: 'l1', 'linf', 'l2'")
+
+    best_agg = float(np.min(agg))
+    cand = np.where(np.abs(agg - best_agg) <= tie_tol)[0]
+
+    if len(cand) > 1:
+        # tie-break by loss
+        cand = cand[np.argsort(loss[cand])]
+        if tie_break == "loss_then_l2" and len(cand) > 1:
+            # if still tied, prefer smaller parameter norm
+            l2 = np.linalg.norm(X[cand], axis=1)
+            cand = cand[np.argsort(l2)]
+
+    best_idx = int(cand[0])
+    best_solution = pop[best_idx]
+
+    info.update({
+        "selection_case": "infeasible_min_violation_then_loss",
+        "cv_mode": cv_mode,
+        "best_index": best_idx,
+        "best_F": np.asarray(best_solution.F, dtype=float),
+        "best_agg_cv": best_agg,
+    })
+    return best_solution, best_idx, info
 
 def post_optimization_nsga(
         result,
         weights=np.array([1.0, 1.0, 1.0]),
         ref_point=np.array([3, 1, 1])):
     """
-    Post-processes the result of a multi-objective optimization run.
+    Post-process the result of a multi-objective NSGA-based optimization run.
+
+    This function analyzes the optimization history, computes convergence metrics
+    (hypervolume, IGD+), identifies the best solution using constraint handling,
+    and generates CSV reports for convergence and parameter scans.
 
     Args:
-        result: The final result object from the optimizer (e.g., a pymoo result).
-        weights (np.ndarray): Array of length 3 for weighting the objectives.
-        ref_point (np.ndarray): Reference point for hypervolume computations.
+        result: The final result object from the pymoo optimizer containing the
+            final population, history, and objective values.
+        weights (np.ndarray, optional): Array of length 3 for weighting the objectives
+            in decomposition-based selection. Defaults to [1.0, 1.0, 1.0].
+        ref_point (np.ndarray, optional): Reference point for hypervolume computation.
+            Defaults to [3, 1, 1].
 
     Returns:
-        dict: A dictionary with keys:
-            'best_solution': The best individual from the weighted scoring.
-            'best_objectives': Its corresponding objective vector.
-            'optimized_params': The individual's decision variables (X).
-            'scores': Weighted scores for each solution in the Pareto front.
-            'best_index': The index of the best solution according to weighted score.
-            'hist_hv': The hypervolume per generation.
-            'hist_igd': The IGD+ per generation.
-            'convergence_df': The DataFrame with iteration vs. best objective value
-                for each iteration in the result history.
+        tuple: A tuple containing 23 elements:
+            - F: Final objective values array
+            - pairs: Objective pairs for plotting [(0,1), (0,2), (1,2)]
+            - n_evals: Number of evaluations per generation
+            - hist_cv: Minimum constraint violation per generation
+            - hist_cv_avg: Average constraint violation per generation
+            - k: Generation index when first feasible solution appeared
+            - metric_igd: IGDPlus metric object
+            - metric_hv: Hypervolume metric object
+            - best_solution: The selected best individual
+            - best_objectives: Objective vector of best solution
+            - optimized_params: Decision variables (X) of best solution
+            - approx_nadir: Approximate nadir point
+            - approx_ideal: Approximate ideal point
+            - scores: Best solution's objective scores
+            - best_index: Index of best solution in population
+            - hist: Full optimization history
+            - hist_hv: Hypervolume values per generation
+            - hist_igd: IGD+ values per generation
+            - convergence_df: DataFrame with iteration vs best objective
+            - waterfall_df: DataFrame with all solutions and parameters
+            - asf_i: Index of best solution by ASF decomposition
+            - pseudo_weights_result: Result of pseudo-weights MCDM method
+            - pairs (duplicate): Objective pairs
+            - val: Best objective value per generation
     """
-    # 1) Extract the Pareto front from the final population
-    pareto_front = np.array([ind.F for ind in result.pop])
+    best_solution, best_index, sel_info = pick_best_loss_with_constraints_as_objectives(
+        result,
+        eps_cv=1e-10,
+        cv_mode="linf",  # recommended: minimizes the worst constraint
+        tie_break="loss_then_l2"
+    )
 
-    # Weighted scoring for picking a single 'best' solution from Pareto
-    scores = pareto_front[:, 0] + weights[1] * np.abs(pareto_front[:, 1]) + weights[2] * np.abs(pareto_front[:, 2])
-    best_index = np.argmin(scores)
-    best_solution = result.pop[best_index]
-    best_objectives = pareto_front[best_index]
+    logger.info(f"Best solution selected by: {sel_info['selection_case']} with index: {best_index}")
+    logger.info(f"Best solution F: {sel_info['best_F']}")
+
+    scores = sel_info["best_F"]
+    best_objectives = np.asarray(best_solution.F, dtype=float)
     optimized_params = best_solution.X
 
     # Additional references from the result
@@ -205,12 +610,12 @@ def post_optimization_nsga(
     pops = []
     # You could populate 'pops' with relevant info from each generation if desired
     for i, individual in enumerate(result.pop):  # Displaying first 5 individuals for brevity
-        row = {"Individual": i + 1, "Objective Value (F)": individual.F[0]}  # Add individual info
-        row.update({f"α_{j}": x for j, x in enumerate(individual.X)})  # Add decision variables
+        row = {"Individual": i + 1, "Objective Value (F)": float(individual.F[0])}  # Add individual info
+        row.update({f"α_{j}": float(x) for j, x in enumerate(individual.X)})  # Add decision variables
         pops.append(row)
 
     waterfall_df = pd.DataFrame(pops)
-    waterfall_df.to_csv(f'{OUT_DIR}/parameter_scan.csv', index=False)
+    waterfall_df.to_csv(f"{OUT_DIR}/parameter_scan.csv", index=False)
 
     # 5) Convergence data (best objective value each generation)
     val = [e.opt.get("F")[0] for e in hist]  # each iteration's best F
@@ -262,22 +667,28 @@ def post_optimization_de(
         alpha_values,
         beta_values):
     """
-    Post-processes the result of a multi-objective optimization run.
+    Post-process the result of a single-objective DE or GA optimization run.
+
+    This function extracts the final population, creates parameter labels from
+    alpha and beta values, generates a parameter scan DataFrame sorted by objective
+    value, and produces a convergence DataFrame showing the best objective per iteration.
 
     Args:
-        result: The final result object from the optimizer (e.g., a pymoo result).
+        result: The final result object from the pymoo optimizer (e.g., GA or DE result)
+            containing the population, history, and objective values.
+        alpha_values (dict): Dictionary mapping (gene, psite) tuples to dictionaries
+            of {kinase: value} for alpha parameters.
+        beta_values (dict): Dictionary mapping (kinase, psite) tuples to beta parameter values.
 
     Returns:
-        dict: A dictionary with keys:
-            'best_solution': The best individual from the weighted scoring.
-            'best_objectives': Its corresponding objective vector.
-            'optimized_params': The individual's decision variables (X).
-            'scores': Weighted scores for each solution in the Pareto front.
-            'best_index': The index of the best solution according to weighted score.
-            'hist_hv': The hyper volume per generation.
-            'hist_igd': The IGD+ per generation.
-            'convergence_df': The DataFrame with iteration vs. best objective value
-                for each iteration in the result history.
+        tuple: A tuple containing 6 elements:
+            - ordered_optimizer_runs: DataFrame of all solutions sorted by objective value
+            - convergence_df: DataFrame with iteration vs best objective value
+            - long_df: Long-form DataFrame for parameter visualization with columns
+              ['Individual', 'Objective Value (F)', 'Parameter', 'Parameter Value', 'Type']
+            - x_values: List of iteration indices selected for plotting
+            - y_values: List of objective values corresponding to x_values
+            - val: Best objective value per generation from history
     """
     # # Display key results
     # print("Optimization Results:\n")

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -81,3 +83,70 @@ def save_results_to_excel(
         df_observed.to_excel(writer, sheet_name="Observed", index=False)
         df_estimated.to_excel(writer, sheet_name="Estimated", index=False)
         df_metrics.to_excel(writer, sheet_name="Optimization Results", index=False)
+
+
+def export_multistart_results(results):
+    """
+    Export multiple multistart optimization results to an Excel file.
+
+    Args:
+        results (list): List of optimization results, each containing attributes like 'start_id', 'fun', 'success', etc.
+
+    Returns:
+        None
+    """
+    rows = []
+    for r in results:
+        rows.append({
+            "start_id": getattr(r, "start_id", None),
+            "fun": float(getattr(r, "fun", np.nan)),
+            "success": bool(getattr(r, "success", False)),
+            "constraint_violation": float(
+                getattr(r, "constr_violation", np.nan)
+            ) if hasattr(r, "constr_violation") else np.nan,
+            "nit": getattr(r, "nit", None),
+            "seed": getattr(r, "seed", None),
+        })
+    return pd.DataFrame(rows)
+
+def save_multistart_solutions_npz(all_results, out_path):
+    """
+    Saves multistart optimization solutions to a compressed .npz file format.
+
+    This function aggregates optimization results into a structured format and
+    saves them in a compressed NumPy .npz file. It processes the solutions,
+    extracting relevant attributes such as optimization variables, function values,
+    success status, and starting IDs, before saving them for later use.
+
+    Args:
+        all_results: list
+            A list of optimization result objects. Each result object must have
+            the attributes `x` (optimization solution vector) and `fun`
+            (objective function value). Optionally, it can have `success`
+            (indicating whether the optimization succeeded, defaults to False if
+            not present) and `start_id` (identifier of the starting point,
+            defaults to -1 if not present).
+        out_path: str or Path
+            The file path where the compressed .npz file will be saved. The path
+            will be converted into a pathlib Path object if it is not already one.
+    """
+    out_path = Path(out_path)
+
+    X = np.vstack([np.asarray(r.x, dtype=float) for r in all_results])
+    fun = np.asarray([float(r.fun) for r in all_results], dtype=float)
+    success = np.asarray(
+        [bool(getattr(r, "success", False)) for r in all_results],
+        dtype=bool,
+    )
+    start_id = np.asarray(
+        [int(getattr(r, "start_id", -1)) for r in all_results],
+        dtype=int,
+    )
+
+    np.savez_compressed(
+        out_path,
+        X=X,
+        fun=fun,
+        success=success,
+        start_id=start_id,
+    )

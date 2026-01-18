@@ -5,8 +5,8 @@ import pandas as pd
 from scipy.optimize import curve_fit
 from itertools import combinations
 from typing import cast, Tuple
-from concurrent.futures import ProcessPoolExecutor, as_completed
-
+from concurrent.futures import ProcessPoolExecutor, as_completed, TimeoutError
+import multiprocessing as mp
 from config.config import score_fit
 from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
     USE_CUSTOM_WEIGHTS
@@ -76,7 +76,7 @@ def worker_find_lambda(
 
     for weight_key, sigma in weight_options.items():
 
-        result = cast(Tuple[np.ndarray, np.ndarray], curve_fit(
+        result = cast(Tuple[np.ndarray, np.ndarray], cast(object, curve_fit(
             model_func,
             time_points,
             tf,
@@ -86,7 +86,7 @@ def worker_find_lambda(
             x_scale='jac',
             absolute_sigma=not USE_CUSTOM_WEIGHTS,
             maxfev=20000
-        ))
+        )))
 
         popt_try, _ = result
 
@@ -126,7 +126,8 @@ def find_best_lambda(
         p_data: np.ndarray,
         pr_data: np.ndarray,
         lambdas=np.logspace(-2, 0, 10),
-        max_workers: int = os.cpu_count(),
+        max_workers: int = 4,
+        per_lambda_timeout: float = 1800.0 # 30 minutes for each lambda worker
 ) -> Tuple[float, str]:
     """
     Finds best lambda_reg to use in model_func.
@@ -134,17 +135,28 @@ def find_best_lambda(
 
     best_lambda = None
     best_score = np.inf
+    best_score_weight = None
 
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    ctx = mp.get_context("spawn") # avoids fork deadlocks with MKL/OpenMP
+
+    with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
         futures = {
-            executor.submit(
-                worker_find_lambda,
-                lam, gene, target, p0, time_points, free_bounds,
-                init_cond, num_psites, p_data, pr_data
-            ): lam for lam in lambdas
+            executor.submit(worker_find_lambda, lam, gene, target, p0, time_points, free_bounds,
+                            init_cond, num_psites, p_data, pr_data): lam
+            for lam in lambdas
         }
-        for future in as_completed(futures):
-            lam, score, weight = future.result()
+
+        for future in as_completed(futures, timeout=per_lambda_timeout):
+            lam = futures[future]
+            try:
+                lam, score, weight = future.result(timeout=per_lambda_timeout)
+            except TimeoutError:
+                logger.warning(f"[{gene}] lambda worker timed out (lam={lam}). Skipping.")
+                continue
+            except Exception as e:
+                logger.warning(f"[{gene}] lambda worker failed (lam={lam}): {e}")
+                continue
+
             if score < best_score:
                 best_score = score
                 best_lambda = lam
@@ -152,6 +164,166 @@ def find_best_lambda(
 
     return best_lambda, best_score_weight
 
+def _curve_fit_multistart(
+        gene: str,
+        model_func,
+        time_points: np.ndarray,
+        target_fit: np.ndarray,
+        base_p0: np.ndarray,
+        free_bounds: Tuple[np.ndarray, np.ndarray],
+        sigma: np.ndarray | None,
+        init_cond: np.ndarray,
+        num_psites: int,
+        target: np.ndarray,
+        n_starts: int = 24,
+        jitter_frac: float = 0.10,
+        maxfev: int = 20000,
+        seed: int = 42,
+) -> Tuple[np.ndarray, np.ndarray | None, float]:
+    """
+    Perform multi-start curve fitting to find the best parameter estimates.
+
+    This function attempts curve fitting from multiple initial parameter guesses to avoid
+    local minima. It generates candidate starting points using jittering around the base guess
+    and stratified uniform sampling, then evaluates each fit, and returns the best result.
+
+    Args:
+        gene: Gene name for logging purposes.
+        model_func: Model function to fit (callable with signature model_func(tpts, *params)).
+        time_points: Time points for the model fitting.
+        target_fit: Target data to fit (may include regularization terms).
+        base_p0: Base initial parameter guess.
+        free_bounds: Tuple of (lower_bounds, upper_bounds) for parameters.
+        sigma: Weights/uncertainties for fitting (None for uniform weights).
+        init_cond: Initial conditions for the ODE solver.
+        num_psites: Number of phosphorylation sites.
+        target: Target data without regularization terms (for scoring).
+        n_starts: Number of multi-start attempts (default: 24).
+        jitter_frac: Fraction of parameter range to use for jittering (default: 0.10).
+        maxfev: Maximum number of function evaluations per fit (default: 20000).
+        seed: Random seed for reproducibility (default: 42).
+
+    Returns:
+        Tuple containing:
+            - popt_best: Best-fit parameters found across all starts.
+            - pcov_best: Covariance matrix for the best fit (or None if unavailable).
+            - best_score: Score of the best fit.
+
+    Raises:
+        ValueError: If bounds are not finite.
+        RuntimeError: If all multi-start attempts fail.
+    """
+
+    lb, ub = free_bounds
+    lb = np.asarray(lb, dtype=float)
+    ub = np.asarray(ub, dtype=float)
+
+    # Defensive: bounds must be finite for sampling.
+    if not (np.all(np.isfinite(lb)) and np.all(np.isfinite(ub))):
+        raise ValueError("free_bounds must be finite for multistart sampling.")
+
+    # Reproducible per gene (stable across runs)
+    # Use a small gene hash to diversify seeds without non-determinism.
+    gene_hash = (sum(ord(c) for c in str(gene)) % 1000003)
+    rng = np.random.default_rng(int(seed + gene_hash))
+
+    # Build candidate p0 list
+    p0_list: list[np.ndarray] = []
+
+    base = np.asarray(base_p0, dtype=float).copy()
+    base = np.clip(base, lb, ub)
+    p0_list.append(base)
+
+    # Jitter around base p0 (in-place but clipped)
+    # jitter scale relative to (ub-lb); this works in both linear and log-parameter space.
+    span = (ub - lb)
+    span[span <= 0] = 1.0  # avoid zero-span issues
+    for _ in range(max(0, n_starts // 3)):
+        noise = rng.normal(0.0, 1.0, size=base.shape[0])
+        cand = base + (jitter_frac * span) * noise
+        cand = np.clip(cand, lb, ub)
+        p0_list.append(cand)
+
+    # “LHS-like” stratified uniform sampling (cheap, no extra dependency)
+    # For each dim, sample within n bins and permute -> reduces clustering vs pure uniform.
+    remaining = max(0, n_starts - len(p0_list))
+    if remaining > 0:
+        d = base.shape[0]
+        bins = remaining
+        U = np.empty((bins, d), dtype=float)
+
+        for j in range(d):
+            # stratified samples in [0,1)
+            u = (np.arange(bins) + rng.random(bins)) / float(bins)
+            rng.shuffle(u)
+            U[:, j] = u
+
+        # scale into [lb, ub]
+        cands = lb + U * (ub - lb)
+        for k in range(cands.shape[0]):
+            p0_list.append(cands[k])
+
+    # Evaluate each start and choose best by your score_fit on ODE prediction
+    best_score = float("inf")
+    popt_best = base
+    pcov_best = None
+
+    n_ok = 0
+    n_fail = 0
+
+    for s_idx, p0_try in enumerate(p0_list):
+        try:
+            result = cast(
+                Tuple[np.ndarray, np.ndarray],
+                cast(object, curve_fit(
+                    model_func,
+                    time_points,
+                    target_fit,
+                    p0=p0_try,
+                    bounds=free_bounds,
+                    sigma=sigma,
+                    x_scale="jac",
+                    absolute_sigma=not USE_CUSTOM_WEIGHTS,
+                    maxfev=maxfev
+                ))
+            )
+            popt_try, pcov_try = result
+
+            # Score based on true ODE prediction
+            _, pred = solve_ode(
+                np.exp(popt_try) if ODE_MODEL == "randmod" else popt_try,
+                init_cond,
+                num_psites,
+                time_points
+            )
+
+            score = score_fit(
+                np.exp(popt_try) if ODE_MODEL == "randmod" else popt_try,
+                target,
+                pred
+            )
+
+            n_ok += 1
+            if score < best_score:
+                best_score = float(score)
+                popt_best = popt_try
+                pcov_best = pcov_try
+
+        except Exception as e:
+            n_fail += 1
+            # DEBUG-level behaviour; do not spam logs
+            # but still provide a hint if all starts fail.
+            continue
+
+    if n_ok == 0:
+        raise RuntimeError(f"[{gene}] multistart curve_fit: all starts failed (n={len(p0_list)}).")
+
+    logger.info(
+        f"[{gene}]\t\tMultistart curve_fit: "
+        f"starts={len(p0_list)} ok={n_ok} fail={n_fail} best_score={best_score:6.2f}"
+    )
+
+    return popt_best, pcov_best, best_score
 
 def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds,
             bootstraps, use_regularization=USE_REGULARIZATION):
@@ -223,7 +395,7 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info(f"[{gene}]      Finding best regularization term λ...")
 
     lambda_reg, lambda_weight = find_best_lambda(gene, target, p0, time_points, free_bounds, init_cond, num_psites,
-                                                 p_data, pr_data)
+                                                 p_data, pr_data, max_workers=10)
 
     logger.info("           --------------------------------")
     logger.info(f"[{gene}]      Using λ = {lambda_reg / len(p0) * np.sum(np.square(p0)): .4f}")
@@ -262,18 +434,30 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
 
     scores, popts, pcovs = {}, {}, {}
     try:
-        result = cast(Tuple[np.ndarray, np.ndarray],
-                      curve_fit(model_func, time_points, target_fit, p0=p0,
-                                bounds=free_bounds, sigma=sigma, x_scale='jac',
-                                absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
-        popt, pcov = result
+        popt, pcov, best_ms_score = _curve_fit_multistart(
+            gene=gene,
+            model_func=model_func,
+            time_points=time_points,
+            target_fit=target_fit,
+            base_p0=p0,
+            free_bounds=free_bounds,
+            sigma=sigma,
+            init_cond=init_cond,
+            num_psites=num_psites,
+            target=target,
+            n_starts=48,  # increase if needed (e.g., 48 for hard genes)
+            jitter_frac=0.10,  # 10% of bound span
+            maxfev=20000,
+            seed=42
+        )
     except Exception as e:
-        logger.warning(f"[{gene}] Final fit failed for {wname}: {e}")
+        logger.warning(f"[{gene}] Final multistart fit failed for {wname}: {e}")
         popt = p0
         pcov = None
 
     popts[wname] = popt
     pcovs[wname] = pcov
+
     _, pred = solve_ode(np.exp(popt) if ODE_MODEL == 'randmod' else popt,
                         init_cond, num_psites, time_points)
 
@@ -313,9 +497,9 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
             try:
                 # Attempt to fit the model using the noisy target.
                 result = cast(Tuple[np.ndarray, np.ndarray],
-                              curve_fit(model_func, time_points, noisy_target,
-                                        p0=popt_best, bounds=free_bounds, sigma=sigma,
-                                        absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000))
+                              cast(object, curve_fit(model_func, time_points, noisy_target,
+                                                     p0=popt_best, bounds=free_bounds, sigma=sigma,
+                                                     absolute_sigma=not USE_CUSTOM_WEIGHTS, maxfev=20000)))
                 popt_bs, pcov_bs = result
             except Exception as e:
                 logger.warning(f"Bootstrapping iteration failed: {e}")

@@ -79,7 +79,7 @@ def early_emphasis(pr_data, p_data, time_points, num_psites):
 def get_protein_weights(
         gene,
         input1_path=Path(__file__).resolve().parent.parent / 'processing' / 'input1_wstd.csv',
-        input2_path=Path(__file__).resolve().parent.parent / 'kinopt' / 'data' / 'input2.csv'
+        input2_path=Path(__file__).resolve().parent.parent / 'data' / 'input2.csv'
 ):
     """
     Function to extract weights for a specific gene from the input files.
