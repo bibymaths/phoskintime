@@ -191,7 +191,6 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         # # tf_scale acts as the sensitivity exponent
         # synth = Ai * np.power(base, tf_scale)
 
-
         # mRNA
         dy[idx_R] = synth - Bi * R
 
@@ -225,11 +224,11 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         # --- middle states: P2..P(ns-1) ---
         # indices base+1 .. base+(ns-2)
         for j in range(1, ns - 1):
-            idx = base + j          # P(j+1)
+            idx = base + j  # P(j+1)
             Pj = y[idx]
 
-            k_prev = S_all[s_start + j]       # forward from previous -> current
-            k_next = S_all[s_start + j + 1]   # forward from current -> next
+            k_prev = S_all[s_start + j]  # forward from previous -> current
+            k_next = S_all[s_start + j + 1]  # forward from current -> next
 
             P_prev = y[idx - 1]
             P_next = y[idx + 1]
@@ -251,6 +250,7 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         # Explanation - Phosphorylated protein is still the same protein, but has a different state
         dy[idx_last] = k_last * Pprev - (Ei + Dp_last + Di) * Plast
 
+
 @njit(cache=True, nogil=True)
 def _bit_index_from_lsb(lsb):
     j = 0
@@ -259,14 +259,15 @@ def _bit_index_from_lsb(lsb):
         j += 1
     return j
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def combinatorial_rhs(
-    y, dy,
-    A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-    TF_inputs, S_cache, jb,
-    offset_y, offset_s,
-    n_sites, n_states,
-    trans_from, trans_to, trans_site, trans_off, trans_n
+        y, dy,
+        A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+        TF_inputs, S_cache, jb,
+        offset_y, offset_s,
+        n_sites, n_states,
+        trans_from, trans_to, trans_site, trans_off, trans_n
 ):
     N = A_i.shape[0]
     jb_loc = jb  # local binding helps Numba
@@ -398,14 +399,15 @@ def combinatorial_rhs(
         ntr = trans_n[i]
         for k in range(ntr):
             frm = trans_from[off + k]
-            to  = trans_to[off + k]
-            j   = trans_site[off + k]
+            to = trans_to[off + k]
+            j = trans_site[off + k]
 
             rate = S_cache[s_start + j, jb_loc]
             flux = rate * y[base + frm]
 
             dy[base + frm] -= flux
-            dy[base + to]  += flux
+            dy[base + to] += flux
+
 
 def build_random_transitions(idx):
     """

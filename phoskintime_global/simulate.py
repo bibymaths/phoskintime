@@ -25,6 +25,7 @@ elif MODEL == 2:
 else:
     raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
 
+
 def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).
@@ -48,13 +49,14 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
         y0,
         t_eval,
         args=args,
-        Dfun=None,   # keep if you want; for MODEL==2 you can set None if it causes issues
+        Dfun=None,  # keep if you want; for MODEL==2 you can set None if it causes issues
         col_deriv=False,
         rtol=rtol,
         atol=atol,
         mxstep=mxstep,
     )
     return np.ascontiguousarray(xs, dtype=np.float64)
+
 
 def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
     times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
@@ -81,8 +83,8 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
             n_sites = int(idx.n_sites[i])
             p0 = st + 1
 
-            states = Y[:, p0:p0 + ns]                    # (T, ns)
-            tot = states.sum(axis=1)                     # (T,)
+            states = Y[:, p0:p0 + ns]  # (T, ns)
+            tot = states.sum(axis=1)  # (T,)
             fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
@@ -90,7 +92,7 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
                 m = np.arange(ns, dtype=np.uint32)[:, None]
                 j = np.arange(n_sites, dtype=np.uint32)[None, :]
                 bits = ((m >> j) & 1).astype(np.float64)  # (ns, n_sites)
-                pho_sites = states @ bits                 # (T, n_sites)
+                pho_sites = states @ bits  # (T, n_sites)
 
                 for s_idx, psite in enumerate(idx.sites[i]):
                     sig = pho_sites[:, s_idx]
@@ -104,7 +106,7 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
 
             P0 = Y[:, st + 1]
             if ns > 0:
-                P_sites = Y[:, st + 2: st + 2 + ns]       # (T, ns)
+                P_sites = Y[:, st + 2: st + 2 + ns]  # (T, ns)
                 pho_total = P_sites.sum(axis=1)
             else:
                 P_sites = None
@@ -124,7 +126,8 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
 
     df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame(columns=["protein", "time", "pred_fc"])
     df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame(columns=["protein", "time", "pred_fc"])
-    df_pho = pd.concat(rows_pho, ignore_index=True) if rows_pho else pd.DataFrame(columns=["protein", "psite", "time", "pred_fc"])
+    df_pho = pd.concat(rows_pho, ignore_index=True) if rows_pho else pd.DataFrame(
+        columns=["protein", "psite", "time", "pred_fc"])
 
     tp = np.asarray(t_points_p, dtype=np.float64)
     tr = np.asarray(t_points_r, dtype=np.float64)

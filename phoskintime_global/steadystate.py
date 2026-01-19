@@ -34,18 +34,18 @@ def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
 
 
 def build_y0_from_data(
-    idx,
-    df_prot,
-    df_rna,
-    df_pho,
-    *,
-    t_init=None,          # integration start time (usually 0.0)
-    t0_prot=0.0,          # where protein baseline is defined in your loss
-    t0_rna=4.0,           # where RNA baseline is defined in your loss
-    t0_pho=0.0,           # where phospho baseline is defined in your loss
-    pho_frac=0.01,        # initial phospho mass as fraction of P0
-    eps=1e-9,
-    time_tol=1e-8
+        idx,
+        df_prot,
+        df_rna,
+        df_pho,
+        *,
+        t_init=None,  # integration start time (usually 0.0)
+        t0_prot=0.0,  # where protein baseline is defined in your loss
+        t0_rna=4.0,  # where RNA baseline is defined in your loss
+        t0_pho=0.0,  # where phospho baseline is defined in your loss
+        pho_frac=0.01,  # initial phospho mass as fraction of P0
+        eps=1e-9,
+        time_tol=1e-8
 ):
     """
     Build y0 aligned with your state layout:
@@ -59,7 +59,7 @@ def build_y0_from_data(
 
     # values at init time (what y0 represents)
     prot_init = _dict_at_time(df_prot, ["protein"], t_init, tol=time_tol)
-    rna_init  = _dict_at_time(df_rna,  ["protein"], t_init, tol=time_tol)
+    rna_init = _dict_at_time(df_rna, ["protein"], t_init, tol=time_tol)
 
     # if RNA not measured at t_init (common), fall back to RNA baseline time (often 4.0)
     if not rna_init:
@@ -110,6 +110,7 @@ def build_y0_from_data(
 
     return y0
 
+
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -117,17 +118,21 @@ def _tf_squash(u: float) -> float:
     # maps R -> (-1, 1)
     return u / (1.0 + abs(u))
 
+
 def _infer_total_s(offset_s: np.ndarray, n_sites: np.ndarray) -> int:
     i = int(len(n_sites) - 1)
     return int(offset_s[i] + n_sites[i])
+
 
 def _infer_total_y_distrib_seq(offset_y: np.ndarray, n_sites: np.ndarray) -> int:
     i = int(len(n_sites) - 1)
     return int(offset_y[i] + 2 + n_sites[i])
 
+
 def _infer_total_y_comb(offset_y: np.ndarray, n_states: np.ndarray) -> int:
     i = int(len(n_states) - 1)
     return int(offset_y[i] + 1 + n_states[i])  # R + (mask states)
+
 
 def _bit_index_from_lsb_py(lsb: int) -> int:
     j = 0
@@ -135,6 +140,7 @@ def _bit_index_from_lsb_py(lsb: int) -> int:
         lsb >>= 1
         j += 1
     return j
+
 
 def _thomas_tridiag(a, b, c, d):
     """
@@ -181,7 +187,7 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
     offset_s = np.asarray(idx.offset_s, dtype=np.int32)
-    n_sites  = np.asarray(idx.n_sites,  dtype=np.int32)
+    n_sites = np.asarray(idx.n_sites, dtype=np.int32)
 
     if TF_inputs is None:
         TF_inputs = np.zeros(N, dtype=np.float64)
@@ -192,13 +198,13 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
     total_y = _infer_total_y_distrib_seq(offset_y, n_sites)
 
     # ALL params = 1
-    A_i  = np.ones(N, dtype=np.float64)
-    B_i  = np.ones(N, dtype=np.float64)
-    C_i  = np.ones(N, dtype=np.float64)
-    D_i  = np.ones(N, dtype=np.float64)
-    E_i  = np.ones(N, dtype=np.float64)
+    A_i = np.ones(N, dtype=np.float64)
+    B_i = np.ones(N, dtype=np.float64)
+    C_i = np.ones(N, dtype=np.float64)
+    D_i = np.ones(N, dtype=np.float64)
+    E_i = np.ones(N, dtype=np.float64)
     S_all = np.ones(total_s, dtype=np.float64)
-    Dp_i  = np.ones(total_s, dtype=np.float64)
+    Dp_i = np.ones(total_s, dtype=np.float64)
 
     y = np.zeros(total_y, dtype=np.float64)
 
@@ -208,15 +214,15 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
         ns = int(n_sites[i])
 
         u = _tf_squash(float(TF_inputs[i]))
-        synth = A_i[i] * (1.0 + tf_scale * u)    # params=1 => in (0,2) for tf_scale=1
+        synth = A_i[i] * (1.0 + tf_scale * u)  # params=1 => in (0,2) for tf_scale=1
         if synth < 0.0:
             synth = 0.0
 
-        R = synth / B_i[i]                       # params=1 => R=synth
+        R = synth / B_i[i]  # params=1 => R=synth
         y[y0 + 0] = R
 
         if ns == 0:
-            P = (C_i[i] * R) / D_i[i]            # params=1 => P=R
+            P = (C_i[i] * R) / D_i[i]  # params=1 => P=R
             y[y0 + 1] = P
             continue
 
@@ -274,7 +280,7 @@ def steady_state_sequential(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=F
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
     offset_s = np.asarray(idx.offset_s, dtype=np.int32)
-    n_sites  = np.asarray(idx.n_sites,  dtype=np.int32)
+    n_sites = np.asarray(idx.n_sites, dtype=np.int32)
 
     if TF_inputs is None:
         TF_inputs = np.zeros(N, dtype=np.float64)
@@ -285,13 +291,13 @@ def steady_state_sequential(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=F
     total_y = _infer_total_y_distrib_seq(offset_y, n_sites)
 
     # ALL params = 1
-    A_i  = np.ones(N, dtype=np.float64)
-    B_i  = np.ones(N, dtype=np.float64)
-    C_i  = np.ones(N, dtype=np.float64)
-    D_i  = np.ones(N, dtype=np.float64)
-    E_i  = np.ones(N, dtype=np.float64)
+    A_i = np.ones(N, dtype=np.float64)
+    B_i = np.ones(N, dtype=np.float64)
+    C_i = np.ones(N, dtype=np.float64)
+    D_i = np.ones(N, dtype=np.float64)
+    E_i = np.ones(N, dtype=np.float64)
     S_all = np.ones(total_s, dtype=np.float64)  # k_j
-    Dp_i  = np.ones(total_s, dtype=np.float64)  # dp_j
+    Dp_i = np.ones(total_s, dtype=np.float64)  # dp_j
 
     y = np.zeros(total_y, dtype=np.float64)
 
@@ -333,22 +339,22 @@ def steady_state_sequential(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=F
         # (k_j + E + dp_{j-1}) Pj - k_{j-1} P_{j-1} - E P_{j+1} = 0
         for j in range(1, ns):
             k_prev = float(S_all[s0 + (j - 1)])
-            k_j    = float(S_all[s0 + j])
+            k_j = float(S_all[s0 + j])
             dp_jm1 = float(Dp_i[s0 + (j - 1)])
 
             a[j] = -k_prev
-            b[j] =  (k_j + E + dp_jm1)
+            b[j] = (k_j + E + dp_jm1)
             c[j] = -E
             d[j] = 0.0
 
         # Last eq j=ns:
         # (E + dp_{ns-1}) Pns - k_{ns-1} P_{ns-1} = 0
-        k_last  = float(S_all[s0 + (ns - 1)])
+        k_last = float(S_all[s0 + (ns - 1)])
         dp_last = float(Dp_i[s0 + (ns - 1)])
         a[ns] = -k_last
-        b[ns] =  (E + dp_last)
-        c[ns] =  0.0
-        d[ns] =  0.0
+        b[ns] = (E + dp_last)
+        c[ns] = 0.0
+        d[ns] = 0.0
 
         x = _thomas_tridiag(a, b, c, d)
 
@@ -374,13 +380,13 @@ def steady_state_sequential(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=F
 # (sets ALL params to 1 internally)
 # -----------------------------
 def steady_state_combinatorial(
-    idx,
-    TF_inputs=None,
-    jb=0,
-    tf_scale=1.0,
-    max_states_per_protein=4096,
-    trans_from=None, trans_to=None, trans_site=None, trans_off=None, trans_n=None,
-    verify_with_rhs=False,
+        idx,
+        TF_inputs=None,
+        jb=0,
+        tf_scale=1.0,
+        max_states_per_protein=4096,
+        trans_from=None, trans_to=None, trans_site=None, trans_off=None, trans_n=None,
+        verify_with_rhs=False,
 ):
     """
     Returns y_ss (and optionally dy(y_ss)) for combinatorial model with ALL params = 1.
@@ -393,7 +399,7 @@ def steady_state_combinatorial(
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
     offset_s = np.asarray(idx.offset_s, dtype=np.int32)
-    n_sites  = np.asarray(idx.n_sites,  dtype=np.int32)
+    n_sites = np.asarray(idx.n_sites, dtype=np.int32)
 
     # n_states must exist (don’t assume 2**ns if ns is large)
     if hasattr(idx, "n_states"):
@@ -411,11 +417,11 @@ def steady_state_combinatorial(
     total_y = _infer_total_y_comb(offset_y, n_states)
 
     # ALL params = 1
-    A_i  = np.ones(N, dtype=np.float64)
-    B_i  = np.ones(N, dtype=np.float64)
-    C_i  = np.ones(N, dtype=np.float64)
-    D_i  = np.ones(N, dtype=np.float64)
-    E_i  = np.ones(N, dtype=np.float64)
+    A_i = np.ones(N, dtype=np.float64)
+    B_i = np.ones(N, dtype=np.float64)
+    C_i = np.ones(N, dtype=np.float64)
+    D_i = np.ones(N, dtype=np.float64)
+    E_i = np.ones(N, dtype=np.float64)
     Dp_i = np.ones(total_s, dtype=np.float64)
 
     # S_cache[site, jb] accessed; with params=1 it’s all ones.
@@ -456,8 +462,8 @@ def steady_state_combinatorial(
 
         # Preload per-site rates for this protein (all ones here, but keep structure)
         # phosphorylation rate for site j is S_cache[s0+j, jb]
-        S = S_cache[s0 : s0 + ns, int(jb)] if ns > 0 else np.zeros(0, dtype=np.float64)
-        Dp = Dp_i[s0 : s0 + ns]            if ns > 0 else np.zeros(0, dtype=np.float64)
+        S = S_cache[s0: s0 + ns, int(jb)] if ns > 0 else np.zeros(0, dtype=np.float64)
+        Dp = Dp_i[s0: s0 + ns] if ns > 0 else np.zeros(0, dtype=np.float64)
 
         for frm in range(nst):
             # decay on mask 0 only (as in rhs)
@@ -474,7 +480,7 @@ def steady_state_combinatorial(
 
                 # dephosph transition frm -> to at rate Ei
                 A[frm, frm] -= Ei
-                A[to, frm]  += Ei
+                A[to, frm] += Ei
 
                 # per-site decay sink for that set bit
                 A[frm, frm] -= float(Dp[j])
@@ -486,7 +492,7 @@ def steady_state_combinatorial(
                     to = frm | bit
                     rate = float(S[j])
                     A[frm, frm] -= rate
-                    A[to, frm]  += rate
+                    A[to, frm] += rate
 
         # Solve A P = -b
         rhs = -b
@@ -499,7 +505,7 @@ def steady_state_combinatorial(
         P = np.maximum(P, 0.0)
 
         # Fill y: R at y0, then masks at y0+1..y0+nst
-        y[y0 + 1 : y0 + 1 + nst] = P
+        y[y0 + 1: y0 + 1 + nst] = P
 
     np.maximum(y, 0.0, out=y)
 
@@ -511,10 +517,10 @@ def steady_state_combinatorial(
         trans_from, trans_to, trans_site, trans_off, trans_n = build_random_transitions(idx)
     else:
         trans_from = np.asarray(trans_from, dtype=np.int32)
-        trans_to   = np.asarray(trans_to,   dtype=np.int32)
+        trans_to = np.asarray(trans_to, dtype=np.int32)
         trans_site = np.asarray(trans_site, dtype=np.int32)
-        trans_off  = np.asarray(trans_off,  dtype=np.int32)
-        trans_n    = np.asarray(trans_n,    dtype=np.int32)
+        trans_off = np.asarray(trans_off, dtype=np.int32)
+        trans_n = np.asarray(trans_n, dtype=np.int32)
 
     dy = np.zeros_like(y)
     combinatorial_rhs(
@@ -532,14 +538,14 @@ def steady_state_combinatorial(
 # One wrapper: all models
 # -----------------------------
 def steady_state_all_models(
-    idx_distributive=None,
-    idx_sequential=None,
-    idx_combinatorial=None,
-    TF_inputs=None,
-    jb=0,
-    tf_scale=1.0,
-    verify_with_rhs=False,
-    **comb_kwargs
+        idx_distributive=None,
+        idx_sequential=None,
+        idx_combinatorial=None,
+        TF_inputs=None,
+        jb=0,
+        tf_scale=1.0,
+        verify_with_rhs=False,
+        **comb_kwargs
 ):
     """
     Compute steady-state y (params=1) for any subset of models.

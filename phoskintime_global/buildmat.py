@@ -6,6 +6,7 @@ import multiprocessing as mp
 import pandas as pd
 from scipy import sparse
 
+
 def site_key(site: str) -> int:
     m = re.search(r"\d+", site)
     if m is None:

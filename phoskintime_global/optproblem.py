@@ -71,15 +71,16 @@ class GlobalODE_MOO(ElementwiseProblem):
         loss_p_sum, loss_r_sum, loss_ph_sum = LOSS_FN(
             Y,
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
-            self.loss_data["p_rna"],  self.loss_data["t_rna"],  self.loss_data["obs_rna"],  self.loss_data["w_rna"],
-            self.loss_data["p_pho"],  self.loss_data["s_pho"], self.loss_data["t_pho"],  self.loss_data["obs_pho"],  self.loss_data["w_pho"],
+            self.loss_data["p_rna"], self.loss_data["t_rna"], self.loss_data["obs_rna"], self.loss_data["w_rna"],
+            self.loss_data["p_pho"], self.loss_data["s_pho"], self.loss_data["t_pho"], self.loss_data["obs_pho"],
+            self.loss_data["w_pho"],
             self.loss_data["prot_map"],
             self.loss_data["prot_base_idx"], self.loss_data["rna_base_idx"], self.loss_data["pho_base_idx"]
         )
 
-        prot_mse = loss_p_sum  / self.loss_data["n_p"]
-        rna_mse  = loss_r_sum  / self.loss_data["n_r"]
-        pho_mse  = loss_ph_sum / self.loss_data["n_ph"]
+        prot_mse = loss_p_sum / self.loss_data["n_p"]
+        rna_mse = loss_r_sum / self.loss_data["n_r"]
+        pho_mse = loss_ph_sum / self.loss_data["n_ph"]
 
         prot_obj = prot_mse + reg_protein + reg_loss
         rna_obj = rna_mse + reg_rna + reg_loss
@@ -87,14 +88,15 @@ class GlobalODE_MOO(ElementwiseProblem):
 
         out["F"] = np.array([prot_obj, rna_obj, pho_obj], dtype=float)
 
+
 def get_weight_options(
-    time_points,
-    *,
-    rna_time_points=None,
-    early_window=None,
-    center=None,
-    baseline=None,
-    eps=1e-12,
+        time_points,
+        *,
+        rna_time_points=None,
+        early_window=None,
+        center=None,
+        baseline=None,
+        eps=1e-12,
 ):
     """
     Return many weighting schemes as callables.
@@ -145,7 +147,7 @@ def get_weight_options(
     # Precompute some scalars
     c = (center - tmin) / trng
     sigma = 0.18  # width on normalized axis; tweak if needed
-    k = 10.0      # logistic sharpness
+    k = 10.0  # logistic sharpness
     ewin = (early_window - tmin) / trng
 
     schemes = {}
@@ -188,14 +190,16 @@ def get_weight_options(
     )
 
     # 12) Gaussian around a center time (focus mid window)
-    schemes["gaussian_center"] = lambda tt: 1.0 + np.exp(-0.5 * (((((np.asarray(tt, float) - tmin) / trng) - c) / sigma) ** 2))
+    schemes["gaussian_center"] = lambda tt: 1.0 + np.exp(
+        -0.5 * (((((np.asarray(tt, float) - tmin) / trng) - c) / sigma) ** 2))
 
     # 13) Logistic early (smooth step that decays with time)
     # weight ~2 at early, ~1 at late
     schemes["logistic_early"] = lambda tt: 1.0 + 1.0 / (1.0 + np.exp(k * (((np.asarray(tt, float) - tmin) / trng) - c)))
 
     # 14) Baseline-anchored: emphasize far from baseline (useful if baseline is special like RNA at 4.0)
-    schemes["distance_from_baseline"] = lambda tt: 1.0 + np.abs(np.asarray(tt, float) - float(baseline)) / max(trng, eps)
+    schemes["distance_from_baseline"] = lambda tt: 1.0 + np.abs(np.asarray(tt, float) - float(baseline)) / max(trng,
+                                                                                                               eps)
 
     # Optional: a scheme that is RNA-friendly if you pass rna_time_points
     if rna_time_points is not None:

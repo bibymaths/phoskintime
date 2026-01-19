@@ -116,9 +116,10 @@ def run_refinement(problem, prev_res, args, padding=0.25):
         res = pymoo_minimize(
             problem,
             algorithm,
-            termination = termination,
+            termination=termination,
             seed=args.seed + 1,
-            verbose=True
+            verbose=True,
+            save_history=True
         )
 
     finally:

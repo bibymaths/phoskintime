@@ -14,16 +14,17 @@ def csr_matvec_into(out, indptr, indices, data, x, n_rows):
             s += data[p] * x[indices[p]]
         out[i] = s
 
+
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_model0_bucketed_into(
-    dy, y, jb,
-    c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-    kin_Kmat,                      # (n_kin, n_bins)
-    W_indptr, W_indices, W_data, n_W_rows,
-    TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites,
-    tf_deg,
-    Kt_work, S_all_work, P_vec_work, TF_in_work
+        dy, y, jb,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+        kin_Kmat,  # (n_kin, n_bins)
+        W_indptr, W_indices, W_data, n_W_rows,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        offset_y, offset_s, n_sites,
+        tf_deg,
+        Kt_work, S_all_work, P_vec_work, TF_in_work
 ):
     _zero_vec(dy)
 
@@ -38,9 +39,9 @@ def rhs_model0_bucketed_into(
     for i in range(n_TF_rows):
         y_start = offset_y[i]
         ns = n_sites[i]
-        tot = y[y_start + 1]              # P0
+        tot = y[y_start + 1]  # P0
         for j in range(ns):
-            tot += y[y_start + 2 + j]     # P1..Pns
+            tot += y[y_start + 2 + j]  # P1..Pns
         P_vec_work[i] = tot
 
     # TF_in_work = TF * P_vec_work
@@ -58,14 +59,14 @@ def rhs_model0_bucketed_into(
 
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_model1_bucketed_into(
-    dy, y, jb,
-    c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-    kin_Kmat,
-    W_indptr, W_indices, W_data, n_W_rows,
-    TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites,
-    tf_deg,
-    Kt_work, S_all_work, P_vec_work, TF_in_work
+        dy, y, jb,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+        kin_Kmat,
+        W_indptr, W_indices, W_data, n_W_rows,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        offset_y, offset_s, n_sites,
+        tf_deg,
+        Kt_work, S_all_work, P_vec_work, TF_in_work
 ):
     _zero_vec(dy)
 
@@ -97,16 +98,17 @@ def rhs_model1_bucketed_into(
         offset_y, offset_s, n_sites
     )
 
+
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_model2_bucketed_into(
-    dy, y, jb,
-    c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-    S_cache,
-    TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites, n_states,
-    trans_from, trans_to, trans_site, trans_off, trans_n,
-    tf_deg,
-    P_vec, TF_inputs
+        dy, y, jb,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+        S_cache,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        offset_y, offset_s, n_sites, n_states,
+        trans_from, trans_to, trans_site, trans_off, trans_n,
+        tf_deg,
+        P_vec, TF_inputs
 ):
     _zero_vec(dy)
 
@@ -312,56 +314,56 @@ def adaptive_rk45_model01(
         # k2
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a21 * k1[i])
         if model_id == 0:
-            rhs_model0_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
         # k3
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a31 * k1[i] + a32 * k2[i])
         if model_id == 0:
-            rhs_model0_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
         # k4
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a41 * k1[i] + a42 * k2[i] + a43 * k3[i])
         if model_id == 0:
-            rhs_model0_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
         # k5
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a51 * k1[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i])
         if model_id == 0:
-            rhs_model0_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
         # k6
         for i in range(n): y_tmp[i] = y[i] + dt_use * (
-                    a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
+                a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
         if model_id == 0:
-            rhs_model0_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
@@ -371,11 +373,11 @@ def adaptive_rk45_model01(
 
         # k7 (f at y_new) - Needed for Error Est AND FSAL
         if model_id == 0:
-            rhs_model0_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model0_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
         else:
-            rhs_model1_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, kin_Kmat, W_indptr,
+            rhs_model1_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
                                      offset_s, n_sites, tf_deg, Kt_work, S_all_work, P_vec_work, TF_in_work)
 
@@ -428,6 +430,7 @@ def adaptive_rk45_model01(
             err_prev = 1.0  # Reset PI history on reject (INSERTED)
 
     return Y
+
 
 # -----------------------------------------------------------------------------
 # Solver 2: Adaptive RK45 for Model 2
@@ -489,7 +492,8 @@ def adaptive_rk45_model2(
     err_prev = 1.0
 
     # --- 5. Init ---
-    rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices, TF_data,
+    rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                             TF_data,
                              n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to, trans_site,
                              trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
@@ -508,7 +512,8 @@ def adaptive_rk45_model2(
             hit_boundary = True
 
         if hit_boundary:
-            rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+            rhs_model2_bucketed_into(k1, y, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                     TF_indices,
                                      TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                      trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
             hit_boundary = False
@@ -530,33 +535,39 @@ def adaptive_rk45_model2(
 
         # Stages
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a21 * k1[i])
-        rhs_model2_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+        rhs_model2_bucketed_into(k2, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a31 * k1[i] + a32 * k2[i])
-        rhs_model2_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+        rhs_model2_bucketed_into(k3, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a41 * k1[i] + a42 * k2[i] + a43 * k3[i])
-        rhs_model2_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+        rhs_model2_bucketed_into(k4, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
         for i in range(n): y_tmp[i] = y[i] + dt_use * (a51 * k1[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i])
-        rhs_model2_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+        rhs_model2_bucketed_into(k5, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
         for i in range(n): y_tmp[i] = y[i] + dt_use * (
-                    a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
-        rhs_model2_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+                a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
+        rhs_model2_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 
         for i in range(n): y_tmp[i] = y[i] + dt_use * (b1 * k1[i] + b3 * k3[i] + b4 * k4[i] + b5 * k5[i] + b6 * k6[i])
-        rhs_model2_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i,  E_i, tf_scale, S_cache, TF_indptr, TF_indices,
+        rhs_model2_bucketed_into(k7, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, S_cache, TF_indptr,
+                                 TF_indices,
                                  TF_data, n_TF_rows, offset_y, offset_s, n_sites, n_states, trans_from, trans_to,
                                  trans_site, trans_off, trans_n, tf_deg, P_vec, TF_inputs)
 

@@ -71,6 +71,7 @@ class Index:
             end = start + 2 + self.n_sites[i]
         return slice(start, end)
 
+
 class KinaseInput:
     def __init__(self, kinases, df_fc):
         self.grid = TIME_POINTS_PROTEIN

@@ -5,9 +5,11 @@ from phoskintime_global.config import MODEL, LOSS_MODE
 
 EPS = 1e-9
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def sq(diff):
     return diff * diff
+
 
 @njit(fastmath=True, cache=True, nogil=True)
 def huber(diff, delta=1.0):
@@ -16,23 +18,26 @@ def huber(diff, delta=1.0):
         return 0.5 * diff * diff
     return delta * (a - 0.5 * delta)
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def pseudo_huber(diff, delta=1.0):
     x = diff / delta
     return (delta * delta) * ((1.0 + x * x) ** 0.5 - 1.0)
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def charbonnier(diff, eps=1e-3):
     return (diff * diff + eps * eps) ** 0.5 - eps
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def loss_function_noncomb(
-    Y,
-    p_prot, t_prot, obs_prot, w_prot,
-    p_rna,  t_rna,  obs_rna,  w_rna,
-    p_pho, s_pho, t_pho,  obs_pho,  w_pho,
-    prot_map,
-    prot_base_idx, rna_base_idx, pho_base_idx
+        Y,
+        p_prot, t_prot, obs_prot, w_prot,
+        p_rna, t_rna, obs_rna, w_rna,
+        p_pho, s_pho, t_pho, obs_pho, w_pho,
+        prot_map,
+        prot_base_idx, rna_base_idx, pho_base_idx
 ):
     loss_p = 0.0
     for k in range(p_prot.size):
@@ -91,7 +96,7 @@ def loss_function_noncomb(
         t_idx = t_pho[k]
         start = prot_map[p_idx, 0]
 
-        ph_t = Y[t_idx,      start + 2 + s_idx]
+        ph_t = Y[t_idx, start + 2 + s_idx]
         ph_b = Y[pho_base_idx, start + 2 + s_idx]
 
         pred_fc = (ph_t if ph_t > EPS else EPS) / (ph_b if ph_b > EPS else EPS)
@@ -113,12 +118,12 @@ def loss_function_noncomb(
 
 @njit(fastmath=True, cache=True, nogil=True)
 def loss_function_comb(
-    Y,
-    p_prot, t_prot, obs_prot, w_prot,
-    p_rna,  t_rna,  obs_rna,  w_rna,
-    p_pho, s_pho, t_pho,  obs_pho,  w_pho,
-    prot_map,
-    prot_base_idx, rna_base_idx, pho_base_idx
+        Y,
+        p_prot, t_prot, obs_prot, w_prot,
+        p_rna, t_rna, obs_rna, w_rna,
+        p_pho, s_pho, t_pho, obs_pho, w_pho,
+        prot_map,
+        prot_base_idx, rna_base_idx, pho_base_idx
 ):
     loss_p = 0.0
     for k in range(p_prot.size):
@@ -174,7 +179,7 @@ def loss_function_comb(
     loss_ph = 0.0
     for k in range(p_pho.size):
         p_idx = p_pho[k]
-        j = s_pho[k]               # site index
+        j = s_pho[k]  # site index
         t_idx = t_pho[k]
         start = prot_map[p_idx, 0]
         nstates = prot_map[p_idx, 1]
@@ -184,7 +189,7 @@ def loss_function_comb(
         ph_b = 0.0
         for m in range(nstates):
             if (m >> j) & 1:
-                ph_t += Y[t_idx,       p0 + m]
+                ph_t += Y[t_idx, p0 + m]
                 ph_b += Y[pho_base_idx, p0 + m]
 
         pred_fc = (ph_t if ph_t > EPS else EPS) / (ph_b if ph_b > EPS else EPS)
@@ -202,5 +207,6 @@ def loss_function_comb(
             loss_ph += w_pho[k] * charbonnier(diff, 1e-3)
 
     return loss_p, loss_r, loss_ph
+
 
 LOSS_FN = loss_function_comb if MODEL == 2 else loss_function_noncomb

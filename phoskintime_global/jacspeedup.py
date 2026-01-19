@@ -6,6 +6,7 @@ from phoskintime_global.models import distributive_rhs, sequential_rhs, combinat
 from phoskintime_global.solvers import adaptive_rk45_model01, adaptive_rk45_model2
 from phoskintime_global.utils import time_bucket
 
+
 def solve_custom(sys, y0, t_eval, rtol, atol):
     if MODEL == 2:
         build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
@@ -15,6 +16,7 @@ def solve_custom(sys, y0, t_eval, rtol, atol):
     else:
         args = sys.odeint_args()
         return adaptive_rk45_model01(MODEL, y0, t_eval, sys.kin_grid, args, rtol=rtol, atol=atol)
+
 
 @njit(cache=True, fastmath=True, nogil=True)
 def csr_matvec(indptr, indices, data, x, n_rows):
@@ -39,6 +41,7 @@ def csr_matvec_into(out, indptr, indices, data, x, n_rows):
             s += data[p] * x[indices[p]]
         out[i] = s
 
+
 @njit(cache=True, fastmath=True, nogil=True, parallel=True)
 def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
     n_rows = S_out.shape[0]
@@ -52,6 +55,7 @@ def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
                 k = W_indices[p]
                 s += W_data[p] * (kin_Kmat[k, b] * c_k[k])
             S_out[i, b] = s
+
 
 @njit(cache=True, fastmath=True, nogil=True)
 def kin_eval_step(t, grid, Kmat):
@@ -146,18 +150,19 @@ def rhs_nb_sequential(
     )
     return dy
 
+
 @njit(cache=True, fastmath=True, nogil=True)
 def rhs_nb_combinatorial(
-    y,
-    t,
-    c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-    kin_grid,
-    S_cache,
-    TF_indptr, TF_indices, TF_data, n_TF_rows,
-    offset_y, offset_s, n_sites, n_states,
-    trans_from, trans_to, trans_site, trans_off, trans_n,
-    tf_deg,
-    P_vec, TF_inputs
+        y,
+        t,
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+        kin_grid,
+        S_cache,
+        TF_indptr, TF_indices, TF_data, n_TF_rows,
+        offset_y, offset_s, n_sites, n_states,
+        trans_from, trans_to, trans_site, trans_off, trans_n,
+        tf_deg,
+        P_vec, TF_inputs
 ):
     dy = np.zeros_like(y)
 
@@ -190,6 +195,7 @@ def rhs_nb_combinatorial(
         trans_from, trans_to, trans_site, trans_off, trans_n
     )
     return dy
+
 
 if MODEL == 0:
     RHS_NB = rhs_nb_distributive
@@ -298,6 +304,7 @@ def fd_jacobian_nb_core_sequential(
 
     return J
 
+
 @njit(cache=True, fastmath=True)
 def fd_jacobian_nb_core_combinatorial(
         y,
@@ -349,6 +356,7 @@ def fd_jacobian_nb_core_combinatorial(
 
     return J
 
+
 if MODEL == 0:
     FD_JAC_NB = fd_jacobian_nb_core_distributive
 elif MODEL == 1:
@@ -357,6 +365,7 @@ elif MODEL == 2:
     FD_JAC_NB = fd_jacobian_nb_core_combinatorial
 else:
     raise ValueError(f"Invalid MODEL={MODEL}. Expected 0 (distributive) or 1 (sequential) or 2 (combinatorial).")
+
 
 def fd_jacobian_odeint(y, t, *args):
     y_arr = np.asarray(y, dtype=np.float64)

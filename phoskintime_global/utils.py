@@ -7,13 +7,16 @@ import tomllib
 import pandas as pd
 from numba import njit
 
+
 def _normcols(df):
     df = df.copy()
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     return df
 
+
 def _base_idx(times, t0):
     return np.int32(int(np.argmin(np.abs(times - float(t0)))))
+
 
 def _find_col(df, cands):
     for c in cands:
@@ -21,8 +24,10 @@ def _find_col(df, cands):
             return c
     return None
 
+
 def slen(s: slice) -> int:
     return int(s.stop) - int(s.start)
+
 
 def normalize_fc_to_t0(df):
     df = df.copy()
@@ -65,6 +70,7 @@ def _zero_vec(a):
     for i in range(a.size):
         a[i] = 0.0
 
+
 @njit(cache=True, fastmath=True, nogil=True)
 def time_bucket(t, grid):
     if t <= grid[0]:
@@ -77,6 +83,7 @@ def time_bucket(t, grid):
     if j >= grid.size:
         j = grid.size - 1
     return j
+
 
 @njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
@@ -99,6 +106,7 @@ def inv_softplus(y):
             yi = 1e-12
         out[i] = np.log(np.expm1(yi))
     return out
+
 
 @njit(cache=True, fastmath=True, nogil=True)
 def pick_best_lamdas(F, weights):
@@ -141,6 +149,7 @@ def pick_best_lamdas(F, weights):
 
     return best_i, float(best_score)
 
+
 @dataclass(frozen=True)
 class PhosKinConfig:
     normalize_fc_steady: bool
@@ -163,6 +172,7 @@ class PhosKinConfig:
     regularization_phospho: float
     regularization_protein: float
     results_dir: str | Path
+
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
     path = Path(path)

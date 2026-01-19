@@ -19,6 +19,7 @@ from phoskintime_global.params import unpack_params
 from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.jacspeedup import build_S_cache_into
 
+
 def build_site_meta(idx):
     """
     Returns parallel arrays of length idx.total_sites:
@@ -28,18 +29,19 @@ def build_site_meta(idx):
     """
     total = int(idx.total_sites)
     site_protein = np.empty(total, dtype=object)
-    site_psite   = np.empty(total, dtype=object)
-    site_local   = np.empty(total, dtype=np.int32)
+    site_psite = np.empty(total, dtype=object)
+    site_local = np.empty(total, dtype=np.int32)
 
     for i, prot in enumerate(idx.proteins):
         off = int(idx.offset_s[i])
         for j, psite in enumerate(idx.sites[i]):
             s = off + j
             site_protein[s] = prot
-            site_psite[s]   = psite
-            site_local[s]   = j
+            site_psite[s] = psite
+            site_local[s] = j
 
     return site_protein, site_psite, site_local
+
 
 def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     """
@@ -645,15 +647,15 @@ def plot_gof_from_pareto_excel(
 
 
 def export_results(
-    sys,
-    idx,
-    df_prot_obs,
-    df_rna_obs,
-    df_phos_obs,
-    df_pred_p,
-    df_pred_r,
-    df_pred_ph,
-    output_dir,
+        sys,
+        idx,
+        df_prot_obs,
+        df_rna_obs,
+        df_phos_obs,
+        df_pred_p,
+        df_pred_r,
+        df_pred_ph,
+        output_dir,
 ):
     """
     Export pre-computed observed + predicted trajectories and model parameters.
@@ -678,7 +680,7 @@ def export_results(
     print("[Output] Exporting Trajectories...")
 
     merged_p = _merge_traj(df_prot_obs, df_pred_p, on_cols=["protein", "time"], traj_type="Protein")
-    merged_r = _merge_traj(df_rna_obs,  df_pred_r, on_cols=["protein", "time"], traj_type="RNA")
+    merged_r = _merge_traj(df_rna_obs, df_pred_r, on_cols=["protein", "time"], traj_type="RNA")
     merged_ph = _merge_traj(df_phos_obs, df_pred_ph, on_cols=["protein", "psite", "time"], traj_type="Phosphorylation")
 
     full_traj = pd.concat([merged_p, merged_r, merged_ph], ignore_index=True)
@@ -796,21 +798,21 @@ def export_results(
 
 
 def save_gene_timeseries_plots(
-    gene: str,
-    df_prot_obs: pd.DataFrame,
-    df_prot_pred: pd.DataFrame,
-    df_rna_obs: pd.DataFrame,
-    df_rna_pred: pd.DataFrame,
-    df_phos_obs: pd.DataFrame,
-    df_phos_pred: pd.DataFrame,
-    output_dir: str,
-    prot_times: np.ndarray = None,
-    rna_times: np.ndarray = None,
-    phos_times: np.ndarray = None,
-    filename_prefix: str = "ts",
-    dpi: int = 300,
-    phos_mode: str = "per_psite",   # "mean" or "per_psite"
-    max_psites: int = None,      # only used for per_psite
+        gene: str,
+        df_prot_obs: pd.DataFrame,
+        df_prot_pred: pd.DataFrame,
+        df_rna_obs: pd.DataFrame,
+        df_rna_pred: pd.DataFrame,
+        df_phos_obs: pd.DataFrame,
+        df_phos_pred: pd.DataFrame,
+        output_dir: str,
+        prot_times: np.ndarray = None,
+        rna_times: np.ndarray = None,
+        phos_times: np.ndarray = None,
+        filename_prefix: str = "ts",
+        dpi: int = 300,
+        phos_mode: str = "per_psite",  # "mean" or "per_psite"
+        max_psites: int = None,  # only used for per_psite
 ):
     """
     Save a 3-panel time-series plot for ONE gene symbol:
@@ -854,7 +856,7 @@ def save_gene_timeseries_plots(
 
     # Normalize preds
     prot_pred = _norm_pred(df_prot_pred) if df_prot_pred is not None else pd.DataFrame()
-    rna_pred  = _norm_pred(df_rna_pred)  if df_rna_pred  is not None else pd.DataFrame()
+    rna_pred = _norm_pred(df_rna_pred) if df_rna_pred is not None else pd.DataFrame()
     phos_pred = _norm_pred(df_phos_pred) if df_phos_pred is not None else pd.DataFrame()
 
     # Subset gene
@@ -964,7 +966,8 @@ def save_gene_timeseries_plots(
                            color=phos_c, alpha=pred_alpha)
         else:
             # per-psite lines (capped)
-            psites = sorted(set(ph_obs["psite"].unique()).union(set(ph_pre["psite"].unique()))) if ("psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
+            psites = sorted(set(ph_obs["psite"].unique()).union(set(ph_pre["psite"].unique()))) if (
+                        "psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
 
             # if len(psites) > max_psites:
             #     psites = psites[:max_psites]
@@ -997,6 +1000,7 @@ def save_gene_timeseries_plots(
     plt.close(fig)
     return out_path
 
+
 def scan_prior_reg(out_dir):
     F = np.load(os.path.join(out_dir, "pareto_F.npy"))
     X = np.load(os.path.join(out_dir, "pareto_X.npy"))  # not used here, but kept for consistency
@@ -1004,13 +1008,13 @@ def scan_prior_reg(out_dir):
     if F.ndim != 2 or F.shape[1] != 3:
         raise ValueError(f"Expected F shape (n, 3) = [prot_mse, rna_mse, phospho_mse]. Got {F.shape}")
 
-    lambda_prot_grid  = np.logspace(-2, 2, 9)   # 0.01 .. 100
-    lambda_rna_grid   = np.logspace(-2, 2, 9)   # 0.01 .. 100
-    lambda_phos_grid  = np.logspace(-2, 2, 9)   # 0.01 .. 100
-    lambda_prior_grid = np.logspace(-4, 0, 9)   # 1e-4 .. 1
+    lambda_prot_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
+    lambda_rna_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
+    lambda_phos_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
+    lambda_prior_grid = np.logspace(-4, 0, 9)  # 1e-4 .. 1
 
     prot = F[:, 0].astype(float)
-    rna  = F[:, 1].astype(float)
+    rna = F[:, 1].astype(float)
     phos = F[:, 2].astype(float)
 
     rows = []
@@ -1074,6 +1078,7 @@ def scan_prior_reg(out_dir):
 
     return df, uniq, rec
 
+
 def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=True):
     """
     Export phosphorylation drive S for optimized parameters.
@@ -1093,7 +1098,7 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
     else:
         # Dense kinase signal scaled by c_k
         K_scaled = (np.asarray(sys.kin_Kmat, dtype=np.float64) *
-                    np.asarray(sys.c_k, dtype=np.float64)[:, None])      # (n_kin, n_bins)
+                    np.asarray(sys.c_k, dtype=np.float64)[:, None])  # (n_kin, n_bins)
         # Sparse (total_sites x n_kin) dot dense (n_kin x n_bins) -> (total_sites x n_bins)
         S_mat = sys.W_global.dot(K_scaled)
         S_mat = np.asarray(S_mat, dtype=np.float64)
@@ -1118,9 +1123,9 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
         n_sites, n_bins = S_mat.shape
         df = pd.DataFrame({
             "protein": np.repeat(np.array(proteins, dtype=object), n_bins),
-            "psite":   np.repeat(np.array(psites, dtype=object),   n_bins),
-            "time":    np.tile(times, n_sites),
-            "S":       S_mat.reshape(-1),
+            "psite": np.repeat(np.array(psites, dtype=object), n_bins),
+            "time": np.tile(times, n_sites),
+            "S": S_mat.reshape(-1),
         })
     else:
         # wide format: one row per site, one column per time
@@ -1134,24 +1139,25 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
     print(f"[Output] Saved S rates to: {out_path}")
     return df
 
+
 def plot_s_rates_report(
-    csv_path: str | Path,
-    out_pdf: str | Path = "S_rates_report.pdf",
-    *,
-    time_col: str = "time",
-    value_col: str = "S",
-    protein_col: str = "protein",
-    psite_col: str = "psite",
-    log_x: bool = True,
-    # keep plots readable for many sites
-    top_k_sites_per_protein: int | None = 24,   # rank by AUC and keep only top K per protein in "small multiples"
-    max_sites_per_page: int = 12,               # small-multiples pagination
-    ncols: int = 3,                              # small-multiples grid columns
-    normalize_per_site: bool = False,            # if True: plot S/Smax to compare kinetics
-    heatmap_per_protein: bool = True,
-    heatmap_cap_sites: int = 80,                 # cap number of rows in a heatmap (rank by AUC)
-    agg_duplicates: str = "mean",                # if repeated (protein,psite,time)
-    dpi: int = 150,
+        csv_path: str | Path,
+        out_pdf: str | Path = "S_rates_report.pdf",
+        *,
+        time_col: str = "time",
+        value_col: str = "S",
+        protein_col: str = "protein",
+        psite_col: str = "psite",
+        log_x: bool = True,
+        # keep plots readable for many sites
+        top_k_sites_per_protein: int | None = 24,  # rank by AUC and keep only top K per protein in "small multiples"
+        max_sites_per_page: int = 12,  # small-multiples pagination
+        ncols: int = 3,  # small-multiples grid columns
+        normalize_per_site: bool = False,  # if True: plot S/Smax to compare kinetics
+        heatmap_per_protein: bool = True,
+        heatmap_cap_sites: int = 80,  # cap number of rows in a heatmap (rank by AUC)
+        agg_duplicates: str = "mean",  # if repeated (protein,psite,time)
+        dpi: int = 150,
 ) -> Path:
     """
     Robust plotting for S_rates_picked.csv (protein, psite, time, S):
@@ -1185,7 +1191,7 @@ def plot_s_rates_report(
     if agg_duplicates:
         df = (
             df.groupby([protein_col, psite_col, time_col], as_index=False)[value_col]
-              .agg(agg_duplicates)
+            .agg(agg_duplicates)
         )
 
     # sort
@@ -1202,8 +1208,8 @@ def plot_s_rates_report(
 
     auc_df = (
         df.groupby([protein_col, psite_col], as_index=False)
-          .apply(_auc)
-          .reset_index()
+        .apply(_auc)
+        .reset_index()
     )
     # pandas groupby.apply output can be awkward depending on version
     if "level_0" in auc_df.columns and 0 in auc_df.columns:
@@ -1257,7 +1263,7 @@ def plot_s_rates_report(
         # paginate
         pages = max(1, math.ceil(len(sites_ranked) / max_sites_per_page))
         for page in range(pages):
-            chunk = sites_ranked[page * max_sites_per_page : (page + 1) * max_sites_per_page]
+            chunk = sites_ranked[page * max_sites_per_page: (page + 1) * max_sites_per_page]
             if not chunk:
                 continue
 
@@ -1297,7 +1303,7 @@ def plot_s_rates_report(
             fig.suptitle(
                 f"{prot} — site time series"
                 + (" (normalized)" if normalize_per_site else "")
-                + (f" — page {page+1}/{pages}" if pages > 1 else ""),
+                + (f" — page {page + 1}/{pages}" if pages > 1 else ""),
                 fontsize=12
             )
             fig.tight_layout(rect=[0, 0, 1, 0.96])
@@ -1394,6 +1400,7 @@ def plot_s_rates_report(
 
     return out_pdf
 
+
 def process_convergence_history(res, output_dir):
     """
     Extract and save optimization convergence history.
@@ -1413,6 +1420,10 @@ def process_convergence_history(res, output_dir):
 
     n_evals = []  # Function evaluations
     hist_F = []  # Objective space values
+
+    if res.history is None or len(res.history) == 0:
+        print("[Warning] No optimization history found in result object. Skipping convergence plot.")
+        return None
 
     print("[Output] Processing optimization history...")
     for algo in res.history:

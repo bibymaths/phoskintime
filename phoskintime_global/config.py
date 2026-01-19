@@ -5,12 +5,14 @@ from phoskintime_global.utils import load_config_toml
 
 cfg = load_config_toml("phoskintime_global/config.toml")
 
+
 def _as_bool(x):
     if isinstance(x, bool):
         return x
     if isinstance(x, str):
         return x.lower() in {"1", "true", "yes", "on"}
     return bool(x)
+
 
 NORMALIZE_FC_STEADY = _as_bool(cfg.normalize_fc_steady)
 USE_INITIAL_CONDITION_FROM_DATA = _as_bool(cfg.use_initial_condition_from_data)

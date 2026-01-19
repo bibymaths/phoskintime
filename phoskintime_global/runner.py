@@ -35,6 +35,7 @@ from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_fro
 from phoskintime_global.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--kinase-net", required=True)
@@ -63,7 +64,10 @@ def main():
 
     # Data inference
     parser.add_argument("--normalize-fc-steady", action="store_true", default=NORMALIZE_FC_STEADY)
-    parser.add_argument("--use-initial-condition-from-data", action="store_true", default=USE_INITIAL_CONDITION_FROM_DATA)
+    parser.add_argument("--use-initial-condition-from-data", action="store_true",
+                        default=USE_INITIAL_CONDITION_FROM_DATA)
+    parser.add_argument("--refine", action="store_true",
+                        help="Run a second optimization pass with tighter bounds around the Pareto front.")
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -361,7 +365,7 @@ def main():
         eliminate_duplicates=True,
         sampling=LHS(),
         crossover=SBX(prob=0.9, eta=15),
-        mutation=PM(prob=1/problem.n_var, eta=10),
+        mutation=PM(prob=1 / problem.n_var, eta=10),
     )
 
     termination = DefaultMultiObjectiveTermination(
@@ -373,7 +377,8 @@ def main():
         n_max_evals=100000
     )
 
-    print(f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
+    print(
+        f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
     print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
 
     res = pymoo_minimize(
@@ -567,7 +572,8 @@ def main():
 
     # Write picked objective values
     picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "phospho_mse": float(F[I, 2]),
-              "scalar_score": float(args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
+              "scalar_score": float(
+                  args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
@@ -598,7 +604,7 @@ def main():
     print("\n[Check] Running post-optimization dynamics check...")
 
     # 1. Simulate for 72 hours (4320 min) to see long-term behavior
-    t_check, Y_check = simulate_until_steady(sys, t_max=24*3*60)
+    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 3 * 60)
 
     # 2. Plot every single protein
     plot_steady_state_all(
@@ -635,6 +641,7 @@ def main():
     # 4. Prior Regularization Scan
     scan_prior_reg(out_dir=args.output_dir)
     print("[Done] Prior regularization scan saved.")
+
 
 if __name__ == "__main__":
     try:

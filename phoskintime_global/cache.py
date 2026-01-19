@@ -87,8 +87,8 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         )
 
     p_prot, t_prot, obs_prot, w_prot = get_indices_basic(df_prot, idx.p2i)
-    p_rna,  t_rna,  obs_rna,  w_rna  = get_indices_basic(df_rna,  idx.p2i)
-    p_pho,  s_pho,  t_pho,  obs_pho,  w_pho  = get_indices_phospho(df_pho)
+    p_rna, t_rna, obs_rna, w_rna = get_indices_basic(df_rna, idx.p2i)
+    p_pho, s_pho, t_pho, obs_pho, w_pho = get_indices_phospho(df_pho)
 
     # prot_map: start offset and "count" (depends on MODEL)
     # For MODEL!=2: your state layout is [R, P, P1..Pns], so totals depend on how loss uses this.
@@ -100,11 +100,10 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
 
     return {
         "p_prot": p_prot, "t_prot": t_prot, "obs_prot": obs_prot, "w_prot": w_prot,
-        "p_rna":  p_rna,  "t_rna":  t_rna,  "obs_rna":  obs_rna,  "w_rna":  w_rna,
-        "p_pho":  p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
+        "p_rna": p_rna, "t_rna": t_rna, "obs_rna": obs_rna, "w_rna": w_rna,
+        "p_pho": p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
         "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
-        "n_p":  max(1, len(obs_prot)),
-        "n_r":  max(1, len(obs_rna)),
+        "n_p": max(1, len(obs_prot)),
+        "n_r": max(1, len(obs_rna)),
         "n_ph": max(1, len(obs_pho)),
     }
-
