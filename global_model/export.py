@@ -11,14 +11,17 @@ import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 from pymoo.visualization.pcp import PCP
 from pymoo.visualization.scatter import Scatter
+
 from scipy.interpolate import interp1d
 from scipy.stats import linregress
 
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
 from global_model.params import unpack_params
 from global_model.simulate import simulate_and_measure
 from global_model.jacspeedup import build_S_cache_into
+from config.config import setup_logger
 
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def build_site_meta(idx):
     """
@@ -48,7 +51,7 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     Saves a high-quality 3D Scatter plot of the Pareto Front.
     Highlights the 'selected' balanced solution if provided.
     """
-    print("[Output] Generating 3D Pareto Plot...")
+    logger.info("[Output] Generating 3D Pareto Plot...")
 
     # 1. Setup Plot
     # Angle (elevation, azimuth) for best viewing
@@ -72,7 +75,7 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     # Pymoo plots wrap Matplotlib, so we can save easily
     save_path = os.path.join(output_dir, "pareto_front_3d.png")
     plot.save(save_path)
-    print(f"[Output] Saved: {save_path}")
+    logger.info(f"[Output] Saved: {save_path}")
 
 
 def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo"):
@@ -80,7 +83,7 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
     Saves a Parallel Coordinate Plot (PCP).
     Great for visualizing trade-offs across normalized axes.
     """
-    print("[Output] Generating Parallel Coordinate Plot...")
+    logger.info("[Output] Generating Parallel Coordinate Plot...")
 
     # 1. Setup Plot
     # normalize_each_axis=True is CRITICAL because MSE errors and Reg loss
@@ -107,7 +110,7 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
     # 4. Save
     save_path = os.path.join(output_dir, "pareto_pcp.png")
     plot.save(save_path)
-    print(f"[Output] Saved: {save_path}")
+    logger.info(f"[Output] Saved: {save_path}")
 
 
 def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
@@ -115,10 +118,10 @@ def create_convergence_video(res, output_dir="out_moo", filename="optimization_h
     Creates an animation of the Pareto Front evolution using standard Matplotlib.
     Saves as .gif (universal) or .mp4 (if ffmpeg is installed).
     """
-    print("[Output] Rendering Optimization Video...")
+    logger.info("[Output] Rendering Optimization Video...")
 
     if not res.history:
-        print("[Warning] No history found. Cannot create video.")
+        logger.info("[Warning] No history found. Cannot create video.")
         return
 
     # Setup Figure
@@ -169,13 +172,13 @@ def create_convergence_video(res, output_dir="out_moo", filename="optimization_h
     try:
         # Try saving highly compressed MP4
         ani.save(save_path, writer='ffmpeg', fps=5, dpi=300)
-        print(f"[Output] Video saved: {save_path}")
+        logger.info(f"[Output] Video saved: {save_path}")
     except Exception:
         # Fallback to GIF (universally supported, no ffmpeg needed)
         gif_path = save_path.replace(".mp4", ".gif")
-        print("[System] FFMPEG not found. Falling back to GIF...")
+        logger.info("[System] FFMPEG not found. Falling back to GIF...")
         ani.save(gif_path, writer='pillow', fps=5, dpi=300)
-        print(f"[Output] Video saved: {gif_path}")
+        logger.info(f"[Output] Video saved: {gif_path}")
 
     plt.close()
 
@@ -297,7 +300,7 @@ def export_pareto_front_to_excel(
                 if deg_vec.size == 1:
                     deg_vec = np.full(idx.total_sites, deg_vec.item())
                 else:
-                    print(
+                    logger.info(
                         f"Warning: Dp_i size {deg_vec.size} != total_sites {idx.total_sites}. Skipping deg_sites export.")
                     deg_vec = None
 
@@ -363,8 +366,8 @@ def export_pareto_front_to_excel(
         df_traj_r.to_excel(writer, sheet_name="traj_rna", index=False)
         df_traj_ph.to_excel(writer, sheet_name="traj_phospho", index=False)
 
-    print(f"[Output] Pareto export saved: {output_path}")
-    print(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
+    logger.info(f"[Output] Pareto export saved: {output_path}")
+    logger.info(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
 
 def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
@@ -500,7 +503,7 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
     out_path = os.path.join(output_dir, f"{file_prefix}goodness_of_fit.png")
     plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close()
-    print(f"[Output] Saved Goodness of Fit plot to: {out_path}")
+    logger.info(f"[Output] Saved Goodness of Fit plot to: {out_path}")
 
 
 def plot_gof_from_pareto_excel(
@@ -643,7 +646,7 @@ def plot_gof_from_pareto_excel(
             file_prefix=f"sol_{sid}_"
         )
 
-    print(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
+    logger.info(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
 
 
 def export_results(
@@ -677,7 +680,7 @@ def export_results(
             merged["psite"] = np.nan
         return merged
 
-    print("[Output] Exporting Trajectories...")
+    logger.info("[Output] Exporting Trajectories...")
 
     merged_p = _merge_traj(df_prot_obs, df_pred_p, on_cols=["protein", "time"], traj_type="Protein")
     merged_r = _merge_traj(df_rna_obs, df_pred_r, on_cols=["protein", "time"], traj_type="RNA")
@@ -689,7 +692,7 @@ def export_results(
 
     full_traj.to_csv(os.path.join(output_dir, "model_trajectories.csv"), index=False)
 
-    print("[Output] Exporting Parameters...")
+    logger.info("[Output] Exporting Parameters...")
 
     # --- Gene/protein-level parameters (one row per protein) ---
     N = len(idx.proteins)
@@ -794,7 +797,7 @@ def export_results(
     )
     df_kin_params.to_csv(os.path.join(output_dir, "model_parameters_kinases.csv"), index=False)
 
-    print(f"[Output] Exports saved to {output_dir}")
+    logger.info(f"[Output] Exports saved to {output_dir}")
 
 
 def save_gene_timeseries_plots(
@@ -1071,10 +1074,10 @@ def scan_prior_reg(out_dir):
     with open(os.path.join(out_dir, "lambda_scan_recommended.json"), "w") as f:
         json.dump(rec, f, indent=2)
 
-    print("Wrote:")
-    print(" - lambda_scan.csv")
-    print(" - lambda_scan_unique_picks.csv")
-    print(" - lambda_scan_recommended.json")
+    logger.info("Wrote:")
+    logger.info(" - lambda_scan.csv")
+    logger.info(" - lambda_scan_unique_picks.csv")
+    logger.info(" - lambda_scan_recommended.json")
 
     return df, uniq, rec
 
@@ -1136,7 +1139,7 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
 
     out_path = os.path.join(output_dir, filename)
     df.to_csv(out_path, index=False)
-    print(f"[Output] Saved S rates to: {out_path}")
+    logger.info(f"[Output] Saved S rates to: {out_path}")
     return df
 
 
@@ -1415,17 +1418,17 @@ def process_convergence_history(res, output_dir):
     """
 
     if res.history is None:
-        print("[Warning] No optimization history available.")
+        logger.info("[Warning] No optimization history available.")
         return None
 
     n_evals = []  # Function evaluations
     hist_F = []  # Objective space values
 
     if res.history is None or len(res.history) == 0:
-        print("[Warning] No optimization history found in result object. Skipping convergence plot.")
+        logger.info("[Warning] No optimization history found in result object. Skipping convergence plot.")
         return None
 
-    print("[Output] Processing optimization history...")
+    logger.info("[Output] Processing optimization history...")
     for algo in res.history:
         n_evals.append(algo.evaluator.n_eval)
         opt = algo.opt
@@ -1459,7 +1462,7 @@ def process_convergence_history(res, output_dir):
     plt.savefig(os.path.join(output_dir, "convergence_plot.png"), dpi=300)
     plt.close()
 
-    print("[Output] Saved convergence history and plot.")
+    logger.info("[Output] Saved convergence history and plot.")
 
     return df_hist
 
@@ -1499,7 +1502,7 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
     # Save CSV
     save_path = os.path.join(output_dir, "kinase_activities_dynamic.csv")
     df_act.to_csv(save_path, index=False)
-    print(f"[Output] Saved dynamic kinase activities to {save_path}")
+    logger.info(f"[Output] Saved dynamic kinase activities to {save_path}")
 
     # Plot Top 10 Active Kinases
     plt.figure(figsize=(12, 8))
@@ -1552,7 +1555,7 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "correlation_kinases_pareto.png"), dpi=300)
         plt.close()
-        print("[Output] Saved kinase parameter correlation plot.")
+        logger.info("[Output] Saved kinase parameter correlation plot.")
 
     # --- Plot 2: Gene Parameter Correlation (Population mechanism) ---
     # If best_idx is provided, we analyze that specific solution.
@@ -1596,7 +1599,7 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     plt.savefig(os.path.join(output_dir, "distribution_gene_params.png"), dpi=300)
     plt.close()
 
-    print("[Output] Saved gene parameter correlation plots.")
+    logger.info("[Output] Saved gene parameter correlation plots.")
 
 
 def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
@@ -1657,7 +1660,7 @@ def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
     if all_residuals:
         full_res = pd.concat(all_residuals, ignore_index=True)
         full_res.to_csv(os.path.join(output_dir, "residuals_table.csv"), index=False)
-        print("[Output] Saved residual analysis.")
+        logger.info("[Output] Saved residual analysis.")
 
 
 def export_parameter_distributions(res, slices, idx, output_dir):
@@ -1697,4 +1700,4 @@ def export_parameter_distributions(res, slices, idx, output_dir):
     plt.savefig(os.path.join(output_dir, "dist_tf_scale.png"), dpi=300)
     plt.close()
 
-    print("[Output] Saved parameter uncertainty distributions.")
+    logger.info("[Output] Saved parameter uncertainty distributions.")

@@ -82,7 +82,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_logger(
-        name="phoskintime",
+        name='phoskintime',
         log_file=None,
         level=logging.DEBUG,
         log_dir=LOG_DIR,

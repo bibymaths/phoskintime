@@ -1,13 +1,19 @@
 import argparse
 import atexit
 import json
+import logging
 import os
-import pickle
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
+import pickle
 import numpy as np
 import multiprocessing as mp
-
 import pandas as pd
+
 from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.core.problem import StarmapParallelization
 from pymoo.operators.crossover.sbx import SBX
@@ -17,7 +23,7 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
 
-from config.config import logging
+
 from global_model.buildmat import build_W_parallel, build_tf_matrix
 from global_model.cache import prepare_fast_loss_data
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
@@ -37,6 +43,8 @@ from global_model.export import export_pareto_front_to_excel, plot_gof_from_pare
     export_param_correlations, export_residuals, export_parameter_distributions
 from global_model.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
+from config.config import setup_logger
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 @atexit.register
 def _close_log_handlers():
@@ -84,28 +92,28 @@ def main():
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Print Arguments
-    print(f"[Args] Output directory: {args.output_dir}")
-    print(f"[Args] Number of cores: {args.cores}")
-    print(f"[Args] Number of generations: {args.n_gen}")
-    print(f"[Args] Population size: {args.pop}")
-    print(f"[Args] Seed: {args.seed}")
-    print(f"[Args] Lambda prior: {args.lambda_prior}")
-    print(f"[Args] Lambda protein: {args.lambda_protein}")
-    print(f"[Args] Lambda RNA: {args.lambda_rna}")
-    print(f"[Args] Lambda phospho: {args.lambda_phospho}")
+    # logger.info Arguments
+    logger.info(f"[Args] Output directory: {args.output_dir}")
+    logger.info(f"[Args] Number of cores: {args.cores}")
+    logger.info(f"[Args] Number of generations: {args.n_gen}")
+    logger.info(f"[Args] Population size: {args.pop}")
+    logger.info(f"[Args] Seed: {args.seed}")
+    logger.info(f"[Args] Lambda prior: {args.lambda_prior}")
+    logger.info(f"[Args] Lambda protein: {args.lambda_protein}")
+    logger.info(f"[Args] Lambda RNA: {args.lambda_rna}")
+    logger.info(f"[Args] Lambda phospho: {args.lambda_phospho}")
 
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
 
-    # print("\n[TF input sanity]")
-    # print("df_tf shape:", df_tf.shape)
-    # print("df_tf columns:", list(df_tf.columns))
+    # logger.info("[TF input sanity]")
+    # logger.info("df_tf shape:", df_tf.shape)
+    # logger.info("df_tf columns:", list(df_tf.columns))
 
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)
         df_pho = normalize_fc_to_t0(df_pho)
-        print("[Data] Normalized protein and phospho FC to t=0.")
+        logger.info("[Data] Normalized protein and phospho FC to t=0.")
 
     base = df_rna[df_rna["time"] == 4.0].set_index("protein")["fc"]
     df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
@@ -120,16 +128,16 @@ def main():
     df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
 
     # =========================================================
-    # INLINE DEBUG: Print DATA High RNA Responders (FC > 3, 4, 5)
+    # INLINE DEBUG: logger.info DATA High RNA Responders (FC > 3, 4, 5)
     # =========================================================
-    print("\n" + "=" * 50)
-    print("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
-    print("=" * 50)
+    logger.info("\n" + "=" * 50)
+    logger.info("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
+    logger.info("=" * 50)
 
     if df_rna is not None and not df_rna.empty:
         # Check thresholds 3, 4, and 5
         for thresh in [3.0, 4.0, 5.0]:
-            print(f"\n>>> Proteins with OBSERVED mRNA FC > {thresh} <<<")
+            logger.info(f">>> Proteins with OBSERVED mRNA FC > {thresh} <<<")
             count = 0
 
             # Iterate through every unique protein in the observed dataframe
@@ -140,20 +148,20 @@ def main():
 
                 if max_fc >= thresh:
                     count += 1
-                    print(f"\n[!] {p} (Max Data FC: {max_fc:.3f})")
-                    print("   Time (min)   Obs_FC")
-                    print("   -------------------")
-                    # Sort by time and print rows
+                    logger.info(f" ---> [!] {p} (Max Data FC: {max_fc:.3f})")
+                    logger.info("   Time (min)   Obs_FC")
+                    logger.info("   -------------------")
+                    # Sort by time and logger.info rows
                     sub = sub.sort_values("time")
                     for _, r in sub.iterrows():
-                        print(f"   {r['time']:>9.1f}   {r['fc']:.4f}")
+                        logger.info(f"   {r['time']:>9.1f}   {r['fc']:.4f}")
 
             if count == 0:
-                print("   (None found)")
+                logger.info("   (None found)")
     else:
-        print("[Error] df_rna is empty or None.")
+        logger.info("[Error] df_rna is empty or None.")
 
-    print("\n" + "=" * 50)
+    logger.info("\n" + "=" * 50)
 
     # Weights - Piecewise Early Boost (modality-specific)
     tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
@@ -203,66 +211,66 @@ def main():
         "tf_scale": 0.1
     }
 
-    # print("\n===== NETWORK / INPUT SANITY CHECK =====")
+    # logger.info("===== NETWORK / INPUT SANITY CHECK =====")
     #
     # # --- W_global (kinase -> site) ---
-    # print("\n[W_global]")
-    # print(f"  type        : {type(W_global)}")
-    # print(f"  shape       : {W_global.shape}")
-    # print(f"  nnz         : {W_global.nnz}")
-    # print(f"  density     : {W_global.nnz / (W_global.shape[0] * W_global.shape[1] + 1e-12):.4e}")
+    # logger.info("[W_global]")
+    # logger.info(f"  type        : {type(W_global)}")
+    # logger.info(f"  shape       : {W_global.shape}")
+    # logger.info(f"  nnz         : {W_global.nnz}")
+    # logger.info(f"  density     : {W_global.nnz / (W_global.shape[0] * W_global.shape[1] + 1e-12):.4e}")
     #
     # if W_global.nnz > 0:
-    #     print(f"  data stats  : min={W_global.data.min():.3e}, "
+    #     logger.info(f"  data stats  : min={W_global.data.min():.3e}, "
     #           f"max={W_global.data.max():.3e}, "
     #           f"mean={W_global.data.mean():.3e}")
     #
-    #     print("  first 10 entries (row, col, value):")
+    #     logger.info("  first 10 entries (row, col, value):")
     #     rows, cols = W_global.nonzero()
     #     for i in range(min(10, len(rows))):
-    #         print(f"    ({rows[i]}, {cols[i]}) = {W_global.data[i]}")
+    #         logger.info(f"    ({rows[i]}, {cols[i]}) = {W_global.data[i]}")
     #
     # # --- TF matrix ---
-    # print("\n[tf_mat]")
-    # print(f"  type        : {type(tf_mat)}")
-    # print(f"  shape       : {tf_mat.shape}")
-    # print(f"  nnz         : {tf_mat.nnz}")
-    # print(f"  density     : {tf_mat.nnz / (tf_mat.shape[0] * tf_mat.shape[1] + 1e-12):.4e}")
+    # logger.info("[tf_mat]")
+    # logger.info(f"  type        : {type(tf_mat)}")
+    # logger.info(f"  shape       : {tf_mat.shape}")
+    # logger.info(f"  nnz         : {tf_mat.nnz}")
+    # logger.info(f"  density     : {tf_mat.nnz / (tf_mat.shape[0] * tf_mat.shape[1] + 1e-12):.4e}")
     #
     # if tf_mat.nnz > 0:
-    #     print(f"  data stats  : min={tf_mat.data.min():.3e}, "
+    #     logger.info(f"  data stats  : min={tf_mat.data.min():.3e}, "
     #           f"max={tf_mat.data.max():.3e}, "
     #           f"mean={tf_mat.data.mean():.3e}")
     #
     # # --- TF degree normalization ---
-    # print("\n[tf_deg]")
-    # print(f"  shape       : {tf_deg.shape}")
-    # print(f"  min/max     : {tf_deg.min():.3e} / {tf_deg.max():.3e}")
-    # print(f"  zeros       : {(tf_deg == 0).sum()}")
-    # print("  first 10 tf_deg:", tf_deg[:10])
+    # logger.info("[tf_deg]")
+    # logger.info(f"  shape       : {tf_deg.shape}")
+    # logger.info(f"  min/max     : {tf_deg.min():.3e} / {tf_deg.max():.3e}")
+    # logger.info(f"  zeros       : {(tf_deg == 0).sum()}")
+    # logger.info("  first 10 tf_deg:", tf_deg[:10])
     #
     # # --- KinaseInput ---
-    # print("\n[KinaseInput]")
-    # print(f"  kinases     : {len(idx.kinases)}")
-    # print(f"  grid        : {kin_in.grid}")
-    # print(f"  Kmat shape  : {kin_in.Kmat.shape}")
-    # print(f"  Kmat stats  : min={kin_in.Kmat.min():.3e}, "
+    # logger.info("[KinaseInput]")
+    # logger.info(f"  kinases     : {len(idx.kinases)}")
+    # logger.info(f"  grid        : {kin_in.grid}")
+    # logger.info(f"  Kmat shape  : {kin_in.Kmat.shape}")
+    # logger.info(f"  Kmat stats  : min={kin_in.Kmat.min():.3e}, "
     #       f"max={kin_in.Kmat.max():.3e}, "
     #       f"mean={kin_in.Kmat.mean():.3e}")
     #
     # # show first kinase trajectory
     # if kin_in.Kmat.shape[0] > 0:
-    #     print("  first kinase activity over time:")
+    #     logger.info("  first kinase activity over time:")
     #     for t, v in zip(kin_in.grid, kin_in.Kmat[0]):
-    #         print(f"    t={t:>6}: {v:.4f}")
+    #         logger.info(f"    t={t:>6}: {v:.4f}")
     #
-    # print("\n===== END NETWORK CHECK =====\n")
+    # logger.info("===== END NETWORK CHECK =====")
     #
     # Model system of Data IO + ODE + solver + optimization
     sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
     #
     # # Check TF inputs for ALL proteins
-    # print(f"\n[Debug] Checking TF inputs for all {len(sys.idx.proteins)} proteins:")
+    # logger.info(f"[Debug] Checking TF inputs for all {len(sys.idx.proteins)} proteins:")
     # proteins_with_no_tf = []
     #
     # for test_prot_idx in range(len(sys.idx.proteins)):
@@ -273,31 +281,30 @@ def main():
     #     row_end = sys.tf_mat.indptr[test_prot_idx + 1]
     #
     #     if row_end > row_start:
-    #         print(f"\n  {test_prot_name}: {row_end - row_start} TF regulators")
+    #         logger.info(f"  {test_prot_name}: {row_end - row_start} TF regulators")
     #         for k in range(row_start, row_end):
     #             tf_idx = sys.tf_mat.indices[k]
     #             weight = sys.tf_mat.data[k]
     #             tf_name = sys.idx.proteins[tf_idx]
-    #             print(f"    <- Input from {tf_name} (weight: {weight:.4f})")
+    #             logger.info(f"    <- Input from {tf_name} (weight: {weight:.4f})")
     #     else:
     #         proteins_with_no_tf.append(test_prot_name)
     #
     # if proteins_with_no_tf:
-    #     print(f"\n  [WARNING] {len(proteins_with_no_tf)} proteins have NO TF inputs:")
+    #     logger.info(f"  [WARNING] {len(proteins_with_no_tf)} proteins have NO TF inputs:")
     #     for prot in proteins_with_no_tf:
-    #         print(f"    - {prot}")
-    #     print("  These proteins will not react to signaling!")
+    #         logger.info(f"    - {prot}")
+    #     logger.info("  These proteins will not react to signaling!")
     # else:
-    #     print(f"\n  [OK] All proteins have at least one TF input.")
+    #     logger.info(f" [OK] All proteins have at least one TF input.")
 
     # Setting initial conditions from data
     if args.use_initial_condition_from_data:
-        sys.attach_initial_condition_data(
-            df_prot=df_prot,
-            df_rna=df_rna,
-            df_pho=df_pho
-        )
-        print("[Model] Initial conditions set from data.")
+        if getattr(sys, "_ic_data", None) is None:
+            sys.attach_initial_condition_data(df_prot, df_rna, df_pho)
+            sys.set_initial_conditions()
+        else:
+            logger.info("[Model] Skipping initial condition data loading. Data already attached.")
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
@@ -322,9 +329,9 @@ def main():
     if args.cores > 1:
         pool = mp.Pool(args.cores)
         runner = StarmapParallelization(pool.starmap)
-        print(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
+        logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
     else:
-        print("[Fit] Parallel evaluation disabled (or unavailable).")
+        logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
 
     # 8) Problem
     problem = GlobalODE_MOO(
@@ -351,12 +358,12 @@ def main():
         "tf_scale": slen(slices["tf_scale"]),
     }
 
-    print(f"[Model] Number of decision variables = {problem.n_var}")
+    logger.info(f"[Model] Number of decision variables = {problem.n_var}")
     for k, v in sizes.items():
-        print(f"[Model] Numer of parameters - {k} = [{v}]")
+        logger.info(f"[Model] Numer of parameters - {k} = [{v}]")
 
     total = sum(sizes.values())
-    print(f"[Model] Verify internally | sum_slices = {total}")
+    logger.info(f"[Model] Verify internally | sum_slices = {total}")
 
     assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
 
@@ -369,8 +376,8 @@ def main():
         n_dimensions=problem.n_var
     )
 
-    # Print number of reference directions
-    print(f"[Fit] Number of reference directions: {len(ref_dirs)}")
+    # logger.info number of reference directions
+    logger.info(f"[Fit] Number of reference directions: {len(ref_dirs)}")
 
     algorithm = UNSGA3(
         pop_size=args.pop,
@@ -390,9 +397,9 @@ def main():
         n_max_evals=100000
     )
 
-    print(
+    logger.info(
         f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
-    print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+    logger.info(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
 
     res = pymoo_minimize(
         problem,
@@ -413,12 +420,12 @@ def main():
 
         # Replace 'res' so all downstream exports (Excel, Plots, etc.)
         # automatically use the REFINED results.
-        print("[Refine] Refinement complete. Using refined results for export.")
+        logger.info("[Refine] Refinement complete. Using refined results for export.")
 
     # Save full result object
     # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
     #     pickle.dump(res, f)
-    # print("[Output] Saved full optimization state (pickle).")
+    # logger.info("[Output] Saved full optimization state (pickle).")
 
     # Export convergence history
     df_hist = process_convergence_history(res, args.output_dir)
@@ -433,7 +440,7 @@ def main():
     # Also write a CSV summary
     df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
     df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
-    print(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
+    logger.info(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
 
@@ -447,7 +454,7 @@ def main():
         top_k_trajectories=None,
     )
 
-    print(f"[Output] Saved Pareto front Excel: {excel_path}")
+    logger.info(f"[Output] Saved Pareto front Excel: {excel_path}")
 
     # plot_gof_from_pareto_excel(
     #     excel_path=excel_path,
@@ -460,7 +467,7 @@ def main():
     #     score_col="scalar_score",
     # )
     #
-    # print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+    # logger.info(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
 
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance
@@ -537,26 +544,26 @@ def main():
 
     # 1. Export Dynamic Kinase Activities (Mechanism check)
     export_kinase_activities(sys, idx, args.output_dir, t_max=120)
-    print("[Output] Saved dynamic kinase activities.")
+    logger.info("[Output] Saved dynamic kinase activities.")
 
     # 2. Export Parameter Correlations (Identifiability check)
     export_param_correlations(res, slices, idx, args.output_dir, best_idx=I)
-    print("[Output] Saved parameter correlation analysis.")
+    logger.info("[Output] Saved parameter correlation analysis.")
 
     # 3. Residuals (Check for systematic bias in best solution)
     export_residuals(sys, idx, df_prot, df_rna, df_pho, args.output_dir)
-    print("[Output] Saved residual analysis.")
+    logger.info("[Output] Saved residual analysis.")
 
     # 4. Parameter Uncertainty (Check robustness across Pareto front)
     export_parameter_distributions(res, slices, idx, args.output_dir)
-    print("[Output] Saved parameter uncertainty analysis.")
+    logger.info("[Output] Saved parameter uncertainty analysis.")
 
-    print("[Model] System updated with optimized parameters.")
-    print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
+    logger.info("[Model] System updated with optimized parameters.")
+    logger.info(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
 
     # Save the phosphorylation rates
     export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
-    print("[Output] Saved phosphorylation rates for picked solution.")
+    logger.info("[Output] Saved phosphorylation rates for picked solution.")
 
     out = plot_s_rates_report(
         f"{args.output_dir}/S_rates_picked.csv",
@@ -569,7 +576,7 @@ def main():
         heatmap_cap_sites=80,
     )
 
-    print(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
+    logger.info(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
@@ -590,11 +597,11 @@ def main():
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
-    print("[Done] Picked solution:")
-    print(json.dumps(picked, indent=2))
+    logger.info("[Done] Picked solution:")
+    logger.info(json.dumps(picked, indent=2))
 
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
-    print("[Done] Goodness of Fit plot saved.")
+    logger.info("[Done] Goodness of Fit plot saved.")
 
     ts_dir = os.path.join(args.output_dir, "timeseries_plots")
     for g in idx.proteins:
@@ -612,9 +619,9 @@ def main():
             filename_prefix="fit"
         )
 
-    print("[Done] Time series plots saved.")
+    logger.info("[Done] Time series plots saved.")
 
-    print("\n[Check] Running post-optimization dynamics check...")
+    logger.info("[Check] Running post-optimization dynamics check...")
 
     # 1. Simulate for 72 hours (4320 min) to see long-term behavior
     t_check, Y_check = simulate_until_steady(sys, t_max=24 * 3 * 60)
@@ -628,32 +635,32 @@ def main():
         output_dir=args.output_dir
     )
 
-    print("[Check] Check complete. Inspect 'steady_state_plots' folder.")
+    logger.info("[Check] Check complete. Inspect 'steady_state_plots' folder.")
 
     if dfp is not None and dfr is not None and dfph is not None:
         export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
 
-    print("[Done] Exported results saved.")
+    logger.info("[Done] Exported results saved.")
 
     # --- VISUALIZATION BLOCK ---
 
     # 1. 3D Pareto Front
     #
     save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
-    print("[Done] 3D Pareto plot saved.")
+    logger.info("[Done] 3D Pareto plot saved.")
 
     # 2. Parallel Coordinate Plot
     #
     save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
-    print("[Done] Parallel Coordinate plot saved.")
+    logger.info("[Done] Parallel Coordinate plot saved.")
 
     # 3. Convergence Video
     # create_convergence_video(res, output_dir=args.output_dir)
-    # print("[Done] Convergence video saved.")
+    # logger.info("[Done] Convergence video saved.")
 
     # 4. Prior Regularization Scan
     scan_prior_reg(out_dir=args.output_dir)
-    print("[Done] Prior regularization scan saved.")
+    logger.info("[Done] Prior regularization scan saved.")
 
 
 if __name__ == "__main__":

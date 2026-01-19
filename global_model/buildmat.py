@@ -5,7 +5,10 @@ import multiprocessing as mp
 
 import pandas as pd
 from scipy import sparse
+from config.config import setup_logger
+from global_model.config import RESULTS_DIR
 
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def site_key(site: str) -> int:
     m = re.search(r"\d+", site)
@@ -44,7 +47,7 @@ def _build_single_W(args):
 
 
 def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_matrix:
-    print(f"[Model] Building W matrices in parallel using {n_cores} cores...")
+    logger.info(f"[Model] Building W matrices in parallel using {n_cores} cores...")
 
     # Prepare tasks
     # interactions df now contains the 'alpha' column from load_data
@@ -59,7 +62,7 @@ def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_m
         with mp.Pool(n_cores) as pool:
             W_list = pool.map(_build_single_W, tasks)
 
-    print("[Model] Stacking Global W matrix...")
+    logger.info("[Model] Stacking Global W matrix...")
     return sparse.vstack(W_list).tocsr()
 
 

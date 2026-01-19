@@ -1,8 +1,12 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from global_model.simulate import simulate_odeint
 
+from global_model.config import RESULTS_DIR
+from global_model.simulate import simulate_odeint
+from config.config import setup_logger
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
     """
@@ -13,7 +17,7 @@ def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
     t_log = np.logspace(np.log10(1e-3), np.log10(t_max), n_points - 1)
     t_eval = np.concatenate(([0.0], t_log))
 
-    print(f"[SteadyState] Simulating for {t_max} minutes...")
+    logger.info(f"[SteadyState] Simulating for {t_max} minutes...")
 
     # Run simulation (Tight tolerances for accuracy)
     Y = simulate_odeint(sys, t_eval, rtol=1e-6, atol=1e-8, mxstep=50000)
@@ -23,7 +27,7 @@ def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
     dist = np.linalg.norm(Y[-1] - Y[-2])
     rate = dist / dt
 
-    print(f"[SteadyState] Final rate of change: {rate:.2e}")
+    logger.info(f"[SteadyState] Final rate of change: {rate:.2e}")
     return t_eval, Y
 
 
@@ -34,7 +38,7 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir):
     """
     save_dir = os.path.join(output_dir, "steady_state_plots")
     os.makedirs(save_dir, exist_ok=True)
-    print(f"[Plot] Saving plots for {len(idx.proteins)} proteins to: {save_dir}/")
+    logger.info(f"[Plot] Saving plots for {len(idx.proteins)} proteins to: {save_dir}/")
 
     for i, p_name in enumerate(idx.proteins):
         st = idx.offset_y[i]
@@ -84,6 +88,6 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir):
         plt.tight_layout()
         plt.savefig(os.path.join(save_dir, f"{p_name}_dynamics.png"), dpi=300)
         plt.close(fig)
-        print(f"[Plot] Steady-state plot for {p_name} saved to: {save_dir}/")
+        logger.info(f"[Plot] Steady-state plot for {p_name} saved to: {save_dir}/")
 
-    print("[Plot] Simulate until steady-state [Done].")
+    logger.info("[Plot] Simulate until steady-state [Done].")

@@ -2,14 +2,16 @@ import os
 import pandas as pd
 import re
 from global_model.utils import _normcols, _find_col
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR
+from config.config import setup_logger
 
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def load_data(args):
     # =========================================================================
     # 1. Load Kinase Network & Merge Alphas
     # =========================================================================
-    print(f"[Data] Loading Kinase Net: {args.kinase_net}")
+    logger.info(f"[Data] Loading Kinase Net: {args.kinase_net}")
     df_kin = pd.read_csv(args.kinase_net)
     df_kin = _normcols(df_kin)
 
@@ -38,7 +40,7 @@ def load_data(args):
     alpha_path = args.kinopt if args.kinopt and os.path.exists(args.kinopt) else None
 
     if alpha_path:
-        print(f"[Data] Loading Kinase Alphas from: {alpha_path}")
+        logger.info(f"[Data] Loading Kinase Alphas from: {alpha_path}")
         try:
             df_ka = pd.read_excel(alpha_path, sheet_name="Alpha Values")
             # Map specific columns: Gene, Psite, Kinase, Alpha
@@ -60,7 +62,7 @@ def load_data(args):
             df_kin_clean["alpha"] = df_kin_clean["alpha"].fillna(1.0)
 
         except Exception as e:
-            print(f"[Data] Warning: Could not load Kinase Alphas: {e}")
+            logger.info(f"[Data] Warning: Could not load Kinase Alphas: {e}")
             df_kin_clean["alpha"] = 1.0
     else:
         df_kin_clean["alpha"] = 1.0
@@ -81,14 +83,14 @@ def load_data(args):
             df_kb_global = df_kb[mask_global]
 
             kin_beta_map = dict(zip(df_kb_global["kinase"], df_kb_global["beta"]))
-            print(f"       Found {len(kin_beta_map)} kinase priors.")
+            logger.info(f"       Found {len(kin_beta_map)} kinase priors.")
         except Exception as e:
-            print(f"[Data] Warning: Could not load Kinase Betas: {e}")
+            logger.info(f"[Data] Warning: Could not load Kinase Betas: {e}")
 
     # =========================================================================
     # 2. Load TF Network & Merge Alphas
     # =========================================================================
-    print(f"[Data] Loading TF Net: {args.tf_net}")
+    logger.info(f"[Data] Loading TF Net: {args.tf_net}")
     df_tf = pd.read_csv(args.tf_net)
     df_tf = _normcols(df_tf)
 
@@ -105,7 +107,7 @@ def load_data(args):
     tf_alpha_path = args.tfopt if args.tfopt and os.path.exists(args.tfopt) else None
 
     if tf_alpha_path:
-        print(f"[Data] Loading TF Alphas from: {tf_alpha_path}")
+        logger.info(f"[Data] Loading TF Alphas from: {tf_alpha_path}")
         try:
             df_ta = pd.read_excel(tf_alpha_path, sheet_name="Alpha Values")
             # Map: mRNA -> target, TF -> tf, Value -> alpha
@@ -125,7 +127,7 @@ def load_data(args):
             df_tf_clean["alpha"] = df_tf_clean["alpha"].fillna(1.0)
 
         except Exception as e:
-            print(f"[Data] Warning: Could not load TF Alphas: {e}")
+            logger.info(f"[Data] Warning: Could not load TF Alphas: {e}")
             df_tf_clean["alpha"] = 1.0
     else:
         df_tf_clean["alpha"] = 1.0
@@ -146,14 +148,14 @@ def load_data(args):
             df_tb_global = df_tb[mask_global]
 
             tf_beta_map = dict(zip(df_tb_global["tf"], df_tb_global["beta"]))
-            print(f"       Found {len(tf_beta_map)} TF priors.")
+            logger.info(f"       Found {len(tf_beta_map)} TF priors.")
         except Exception as e:
-            print(f"[Data] Warning: Could not load TF Betas: {e}")
+            logger.info(f"[Data] Warning: Could not load TF Betas: {e}")
 
     # =========================================================================
     # 3. Load MS Data (Proteins + Phospho)
     # =========================================================================
-    print(f"[Data] Loading MS: {args.ms}")
+    logger.info(f"[Data] Loading MS: {args.ms}")
     df_ms = pd.read_csv(args.ms)
     df_ms = _normcols(df_ms)
 
@@ -196,7 +198,7 @@ def load_data(args):
     # =========================================================================
     # 4. Load RNA Data
     # =========================================================================
-    print(f"[Data] Loading RNA: {args.rna}")
+    logger.info(f"[Data] Loading RNA: {args.rna}")
     df_rna_raw = pd.read_csv(args.rna)
     df_rna_raw = _normcols(df_rna_raw)
 
@@ -217,9 +219,9 @@ def load_data(args):
     # tf_tfs = set(df_tf_clean["tf"].unique())
     # tf_targets = set(df_tf_clean["target"].unique())
     #
-    # print(f"\n[DEBUG] Model has {len(model_proteins)} proteins from MS.")
-    # print(f"[DEBUG] TF Net has {len(tf_tfs)} TFs and {len(tf_targets)} targets.")
-    # print(f"[DEBUG] Intersection TFs: {len(model_proteins.intersection(tf_tfs))}")
-    # print(f"[DEBUG] Intersection Targets: {len(model_proteins.intersection(tf_targets))}")
+    # logger.info(f"\n[DEBUG] Model has {len(model_proteins)} proteins from MS.")
+    # logger.info(f"[DEBUG] TF Net has {len(tf_tfs)} TFs and {len(tf_targets)} targets.")
+    # logger.info(f"[DEBUG] Intersection TFs: {len(model_proteins.intersection(tf_tfs))}")
+    # logger.info(f"[DEBUG] Intersection Targets: {len(model_proteins.intersection(tf_targets))}")
 
     return df_kin_clean, df_tf_clean, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map

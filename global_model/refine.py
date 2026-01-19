@@ -8,6 +8,10 @@ from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.core.population import Population
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 
+from config.config import setup_logger
+from global_model.config import RESULTS_DIR
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
     """
@@ -28,7 +32,7 @@ def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
     vol_old = np.prod(current_xu - current_xl + 1e-9)
     vol_new = np.prod(new_xu - new_xl + 1e-9)
     ratio = vol_old / vol_new
-    print(f"[Refine] Search space volume reduced by factor: {ratio:.2e}")
+    logger.info(f"[Refine] Search space volume reduced by factor: {ratio:.2e}")
 
     return new_xl, new_xu
 
@@ -67,9 +71,9 @@ def run_refinement(problem, prev_res, args, padding=0.25):
     """
     Main driver with Parallel Processing support.
     """
-    print("\n" + "=" * 40)
-    print("       STARTING REFINEMENT (ZOOM-IN)      ")
-    print("=" * 40)
+    logger.info("\n" + "=" * 40)
+    logger.info("       STARTING REFINEMENT (ZOOM-IN)      ")
+    logger.info("=" * 40)
 
     # 1. Update Bounds (Zoom In)
     new_xl, new_xu = get_refined_bounds(prev_res.X, problem.xl, problem.xu, padding=padding)
@@ -82,13 +86,13 @@ def run_refinement(problem, prev_res, args, padding=0.25):
     if args.cores > 1:
         pool = mp.Pool(args.cores)
         problem.elementwise_runner = StarmapParallelization(pool.starmap)
-        print(f"[Refine] Parallel evaluation enabled with {args.cores} workers.")
+        logger.info(f"[Refine] Parallel evaluation enabled with {args.cores} workers.")
     else:
-        print("[Refine] Parallel evaluation disabled.")
+        logger.info("[Refine] Parallel evaluation disabled.")
 
     try:
         # 3. Generate Hybrid Population
-        print(f"[Refine] Creating hybrid population (Size: {args.pop})")
+        logger.info(f"[Refine] Creating hybrid population (Size: {args.pop})")
         initial_pop = create_multistart_population(prev_res.X, args.pop, new_xl, new_xu)
 
         # 4. Setup Algorithm
@@ -102,7 +106,7 @@ def run_refinement(problem, prev_res, args, padding=0.25):
         )
 
         # 5. Run Optimization
-        print(f"[Refine] Running for {args.n_gen} generations...")
+        logger.info(f"[Refine] Running for {args.n_gen} generations...")
 
         termination = DefaultMultiObjectiveTermination(
             xtol=1e-8,

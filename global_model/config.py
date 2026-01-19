@@ -43,7 +43,7 @@ BOUNDS_CONFIG = cfg.bounds_config
 # 0: Distributive, 1: Sequential, 2: Combinatorial
 MODEL = 0 if cfg.model == "distributive" else (1 if cfg.model == "sequential" else 2)
 
-USE_CUSTOM_SOLVER = cfg.use_custom_solver
+USE_CUSTOM_SOLVER = _as_bool(cfg.use_custom_solver)
 ODE_ABS_TOL = cfg.ode_abs_tol
 ODE_REL_TOL = cfg.ode_rel_tol
 ODE_MAX_STEPS = cfg.ode_max_steps
@@ -54,7 +54,7 @@ MAX_ITERATIONS = cfg.maximum_iterations
 POPULATION_SIZE = cfg.population_size
 SEED = cfg.seed
 CORES = cfg.cores
-REFINE = cfg.refine
+REFINE = _as_bool(cfg.refine)
 
 # --- Regularization (Loss Weights) ---
 REGULARIZATION_RNA = cfg.regularization_rna

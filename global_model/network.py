@@ -2,10 +2,12 @@ import numpy as np
 import pandas as pd
 
 from global_model.buildmat import site_key
-from global_model.config import TIME_POINTS_PROTEIN, MODEL
+from global_model.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
 from global_model.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
 from global_model.steadystate import build_y0_from_data
+from config.config import setup_logger
 
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 class Index:
     def __init__(self, interactions: pd.DataFrame, tf_interactions: pd.DataFrame = None):
@@ -61,7 +63,7 @@ class Index:
 
         self.state_dim = curr_y
         self.total_sites = int(curr_s)
-        print(f"[Model] {self.N} proteins, {len(self.kinases)} kinases, {self.state_dim} state variables.")
+        logger.info(f"[Model] {self.N} proteins, {len(self.kinases)} kinases, {self.state_dim} state variables.")
 
     def block(self, i: int) -> slice:
         start = self.offset_y[i]
