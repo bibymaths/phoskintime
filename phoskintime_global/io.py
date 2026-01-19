@@ -213,13 +213,13 @@ def load_data(args):
     df_rna = tidy_r.dropna(subset=["fc", "time"])[["protein", "time", "fc"]].reset_index(drop=True)
 
     # DEBUG: Check overlap
-    model_proteins = set(df_prot["protein"].unique())
-    tf_tfs = set(df_tf_clean["tf"].unique())
-    tf_targets = set(df_tf_clean["target"].unique())
-
-    print(f"\n[DEBUG] Model has {len(model_proteins)} proteins from MS.")
-    print(f"[DEBUG] TF Net has {len(tf_tfs)} TFs and {len(tf_targets)} targets.")
-    print(f"[DEBUG] Intersection TFs: {len(model_proteins.intersection(tf_tfs))}")
-    print(f"[DEBUG] Intersection Targets: {len(model_proteins.intersection(tf_targets))}")
+    # model_proteins = set(df_prot["protein"].unique())
+    # tf_tfs = set(df_tf_clean["tf"].unique())
+    # tf_targets = set(df_tf_clean["target"].unique())
+    #
+    # print(f"\n[DEBUG] Model has {len(model_proteins)} proteins from MS.")
+    # print(f"[DEBUG] TF Net has {len(tf_tfs)} TFs and {len(tf_targets)} targets.")
+    # print(f"[DEBUG] Intersection TFs: {len(model_proteins.intersection(tf_tfs))}")
+    # print(f"[DEBUG] Intersection Targets: {len(model_proteins.intersection(tf_targets))}")
 
     return df_kin_clean, df_tf_clean, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map

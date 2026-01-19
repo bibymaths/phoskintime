@@ -25,6 +25,7 @@ from phoskintime_global.io import load_data
 from phoskintime_global.network import Index, KinaseInput, System
 from phoskintime_global.optproblem import GlobalODE_MOO, get_weight_options
 from phoskintime_global.params import init_raw_params, unpack_params
+from phoskintime_global.refine import run_refinement
 from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
@@ -80,9 +81,9 @@ def main():
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
 
-    print("\n[TF input sanity]")
-    print("df_tf shape:", df_tf.shape)
-    print("df_tf columns:", list(df_tf.columns))
+    # print("\n[TF input sanity]")
+    # print("df_tf shape:", df_tf.shape)
+    # print("df_tf columns:", list(df_tf.columns))
 
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)
@@ -101,6 +102,42 @@ def main():
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
     df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
 
+    # =========================================================
+    # INLINE DEBUG: Print DATA High RNA Responders (FC > 3, 4, 5)
+    # =========================================================
+    print("\n" + "=" * 50)
+    print("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
+    print("=" * 50)
+
+    if df_rna is not None and not df_rna.empty:
+        # Check thresholds 3, 4, and 5
+        for thresh in [3.0, 4.0, 5.0]:
+            print(f"\n>>> Proteins with OBSERVED mRNA FC > {thresh} <<<")
+            count = 0
+
+            # Iterate through every unique protein in the observed dataframe
+            for p in df_rna["protein"].unique():
+                # Filter rows for this protein
+                sub = df_rna[df_rna["protein"] == p]
+                max_fc = sub["fc"].max()
+
+                if max_fc >= thresh:
+                    count += 1
+                    print(f"\n[!] {p} (Max Data FC: {max_fc:.3f})")
+                    print("   Time (min)   Obs_FC")
+                    print("   -------------------")
+                    # Sort by time and print rows
+                    sub = sub.sort_values("time")
+                    for _, r in sub.iterrows():
+                        print(f"   {r['time']:>9.1f}   {r['fc']:.4f}")
+
+            if count == 0:
+                print("   (None found)")
+    else:
+        print("[Error] df_rna is empty or None.")
+
+    print("\n" + "=" * 50)
+
     # Weights - Piecewise Early Boost (modality-specific)
     tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
     tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)
@@ -114,8 +151,8 @@ def main():
     schemes_rna = get_weight_options(tp_rna, early_window=ew_rna)
 
     # manually rebuild boosted versions (one-liner each)
-    w_prot_pho = lambda tt: schemes_prot_pho["piecewise_early_boost_mean1"](tt)
-    w_rna = lambda tt: schemes_rna["piecewise_early_boost_mean1"](tt)
+    w_prot_pho = lambda tt: schemes_prot_pho["uniform"](tt)
+    w_rna = lambda tt: schemes_rna["uniform"](tt)
 
     # apply
     df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
@@ -235,7 +272,7 @@ def main():
     #     print("  These proteins will not react to signaling!")
     # else:
     #     print(f"\n  [OK] All proteins have at least one TF input.")
-        
+
     # Setting initial conditions from data
     if args.use_initial_condition_from_data:
         sys.attach_initial_condition_data(
@@ -297,14 +334,14 @@ def main():
         "tf_scale": slen(slices["tf_scale"]),
     }
 
-    print(f"n_var = {problem.n_var}")
+    print(f"[Model] Number of decision variables = {problem.n_var}")
     for k, v in sizes.items():
-        print(f"{k}[{v}]")
+        print(f"[Model] Numer of parameters - {k} = [{v}]")
 
     total = sum(sizes.values())
-    print(f"sum_slices = {total}")
+    print(f"[Model] Verify internally | sum_slices = {total}")
 
-    assert total == problem.n_var, f"Mismatch: sum_slices={total} != n_var={problem.n_var}"
+    assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
 
     # 9) UNSGA3 needs reference directions
     ref_dirs = get_reference_directions(
@@ -352,6 +389,14 @@ def main():
         pool.close()
         pool.join()
 
+    if args.refine:
+        # Run the Zoom-In strategy
+        res = run_refinement(problem, res, args)
+
+        # Replace 'res' so all downstream exports (Excel, Plots, etc.)
+        # automatically use the REFINED results.
+        print("[Refine] Refinement complete. Using refined results for export.")
+
     # Save full result object
     # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
     #     pickle.dump(res, f)
@@ -388,7 +433,7 @@ def main():
 
     # plot_gof_from_pareto_excel(
     #     excel_path=excel_path,
-    #     output_dir=os.path.join(args.output_dir, "gof_all"),
+    #     output_dir=os.path.join(args.output_dir, "goodness_of_fits_all_solutions"),
     #     plot_goodness_of_fit_func=plot_goodness_of_fit,
     #     df_prot_obs_all=df_prot,
     #     df_rna_obs_all=df_rna,

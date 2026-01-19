@@ -82,7 +82,8 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir):
 
         plt.suptitle(f"Dynamics: {p_name}", fontsize=16)
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, f"{p_name}_dynamics.png"), dpi=80)
-        plt.close(fig)  # Free memory
+        plt.savefig(os.path.join(save_dir, f"{p_name}_dynamics.png"), dpi=300)
+        plt.close(fig)
+        print(f"[Plot] Steady-state plot for {p_name} saved to: {save_dir}/")
 
     print("[Plot] Simulate until steady-state [Done].")
