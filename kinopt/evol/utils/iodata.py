@@ -115,12 +115,12 @@ def apply_scaling(df, time_series_columns, method, split_point, segment_points):
         scaler = MinMaxScaler()
         df[time_series_columns] = scaler.fit_transform(cum_df)
 
-    elif method == "None":
+    elif method == "none":
         return df
 
     else:
         raise ValueError(
-            "Invalid scaling method. Choose from 'min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative'.")
+            "Invalid scaling method. Choose from 'min_max', 'log', 'temporal', 'segmented', 'slope', 'cumulative', 'none'.")
 
     return df
 

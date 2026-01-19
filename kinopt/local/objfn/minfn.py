@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange
 
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True, fastmath=True)
 def _objective(params, P_init, t_max, n,
                gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
                total_alpha, kinase_beta_starts, kinase_beta_counts,
@@ -67,6 +67,10 @@ def _objective(params, P_init, t_max, n,
             for t in range(t_max):
                 # Update the predicted value based on the kinase activity
                 pred[i, t] += alpha_val * M[kinase_idx, t]
+
+    # Clip negative predictions
+    np.clip(pred, 0.0, None, out=pred)
+
     # Compute the loss value based on the selected loss function
     loss_val = 0.0
     total_weight = 0.0
@@ -96,7 +100,7 @@ def _objective(params, P_init, t_max, n,
         return loss_val / n
 
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True, fastmath=True)
 def _estimated_series(params, t_max, n, gene_alpha_starts, gene_kinase_counts, gene_kinase_idx,
                       total_alpha, kinase_beta_starts, kinase_beta_counts,
                       K_data, K_indices, K_indptr):

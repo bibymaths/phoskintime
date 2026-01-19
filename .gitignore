@@ -1,5 +1,4 @@
-# Ignore all Python files in the project root
-/*.py  
+
 # Ignore __pycache__ directories
 __pycache__/
 out/

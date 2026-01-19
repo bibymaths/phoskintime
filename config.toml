@@ -1,56 +1,243 @@
-# Phoskintime Global Configuration File
+# ============================================================
+# Global project paths and settings
+# ============================================================
 
-[general]
-app_name = "Phoskintime-Global"
-version = "0.1.0"
-default_language = "en"
-enable_logging = true
-log_level = "info"
-data_directory = "data"
-output_directory = "out"
+# Update these directory names for the different commmands to write data and results
+# for each mode to separate folders.
+# Otherwise, results may be overwritten when running different modes.
+# Example, for running let's say kinopt in local mode:
+# Command - python phoskintime kinopt --mode local
+# Directories can be named accordingly, e.g., results_kinopt_local
+# Updating both, results_dir and logs_dir is recommended.
 
-[data]
-normalize_steady = true
-use_initial_conditions = false
+[paths]
+data_dir      = "data"
+results_dir   = "results_model"
+logs_dir      = "results_model/logs"
+ode_data_dir  = "data"
 
-[timepoints]
+
+# ============================================================
+# TF OPTIMIZATION (mRNA → TF)
+# Used by:
+#   - tfopt.local.config.constants
+#   - tfopt.evol.config.constants
+# ============================================================
+
+[tfopt]
+
+# --------------------
+# Input files
+# --------------------
+input1 = "input1.csv"     # expression / mRNA
+input3 = "input3.csv"     # TF activity / Rout-Limma
+input4 = "input4.csv"     # TF metadata / network
+
+# --------------------
+# Output
+# --------------------
+out_file = "tfopt_results.xlsx"
+
+# --------------------
+# Time grid (minutes)
+# --------------------
+time_points = [
+  4, 8, 15, 30, 60,
+  120, 240, 480, 960
+]
+
+# --------------------
+# Default optimization parameters
+# (used unless overridden by CLI or mode)
+# --------------------
+lower_bound = -4.0
+upper_bound =  4.0
+
+# Loss types (integer, matches tfopt code)
+# 0: MSE
+# 1: MAE
+# 2: soft L1
+# 3: Cauchy
+# 4: Arctan
+# 5: Elastic Net
+# 6: Tikhonov
+loss_type = 5
+
+# --------------------
+# Mode-specific overrides
+# --------------------
+
+[tfopt.modes.local]
+# SLSQP / TRUST-CONSTR defaults
+# (keep wide bounds for local refinement)
+lower_bound = -4.0
+upper_bound =  4.0
+loss_type   = 5
+
+[tfopt.modes.evol]
+# Global evolutionary search defaults
+lower_bound = -4.0
+upper_bound =  4.0
+loss_type   = 5
+
+# Optimizer choices:
+# 0: NSGA-II
+# 1: SMSEMOA
+# 2: AGEMOEA
+optimizer = 0
+
+
+# ============================================================
+# KINASE OPTIMIZATION (Kinase → Phosphosite)
+# Used by:
+#   - kinopt.local.config.constants
+#   - kinopt.evol.config.constants
+# ============================================================
+
+[kinopt]
+
+# --------------------
+# Input files (relative to data_dir)
+# --------------------
+input1 = "input1.csv"   # kinase / protein abundance
+input2 = "input2.csv"   # phosphosite data
+
+# --------------------
+# Output
+# --------------------
+out_file = "kinopt_results.xlsx"
+
+# --------------------
+# Time grid (minutes)
+# --------------------
+time_points = [
+  0.0, 0.5, 0.75, 1.0,
+  2.0, 4.0, 8.0, 16.0,
+  30.0, 60.0, 120.0,
+  240.0, 480.0, 960.0
+]
+
+# --------------------
+# Default optimization parameters
+# --------------------
+lower_bound = -4.0
+upper_bound =  4.0
+
+# Loss types (string, matches kinopt code)
+# base | weighted | softl1 | cauchy | arctan
+loss_type = "weighted"
+
+# Estimate missing kinase–psite pairs?
+estimate_missing_kinases = true
+
+# Scaling options:
+# min_max | log | temporal | segmented | slope | cumulative | none
+scaling_method = "none"
+
+# Used for temporal scaling
+split_point = 9
+
+# Used for segmented scaling
+segment_points = [0, 3, 6, 9, 14]
+
+# Optimization method (local)
+# slsqp | trust-constr
+method = "slsqp"
+
+
+# --------------------
+# Mode-specific overrides
+# --------------------
+
+[kinopt.modes.local]
+# Trust the defaults; override if needed
+method = "slsqp"
+
+[kinopt.modes.evol]
+# Narrower bounds for global search
+lower_bound = -4.0
+upper_bound =  4.0
+
+# Loss choices for evol
+# base | autocorrelation | huber | mape | weighted
+loss_type = "base"
+
+# Regularization (used only in evol)
+regularization = false
+
+# Evolutionary optimizer backend
+# DE | NSGA-II (string)
+method = "NSGA-II"
+
+# ============================================================
+# ODE PIPELINE (downstream of kinopt + tfopt)
+# Used by:
+#   - config.constants
+# ============================================================
+
+[ode]
+
+# Which ODE model
+# distmod | succmod | randmod
+
+# After setting the results_dir and logs_dir globally above,
+# you can set the model type here to have separate output folders
+# for each model type.
+model = "randmod"
+
+# Upper bounds used in parameter fitting / priors
+[ode.bounds]
+mRNA_prod    = 20
+mRNA_deg     = 20
+protein_prod = 20
+protein_deg  = 20
+phospho_prod = 20
+phospho_deg  = 20
+
+# Bootstrap settings
+[ode.bootstrap]
+n = 0
+
+# Time grids (minutes)
+[ode.time]
 protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
-phospho_protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
-[bounds]
-c_k      = [1e-3, 5.0]
-A_i      = [1e-6, 5.0]
-B_i      = [1e-4, 5.0]
-C_i      = [1e-5, 5.0]
-D_i      = [1e-6, 5.0]
-Dp_i     = [0.0, 5.0]
-E_i      = [1e-4, 5.0]
-tf_scale = [-5.0, 5.0]
+# Fit controls
+[ode.fit]
+normalize_model_output = false
+use_custom_weights     = false
+use_regularization     = true
 
-[models]
-available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "distributive"
-model_description = """
-- distributive: Each phosphorylation occurs independently for each site on the protein.
-- sequential: Phosphorylation occurs in a specific order, one site after another.
-- combinatorial: All possible phosphorylation states are considered simultaneously.
-"""
+[ode.fit.composite_weights]
+rmse = 1.0
+mae  = 1.0
+var  = 1.0
+mse  = 1.0
+l2   = 1.0
 
-[optimization]
-loss = 1  # 0:L2, 1:Huber, 2:log+pHuber, 3:rel+Charbonnier
-max_iterations = 1000
-population_size = 300
-seed = 42
+# Sensitivity
+[ode.sensitivity]
+enabled      = true
+perturbation = 0.5
 
-[regularization]
-lambda = 1e-3
-protein = 1.0
-rna = 1.0
-phospho = 1.0
+[ode.sensitivity.morris]
+num_trajectories = 1000
+num_levels       = 400
 
-[solver]
-absolute_tolerance = 1e-8
-relative_tolerance = 1e-8
-max_timesteps = 200000
-use_custom_solver = false
+# Plot
+[ode.plot]
+perturb_trace_opacity = 0.02
+
+# Inputs to the ODE pipeline.
+# Make these explicit and stable (no importing from other modules).
+[ode.inputs]
+# These are paths relative to PROJECT ROOT. You can also make them relative to data_dir if you prefer.
+protein_excel = "data/input1.csv"
+psite_excel   = "data/kinopt_results.xlsx"
+rna_excel     = "data/tfopt_results.xlsx"
+
+# Output naming (optional)
+[ode.output]
+out_dir_name = ""   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"

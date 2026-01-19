@@ -18,7 +18,9 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA, \
     PERTURBATIONS_TRACE_OPACITY
+
 matplotlib.use('Agg')
+
 
 class Plotter:
     """
@@ -604,12 +606,15 @@ class Plotter:
             p_fit = p_fit[23:].reshape(num_psites, 14)
             marker = next(marker_cycle)
             # -- Last 'n' time range plots
-            ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 0], label=f"{label} (mRNA)", linewidth=0.5, marker=marker,
+            ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 0], label=f"{label} (mRNA)", linewidth=0.5,
+                            marker=marker,
                             markeredgecolor='black', markersize=6, mew=0.5)
-            ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 1], label=f"{label} (Protein)", linewidth=0.5, marker=marker,
+            ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 1], label=f"{label} (Protein)", linewidth=0.5,
+                            marker=marker,
                             markeredgecolor='black', markersize=6, mew=0.5)
             for i in range(num_psites):
-                ax_ph_full.plot(t[time_cutoff:], p_fit[i, time_cutoff:], label=f"{label} ({psite_labels[i]})", linewidth=0.5, marker=marker,
+                ax_ph_full.plot(t[time_cutoff:], p_fit[i, time_cutoff:], label=f"{label} ({psite_labels[i]})",
+                                linewidth=0.5, marker=marker,
                                 markeredgecolor='black', markersize=6, mew=0.5)
 
             # -- First 'n' points
@@ -707,7 +712,8 @@ class Plotter:
 
     def plot_model_perturbations(self, problem: dict, Si: dict, cutoff_idx: int, time_points: np.ndarray, n_sites: int,
                                  best_model_psite_solutions: np.ndarray, best_mrna_solutions: np.ndarray,
-                                 best_protein_solutions: np.ndarray, psite_labels: list[str], protein_data_ref: np.ndarray,
+                                 best_protein_solutions: np.ndarray, psite_labels: list[str],
+                                 protein_data_ref: np.ndarray,
                                  psite_data_ref: np.ndarray, rna_ref: np.ndarray, model_fit_sol: np.ndarray) -> None:
         """
         Plot the best model perturbations for the given data.
@@ -746,7 +752,7 @@ class Plotter:
                 )
             ax.plot(
                 time_points[:cutoff_idx],
-                model_fit_sol[:cutoff_idx, 2+site_idx],
+                model_fit_sol[:cutoff_idx, 2 + site_idx],
                 color=color,
                 linewidth=1,
             )
@@ -840,7 +846,7 @@ class Plotter:
                 )
             ax.plot(
                 time_points[cutoff_idx:],
-                model_fit_sol[cutoff_idx:, 2+site_idx],
+                model_fit_sol[cutoff_idx:, 2 + site_idx],
                 color=color,
                 linewidth=1,
                 label=psite_labels[site_idx]
@@ -938,7 +944,6 @@ class Plotter:
         plt.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_sensitivity_bar_plot_mu.png")
-  
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         ax.bar(problem['names'], Si['sigma'], color='orange')
@@ -947,7 +952,6 @@ class Plotter:
         plt.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_sensitivity_bar_plot_sigma.png")
-        
 
         ## Bar Plot of sigma ##
         # Distinguish between parameters with purely linear effects (low sigma) and
@@ -965,7 +969,6 @@ class Plotter:
         plt.grid(True, alpha=0.2)
         plt.tight_layout()
         self._save_fig(fig, f"{self.gene}_sensitivity_scatter_plot_musigma.png")
-        
 
         # A radial plot (also known as a spider or radar plot) can give a visual
         # overview of multiple sensitivity metrics (e.g., mu*, sigma, etc.) for
@@ -992,7 +995,6 @@ class Plotter:
         plt.legend(loc='upper right')
         plt.grid(True, alpha=0.2)
         self._save_fig(fig, f"{self.gene}_sensitivity_radial_plot.png")
-        
 
         # Visualize the proportion of total sensitivity contributed by each
         # parameter using a pie chart, showing the relative importance of each
@@ -1131,7 +1133,7 @@ class Plotter:
             self._save_fig(fig, f"{self.gene}_sensitivity_phase_space_{x_state}_vs_{y_state}.png")
 
     def plot_future_fit(self, P_data: np.ndarray, R_data: np.ndarray, sol: np.ndarray,
-                       num_psites: int, psite_labels: list, time_points: np.ndarray):
+                        num_psites: int, psite_labels: list, time_points: np.ndarray):
         """
         Plots the model fit for the future time points.
 
@@ -1154,7 +1156,7 @@ class Plotter:
             ax.plot(time_points[:cutoff_idx], P_data[i, :cutoff_idx], '--', marker='s', markersize=5, mew=0.5,
                     mec='black',
                     color=self.color_palette[i], linewidth=0.75)
-            ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, i+1], '-', color=self.color_palette[i], linewidth=1)
+            ax.plot(time_points[:cutoff_idx], sol[:cutoff_idx, i + 1], '-', color=self.color_palette[i], linewidth=1)
         ax.set_xlabel("Time (minutes)")
         ax.set_ylabel("FC")
         ax.set_xticks(time_points[:cutoff_idx])
@@ -1165,14 +1167,17 @@ class Plotter:
         )
         ax.grid(True, alpha=0.05)
         ax = axes[1]
-        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, label='mRNA (R)', linewidth=1)
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 0], '-', color='black', alpha=0.7, label='mRNA (R)',
+                linewidth=1)
         ax.plot(TIME_POINTS_RNA[3:], R_data[3:], '--', marker='s', markersize=5, mew=0.5, mec='black',
                 color='black', alpha=0.7, linewidth=0.75)
-        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, label='Protein (P)', linewidth=1)
+        ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, 1], '-', color='red', alpha=0.7, label='Protein (P)',
+                linewidth=1)
         for i in range(num_psites):
-            ax.plot(time_points[cutoff_idx:cutoff_idx+6], P_data[i, cutoff_idx:], '--', marker='s', markersize=5, mew=0.5, mec='black',
+            ax.plot(time_points[cutoff_idx:cutoff_idx + 6], P_data[i, cutoff_idx:], '--', marker='s', markersize=5,
+                    mew=0.5, mec='black',
                     color=self.color_palette[i], label=f'{psite_labels[i]}', linewidth=0.75)
-            ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, i+1], '-', color=self.color_palette[i], linewidth=1)
+            ax.plot(time_points[cutoff_idx:], sol[cutoff_idx:, i + 1], '-', color=self.color_palette[i], linewidth=1)
         ax.set_xlabel("Time (minutes)")
         ax.set_xticks(time_points[cutoff_idx:])
         ax.set_xticklabels(

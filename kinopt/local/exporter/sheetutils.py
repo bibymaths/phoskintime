@@ -102,3 +102,19 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
         residuals_df.to_excel(writer, sheet_name="Residuals", index=False)
 
     logger.info(f"Optimization results saved for ODE modelling.")
+
+def export_params_npz(outcomes, path):
+    """
+    Export the optimized parameters to a compressed npz file.
+
+    Args:
+         outcomes (list): List of OptimizeResult objects.
+         path (str): Path to save the npz file.
+    """
+    np.savez_compressed(
+        path,
+        params=np.stack([o.optimized_params for o in outcomes]),
+        fun=np.array([o.fun for o in outcomes]),
+        seed=np.array([o.seed for o in outcomes]),
+        start_id=np.array([o.start_id for o in outcomes])
+    )
