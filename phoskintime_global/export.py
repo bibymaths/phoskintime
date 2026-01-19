@@ -1460,10 +1460,9 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
     # Create time grid for plotting
     t_grid = np.linspace(0, t_max, n_points)
 
-    # We need the raw data profile from the system inputs
-    # sys.kin_in.Kmat is shape (n_kinases, n_data_points)
-    orig_t = sys.kin_in.grid
-    orig_K = sys.kin_in.Kmat
+    # Raw data profile from the system inputs
+    orig_t = sys.kin.grid
+    orig_K = sys.kin.Kmat
 
     activities = []
 
@@ -1587,3 +1586,104 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     plt.close()
 
     print("[Output] Saved gene parameter correlation plots.")
+
+
+def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
+    """
+    Calculates and plots residuals (Observed - Predicted) for the best solution.
+    Helps identify systematic bias (e.g., 'Always under-predicts at t=10').
+    """
+    from phoskintime_global.simulate import simulate_and_measure
+
+    # 1. Get Predictions on data timepoints
+    # We need to extract the exact timepoints from the dataframes
+    tp_p = df_prot["time"].unique()
+    tp_r = df_rna["time"].unique()
+    tp_ph = df_phos["time"].unique()
+
+    dfp, dfr, dfph = simulate_and_measure(sys, idx, tp_p, tp_r, tp_ph)
+
+    data_pairs = [
+        ("Protein", df_prot, dfp, ["protein", "time"]),
+        ("RNA", df_rna, dfr, ["protein", "time"]),
+        ("Phospho", df_phos, dfph, ["protein", "psite", "time"])
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    all_residuals = []
+
+    for ax, (name, df_obs, df_pred, merge_cols) in zip(axes, data_pairs):
+        if df_obs.empty or df_pred is None:
+            continue
+
+        # Merge Obs and Pred
+        merged = pd.merge(df_obs, df_pred, on=merge_cols, suffixes=("_obs", "_pred"))
+
+        # Calculate Residuals
+        # res = (Pred - Obs)
+        merged["residual"] = merged["pred_fc"] - merged["fc"]
+
+        # Plot Residuals vs Time
+        sns.scatterplot(data=merged, x="time", y="residual", ax=ax, alpha=0.5)
+        ax.axhline(0, color="red", linestyle="--")
+        ax.set_title(f"{name} Residuals")
+        ax.set_ylabel("Error (Pred - Obs)")
+
+        # Calculate Bias stats
+        bias = merged["residual"].mean()
+        rmse = np.sqrt((merged["residual"] ** 2).mean())
+        ax.text(0.05, 0.9, f"Bias: {bias:.3f}\nRMSE: {rmse:.3f}", transform=ax.transAxes,
+                bbox=dict(facecolor='white', alpha=0.8))
+
+        all_residuals.append(merged)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "residuals_analysis.png"))
+    plt.close()
+
+    # Save raw residuals to CSV
+    if all_residuals:
+        full_res = pd.concat(all_residuals, ignore_index=True)
+        full_res.to_csv(os.path.join(output_dir, "residuals_table.csv"), index=False)
+        print("[Output] Saved residual analysis.")
+
+
+def export_parameter_distributions(res, slices, idx, output_dir):
+    """
+    Plots boxplots of parameters across the ENTIRE Pareto front.
+    Shows which parameters are 'identifiable' (tight box) vs 'sloppy' (wide box).
+    """
+    X = res.X
+
+    # --- 1. Kinase Multipliers (c_k) ---
+    kin_slice = slices["c_k"]
+    X_kin = X[:, kin_slice]
+
+    if X_kin.shape[1] > 0:
+        df_kin = pd.DataFrame(X_kin, columns=idx.kinases)
+
+        plt.figure(figsize=(15, 6))
+        # Sort by median value for cleaner plot
+        sorted_idx = df_kin.median().sort_values(ascending=False).index
+        sns.boxplot(data=df_kin[sorted_idx], color="lightblue")
+        plt.xticks(rotation=90)
+        plt.title("Uncertainty in Kinase Parameters (Pareto Front Distribution)")
+        plt.ylabel("Activity Multiplier (c_k)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, f"dist_kinases_uncertainty.png"), dpi=300)
+        plt.close()
+
+    # --- 2. Global Parameters (tf_scale) ---
+    # Check if tf_scale varies
+    tf_slice = slices["tf_scale"]
+    X_tf = X[:, tf_slice]
+
+    plt.figure(figsize=(6, 5))
+    sns.violinplot(data=X_tf, color="lightgreen")
+    plt.title("Distribution of Global TF Scale")
+    plt.ylabel("tf_scale value")
+    plt.savefig(os.path.join(output_dir, "dist_tf_scale.png"), dpi=300)
+    plt.close()
+
+    print("[Output] Saved parameter uncertainty distributions.")

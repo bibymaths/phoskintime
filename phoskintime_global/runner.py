@@ -30,7 +30,7 @@ from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
-    export_param_correlations
+    export_param_correlations, export_residuals, export_parameter_distributions
 from phoskintime_global.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
 
@@ -353,9 +353,9 @@ def main():
         pool.join()
 
     # Save full result object
-    with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
-        pickle.dump(res, f)
-    print("[Output] Saved full optimization state (pickle).")
+    # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
+    #     pickle.dump(res, f)
+    # print("[Output] Saved full optimization state (pickle).")
 
     # Export convergence history
     df_hist = process_convergence_history(res, args.output_dir)
@@ -474,9 +474,19 @@ def main():
 
     # 1. Export Dynamic Kinase Activities (Mechanism check)
     export_kinase_activities(sys, idx, args.output_dir, t_max=120)
+    print("[Output] Saved dynamic kinase activities.")
 
     # 2. Export Parameter Correlations (Identifiability check)
     export_param_correlations(res, slices, idx, args.output_dir, best_idx=I)
+    print("[Output] Saved parameter correlation analysis.")
+
+    # 3. Residuals (Check for systematic bias in best solution)
+    export_residuals(sys, idx, df_prot, df_rna, df_pho, args.output_dir)
+    print("[Output] Saved residual analysis.")
+
+    # 4. Parameter Uncertainty (Check robustness across Pareto front)
+    export_parameter_distributions(res, slices, idx, args.output_dir)
+    print("[Output] Saved parameter uncertainty analysis.")
 
     print("[Model] System updated with optimized parameters.")
     print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
