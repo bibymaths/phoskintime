@@ -35,7 +35,7 @@ def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
     ptr = 0
 
     # 1. UPSTREAM: Kinase Inputs
-    logger.info("\n[STAGE 1: KINASE MULTIPLIERS (c_k)]")
+    logger.info("[STAGE 1: KINASE MULTIPLIERS (c_k)]")
     logger.info(f"{'Entity (Kinase)':<30} {'Min Multiplier':<15} {'Max Multiplier':<15}")
     for k_name in idx.kinases:
         lo, hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
@@ -43,9 +43,9 @@ def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
         ptr += 1
 
     # 2. NODES: Protein & Phosphosite Turnover
-    logger.info("\n[STAGE 2: PROTEIN & PHOSPHO KINETICS]")
+    logger.info("[STAGE 2: PROTEIN & PHOSPHO KINETICS]")
     for i, p_name in enumerate(idx.proteins):
-        logger.info(f"\nNode: {p_name} (Protein/TF)")
+        logger.info(f"==== > Node: {p_name} (Protein/TF)")
 
         # Core Protein Params (A, B, C, D)
         a_lo, a_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])  # Synthesis
@@ -75,7 +75,7 @@ def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
         ptr += 1
 
     # 3. GLOBAL: TF Scale
-    logger.info("\n[STAGE 3: GLOBAL SYSTEM SCALING]")
+    logger.info("[STAGE 3: GLOBAL SYSTEM SCALING]")
     tf_lo, tf_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
     logger.info(f"  Global TF Scale Factor: [{tf_lo:.4f} to {tf_hi:.4f}]")
 

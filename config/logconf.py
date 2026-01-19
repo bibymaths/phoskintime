@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import re
@@ -82,7 +83,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_logger(
-        name='phoskintime',
+        name=None,
         log_file=None,
         level=logging.DEBUG,
         log_dir=LOG_DIR,
@@ -109,6 +110,11 @@ def setup_logger(
     """
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+
+    if name is None:
+        frame = inspect.stack()[1]
+        module = inspect.getmodule(frame[0])
+        name = module.__name__ if module else 'phoskintime'
 
     if log_file is None:
         timestamp = datetime.now().strftime("%Y%m%d")
