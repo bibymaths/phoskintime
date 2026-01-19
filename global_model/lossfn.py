@@ -1,7 +1,7 @@
 # lossfn.py
 import numpy as np
 from numba import njit
-from phoskintime_global.config import MODEL, LOSS_MODE
+from global_model.config import MODEL, LOSS_MODE
 
 EPS = 1e-9
 

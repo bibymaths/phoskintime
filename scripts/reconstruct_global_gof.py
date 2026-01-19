@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error
 sys.path.append(os.getcwd())
 
 try:
-    from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+    from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
 except ImportError:
     print("[Warning] Could not import TIME_POINTS from config. Using defaults.")
     TIME_POINTS_PROTEIN = np.array([0, 5, 10, 20, 30, 60, 120, 240])  # Example default

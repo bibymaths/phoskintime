@@ -1,10 +1,10 @@
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-from phoskintime_global.config import ODE_MAX_STEPS, ODE_ABS_TOL, ODE_REL_TOL
-from phoskintime_global.lossfn import LOSS_FN
-from phoskintime_global.params import unpack_params
-from phoskintime_global.simulate import simulate_odeint
+from global_model.config import ODE_MAX_STEPS, ODE_ABS_TOL, ODE_REL_TOL
+from global_model.lossfn import LOSS_FN
+from global_model.params import unpack_params
+from global_model.simulate import simulate_odeint
 
 
 class GlobalODE_MOO(ElementwiseProblem):

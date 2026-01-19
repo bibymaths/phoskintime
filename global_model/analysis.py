@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from phoskintime_global.simulate import simulate_odeint
+from global_model.simulate import simulate_odeint
 
 
 def simulate_until_steady(sys, t_max=1440.0, n_points=1000):

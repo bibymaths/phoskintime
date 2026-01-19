@@ -1,10 +1,10 @@
 import numpy as np
 from numba import njit, prange
 
-from phoskintime_global.config import MODEL
-from phoskintime_global.models import distributive_rhs, sequential_rhs, combinatorial_rhs
-from phoskintime_global.solvers import adaptive_rk45_model01, adaptive_rk45_model2
-from phoskintime_global.utils import time_bucket
+from global_model.config import MODEL
+from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs
+from global_model.solvers import adaptive_rk45_model01, adaptive_rk45_model2
+from global_model.utils import time_bucket
 
 
 def solve_custom(sys, y0, t_eval, rtol, atol):

@@ -26,6 +26,9 @@ python phoskintime kinopt --mode evol
 
 # run the model
 python phoskintime model
+
+# run the integrated Global Model
+python phoskintime global_model
 """
 from pathlib import Path
 import subprocess as sp
@@ -136,6 +139,21 @@ def model(
     """
     _run(_python_module("bin.main", conf))
 
+@app.command()
+def global_model(
+        conf: Path | None = typer.Option(
+            "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
+            help="Path to global model config file. Uses config.toml by default."
+        ),
+):
+    """
+    Run the integrated Global Model (global_model.runner).
+
+    This runs the unified optimization pipeline defined in the [global_model]
+    section of your configuration.
+    """
+    # Assuming the package is named 'global_model' and has a 'runner.py'
+    _run(_python_module("global_model.runner", conf))
 
 @app.command()
 def all(

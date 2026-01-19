@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from phoskintime_global.config import MODEL, USE_CUSTOM_SOLVER
-from phoskintime_global.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
+from global_model.config import MODEL, USE_CUSTOM_SOLVER
+from global_model.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
 
 if USE_CUSTOM_SOLVER:
     print("[Solver] Using Adaptive Heun Bucketed Solver")

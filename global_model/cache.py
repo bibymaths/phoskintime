@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from phoskintime_global.config import MODEL
+from global_model.config import MODEL
 
 
 def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):

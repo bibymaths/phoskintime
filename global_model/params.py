@@ -1,7 +1,7 @@
 import numpy as np
 
-from phoskintime_global.config import BOUNDS_CONFIG
-from phoskintime_global.utils import inv_softplus, softplus
+from global_model.config import BOUNDS_CONFIG
+from global_model.utils import inv_softplus, softplus
 
 
 def init_raw_params(defaults):

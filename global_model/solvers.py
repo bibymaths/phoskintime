@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit
-from phoskintime_global.models import distributive_rhs, sequential_rhs, combinatorial_rhs
-from phoskintime_global.utils import _zero_vec
+from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs
+from global_model.utils import _zero_vec
 
 
 @njit(cache=True, fastmath=True, nogil=True)

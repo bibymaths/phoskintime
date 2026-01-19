@@ -14,10 +14,10 @@ from pymoo.visualization.scatter import Scatter
 from scipy.interpolate import interp1d
 from scipy.stats import linregress
 
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL
-from phoskintime_global.params import unpack_params
-from phoskintime_global.simulate import simulate_and_measure
-from phoskintime_global.jacspeedup import build_S_cache_into
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL
+from global_model.params import unpack_params
+from global_model.simulate import simulate_and_measure
+from global_model.jacspeedup import build_S_cache_into
 
 
 def build_site_meta(idx):
@@ -1604,7 +1604,7 @@ def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
     Calculates and plots residuals (Observed - Predicted) for the best solution.
     Helps identify systematic bias (e.g., 'Always under-predicts at t=10').
     """
-    from phoskintime_global.simulate import simulate_and_measure
+    from global_model.simulate import simulate_and_measure
 
     # 1. Get Predictions on data timepoints
     # We need to extract the exact timepoints from the dataframes

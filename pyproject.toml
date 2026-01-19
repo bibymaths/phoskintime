@@ -85,6 +85,7 @@ pytest-cov = "*"
 
 [tool.poetry.scripts]
 phoskintime = "bin.main:main"
+phoskintime-global = "global_model.runner:main"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]

@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import json
 import os
 import pickle
@@ -16,37 +17,48 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
 
-from phoskintime_global.buildmat import build_W_parallel, build_tf_matrix
-from phoskintime_global.cache import prepare_fast_loss_data
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
+from config.config import logging
+from global_model.buildmat import build_W_parallel, build_tf_matrix
+from global_model.cache import prepare_fast_loss_data
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
-    REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA
-from phoskintime_global.io import load_data
-from phoskintime_global.network import Index, KinaseInput, System
-from phoskintime_global.optproblem import GlobalODE_MOO, get_weight_options
-from phoskintime_global.params import init_raw_params, unpack_params
-from phoskintime_global.refine import run_refinement
-from phoskintime_global.simulate import simulate_and_measure
-from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
-from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
+    REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
+    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE
+from global_model.io import load_data
+from global_model.network import Index, KinaseInput, System
+from global_model.optproblem import GlobalODE_MOO, get_weight_options
+from global_model.params import init_raw_params, unpack_params
+from global_model.refine import run_refinement
+from global_model.simulate import simulate_and_measure
+from global_model.utils import normalize_fc_to_t0, _base_idx, slen
+from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
-from phoskintime_global.analysis import simulate_until_steady, plot_steady_state_all
+from global_model.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
 
+@atexit.register
+def _close_log_handlers():
+    lg = logging.getLogger("phoskintime")
+    for h in list(lg.handlers):
+        try:
+            h.flush()
+            h.close()
+        except Exception:
+            pass
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kinase-net", required=True)
-    parser.add_argument("--tf-net", required=True)
-    parser.add_argument("--ms", required=True)
-    parser.add_argument("--rna", required=True)
-    parser.add_argument("--phospho", required=False)
+    parser.add_argument("--kinase-net", default=KINASE_NET_FILE)
+    parser.add_argument("--tf-net", default=TF_NET_FILE)
+    parser.add_argument("--ms", default=MS_DATA_FILE)
+    parser.add_argument("--rna", default=RNA_DATA_FILE)
+    parser.add_argument("--phospho", default=PHOSPHO_DATA_FILE)
 
     # kinopt and tfopt results
-    parser.add_argument("--kinopt", required=True)
-    parser.add_argument("--tfopt", required=True)
+    parser.add_argument("--kinopt", default=KINOPT_RESULTS_FILE)
+    parser.add_argument("--tfopt", default=TFOPT_RESULTS_FILE)
 
     parser.add_argument("--output-dir", default=RESULTS_DIR)
     parser.add_argument("--cores", type=int, default=os.cpu_count())
@@ -67,7 +79,8 @@ def main():
     parser.add_argument("--use-initial-condition-from-data", action="store_true",
                         default=USE_INITIAL_CONDITION_FROM_DATA)
     parser.add_argument("--refine", action="store_true",
-                        help="Run a second optimization pass with tighter bounds around the Pareto front.")
+                        help="Run a second optimization pass with tighter bounds around the Pareto front.", default=REFINE)
+
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 

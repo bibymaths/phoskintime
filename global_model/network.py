@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from phoskintime_global.buildmat import site_key
-from phoskintime_global.config import TIME_POINTS_PROTEIN, MODEL
-from phoskintime_global.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
-from phoskintime_global.steadystate import build_y0_from_data
+from global_model.buildmat import site_key
+from global_model.config import TIME_POINTS_PROTEIN, MODEL
+from global_model.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
+from global_model.steadystate import build_y0_from_data
 
 
 class Index:

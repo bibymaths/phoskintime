@@ -1,10 +1,16 @@
 """
 Configurations for PhoskinTime Global model
 """
-from phoskintime_global.utils import load_config_toml
+import os
+from global_model.utils import load_config_toml
 
-cfg = load_config_toml("phoskintime_global/config.toml")
-
+# Load configuration relative to CWD (Project Root)
+# Ensure 'config.toml' exists in the root where you run the command
+if os.path.exists("config.toml"):
+    cfg = load_config_toml("config.toml")
+else:
+    # Fallback or error handling if running from a different directory
+    raise FileNotFoundError("config.toml not found in current directory.")
 
 def _as_bool(x):
     if isinstance(x, bool):
@@ -13,7 +19,16 @@ def _as_bool(x):
         return x.lower() in {"1", "true", "yes", "on"}
     return bool(x)
 
+# --- Input Files ---
+KINASE_NET_FILE = cfg.kinase_net
+TF_NET_FILE = cfg.tf_net
+MS_DATA_FILE = cfg.ms_data
+RNA_DATA_FILE = cfg.rna_data
+PHOSPHO_DATA_FILE = cfg.phospho_data
+KINOPT_RESULTS_FILE = cfg.kinopt_results
+TFOPT_RESULTS_FILE = cfg.tfopt_results
 
+# --- Data Processing ---
 NORMALIZE_FC_STEADY = _as_bool(cfg.normalize_fc_steady)
 USE_INITIAL_CONDITION_FROM_DATA = _as_bool(cfg.use_initial_condition_from_data)
 
@@ -21,22 +36,31 @@ TIME_POINTS_PROTEIN = cfg.time_points_prot
 TIME_POINTS_RNA = cfg.time_points_rna
 TIME_POINTS_PHOSPHO = cfg.time_points_phospho
 
+# --- Model & Solver ---
 BOUNDS_CONFIG = cfg.bounds_config
 
+# Map string model name to integer ID
+# 0: Distributive, 1: Sequential, 2: Combinatorial
 MODEL = 0 if cfg.model == "distributive" else (1 if cfg.model == "sequential" else 2)
+
 USE_CUSTOM_SOLVER = cfg.use_custom_solver
 ODE_ABS_TOL = cfg.ode_abs_tol
 ODE_REL_TOL = cfg.ode_rel_tol
 ODE_MAX_STEPS = cfg.ode_max_steps
 
+# --- Optimization Settings ---
 LOSS_MODE = cfg.loss_mode
 MAX_ITERATIONS = cfg.maximum_iterations
 POPULATION_SIZE = cfg.population_size
 SEED = cfg.seed
+CORES = cfg.cores
+REFINE = cfg.refine
 
+# --- Regularization (Loss Weights) ---
 REGULARIZATION_RNA = cfg.regularization_rna
 REGULARIZATION_LAMBDA = cfg.regularization_lambda
 REGULARIZATION_PHOSPHO = cfg.regularization_phospho
 REGULARIZATION_PROTEIN = cfg.regularization_protein
 
+# --- Output ---
 RESULTS_DIR = cfg.results_dir

@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 import re
-from phoskintime_global.utils import _normcols, _find_col
-from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
+from global_model.utils import _normcols, _find_col
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA
 
 
 def load_data(args):

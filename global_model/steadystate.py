@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from phoskintime_global.config import MODEL
-from phoskintime_global.models import sequential_rhs, combinatorial_rhs, build_random_transitions, distributive_rhs
+from global_model.config import MODEL
+from global_model.models import sequential_rhs, combinatorial_rhs, build_random_transitions, distributive_rhs
 
 
 def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
