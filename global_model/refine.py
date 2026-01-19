@@ -52,6 +52,10 @@ def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
     print(f"[Refine] Search space concentrated. Log-volume reduction: {log_reduction:.2f}")
     print(f"         (Roughly equivalent to shrinking space by factor of 10^{log_reduction / 2.303:.1f})")
 
+    print(f"[Refine] New bounds for each parameter:")
+    for param, (lo, hi) in zip(X.columns, zip(new_xl, new_xu)):
+        print(f"  {param}: [{lo:.2f}, {hi:.2f}]")
+
     return new_xl, new_xu
 
 
@@ -85,6 +89,111 @@ def create_multistart_population(X_best, pop_size, new_xl, new_xu):
     return Population.new("X", X_pop)
 
 
+def run_iterative_refinement(problem, prev_res, args, max_passes=3, padding=0.25):
+    """
+    Runs refinement recursively to zoom in on the optimum.
+
+    Args:
+        max_passes: How many times to re-zoom (e.g., 3 times).
+        padding: The boundary padding factor (decreases slightly each pass).
+    """
+    current_res = prev_res
+
+    # We must explicitly attach the runner ONCE here to avoid overhead
+    pool = None
+    if args.cores > 1:
+        pool = mp.Pool(args.cores)
+        problem.elementwise_runner = StarmapParallelization(pool.starmap)
+        logger.info(f"[Refine] Parallel evaluation enabled with {args.cores} workers.")
+
+    try:
+        for i in range(max_passes):
+            logger.info("=" * 50)
+            logger.info(f"      REFINEMENT PASS {i + 1}/{max_passes} (Zoom-in)      ")
+            logger.info("=" * 50)
+
+            # 1. Calculate New Bounds based on previous result
+            # We decay the padding slightly to zoom in harder on later passes
+            current_padding = max(0.05, padding * (0.8 ** i))
+            new_xl, new_xu = get_refined_bounds(current_res.X, problem.xl, problem.xu, padding=current_padding)
+
+            # Check if volume is effectively zero (converged)
+            if np.allclose(new_xl, new_xu, atol=1e-5):
+                logger.info("[Refine] Search space collapsed to a point. Stopping refinement.")
+                break
+
+            # Update Problem Bounds
+            problem.xl = new_xl
+            problem.xu = new_xu
+
+            # 2. Hybrid Population (Warm Start + Exploration)
+            # Pass 1: 50/50. Later passes: 80/20 (trust the warm start more)
+            current_pop = create_multistart_population(current_res.X, args.pop, new_xl, new_xu)
+
+            # 3. Setup Algorithm
+            # We increase eta (stiffness) each pass to encourage fine-tuning over jumping
+            current_eta = 20 + (i * 10)
+
+            algorithm = UNSGA3(
+                ref_dirs=current_res.algorithm.ref_dirs,  # Keep reference directions
+                pop_size=args.pop,
+                sampling=current_pop,
+                crossover=SBX(prob=0.9, eta=current_eta),
+                mutation=PM(prob=1 / problem.n_var, eta=current_eta + 5),
+                eliminate_duplicates=True
+            )
+
+            # 4. Termination Criteria
+            # We can run fewer generations in later passes as the space is smaller
+            # E.g. Pass 1: 100%, Pass 2: 75%, Pass 3: 50%
+            gen_scale = max(0.5, 1.0 - (i * 0.2))
+            pass_gens = int(args.n_gen * gen_scale)
+
+            termination = DefaultMultiObjectiveTermination(
+                xtol=1e-8,
+                cvtol=1e-6,
+                ftol=0.001,  # Stricter tolerance
+                period=20,
+                n_max_gen=pass_gens,
+                n_max_evals=100000
+            )
+
+            # 5. Execute
+            logger.info(f"[Refine] Running Pass {i + 1} for {pass_gens} generations...")
+            res = pymoo_minimize(
+                problem,
+                algorithm,
+                termination=termination,
+                seed=args.seed + 1 + i,
+                verbose=True,
+                save_history=True  # Only save history for the final result usually
+            )
+
+            # Validation: Did we improve?
+            # Check mean error of the best solution found
+            old_best = np.min(current_res.F[:, 0]) if current_res.F is not None else float('inf')
+            new_best = np.min(res.F[:, 0]) if res.F is not None else float('inf')
+
+            logger.info(f"[Refine] Pass {i + 1} Best Objective: {new_best:.6f} (Prev: {old_best:.6f})")
+
+            current_res = res
+
+    except Exception as e:
+        logger.error(f"[Refine] Crash during recursive refinement: {e}")
+        raise e
+
+    finally:
+        # Cleanup Pool
+        if pool is not None:
+            pool.close()
+            pool.join()
+            problem.elementwise_runner = None
+
+    return current_res
+
+############################################################
+########### DEPRECATED: Use run_iterative_refinement()  ####
+############################################################
 def run_refinement(problem, prev_res, args, padding=0.25):
     """
     Main driver with Parallel Processing support.

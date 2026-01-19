@@ -29,12 +29,12 @@ from global_model.cache import prepare_fast_loss_data
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
-    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE
+    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE
 from global_model.io import load_data
 from global_model.network import Index, KinaseInput, System
 from global_model.optproblem import GlobalODE_MOO, get_weight_options
 from global_model.params import init_raw_params, unpack_params
-from global_model.refine import run_refinement
+from global_model.refine import run_refinement, run_iterative_refinement
 from global_model.simulate import simulate_and_measure
 from global_model.utils import normalize_fc_to_t0, _base_idx, slen
 from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
@@ -304,7 +304,7 @@ def main():
             df_rna=df_rna,
             df_pho=df_pho
         )
-        print("[Model] Initial conditions set from data.")
+        logger.info("[Model] Initial conditions set from data.")
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
@@ -415,12 +415,18 @@ def main():
         pool.join()
 
     if args.refine:
-        # Run the Zoom-In strategy
-        res = run_refinement(problem, res, args)
+        logger.info("[Refinement] Recursive refinement started.")
 
-        # Replace 'res' so all downstream exports (Excel, Plots, etc.)
-        # automatically use the REFINED results.
-        logger.info("[Refine] Refinement complete. Using refined results for export.")
+        # Pass the result of the first run (res) as the starting point
+        res = run_iterative_refinement(
+            problem,
+            res,
+            args,
+            max_passes=NUM_REFINE,  # How deep to recurse
+            padding=0.25
+        )
+
+        logger.info("[Refinement] Recursive refinement complete.")
 
     # Save full result object
     # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:

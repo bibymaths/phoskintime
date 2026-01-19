@@ -54,6 +54,7 @@ POPULATION_SIZE = cfg.population_size
 SEED = cfg.seed
 CORES = cfg.cores
 REFINE = _as_bool(cfg.refine)
+NUM_REFINE = cfg.num_refine
 
 # --- Regularization ---
 REGULARIZATION_RNA = cfg.regularization_rna

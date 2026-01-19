@@ -185,6 +185,7 @@ class PhosKinConfig:
     seed: int
     cores: int
     refine: bool
+    num_refine: int
 
     regularization_rna: float
     regularization_lambda: float
@@ -221,6 +222,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     cores = cfg.get("cores", 0)
     seed = cfg.get("seed", 42)
     refine = cfg.get("refine", False)
+    num_refine = cfg.get("num_refinements", 3)
 
     # 3. Data Config
     normalize_fc_steady = cfg["normalize_fc_steady"]
@@ -302,6 +304,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         seed=seed,
         cores=cores,
         refine=refine,
+        num_refine=num_refine,
         regularization_rna=reg_rna,
         regularization_lambda=reg_lambda,
         regularization_phospho=reg_phospho,
