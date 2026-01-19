@@ -28,7 +28,7 @@ from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report
-
+from frechet import frechet_distance
 
 def main():
     parser = argparse.ArgumentParser()
@@ -374,14 +374,64 @@ def main():
     # print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
 
     # 11) Pick one solution
+    # Modified solution selection using Fréchet distance
     F = res.F
-    Fn = (F - F.min(axis=0)) / (np.ptp(F, axis=0) + 1e-12)
-    w = np.array([args.lambda_protein, args.lambda_rna, args.lambda_phospho], dtype=float)
-    I = np.argmin((Fn * w).sum(axis=1))
+
+    # Compute Fréchet distances for each solution
+    frechet_scores = []
+    for i in range(len(X)):
+        theta = X[i].astype(float)
+        params_temp = unpack_params(theta, slices)
+        sys.update(**params_temp)
+
+        # Simulate with current parameters
+        dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
+            sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+        )
+
+        # Calculate Fréchet distance for each modality
+        frechet_prot = 0.0
+        frechet_rna = 0.0
+        frechet_phospho = 0.0
+
+        # Protein Fréchet distance
+        if dfp_temp is not None and len(df_prot) > 0:
+            for protein in df_prot['protein'].unique():
+                obs = df_prot[df_prot['protein'] == protein][['time', 'fc']].values
+                pred = dfp_temp[dfp_temp['protein'] == protein][['time', 'fc']].values
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_prot += frechet_distance(obs, pred)
+
+        # RNA Fréchet distance
+        if dfr_temp is not None and len(df_rna) > 0:
+            for protein in df_rna['protein'].unique():
+                obs = df_rna[df_rna['protein'] == protein][['time', 'fc']].values
+                pred = dfr_temp[dfr_temp['protein'] == protein][['time', 'fc']].values
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_rna += frechet_distance(obs, pred)
+
+        # Phospho Fréchet distance
+        if dfph_temp is not None and len(df_pho) > 0:
+            for site in df_pho['site'].unique():
+                obs = df_pho[df_pho['site'] == site][['time', 'fc']].values
+                pred = dfph_temp[dfph_temp['site'] == site][['time', 'fc']].values
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_phospho += frechet_distance(obs, pred)
+
+        # Weighted combination of Fréchet distances
+        frechet_score = (args.lambda_protein * frechet_prot +
+                         args.lambda_rna * frechet_rna +
+                         args.lambda_phospho * frechet_phospho)
+        frechet_scores.append(frechet_score)
+
+    # Select solution with minimum Fréchet distance
+    I = np.argmin(frechet_scores)
     theta_best = X[I].astype(float)
     F_best = F[I]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
+
+    print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
 
     # Save the phosphorylation rates
     export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
