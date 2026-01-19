@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import pickle
+
 import numpy as np
 import multiprocessing as mp
 
@@ -27,7 +29,9 @@ from phoskintime_global.simulate import simulate_and_measure
 from phoskintime_global.utils import normalize_fc_to_t0, _base_idx, slen
 from phoskintime_global.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates, plot_s_rates_report
+    scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
+    export_param_correlations
+from phoskintime_global.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
 
 def main():
@@ -123,15 +127,27 @@ def main():
     tf_mat = build_tf_matrix(df_tf, idx, tf_beta_map=tf_beta_map)
     kin_in = KinaseInput(idx.kinases, df_prot)
 
-    #TODO - Check for sum of absolute weight to allow for TF repression dynamics
+    # Calculate TF degree normalization (using absolute sum to handle repressors)
+    # This effectively normalizes the 'regulatory input' so genes with many TFs
+    # don't have explode synthesis rates compared to genes with few TFs.
     tf_deg = np.asarray(np.abs(tf_mat).sum(axis=1)).ravel().astype(np.float64)
     tf_deg[tf_deg < 1e-12] = 1.0
-    # tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)
 
-    df_tf = df_tf[
-        df_tf["tf"].isin(idx.proteins) &
-        df_tf["target"].isin(idx.proteins)
-        ]
+    # Initialize Kinase Activity Multipliers (c_k) from Beta Priors
+    # We use max(0.01) to prevent zero/negative activity in the log-space parameterization
+    c_k_init = np.array([max(0.01, float(kin_beta_map.get(k, 1.0))) for k in idx.kinases])
+
+    # 4) Defaults/system
+    defaults = {
+        "c_k": c_k_init,
+        "A_i": np.ones(idx.N),
+        "B_i": np.full(idx.N, 0.2),
+        "C_i": np.full(idx.N, 0.5),
+        "D_i": np.full(idx.N, 0.05),
+        "Dp_i": np.full(idx.total_sites, 0.05),
+        "E_i": np.ones(idx.N),
+        "tf_scale": 0.1
+    }
 
     # print("\n===== NETWORK / INPUT SANITY CHECK =====")
     #
@@ -187,24 +203,39 @@ def main():
     #         print(f"    t={t:>6}: {v:.4f}")
     #
     # print("\n===== END NETWORK CHECK =====\n")
-
-    c_k_init = np.array([max(0.01, float(kin_beta_map.get(k, 1.0))) for k in idx.kinases])
-
-    # 4) Defaults/system
-    defaults = {
-        "c_k": c_k_init,
-        "A_i": np.ones(idx.N),
-        "B_i": np.full(idx.N, 0.2),
-        "C_i": np.full(idx.N, 0.5),
-        "D_i": np.full(idx.N, 0.05),
-        "Dp_i": np.full(idx.total_sites, 0.05),
-        "E_i": np.ones(idx.N),
-        "tf_scale": 0.1
-    }
-
+    #
     # Model system of Data IO + ODE + solver + optimization
     sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
-
+    #
+    # # Check TF inputs for ALL proteins
+    # print(f"\n[Debug] Checking TF inputs for all {len(sys.idx.proteins)} proteins:")
+    # proteins_with_no_tf = []
+    #
+    # for test_prot_idx in range(len(sys.idx.proteins)):
+    #     test_prot_name = sys.idx.proteins[test_prot_idx]
+    #
+    #     # Get the row of the TF matrix corresponding to this protein
+    #     row_start = sys.tf_mat.indptr[test_prot_idx]
+    #     row_end = sys.tf_mat.indptr[test_prot_idx + 1]
+    #
+    #     if row_end > row_start:
+    #         print(f"\n  {test_prot_name}: {row_end - row_start} TF regulators")
+    #         for k in range(row_start, row_end):
+    #             tf_idx = sys.tf_mat.indices[k]
+    #             weight = sys.tf_mat.data[k]
+    #             tf_name = sys.idx.proteins[tf_idx]
+    #             print(f"    <- Input from {tf_name} (weight: {weight:.4f})")
+    #     else:
+    #         proteins_with_no_tf.append(test_prot_name)
+    #
+    # if proteins_with_no_tf:
+    #     print(f"\n  [WARNING] {len(proteins_with_no_tf)} proteins have NO TF inputs:")
+    #     for prot in proteins_with_no_tf:
+    #         print(f"    - {prot}")
+    #     print("  These proteins will not react to signaling!")
+    # else:
+    #     print(f"\n  [OK] All proteins have at least one TF input.")
+        
     # Setting initial conditions from data
     if args.use_initial_condition_from_data:
         sys.attach_initial_condition_data(
@@ -321,6 +352,15 @@ def main():
         pool.close()
         pool.join()
 
+    # Save full result object
+    with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
+        pickle.dump(res, f)
+    print("[Output] Saved full optimization state (pickle).")
+
+    # Export convergence history
+    df_hist = process_convergence_history(res, args.output_dir)
+    df_hist.to_csv(os.path.join(args.output_dir, "convergence_history.csv"), index=False)
+
     # 10) Save Pareto set
     X = res.X
     F = res.F
@@ -333,8 +373,6 @@ def main():
     print(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
-
-    #TODO - Add optimization history to save files to study optimization
 
     export_pareto_front_to_excel(
         res=res,
@@ -434,6 +472,13 @@ def main():
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
+    # 1. Export Dynamic Kinase Activities (Mechanism check)
+    export_kinase_activities(sys, idx, args.output_dir, t_max=120)
+
+    # 2. Export Parameter Correlations (Identifiability check)
+    export_param_correlations(res, slices, idx, args.output_dir, best_idx=I)
+
+    print("[Model] System updated with optimized parameters.")
     print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
 
     # Save the phosphorylation rates
@@ -495,6 +540,22 @@ def main():
 
     print("[Done] Time series plots saved.")
 
+    print("\n[Check] Running post-optimization dynamics check...")
+
+    # 1. Simulate for 72 hours (4320 min) to see long-term behavior
+    t_check, Y_check = simulate_until_steady(sys, t_max=24*3*60)
+
+    # 2. Plot every single protein
+    plot_steady_state_all(
+        t_check,
+        Y_check,
+        sys,
+        idx,
+        output_dir=args.output_dir
+    )
+
+    print("[Check] Check complete. Inspect 'steady_state_plots' folder.")
+
     if dfp is not None and dfr is not None and dfph is not None:
         export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
 
@@ -513,8 +574,8 @@ def main():
     print("[Done] Parallel Coordinate plot saved.")
 
     # 3. Convergence Video
-    create_convergence_video(res, output_dir=args.output_dir)
-    print("[Done] Convergence video saved.")
+    # create_convergence_video(res, output_dir=args.output_dir)
+    # print("[Done] Convergence video saved.")
 
     # 4. Prior Regularization Scan
     scan_prior_reg(out_dir=args.output_dir)

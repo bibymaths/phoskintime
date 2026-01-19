@@ -48,7 +48,7 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
         y0,
         t_eval,
         args=args,
-        Dfun=fd_jacobian_odeint,   # keep if you want; for MODEL==2 you can set None if it causes issues
+        Dfun=None,   # keep if you want; for MODEL==2 you can set None if it causes issues
         col_deriv=False,
         rtol=rtol,
         atol=atol,

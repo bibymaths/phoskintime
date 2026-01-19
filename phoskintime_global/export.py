@@ -11,6 +11,7 @@ import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 from pymoo.visualization.pcp import PCP
 from pymoo.visualization.scatter import Scatter
+from scipy.interpolate import interp1d
 from scipy.stats import linregress
 
 from phoskintime_global.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL
@@ -278,23 +279,31 @@ def export_pareto_front_to_excel(
 
         # ---- per-site degradation rates ----
         # Prefer params dict if present, else sys attribute set by update().
-        deg_vec = (
-                p.get("deg_site", None)
-                or p.get("kdeg_site", None)
-                or getattr(sys, "deg_site", None)
-                or getattr(sys, "kdeg_site", None)
-        )
+        deg_vec = p.get("Dp_i")
+        if deg_vec is None:
+            deg_vec = p.get("deg_site")
+        if deg_vec is None:
+            deg_vec = p.get("kdeg_site")
+        if deg_vec is None:
+            deg_vec = getattr(sys, "Dp_i", None)
 
         if deg_vec is not None:
             deg_vec = np.asarray(deg_vec, dtype=float).reshape(-1)
+            # Depending on how Dp_i is stored (sometimes it might be squeezed), ensure size matches
             if deg_vec.size != idx.total_sites:
-                raise ValueError(f"deg_vec has size {deg_vec.size}, expected idx.total_sites={idx.total_sites}")
+                # If mismatch, try to see if it's a scalar broadcast
+                if deg_vec.size == 1:
+                    deg_vec = np.full(idx.total_sites, deg_vec.item())
+                else:
+                    print(
+                        f"Warning: Dp_i size {deg_vec.size} != total_sites {idx.total_sites}. Skipping deg_sites export.")
+                    deg_vec = None
 
-            # store long format: one row per site per solution
+        if deg_vec is not None:
             for s in range(idx.total_sites):
                 deg_site_rows.append((
                     sol_id,
-                    int(s),  # global site id
+                    int(s),
                     site_protein[s],
                     site_psite[s],
                     int(site_local[s]),
@@ -393,11 +402,11 @@ def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
     out.rename(columns={obs_col: "fc_obs", pred_col: "fc_pred"}, inplace=True)
     return out
 
+
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
                          df_rna_obs, df_rna_pred,
                          df_phos_obs, df_phos_pred,
                          output_dir, file_prefix=""):
-
     # Merge and standardize
     mp = df_prot_obs.merge(df_prot_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
     mr = df_rna_obs.merge(df_rna_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
@@ -414,39 +423,80 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
     combined = pd.concat([mp, mr, mph], ignore_index=True)
     combined = combined.dropna(subset=["fc_obs", "fc_pred"])
 
+    # Create single plot
     sns.set_style("whitegrid")
-    g = sns.FacetGrid(combined, col="Type", height=6, sharex=False, sharey=False)
+    fig, ax = plt.subplots(figsize=(10, 9))
 
-    def scatter_with_metrics(x, y, **kwargs):
-        ax = plt.gca()
+    # Define colors and markers for each category
+    category_styles = {
+        "Protein": {"color": "#2E86AB", "marker": "o", "label": "Protein"},
+        "RNA": {"color": "#A23B72", "marker": "s", "label": "RNA"},
+        "Phosphorylation": {"color": "#F18F01", "marker": "^", "label": "Phosphorylation"}
+    }
 
-        ax.scatter(x, y, alpha=0.5, s=30, edgecolors="w", linewidths=0.3)
+    # Plot each category with different style
+    for cat_type, style in category_styles.items():
+        cat_data = combined[combined["Type"] == cat_type]
+        if not cat_data.empty:
+            ax.scatter(
+                cat_data["fc_obs"],
+                cat_data["fc_pred"],
+                c=style["color"],
+                marker=style["marker"],
+                s=50,
+                alpha=0.6,
+                edgecolors="black",
+                linewidths=0.5,
+                label=style["label"],
+                rasterized=True  # for crispness in PDF/PNG
+            )
 
-        # identity line
-        xmin = min(np.min(x), np.min(y))
-        xmax = max(np.max(x), np.max(y))
-        ax.plot([xmin, xmax], [xmin, xmax], "k--", alpha=0.75, zorder=0)
+    # Identity line
+    all_vals = np.concatenate([combined["fc_obs"].values, combined["fc_pred"].values])
+    xmin, xmax = np.min(all_vals), np.max(all_vals)
+    ax.plot([xmin, xmax], [xmin, xmax], "k--", alpha=0.5, linewidth=1.5, zorder=0, label="Identity")
 
-        # regression line
-        sns.regplot(x=x, y=y, scatter=False, ci=95,
-                    line_kws={"alpha": 0.6, "lw": 2},
-                    ax=ax)
+    # Regression line (overall)
+    x = combined["fc_obs"].values
+    y = combined["fc_pred"].values
+    sns.regplot(
+        x=x, y=y,
+        scatter=False,
+        ci=95,
+        line_kws={"alpha": 0.7, "lw": 2, "color": "red", "linestyle": "-"},
+        ax=ax,
+        label="Regression"
+    )
 
-        slope, intercept, r_value, p_value, std_err = linregress(x, y)
-        r2 = r_value ** 2
-        rmse = float(np.sqrt(np.mean((np.asarray(y) - np.asarray(x)) ** 2)))
+    # Calculate overall metrics
+    slope, intercept, r_value, p_value, std_err = linregress(x, y)
+    r2 = r_value ** 2
+    rmse = float(np.sqrt(np.mean((y - x) ** 2)))
 
-        ax.text(0.05, 0.95, f"$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$",
-                transform=ax.transAxes, va="top",
-                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
+    # Add metrics text box
+    ax.text(
+        0.05, 0.95,
+        f"Overall:\n$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$",
+        transform=ax.transAxes,
+        va="top",
+        fontsize=11,
+        bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray", linewidth=1)
+    )
 
-    g.map(scatter_with_metrics, "fc_obs", "fc_pred")
-    g.set_axis_labels("Observed FC", "Predicted FC")
-    g.fig.suptitle("Goodness of Fit: Global ODE Model", y=1.05)
+    ax.set_xlabel("Observed FC", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Predicted FC", fontsize=12, fontweight="bold")
+    ax.set_title("Goodness of Fit: Global ODE Model", fontsize=14, fontweight="bold", pad=15)
+    ax.legend(loc="lower right", frameon=True, framealpha=0.9, edgecolor="gray")
+    ax.grid(True, alpha=0.3, linewidth=0.5)
+
+    # Equal aspect ratio for better visual comparison
+    ax.set_aspect("equal", adjustable="box")
+
+    fig.tight_layout()
 
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f"{file_prefix}goodness_of_fit.png")
-    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close()
     print(f"[Output] Saved Goodness of Fit plot to: {out_path}")
 
@@ -1343,3 +1393,197 @@ def plot_s_rates_report(
             _small_multiples_for_protein(pdf, prot, sub)
 
     return out_pdf
+
+def process_convergence_history(res, output_dir):
+    """
+    Extract and save optimization convergence history.
+
+    Args:
+        res: Pymoo optimization result object with history attribute
+        output_dir: Directory path to save outputs
+
+    Returns:
+        pd.DataFrame: Convergence history dataframe with columns
+                     [n_evals, gen, min_prot_mse, min_rna_mse, min_phos_mse]
+    """
+
+    if res.history is None:
+        print("[Warning] No optimization history available.")
+        return None
+
+    n_evals = []  # Function evaluations
+    hist_F = []  # Objective space values
+
+    print("[Output] Processing optimization history...")
+    for algo in res.history:
+        n_evals.append(algo.evaluator.n_eval)
+        opt = algo.opt
+
+        # Get the best (min) of each objective in this generation
+        # Note: This is an approximation for MOO (ideally use Hypervolume)
+        feas = np.where(opt.get("CV") <= 0)[0]
+        if len(feas) > 0:
+            hist_F.append(np.min(opt.get("F")[feas], axis=0))
+        else:
+            hist_F.append(np.min(opt.get("F"), axis=0))
+
+    # Save History CSV
+    hist_F = np.array(hist_F)
+    df_hist = pd.DataFrame(hist_F, columns=["min_prot_mse", "min_rna_mse", "min_phos_mse"])
+    df_hist.insert(0, "n_evals", n_evals)
+    df_hist["gen"] = np.arange(len(df_hist))
+    df_hist.to_csv(os.path.join(output_dir, "convergence_history.csv"), index=False)
+
+    # Plot Convergence
+    plt.figure(figsize=(10, 6))
+    plt.plot(df_hist["gen"], df_hist["min_prot_mse"], label="Protein MSE")
+    plt.plot(df_hist["gen"], df_hist["min_rna_mse"], label="RNA MSE")
+    plt.plot(df_hist["gen"], df_hist["min_phos_mse"], label="Phospho MSE")
+    plt.yscale("log")
+    plt.title("Convergence History (Best Error per Gen)")
+    plt.xlabel("Generation")
+    plt.ylabel("MSE (Log Scale)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(output_dir, "convergence_plot.png"), dpi=300)
+    plt.close()
+
+    print("[Output] Saved convergence history and plot.")
+
+    return df_hist
+
+
+def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
+    """
+    Calculates and saves the effective Kinase Activity (Profile * c_k) over time.
+    """
+    # Create time grid for plotting
+    t_grid = np.linspace(0, t_max, n_points)
+
+    # We need the raw data profile from the system inputs
+    # sys.kin_in.Kmat is shape (n_kinases, n_data_points)
+    orig_t = sys.kin_in.grid
+    orig_K = sys.kin_in.Kmat
+
+    activities = []
+
+    for k_idx, k_name in enumerate(idx.kinases):
+        # 1. Get base profile from MS data
+        base_profile = orig_K[k_idx, :]
+
+        # 2. Interpolate to smooth grid
+        interp_func = interp1d(orig_t, base_profile, kind='linear', fill_value="extrapolate")
+        smooth_profile = interp_func(t_grid)
+
+        # 3. Apply optimized multiplier c_k
+        # c_k is stored in sys.c_k
+        multiplier = sys.c_k[k_idx]
+        act_trace = smooth_profile * multiplier
+
+        activities.append(act_trace)
+
+    # Build DataFrame
+    df_act = pd.DataFrame(np.array(activities).T, columns=idx.kinases)
+    df_act.insert(0, "time", t_grid)
+
+    # Save CSV
+    save_path = os.path.join(output_dir, "kinase_activities_dynamic.csv")
+    df_act.to_csv(save_path, index=False)
+    print(f"[Output] Saved dynamic kinase activities to {save_path}")
+
+    # Plot Top 10 Active Kinases
+    plt.figure(figsize=(12, 8))
+
+    # Find kinases with highest integral (Area Under Curve)
+    auc = df_act.drop("time", axis=1).sum()
+    top_k = auc.nlargest(10).index
+
+    for k in top_k:
+        plt.plot(df_act["time"], df_act[k], label=k, linewidth=2)
+
+    plt.title("Top 10 Kinase Activities Over Time (Effective)", fontsize=14)
+    plt.xlabel("Time (min)", fontsize=12)
+    plt.ylabel("Activity (a.u.) = Abundance × c_k", fontsize=12)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "kinase_activities_plot.png"), dpi=100)
+    plt.close()
+
+
+def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
+    """
+    Generates diagnostic correlation plots.
+    1. Kinase Parameter Correlation (across Pareto set)
+    2. Gene Parameter Correlation (across proteins in the best solution)
+    """
+    X = res.X
+
+    # --- Plot 1: Kinase Parameter Correlation (Pareto Front) ---
+    # This shows if kinases are "fighting" each other or identifiable
+    kin_slice = slices["c_k"]
+    X_kin = X[:, kin_slice]
+
+    if X_kin.shape[1] > 0:
+        df_kin = pd.DataFrame(X_kin, columns=idx.kinases)
+        corr_kin = df_kin.corr()
+
+        plt.figure(figsize=(14, 12))
+        sns.heatmap(
+            corr_kin,
+            cmap="RdBu_r",
+            center=0,
+            square=True,
+            xticklabels=True,
+            yticklabels=True,
+            vmin=-1, vmax=1
+        )
+        plt.title("Correlation of Kinase Parameters (Pareto Set)", fontsize=16)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "correlation_kinases_pareto.png"), dpi=300)
+        plt.close()
+        print("[Output] Saved kinase parameter correlation plot.")
+
+    # --- Plot 2: Gene Parameter Correlation (Population mechanism) ---
+    # If best_idx is provided, we analyze that specific solution.
+    # Otherwise we analyze the first solution.
+    if best_idx is None:
+        best_idx = 0
+
+    theta_best = X[best_idx].astype(float)
+    p = unpack_params(theta_best, slices)
+
+    # Extract gene params: A_i, B_i, C_i, D_i, E_i
+    # Shape: (N_proteins,)
+    gene_data = {
+        "Synthesis (A)": p["A_i"],
+        "RNA Decay (B)": p["B_i"],
+        "Translation (C)": p["C_i"],
+        "Prot Decay (D)": p["D_i"],
+        "Dephos (E)": p["E_i"]
+    }
+
+    df_genes = pd.DataFrame(gene_data)
+
+    # Compute correlation across the 206 proteins
+    corr_genes = df_genes.corr()
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(
+        corr_genes,
+        cmap="viridis",
+        annot=True,
+        fmt=".2f",
+        square=True
+    )
+    plt.title(f"Mechanistic Coupling (Gene Params, Sol {best_idx})", fontsize=14)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "correlation_gene_params.png"), dpi=300)
+    plt.close()
+
+    # Also plot pairplot to see distributions
+    sns.pairplot(df_genes, kind="reg", plot_kws={'line_kws': {'color': 'red'}, 'scatter_kws': {'alpha': 0.1}})
+    plt.savefig(os.path.join(output_dir, "distribution_gene_params.png"), dpi=300)
+    plt.close()
+
+    print("[Output] Saved gene parameter correlation plots.")
