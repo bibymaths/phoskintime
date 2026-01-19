@@ -41,6 +41,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm  # Progress bars
 from numba import njit  # JIT compilation for performance
+from pymoo.algorithms.soo.nonconvex.de import DE
+from pymoo.operators.sampling.lhs import LHS
+from pymoo.optimize import minimize as pymoo_minimize
+from pymoo.core.problem import ElementwiseProblem
+from pymoo.termination import get_termination
+from pymoo.core.problem import StarmapParallelization
 
 # ------------------------------
 # Constants & Configuration
@@ -946,6 +952,16 @@ class System:
                 y0[sl.start + 2: sl.start + 2 + nsi] = Psite0
         return y0
 
+class ODEProblem(ElementwiseProblem):
+    def __init__(self, cost_fun, n_var, xl, xu, runner=None):
+        super().__init__(n_var=n_var, n_obj=1, n_constr=0, xl=xl, xu=xu, elementwise_runner=runner)
+        self.cost_fun = cost_fun
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        loss = self.cost_fun(x)
+        out["F"] = loss
+
+# --------------------------------------------
 
 # ------------------------------
 # Simulation & Loss Calculation
@@ -1510,6 +1526,45 @@ def plot_fit_report(
 
     return pdf_path, os.path.join(out_dir, metrics_csv)
 
+
+# --- ADD THIS CLASS BEFORE main() ---
+class GlobalLoss:
+    """
+    Pickleable objective function wrapper.
+    Stores all necessary data to compute loss so it can be passed to workers.
+    """
+
+    def __init__(self, parts, sys, idx, alpha_init, c_k_init,
+                 df_prot_obs, df_rna_obs, df_psite_obs,
+                 lam, atol, rtol, jsp):
+        self.parts = parts
+        self.sys = sys
+        self.idx = idx
+        self.alpha_init = alpha_init
+        self.c_k_init = c_k_init
+        self.df_prot_obs = df_prot_obs
+        self.df_rna_obs = df_rna_obs
+        self.df_psite_obs = df_psite_obs
+        self.lam = lam
+        self.atol = atol
+        self.rtol = rtol
+        self.jsp = jsp
+
+        # We can try to store details, though they won't sync back
+        # from workers to main process easily.
+        self.last_details = None
+
+    def __call__(self, theta):
+        val, details = dual_loss(
+            theta,
+            self.parts, self.sys, self.idx,
+            self.alpha_init, self.c_k_init,
+            self.df_prot_obs, self.df_rna_obs, self.df_psite_obs,
+            self.lam, self.atol, self.rtol, self.jsp
+        )
+        self.last_details = details
+        return val
+
 # ------------------------------
 # Main Execution Flow
 # ------------------------------
@@ -1607,16 +1662,12 @@ def main():
     progress = {"iter": 0}
     last_details = None
 
-    # 1. Simplified Objective Function
-    def fun(theta):
-        nonlocal last_details
-        val, details = dual_loss(
-            theta, parts, sys, idx, alpha_init, c_k_init,
-            df_prot_obs, df_rna_obs, df_psite_obs,  # Match your arguments
-            lam, args.atol, args.rtol, JSP
-        )
-        last_details = details  # Store details for the callback to access
-        return val
+    # 1. Instantiate the pickleable cost function
+    cost_fn = GlobalLoss(
+        parts, sys, idx, alpha_init, c_k_init,
+        df_prot_obs, df_rna_obs, df_psite_obs,
+        lam, args.atol, args.rtol, JSP
+    )
 
     # 2. New Callback Function (Handles Iteration Logging)
     def on_iteration(xk, state=None):
@@ -1720,29 +1771,82 @@ def main():
     _ = sys.rhs(float(TIME_POINTS[0]), sys.y0())
 
     # Run optimizer
+    # if theta0.size > 0:
+    #     res = minimize(
+    #         fun,
+    #         theta0,
+    #         method="trust-constr",
+    #         bounds=bounds,
+    #         callback=on_iteration,
+    #         options={"maxiter": args.maxiter}
+    #     )
+    #     if last_details is not None:
+    #         print(
+    #             f"\n[FINAL @ {progress['iter']} iterations]\n"
+    #             f"  Total Loss : {last_details['total']:.6f}\n"
+    #             f"  Prot LSQ   : {last_details['prot_loss']:.6f}\n"
+    #             f"  RNA LSQ    : {last_details['rna_loss']:.6f}\n"
+    #             f"  PSite LSQ  : {last_details['psite_loss']:.6f}\n"
+    #             f"  Reg Terms  : {last_details['reg_alpha_l1'] + last_details['reg_alpha_prior'] + last_details['reg_c_prior']:.6f}"
+    #         )
+    #     if not res.success:
+    #         print(f"[WARN] Optimizer: {res.message}")
+    #     theta_opt = res.x
+    # else:
+    #     theta_opt = theta0
+
+    # --- Differential Evolution ---
+
     if theta0.size > 0:
-        res = minimize(
-            fun,
-            theta0,
-            method="COBYQA",
-            bounds=bounds,
-            callback=on_iteration,
-            options={"maxiter": args.maxiter}
+        # 1. Setup Bounds (clamping infinite bounds for DE)
+        xl = np.array([b[0] for b in bounds])
+        xu = np.array([b[1] for b in bounds])
+
+        # 2. Initialize Parallelization
+        # Use N-1 cores to keep system responsive
+        n_procs = max(1, mp.cpu_count() - 1)
+        print(f"     -> Initializing StarmapParallelization with {n_procs} cores...")
+
+        pool = mp.Pool(n_procs)
+        runner = StarmapParallelization(pool.starmap)
+
+        # 3. Instantiate Problem with Runner
+        problem = ODEProblem(cost_fn, n_var=len(theta0), xl=xl, xu=xu, runner=runner)
+
+        # 4. Define Algorithm
+        algorithm = DE(
+            pop_size=40,  # Increased pop_size since we have parallel power
+            sampling=LHS(),
+            variant="DE/rand/1/bin",
+            CR=0.7,
+            dither="vector",
+            jitter=False,
+            verbose=True,
         )
-        if last_details is not None:
-            print(
-                f"\n[FINAL @ {progress['iter']} iterations]\n"
-                f"  Total Loss : {last_details['total']:.6f}\n"
-                f"  Prot LSQ   : {last_details['prot_loss']:.6f}\n"
-                f"  RNA LSQ    : {last_details['rna_loss']:.6f}\n"
-                f"  PSite LSQ  : {last_details['psite_loss']:.6f}\n"
-                f"  Reg Terms  : {last_details['reg_alpha_l1'] + last_details['reg_alpha_prior'] + last_details['reg_c_prior']:.6f}"
+
+        # 6. Run Optimization
+        print(f"     -> Starting Pymoo DE for {args.maxiter} generations...")
+
+        try:
+            res = pymoo_minimize(
+                problem,
+                algorithm,
+                get_termination("n_gen", args.maxiter),
+                seed=1,
+                verbose=True
             )
-        if not res.success:
-            print(f"[WARN] Optimizer: {res.message}")
-        theta_opt = res.x
+        finally:
+            # Ensure the pool is closed even if optimization crashes
+            pool.close()
+            pool.join()
+
+        theta_opt = res.X
+        if last_details is not None:
+            print(f"\n[FINAL] Best Loss: {res.F[0]:.6f}")
+
     else:
         theta_opt = theta0
+    # --------------------------------------------------------
 
     # Final objective breakdown
     f_opt, comps = dual_loss(theta_opt, parts, sys, idx, alpha_init, c_k_init,
