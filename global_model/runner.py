@@ -298,36 +298,13 @@ def main():
     # else:
     #     logger.info(f" [OK] All proteins have at least one TF input.")
 
-    # Setting initial conditions from data
     if args.use_initial_condition_from_data:
-        logger.info("[Info] Attempting to attach initial condition data...")
-        try:
-            # 1. Try the standard way
-            sys.attach_initial_condition_data(df_prot, df_rna, df_pho)
-            sys.set_initial_conditions()
-            logger.info("[Info] Initial condition data attached successfully.")
-
-        except RuntimeError as e:
-            # 2. Handle "Already attached" case
-            if "already attached" in str(e).lower():
-                logger.info("[Info] System reported data attached, but verification required.")
-
-                # FORCE INJECT the missing data dictionary if it's missing
-                # This fixes the "Zombie State" where y0 exists but data is None
-                if getattr(sys, "_ic_data", None) is None:
-                    logger.info("[Fix] Injecting missing _ic_data manually...")
-                    sys._ic_data = {
-                        "df_prot": df_prot,
-                        "df_rna": df_rna,
-                        "df_pho": df_pho
-                    }
-
-                # Now it is safe to call this
-                sys.set_initial_conditions()
-                logger.info("[Info] Initial conditions set/updated.")
-            else:
-                # Re-raise unexpected errors
-                raise e
+        sys.attach_initial_condition_data(
+            df_prot=df_prot,
+            df_rna=df_rna,
+            df_pho=df_pho
+        )
+        print("[Model] Initial conditions set from data.")
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))

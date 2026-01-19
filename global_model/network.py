@@ -195,6 +195,7 @@ class System:
             df_rna=df_rna,
             df_pho=df_pho
         )
+        print("[Model] Initial condition data attached successfully.")
 
     def set_initial_conditions(self):
         if self._ic_data is None:

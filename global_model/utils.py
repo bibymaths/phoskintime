@@ -2,10 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
-import tomllib
-
+import sys
 import pandas as pd
 from numba import njit
+
+# Python 3.11+ has tomllib, older versions need tomli
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 
 def _normcols(df):
@@ -149,10 +154,8 @@ def pick_best_lamdas(F, weights):
 
     return best_i, float(best_score)
 
-
 @dataclass(frozen=True)
 class PhosKinConfig:
-    # --- Input Files ---
     kinase_net: str | Path
     tf_net: str | Path
     ms_data: str | Path
@@ -161,36 +164,33 @@ class PhosKinConfig:
     kinopt_results: str | Path
     tfopt_results: str | Path
 
-    # --- Data Processing ---
     normalize_fc_steady: bool
     use_initial_condition_from_data: bool
+
     time_points_prot: np.ndarray
     time_points_rna: np.ndarray
     time_points_phospho: np.ndarray
 
-    # --- Model & Solver ---
     bounds_config: dict[str, tuple[float, float]]
     model: str
+
     use_custom_solver: bool
     ode_abs_tol: float
     ode_rel_tol: float
     ode_max_steps: int
 
-    # --- Optimization Settings ---
     loss_mode: int
-    maximum_iterations: int  # Mapped from 'n_gen' or 'max_iterations'
-    population_size: int  # Mapped from 'pop' or 'population_size'
+    maximum_iterations: int
+    population_size: int
     seed: int
     cores: int
     refine: bool
 
-    # --- Regularization (Loss Weights) ---
-    regularization_rna: float  # lambda_rna
-    regularization_lambda: float  # lambda_prior
-    regularization_phospho: float  # lambda_phospho
-    regularization_protein: float  # lambda_protein
+    regularization_rna: float
+    regularization_lambda: float
+    regularization_phospho: float
+    regularization_protein: float
 
-    # --- Output ---
     results_dir: str | Path
 
 
@@ -199,16 +199,14 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     with path.open("rb") as f:
         full_cfg = tomllib.load(f)
-        # Focus on [global_model] section
         cfg = full_cfg.get("global_model", {})
 
-    # 1. Inputs (Top-level keys in [global_model])
+    # 1. Inputs
     kinase_net = cfg.get("kinase_net", "data/input2.csv")
     tf_net = cfg.get("tf_net", "data/input4.csv")
     ms_data = cfg.get("ms", "data/input1.csv")
     rna_data = cfg.get("rna", "data/input3.csv")
 
-    # Optional phospho (fallback to ms data if mixed)
     phospho_data = cfg.get("phospho", None)
     if not phospho_data:
         phospho_data = cfg.get("ms", "data/input1.csv")
@@ -217,25 +215,18 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     tfopt_res = cfg.get("tfopt", "data/tfopt_results.xlsx")
 
     # 2. Output & Run Settings
-    res_dir = cfg.get("output_directory", "results_global")
-    cores = cfg.get("cores", 0)  # 0 means all cores usually
+    # FIX: Check 'output_dir' (TOML) first, then 'output_directory' (Legacy), then default
+    res_dir = cfg.get("output_dir", cfg.get("output_directory", "results_global"))
+
+    cores = cfg.get("cores", 0)
     seed = cfg.get("seed", 42)
     refine = cfg.get("refine", False)
 
     # 3. Data Config
-    # Check top-level keys first (CLI style), then nested [data]
-    if "normalize_fc_steady" in cfg:
-        normalize_fc_steady = cfg["normalize_fc_steady"]
-    else:
-        normalize_fc_steady = cfg.get("data", {}).get("normalize_steady", False)
-
-    if "use_initial_condition_from_data" in cfg:
-        use_initial_condition_from_data = cfg["use_initial_condition_from_data"]
-    else:
-        use_initial_condition_from_data = cfg.get("data", {}).get("use_initial_conditions", False)
+    normalize_fc_steady = cfg["normalize_fc_steady"]
+    use_initial_condition_from_data = cfg["use_initial_condition_from_data"]
 
     # 4. Timepoints
-    # Usually in [global_model.timepoints]
     tp_cfg = cfg.get("timepoints", {})
     tp_prot = tp_cfg.get("protein", [])
     tp_rna = tp_cfg.get("rna", [])
@@ -249,7 +240,6 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     model = cfg.get("models", {}).get("default_model", "combinatorial")
 
     # 6. Optimization
-    # Check root keys (n_gen, pop) first -> then [optimization]
     opt_cfg = cfg.get("optimization", {})
 
     if "n_gen" in cfg:
@@ -264,8 +254,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     loss_mode = opt_cfg.get("loss", 0)
 
-    # 7. Regularization Weights
-    # Check root keys (lambda_prior, etc.) -> then [regularization]
+    # 7. Regularization
     reg_cfg = cfg.get("regularization", {})
 
     reg_lambda = cfg.get("lambda_prior", reg_cfg.get("lambda", 0.01))
@@ -282,14 +271,11 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     # 9. Bounds
     b = cfg.get("bounds", {})
-    bounds_config: dict[str, tuple[float, float]] = {}
+    bounds_config = {}
     for k, v in b.items():
         if not (isinstance(v, list) and len(v) == 2):
             raise ValueError(f"bounds.{k} must be a 2-element array [min, max], got: {v}")
-        lo, hi = float(v[0]), float(v[1])
-        if lo >= hi:
-            raise ValueError(f"bounds.{k} invalid: min >= max ({lo} >= {hi})")
-        bounds_config[k] = (lo, hi)
+        bounds_config[k] = (float(v[0]), float(v[1]))
 
     return PhosKinConfig(
         kinase_net=kinase_net,

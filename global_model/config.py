@@ -5,11 +5,10 @@ import os
 from global_model.utils import load_config_toml
 
 # Load configuration relative to CWD (Project Root)
-# Ensure 'config.toml' exists in the root where you run the command
 if os.path.exists("config.toml"):
     cfg = load_config_toml("config.toml")
 else:
-    # Fallback or error handling if running from a different directory
+    # Fallback or useful error if running from wrong dir
     raise FileNotFoundError("config.toml not found in current directory.")
 
 def _as_bool(x):
@@ -56,7 +55,7 @@ SEED = cfg.seed
 CORES = cfg.cores
 REFINE = _as_bool(cfg.refine)
 
-# --- Regularization (Loss Weights) ---
+# --- Regularization ---
 REGULARIZATION_RNA = cfg.regularization_rna
 REGULARIZATION_LAMBDA = cfg.regularization_lambda
 REGULARIZATION_PHOSPHO = cfg.regularization_phospho

@@ -13,26 +13,44 @@ from global_model.config import RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
     """
     Calculates tighter bounds around the existing Pareto set (X).
     """
+    # 1. Find min/max of the current solutions
     p_min = np.min(X, axis=0)
     p_max = np.max(X, axis=0)
 
+    # 2. Calculate span
     span = p_max - p_min
-    span[span < 1e-6] = 0.1
 
+    # 3. Apply padding
+    # If a parameter didn't vary (span ~ 0), ensure a minimum search window
+    # relative to the magnitude of the value, or a hard minimum.
+    span = np.maximum(span, 1e-2)
+
+    # Expand bounds by padding factor
     new_xl = p_min - (span * padding)
     new_xu = p_max + (span * padding)
 
+    # 4. Clip to original hard limits (safety)
     new_xl = np.maximum(new_xl, current_xl)
     new_xu = np.minimum(new_xu, current_xu)
 
-    vol_old = np.prod(current_xu - current_xl + 1e-9)
-    vol_new = np.prod(new_xu - new_xl + 1e-9)
-    ratio = vol_old / vol_new
-    logger.info(f"[Refine] Search space volume reduced by factor: {ratio:.2e}")
+    # 5. Calculate Log-Volume Reduction (Stable for High Dimensions)
+    # Vol = Product(Lengths) -> Log(Vol) = Sum(Log(Lengths))
+    # Ratio = Vol_Old / Vol_New -> Log(Ratio) = Log_Vol_Old - Log_Vol_New
+
+    span_old = current_xu - current_xl + 1e-9
+    span_new = new_xu - new_xl + 1e-9
+
+    log_vol_old = np.sum(np.log(span_old))
+    log_vol_new = np.sum(np.log(span_new))
+    log_reduction = log_vol_old - log_vol_new
+
+    print(f"[Refine] Search space concentrated. Log-volume reduction: {log_reduction:.2f}")
+    print(f"         (Roughly equivalent to shrinking space by factor of 10^{log_reduction / 2.303:.1f})")
 
     return new_xl, new_xu
 
@@ -71,7 +89,7 @@ def run_refinement(problem, prev_res, args, padding=0.25):
     """
     Main driver with Parallel Processing support.
     """
-    logger.info("\n" + "=" * 40)
+    logger.info("=" * 40)
     logger.info("       STARTING REFINEMENT (ZOOM-IN)      ")
     logger.info("=" * 40)
 

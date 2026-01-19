@@ -275,9 +275,9 @@ seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
-n_gen      = 200                       # Generations (runner arg: --n-gen)
-pop        = 100                       # Population size (runner arg: --pop)
-refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
+n_gen      = 1000                       # Generations (runner arg: --n-gen)
+pop        = 300                       # Population size (runner arg: --pop)
+refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
 
 # ------------------------------------------------------------
 # LOSS WEIGHTS (Regularization)
@@ -295,13 +295,7 @@ use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --
 
 # ------------------------------------------------------------
 # MODEL & BOUNDS CONFIGURATION
-# (These are internal config values used by the model logic)
 # ------------------------------------------------------------
-
-[global_model.data]
-# (Legacy/Internal settings)
-normalize_steady = false
-use_initial_conditions = false
 
 [global_model.timepoints]
 protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
@@ -320,7 +314,7 @@ tf_scale = [-4.0, 4.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "combinatorial"
+default_model = "distributive"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
