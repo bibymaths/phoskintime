@@ -38,9 +38,9 @@ model_description = """
 """
 
 [optimization]
-loss = 1  # 0:L2, 1:Huber, 2:log+pHuber, 3:rel+Charbonnier
-max_iterations = 1000
-population_size = 300
+loss = 0  # 0:L2, 1:Huber, 2:log+pHuber, 3:rel+Charbonnier
+max_iterations = 500
+population_size = 100
 seed = 42
 
 [regularization]
@@ -53,4 +53,4 @@ phospho = 1.0
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = false
+use_custom_solver = true

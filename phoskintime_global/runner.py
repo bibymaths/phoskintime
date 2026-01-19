@@ -128,415 +128,397 @@ def main():
     tf_deg[tf_deg < 1e-12] = 1.0
     # tf_deg = np.asarray(tf_mat.sum(axis=1)).ravel().astype(np.float64)
 
-    #TODO - Add mRNA - TF - Psite dynamics to the workflow and model
-
     df_tf = df_tf[
         df_tf["tf"].isin(idx.proteins) &
         df_tf["target"].isin(idx.proteins)
         ]
 
-    # adapt these column names to your df_tf
-    src_col = "tf"  # or "source"
-    tgt_col = "target"  # or "protein"
-
-    tf_src = set(df_tf[src_col].astype(str).str.strip().unique())
-    tf_tgt = set(df_tf[tgt_col].astype(str).str.strip().unique())
-    model_genes = set(idx.proteins)
-
-    print("unique TF src:", len(tf_src), "unique TF tgt:", len(tf_tgt))
-    print("overlap src∩model:", len(tf_src & model_genes))
-    print("overlap tgt∩model:", len(tf_tgt & model_genes))
-
-    # show examples that fail to match
-    print("example src not in model:", list(tf_src - model_genes)[:10])
-    print("example tgt not in model:", list(tf_tgt - model_genes)[:10])
-
-    print("\n===== NETWORK / INPUT SANITY CHECK =====")
-
-    # --- W_global (kinase -> site) ---
-    print("\n[W_global]")
-    print(f"  type        : {type(W_global)}")
-    print(f"  shape       : {W_global.shape}")
-    print(f"  nnz         : {W_global.nnz}")
-    print(f"  density     : {W_global.nnz / (W_global.shape[0] * W_global.shape[1] + 1e-12):.4e}")
-
-    if W_global.nnz > 0:
-        print(f"  data stats  : min={W_global.data.min():.3e}, "
-              f"max={W_global.data.max():.3e}, "
-              f"mean={W_global.data.mean():.3e}")
-
-        print("  first 10 entries (row, col, value):")
-        rows, cols = W_global.nonzero()
-        for i in range(min(10, len(rows))):
-            print(f"    ({rows[i]}, {cols[i]}) = {W_global.data[i]}")
-
-    # --- TF matrix ---
-    print("\n[tf_mat]")
-    print(f"  type        : {type(tf_mat)}")
-    print(f"  shape       : {tf_mat.shape}")
-    print(f"  nnz         : {tf_mat.nnz}")
-    print(f"  density     : {tf_mat.nnz / (tf_mat.shape[0] * tf_mat.shape[1] + 1e-12):.4e}")
-
-    if tf_mat.nnz > 0:
-        print(f"  data stats  : min={tf_mat.data.min():.3e}, "
-              f"max={tf_mat.data.max():.3e}, "
-              f"mean={tf_mat.data.mean():.3e}")
-
-    # --- TF degree normalization ---
-    print("\n[tf_deg]")
-    print(f"  shape       : {tf_deg.shape}")
-    print(f"  min/max     : {tf_deg.min():.3e} / {tf_deg.max():.3e}")
-    print(f"  zeros       : {(tf_deg == 0).sum()}")
-    print("  first 10 tf_deg:", tf_deg[:10])
-
-    # --- KinaseInput ---
-    print("\n[KinaseInput]")
-    print(f"  kinases     : {len(idx.kinases)}")
-    print(f"  grid        : {kin_in.grid}")
-    print(f"  Kmat shape  : {kin_in.Kmat.shape}")
-    print(f"  Kmat stats  : min={kin_in.Kmat.min():.3e}, "
-          f"max={kin_in.Kmat.max():.3e}, "
-          f"mean={kin_in.Kmat.mean():.3e}")
-
-    # show first kinase trajectory
-    if kin_in.Kmat.shape[0] > 0:
-        print("  first kinase activity over time:")
-        for t, v in zip(kin_in.grid, kin_in.Kmat[0]):
-            print(f"    t={t:>6}: {v:.4f}")
-
-    print("\n===== END NETWORK CHECK =====\n")
-
-    # c_k_init = np.array([max(0.01, float(kin_beta_map.get(k, 1.0))) for k in idx.kinases])
+    # print("\n===== NETWORK / INPUT SANITY CHECK =====")
     #
-    # # 4) Defaults/system
-    # defaults = {
-    #     "c_k": c_k_init,
-    #     "A_i": np.ones(idx.N),
-    #     "B_i": np.full(idx.N, 0.2),
-    #     "C_i": np.full(idx.N, 0.5),
-    #     "D_i": np.full(idx.N, 0.05),
-    #     "Dp_i": np.full(idx.total_sites, 0.05),
-    #     "E_i": np.ones(idx.N),
-    #     "tf_scale": 0.1
-    # }
+    # # --- W_global (kinase -> site) ---
+    # print("\n[W_global]")
+    # print(f"  type        : {type(W_global)}")
+    # print(f"  shape       : {W_global.shape}")
+    # print(f"  nnz         : {W_global.nnz}")
+    # print(f"  density     : {W_global.nnz / (W_global.shape[0] * W_global.shape[1] + 1e-12):.4e}")
     #
-    # # Model system of Data IO + ODE + solver + optimization
-    # sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
+    # if W_global.nnz > 0:
+    #     print(f"  data stats  : min={W_global.data.min():.3e}, "
+    #           f"max={W_global.data.max():.3e}, "
+    #           f"mean={W_global.data.mean():.3e}")
     #
-    # # Setting initial conditions from data
-    # if args.use_initial_condition_from_data:
-    #     sys.attach_initial_condition_data(
-    #         df_prot=df_prot,
-    #         df_rna=df_rna,
-    #         df_pho=df_pho
-    #     )
-    #     print("[Model] Initial conditions set from data.")
+    #     print("  first 10 entries (row, col, value):")
+    #     rows, cols = W_global.nonzero()
+    #     for i in range(min(10, len(rows))):
+    #         print(f"    ({rows[i]}, {cols[i]}) = {W_global.data[i]}")
     #
-    # # 5) Precompute loss data on solver time grid
-    # solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
+    # # --- TF matrix ---
+    # print("\n[tf_mat]")
+    # print(f"  type        : {type(tf_mat)}")
+    # print(f"  shape       : {tf_mat.shape}")
+    # print(f"  nnz         : {tf_mat.nnz}")
+    # print(f"  density     : {tf_mat.nnz / (tf_mat.shape[0] * tf_mat.shape[1] + 1e-12):.4e}")
     #
-    # loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
-    # loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
-    # loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
-    # loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+    # if tf_mat.nnz > 0:
+    #     print(f"  data stats  : min={tf_mat.data.min():.3e}, "
+    #           f"max={tf_mat.data.max():.3e}, "
+    #           f"mean={tf_mat.data.mean():.3e}")
     #
-    # # 6) Decision vector bounds (raw space)
-    # theta0, slices, xl, xu = init_raw_params(defaults)
-    # lambdas = {
-    #     "protein": args.lambda_protein,
-    #     "rna": args.lambda_rna,
-    #     "phospho": args.lambda_phospho,
-    #     "prior": args.lambda_prior
-    # }
+    # # --- TF degree normalization ---
+    # print("\n[tf_deg]")
+    # print(f"  shape       : {tf_deg.shape}")
+    # print(f"  min/max     : {tf_deg.min():.3e} / {tf_deg.max():.3e}")
+    # print(f"  zeros       : {(tf_deg == 0).sum()}")
+    # print("  first 10 tf_deg:", tf_deg[:10])
     #
-    # # 7) Pymoo parallel runner
-    # runner = None
-    # pool = None
-    # if args.cores > 1:
-    #     pool = mp.Pool(args.cores)
-    #     runner = StarmapParallelization(pool.starmap)
-    #     print(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
-    # else:
-    #     print("[Fit] Parallel evaluation disabled (or unavailable).")
+    # # --- KinaseInput ---
+    # print("\n[KinaseInput]")
+    # print(f"  kinases     : {len(idx.kinases)}")
+    # print(f"  grid        : {kin_in.grid}")
+    # print(f"  Kmat shape  : {kin_in.Kmat.shape}")
+    # print(f"  Kmat stats  : min={kin_in.Kmat.min():.3e}, "
+    #       f"max={kin_in.Kmat.max():.3e}, "
+    #       f"mean={kin_in.Kmat.mean():.3e}")
     #
-    # # 8) Problem
-    # problem = GlobalODE_MOO(
-    #     sys=sys,
-    #     slices=slices,
-    #     loss_data=loss_data,
-    #     defaults=defaults,
-    #     lambdas=lambdas,
-    #     time_grid=solver_times,
-    #     xl=xl,
-    #     xu=xu,
-    #     elementwise_runner=runner
+    # # show first kinase trajectory
+    # if kin_in.Kmat.shape[0] > 0:
+    #     print("  first kinase activity over time:")
+    #     for t, v in zip(kin_in.grid, kin_in.Kmat[0]):
+    #         print(f"    t={t:>6}: {v:.4f}")
+    #
+    # print("\n===== END NETWORK CHECK =====\n")
+
+    c_k_init = np.array([max(0.01, float(kin_beta_map.get(k, 1.0))) for k in idx.kinases])
+
+    # 4) Defaults/system
+    defaults = {
+        "c_k": c_k_init,
+        "A_i": np.ones(idx.N),
+        "B_i": np.full(idx.N, 0.2),
+        "C_i": np.full(idx.N, 0.5),
+        "D_i": np.full(idx.N, 0.05),
+        "Dp_i": np.full(idx.total_sites, 0.05),
+        "E_i": np.ones(idx.N),
+        "tf_scale": 0.1
+    }
+
+    # Model system of Data IO + ODE + solver + optimization
+    sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
+
+    # Setting initial conditions from data
+    if args.use_initial_condition_from_data:
+        sys.attach_initial_condition_data(
+            df_prot=df_prot,
+            df_rna=df_rna,
+            df_pho=df_pho
+        )
+        print("[Model] Initial conditions set from data.")
+
+    # 5) Precompute loss data on solver time grid
+    solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
+
+    loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
+    loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
+    loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
+    loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+
+    # 6) Decision vector bounds (raw space)
+    theta0, slices, xl, xu = init_raw_params(defaults)
+    lambdas = {
+        "protein": args.lambda_protein,
+        "rna": args.lambda_rna,
+        "phospho": args.lambda_phospho,
+        "prior": args.lambda_prior
+    }
+
+    # 7) Pymoo parallel runner
+    runner = None
+    pool = None
+    if args.cores > 1:
+        pool = mp.Pool(args.cores)
+        runner = StarmapParallelization(pool.starmap)
+        print(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
+    else:
+        print("[Fit] Parallel evaluation disabled (or unavailable).")
+
+    # 8) Problem
+    problem = GlobalODE_MOO(
+        sys=sys,
+        slices=slices,
+        loss_data=loss_data,
+        defaults=defaults,
+        lambdas=lambdas,
+        time_grid=solver_times,
+        xl=xl,
+        xu=xu,
+        elementwise_runner=runner
+    )
+
+    # Sanity Check - Decision vector
+    sizes = {
+        "c_k": slen(slices["c_k"]),
+        "A_i": slen(slices["A_i"]),
+        "B_i": slen(slices["B_i"]),
+        "C_i": slen(slices["C_i"]),
+        "D_i": slen(slices["D_i"]),
+        "Dp_i": slen(slices["Dp_i"]),
+        "E_i": slen(slices["E_i"]),
+        "tf_scale": slen(slices["tf_scale"]),
+    }
+
+    print(f"n_var = {problem.n_var}")
+    for k, v in sizes.items():
+        print(f"{k}[{v}]")
+
+    total = sum(sizes.values())
+    print(f"sum_slices = {total}")
+
+    assert total == problem.n_var, f"Mismatch: sum_slices={total} != n_var={problem.n_var}"
+
+    # 9) UNSGA3 needs reference directions
+    ref_dirs = get_reference_directions(
+        "das-dennis",
+        problem.n_obj,
+        n_partitions=20,
+        seed=args.seed,
+        n_dimensions=problem.n_var
+    )
+
+    # Print number of reference directions
+    print(f"[Fit] Number of reference directions: {len(ref_dirs)}")
+
+    algorithm = UNSGA3(
+        pop_size=args.pop,
+        ref_dirs=ref_dirs,
+        eliminate_duplicates=True,
+        sampling=LHS(),
+        crossover=SBX(prob=0.9, eta=15),
+        mutation=PM(prob=1/problem.n_var, eta=10),
+    )
+
+    termination = DefaultMultiObjectiveTermination(
+        xtol=1e-8,
+        cvtol=1e-6,
+        ftol=0.0025,
+        period=30,
+        n_max_gen=args.n_gen,
+        n_max_evals=100000
+    )
+
+    print(f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
+    print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+
+    res = pymoo_minimize(
+        problem,
+        algorithm,
+        termination,
+        seed=args.seed,
+        save_history=True,
+        verbose=True
+    )
+
+    if pool is not None:
+        pool.close()
+        pool.join()
+
+    # 10) Save Pareto set
+    X = res.X
+    F = res.F
+    np.save(os.path.join(args.output_dir, "pareto_X.npy"), X)
+    np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
+
+    # Also write a CSV summary
+    df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+    df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
+    print(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
+
+    excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
+
+    #TODO - Add optimization history to save files to study optimization
+
+    export_pareto_front_to_excel(
+        res=res,
+        sys=sys,
+        idx=idx,
+        slices=slices,
+        output_path=excel_path,
+        weights=(args.lambda_protein, args.lambda_rna, args.lambda_phospho),
+        top_k_trajectories=None,
+    )
+
+    print(f"[Output] Saved Pareto front Excel: {excel_path}")
+
+    # plot_gof_from_pareto_excel(
+    #     excel_path=excel_path,
+    #     output_dir=os.path.join(args.output_dir, "gof_all"),
+    #     plot_goodness_of_fit_func=plot_goodness_of_fit,
+    #     df_prot_obs_all=df_prot,
+    #     df_rna_obs_all=df_rna,
+    #     df_phos_obs_all=df_pho,
+    #     top_k=None,
+    #     score_col="scalar_score",
     # )
     #
-    # # Sanity Check - Decision vector
-    # sizes = {
-    #     "c_k": slen(slices["c_k"]),
-    #     "A_i": slen(slices["A_i"]),
-    #     "B_i": slen(slices["B_i"]),
-    #     "C_i": slen(slices["C_i"]),
-    #     "D_i": slen(slices["D_i"]),
-    #     "Dp_i": slen(slices["Dp_i"]),
-    #     "E_i": slen(slices["E_i"]),
-    #     "tf_scale": slen(slices["tf_scale"]),
-    # }
+    # print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+
+    # 11) Pick one solution
+    # Modified solution selection using Fréchet distance
+    F = res.F
+
+    # Compute Fréchet distances for each solution
+    frechet_scores = []
+    for i in range(len(X)):
+        theta = X[i].astype(float)
+        params_temp = unpack_params(theta, slices)
+        sys.update(**params_temp)
+
+        # Simulate with current parameters
+        dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
+            sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+        )
+
+        # Calculate Fréchet distance for each modality
+        frechet_prot = 0.0
+        frechet_rna = 0.0
+        frechet_phospho = 0.0
+
+        # Protein Fréchet distance
+        if dfp_temp is not None and len(df_prot) > 0:
+            for protein in df_prot['protein'].unique():
+                obs = df_prot[df_prot['protein'] == protein][['time', 'fc']].values
+                pred = dfp_temp[dfp_temp['protein'] == protein][['time', 'pred_fc']].values
+                obs = obs[np.argsort(obs[:, 0])]
+                pred = pred[np.argsort(pred[:, 0])]
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_prot += frechet_distance(
+                        np.ascontiguousarray(obs, dtype=np.float64),
+                        np.ascontiguousarray(pred, dtype=np.float64),
+                    )
+
+        # RNA Fréchet distance
+        if dfr_temp is not None and len(df_rna) > 0:
+            for protein in df_rna['protein'].unique():
+                obs = df_rna[df_rna['protein'] == protein][['time', 'fc']].values
+                pred = dfr_temp[dfr_temp['protein'] == protein][['time', 'pred_fc']].values
+                obs = obs[np.argsort(obs[:, 0])]
+                pred = pred[np.argsort(pred[:, 0])]
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_rna += frechet_distance(
+                        np.ascontiguousarray(obs, dtype=np.float64),
+                        np.ascontiguousarray(pred, dtype=np.float64),
+                    )
+
+        # Phospho Fréchet distance
+        if dfph_temp is not None and len(df_pho) > 0:
+            for site in df_pho['psite'].unique():
+                obs = df_pho[df_pho['psite'] == site][['time', 'fc']].values
+                pred = dfph_temp[dfph_temp['psite'] == site][['time', 'pred_fc']].values
+                obs = obs[np.argsort(obs[:, 0])]
+                pred = pred[np.argsort(pred[:, 0])]
+                if len(obs) > 1 and len(pred) > 1:
+                    frechet_phospho += frechet_distance(
+                        np.ascontiguousarray(obs, dtype=np.float64),
+                        np.ascontiguousarray(pred, dtype=np.float64),
+                    )
+
+        # Weighted combination of Fréchet distances
+        frechet_score = (args.lambda_protein * frechet_prot +
+                         args.lambda_rna * frechet_rna +
+                         args.lambda_phospho * frechet_phospho)
+        frechet_scores.append(frechet_score)
+
+    # Select solution with minimum Fréchet distance
+    I = np.argmin(frechet_scores)
+    theta_best = X[I].astype(float)
+    F_best = F[I]
+    params = unpack_params(theta_best, slices)
+    sys.update(**params)
+
+    print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
+
+    # Save the phosphorylation rates
+    export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
+    print("[Output] Saved phosphorylation rates for picked solution.")
+
+    out = plot_s_rates_report(
+        f"{args.output_dir}/S_rates_picked.csv",
+        f"{args.output_dir}/S_rates_report.pdf",
+        top_k_sites_per_protein=24,
+        max_sites_per_page=12,
+        ncols=3,
+        normalize_per_site=False,
+        heatmap_per_protein=True,
+        heatmap_cap_sites=80,
+    )
+
+    print(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
+
+    # 12) Export picked solution
+    dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
+
+    # Save raw preds
+    if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
+    if dfr is not None: dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
+    if dfph is not None: dfph.to_csv(os.path.join(args.output_dir, "pred_phospho_picked.csv"), index=False)
+
+    p_out = {k: (v.tolist() if isinstance(v, np.ndarray) else float(v)) for k, v in params.items()}
+    with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
+        json.dump(p_out, f, indent=2)
+
+    # Write picked objective values
+    picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "phospho_mse": float(F[I, 2]),
+              "scalar_score": float(args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
+    with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
+        json.dump(picked, f, indent=2)
+
+    print("[Done] Picked solution:")
+    print(json.dumps(picked, indent=2))
+
+    plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
+    print("[Done] Goodness of Fit plot saved.")
+
+    ts_dir = os.path.join(args.output_dir, "timeseries_plots")
+    for g in idx.proteins:
+        save_gene_timeseries_plots(
+            gene=g,
+            df_prot_obs=df_prot,
+            df_prot_pred=dfp,
+            df_rna_obs=df_rna,
+            df_rna_pred=dfr,
+            df_phos_obs=df_pho,
+            df_phos_pred=dfph,
+            output_dir=ts_dir,
+            prot_times=TIME_POINTS_PROTEIN,
+            rna_times=TIME_POINTS_RNA,
+            filename_prefix="fit"
+        )
+
+    print("[Done] Time series plots saved.")
+
+    if dfp is not None and dfr is not None and dfph is not None:
+        export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
+
+    print("[Done] Exported results saved.")
+
+    # --- VISUALIZATION BLOCK ---
+
+    # 1. 3D Pareto Front
     #
-    # print(f"n_var = {problem.n_var}")
-    # for k, v in sizes.items():
-    #     print(f"{k}[{v}]")
+    save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
+    print("[Done] 3D Pareto plot saved.")
+
+    # 2. Parallel Coordinate Plot
     #
-    # total = sum(sizes.values())
-    # print(f"sum_slices = {total}")
-    #
-    # assert total == problem.n_var, f"Mismatch: sum_slices={total} != n_var={problem.n_var}"
-    #
-    # # 9) UNSGA3 needs reference directions
-    # ref_dirs = get_reference_directions(
-    #     "das-dennis",
-    #     problem.n_obj,
-    #     n_partitions=20,
-    #     seed=args.seed,
-    #     n_dimensions=problem.n_var
-    # )
-    #
-    # # Print number of reference directions
-    # print(f"[Fit] Number of reference directions: {len(ref_dirs)}")
-    #
-    # algorithm = UNSGA3(
-    #     pop_size=args.pop,
-    #     ref_dirs=ref_dirs,
-    #     eliminate_duplicates=True,
-    #     sampling=LHS(),
-    #     crossover=SBX(prob=0.9, eta=15),
-    #     mutation=PM(prob=1/problem.n_var, eta=10),
-    # )
-    #
-    # termination = DefaultMultiObjectiveTermination(
-    #     xtol=1e-8,
-    #     cvtol=1e-6,
-    #     ftol=0.0025,
-    #     period=30,
-    #     n_max_gen=args.n_gen,
-    #     n_max_evals=100000
-    # )
-    #
-    # print(f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
-    # print(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
-    #
-    # res = pymoo_minimize(
-    #     problem,
-    #     algorithm,
-    #     termination,
-    #     seed=args.seed,
-    #     save_history=True,
-    #     verbose=True
-    # )
-    #
-    # if pool is not None:
-    #     pool.close()
-    #     pool.join()
-    #
-    # # 10) Save Pareto set
-    # X = res.X
-    # F = res.F
-    # np.save(os.path.join(args.output_dir, "pareto_X.npy"), X)
-    # np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
-    #
-    # # Also write a CSV summary
-    # df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
-    # df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
-    # print(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
-    #
-    # excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
-    #
-    # #TODO - Add optimization history to save files to study optimization
-    #
-    # export_pareto_front_to_excel(
-    #     res=res,
-    #     sys=sys,
-    #     idx=idx,
-    #     slices=slices,
-    #     output_path=excel_path,
-    #     weights=(args.lambda_protein, args.lambda_rna, args.lambda_phospho),
-    #     top_k_trajectories=None,
-    # )
-    #
-    # print(f"[Output] Saved Pareto front Excel: {excel_path}")
-    #
-    # # plot_gof_from_pareto_excel(
-    # #     excel_path=excel_path,
-    # #     output_dir=os.path.join(args.output_dir, "gof_all"),
-    # #     plot_goodness_of_fit_func=plot_goodness_of_fit,
-    # #     df_prot_obs_all=df_prot,
-    # #     df_rna_obs_all=df_rna,
-    # #     df_phos_obs_all=df_pho,
-    # #     top_k=None,
-    # #     score_col="scalar_score",
-    # # )
-    # #
-    # # print(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
-    #
-    # # 11) Pick one solution
-    # # Modified solution selection using Fréchet distance
-    # F = res.F
-    #
-    # # Compute Fréchet distances for each solution
-    # frechet_scores = []
-    # for i in range(len(X)):
-    #     theta = X[i].astype(float)
-    #     params_temp = unpack_params(theta, slices)
-    #     sys.update(**params_temp)
-    #
-    #     # Simulate with current parameters
-    #     dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
-    #         sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
-    #     )
-    #
-    #     # Calculate Fréchet distance for each modality
-    #     frechet_prot = 0.0
-    #     frechet_rna = 0.0
-    #     frechet_phospho = 0.0
-    #
-    #     # Protein Fréchet distance
-    #     if dfp_temp is not None and len(df_prot) > 0:
-    #         for protein in df_prot['protein'].unique():
-    #             obs = df_prot[df_prot['protein'] == protein][['time', 'fc']].values
-    #             pred = dfp_temp[dfp_temp['protein'] == protein][['time', 'pred_fc']].values
-    #             obs = obs[np.argsort(obs[:, 0])]
-    #             pred = pred[np.argsort(pred[:, 0])]
-    #             if len(obs) > 1 and len(pred) > 1:
-    #                 frechet_prot += frechet_distance(
-    #                     np.ascontiguousarray(obs, dtype=np.float64),
-    #                     np.ascontiguousarray(pred, dtype=np.float64),
-    #                 )
-    #
-    #     # RNA Fréchet distance
-    #     if dfr_temp is not None and len(df_rna) > 0:
-    #         for protein in df_rna['protein'].unique():
-    #             obs = df_rna[df_rna['protein'] == protein][['time', 'fc']].values
-    #             pred = dfr_temp[dfr_temp['protein'] == protein][['time', 'pred_fc']].values
-    #             obs = obs[np.argsort(obs[:, 0])]
-    #             pred = pred[np.argsort(pred[:, 0])]
-    #             if len(obs) > 1 and len(pred) > 1:
-    #                 frechet_rna += frechet_distance(
-    #                     np.ascontiguousarray(obs, dtype=np.float64),
-    #                     np.ascontiguousarray(pred, dtype=np.float64),
-    #                 )
-    #
-    #     # Phospho Fréchet distance
-    #     if dfph_temp is not None and len(df_pho) > 0:
-    #         for site in df_pho['psite'].unique():
-    #             obs = df_pho[df_pho['psite'] == site][['time', 'fc']].values
-    #             pred = dfph_temp[dfph_temp['psite'] == site][['time', 'pred_fc']].values
-    #             obs = obs[np.argsort(obs[:, 0])]
-    #             pred = pred[np.argsort(pred[:, 0])]
-    #             if len(obs) > 1 and len(pred) > 1:
-    #                 frechet_phospho += frechet_distance(
-    #                     np.ascontiguousarray(obs, dtype=np.float64),
-    #                     np.ascontiguousarray(pred, dtype=np.float64),
-    #                 )
-    #
-    #     # Weighted combination of Fréchet distances
-    #     frechet_score = (args.lambda_protein * frechet_prot +
-    #                      args.lambda_rna * frechet_rna +
-    #                      args.lambda_phospho * frechet_phospho)
-    #     frechet_scores.append(frechet_score)
-    #
-    # # Select solution with minimum Fréchet distance
-    # I = np.argmin(frechet_scores)
-    # theta_best = X[I].astype(float)
-    # F_best = F[I]
-    # params = unpack_params(theta_best, slices)
-    # sys.update(**params)
-    #
-    # print(f"[Selection] Best solution index: {I}, Fréchet score: {frechet_scores[I]:.6f}")
-    #
-    # # Save the phosphorylation rates
-    # export_S_rates(sys, idx, args.output_dir, filename="S_rates_picked.csv", long=True)
-    # print("[Output] Saved phosphorylation rates for picked solution.")
-    #
-    # out = plot_s_rates_report(
-    #     f"{args.output_dir}/S_rates_picked.csv",
-    #     f"{args.output_dir}/S_rates_report.pdf",
-    #     top_k_sites_per_protein=24,
-    #     max_sites_per_page=12,
-    #     ncols=3,
-    #     normalize_per_site=False,
-    #     heatmap_per_protein=True,
-    #     heatmap_cap_sites=80,
-    # )
-    #
-    # print(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
-    #
-    # # 12) Export picked solution
-    # dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
-    #
-    # # Save raw preds
-    # if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
-    # if dfr is not None: dfr.to_csv(os.path.join(args.output_dir, "pred_rna_picked.csv"), index=False)
-    # if dfph is not None: dfph.to_csv(os.path.join(args.output_dir, "pred_phospho_picked.csv"), index=False)
-    #
-    # p_out = {k: (v.tolist() if isinstance(v, np.ndarray) else float(v)) for k, v in params.items()}
-    # with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
-    #     json.dump(p_out, f, indent=2)
-    #
-    # # Write picked objective values
-    # picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "phospho_mse": float(F[I, 2]),
-    #           "scalar_score": float(args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
-    # with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
-    #     json.dump(picked, f, indent=2)
-    #
-    # print("[Done] Picked solution:")
-    # print(json.dumps(picked, indent=2))
-    #
-    # plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
-    # print("[Done] Goodness of Fit plot saved.")
-    #
-    # ts_dir = os.path.join(args.output_dir, "timeseries_plots")
-    # for g in idx.proteins:
-    #     save_gene_timeseries_plots(
-    #         gene=g,
-    #         df_prot_obs=df_prot,
-    #         df_prot_pred=dfp,
-    #         df_rna_obs=df_rna,
-    #         df_rna_pred=dfr,
-    #         df_phos_obs=df_pho,
-    #         df_phos_pred=dfph,
-    #         output_dir=ts_dir,
-    #         prot_times=TIME_POINTS_PROTEIN,
-    #         rna_times=TIME_POINTS_RNA,
-    #         filename_prefix="fit"
-    #     )
-    #
-    # print("[Done] Time series plots saved.")
-    #
-    # if dfp is not None and dfr is not None and dfph is not None:
-    #     export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
-    #
-    # print("[Done] Exported results saved.")
-    #
-    # # --- VISUALIZATION BLOCK ---
-    #
-    # # 1. 3D Pareto Front
-    # #
-    # save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
-    # print("[Done] 3D Pareto plot saved.")
-    #
-    # # 2. Parallel Coordinate Plot
-    # #
-    # save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
-    # print("[Done] Parallel Coordinate plot saved.")
-    #
-    # # 3. Convergence Video
-    # create_convergence_video(res, output_dir=args.output_dir)
-    # print("[Done] Convergence video saved.")
-    #
-    # # 4. Prior Regularization Scan
-    # scan_prior_reg(out_dir=args.output_dir)
-    # print("[Done] Prior regularization scan saved.")
+    save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
+    print("[Done] Parallel Coordinate plot saved.")
+
+    # 3. Convergence Video
+    create_convergence_video(res, output_dir=args.output_dir)
+    print("[Done] Convergence video saved.")
+
+    # 4. Prior Regularization Scan
+    scan_prior_reg(out_dir=args.output_dir)
+    print("[Done] Prior regularization scan saved.")
 
 if __name__ == "__main__":
     try:
