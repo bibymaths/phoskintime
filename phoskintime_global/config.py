@@ -3,7 +3,7 @@ Configurations for PhoskinTime Global model
 """
 from phoskintime_global.utils import load_config_toml
 
-cfg = load_config_toml("config.toml")
+cfg = load_config_toml("phoskintime_global/config.toml")
 
 def _as_bool(x):
     if isinstance(x, bool):

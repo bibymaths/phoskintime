@@ -10,7 +10,7 @@ data_directory = "data"
 output_directory = "out"
 
 [data]
-normalize_steady = true
+normalize_steady = false
 use_initial_conditions = false
 
 [timepoints]

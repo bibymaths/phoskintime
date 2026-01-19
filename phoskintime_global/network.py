@@ -8,19 +8,34 @@ from phoskintime_global.steadystate import build_y0_from_data
 
 
 class Index:
-    def __init__(self, interactions: pd.DataFrame):
-        self.proteins = sorted(interactions["protein"].unique().tolist())
+    def __init__(self, interactions: pd.DataFrame, tf_interactions: pd.DataFrame = None):
+        # Start with proteins from Kinase interactions (MS data/Kinase net)
+        prots = set(interactions["protein"].unique())
+
+        # --- Add TFs and Targets from TF Network ---
+        if tf_interactions is not None:
+            # Add Source TFs
+            if "tf" in tf_interactions.columns:
+                prots.update(tf_interactions["tf"].unique())
+            # Add Target Genes (mRNA)
+            if "target" in tf_interactions.columns:
+                prots.update(tf_interactions["target"].unique())
+
+        # Sort and build map
+        self.proteins = sorted(list(prots))
         self.p2i = {p: i for i, p in enumerate(self.proteins)}
-        self.sites = [
-            sorted(
-                interactions.loc[interactions["protein"] == p, "psite"]
-                .dropna()
-                .unique()
-                .tolist(),
-                key=site_key
-            )
-            for p in self.proteins
-        ]
+
+        # Build sites list (robustly handle proteins with no sites/kinases)
+        self.sites = []
+        for p in self.proteins:
+            # Check if protein exists in kinase interaction df
+            sub = interactions.loc[interactions["protein"] == p, "psite"]
+            if not sub.empty:
+                s_list = sub.dropna().unique().tolist()
+                self.sites.append(sorted(s_list, key=site_key))
+            else:
+                self.sites.append([])  # No phosphorylation sites for this TF/Protein
+
         if MODEL == 2:
             self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
             self.n_states = np.array([1 << int(ns) for ns in self.n_sites], dtype=np.int32)

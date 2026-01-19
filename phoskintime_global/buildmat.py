@@ -12,26 +12,41 @@ def site_key(site: str) -> int:
         raise ValueError(f"Invalid site format: {site}")
     return int(m.group())
 
+
 def _build_single_W(args):
     p, interactions, sites_i, k2i, n_kinases = args
 
+    # Sort sites for consistent row ordering
     sites_i.sort(key=site_key)
+
+    # Filter interactions for this protein
     sub = interactions[interactions["protein"] == p]
+
+    # Map site name -> local row index
     site_map = {s: r for r, s in enumerate(sites_i)}
-    rows, cols = [], []
+
+    rows, cols, data = [], [], []
 
     for _, r in sub.iterrows():
+        # Only add if site and kinase are valid in our index
         if r["psite"] in site_map and r["kinase"] in k2i:
             rows.append(site_map[r["psite"]])
             cols.append(k2i[r["kinase"]])
 
-    data = np.ones(len(rows), float)
+            # --- CRITICAL FIX: Use the 'alpha' column ---
+            # Default to 1.0 if missing, but it should be there from load_data
+            weight = float(r.get("alpha", 1.0))
+            data.append(weight)
+
+    # Use the 'data' list instead of np.ones
     return sparse.csr_matrix((data, (rows, cols)), shape=(len(sites_i), n_kinases))
 
 
 def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_matrix:
     print(f"[Model] Building W matrices in parallel using {n_cores} cores...")
 
+    # Prepare tasks
+    # interactions df now contains the 'alpha' column from load_data
     tasks = [
         (p, interactions, idx.sites[i], idx.k2i, len(idx.kinases))
         for i, p in enumerate(idx.proteins)
@@ -47,11 +62,30 @@ def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_m
     return sparse.vstack(W_list).tocsr()
 
 
-def build_tf_matrix(tf_net, idx):
-    rows, cols = [], []
+def build_tf_matrix(tf_net, idx, tf_beta_map=None):
+    if tf_beta_map is None:
+        tf_beta_map = {}
+
+    rows, cols, data = [], [], []
+
+    # Iterate interactions
     for _, r in tf_net.iterrows():
-        if r["tf"] in idx.p2i and r["target"] in idx.p2i:
-            rows.append(idx.p2i[r["target"]])
-            cols.append(idx.p2i[r["tf"]])
-    data = np.ones(len(rows), float)
+        tf = r["tf"]
+        target = r["target"]
+
+        # We only model edges where BOTH nodes exist in our system state (idx)
+        if tf in idx.p2i and target in idx.p2i:
+            rows.append(idx.p2i[target])  # Row = Target gene
+            cols.append(idx.p2i[tf])  # Col = Source TF
+
+            # Weight = Alpha (edge strength) * Beta (TF intrinsic activity)
+            alpha = float(r.get("alpha", 1.0))
+            beta = float(tf_beta_map.get(tf, 1.0))
+
+            # Use absolute beta if your model expects positive inputs (standard Hill/MM)
+            # If your model handles negative inputs (repressors), keep sign.
+            # Given softplus params, abs is safer unless you have explicit repressor logic.
+            weight = alpha * abs(beta)
+            data.append(weight)
+
     return sparse.csr_matrix((data, (rows, cols)), shape=(idx.N, idx.N))
