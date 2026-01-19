@@ -4,9 +4,9 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3
 from pymoo.core.problem import StarmapParallelization
 from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
-from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize as pymoo_minimize
 from pymoo.core.population import Population
+from pymoo.termination.default import DefaultMultiObjectiveTermination
 
 
 def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
@@ -104,10 +104,19 @@ def run_refinement(problem, prev_res, args, padding=0.25):
         # 5. Run Optimization
         print(f"[Refine] Running for {args.n_gen} generations...")
 
+        termination = DefaultMultiObjectiveTermination(
+            xtol=1e-8,
+            cvtol=1e-6,
+            ftol=0.0025,
+            period=30,
+            n_max_gen=args.n_gen,
+            n_max_evals=100000
+        )
+
         res = pymoo_minimize(
             problem,
             algorithm,
-            ("n_gen", args.n_gen),
+            termination = termination,
             seed=args.seed + 1,
             verbose=True
         )
