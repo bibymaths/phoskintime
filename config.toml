@@ -315,7 +315,7 @@ tf_scale = [-4.0, 4.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "distributive"
+default_model = "combinatorial"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
