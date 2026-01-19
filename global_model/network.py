@@ -188,7 +188,7 @@ class System:
         self.tf_scale = float(tf_scale)
 
     def attach_initial_condition_data(self, df_prot, df_rna, df_pho):
-        if self._ic_data is None:
+        if self._ic_data is not None:
             raise RuntimeError("Initial-condition data already attached to System")
         self._ic_data = dict(
             df_prot=df_prot,

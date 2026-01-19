@@ -268,7 +268,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_global"
+output_dir = "results_global_combinatorial"  # Output directory
 cores      = 8                         # 0 or leave out to use all available cores
 seed       = 42
 

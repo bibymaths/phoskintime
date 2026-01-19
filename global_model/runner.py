@@ -130,7 +130,7 @@ def main():
     # =========================================================
     # INLINE DEBUG: logger.info DATA High RNA Responders (FC > 3, 4, 5)
     # =========================================================
-    logger.info("\n" + "=" * 50)
+    logger.info("=" * 50)
     logger.info("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
     logger.info("=" * 50)
 
@@ -161,7 +161,7 @@ def main():
     else:
         logger.info("[Error] df_rna is empty or None.")
 
-    logger.info("\n" + "=" * 50)
+    logger.info("=" * 50)
 
     # Weights - Piecewise Early Boost (modality-specific)
     tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
@@ -300,11 +300,34 @@ def main():
 
     # Setting initial conditions from data
     if args.use_initial_condition_from_data:
-        if getattr(sys, "_ic_data", None) is None:
+        logger.info("[Info] Attempting to attach initial condition data...")
+        try:
+            # 1. Try the standard way
             sys.attach_initial_condition_data(df_prot, df_rna, df_pho)
             sys.set_initial_conditions()
-        else:
-            logger.info("[Model] Skipping initial condition data loading. Data already attached.")
+            logger.info("[Info] Initial condition data attached successfully.")
+
+        except RuntimeError as e:
+            # 2. Handle "Already attached" case
+            if "already attached" in str(e).lower():
+                logger.info("[Info] System reported data attached, but verification required.")
+
+                # FORCE INJECT the missing data dictionary if it's missing
+                # This fixes the "Zombie State" where y0 exists but data is None
+                if getattr(sys, "_ic_data", None) is None:
+                    logger.info("[Fix] Injecting missing _ic_data manually...")
+                    sys._ic_data = {
+                        "df_prot": df_prot,
+                        "df_rna": df_rna,
+                        "df_pho": df_pho
+                    }
+
+                # Now it is safe to call this
+                sys.set_initial_conditions()
+                logger.info("[Info] Initial conditions set/updated.")
+            else:
+                # Re-raise unexpected errors
+                raise e
 
     # 5) Precompute loss data on solver time grid
     solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
