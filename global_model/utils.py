@@ -311,3 +311,38 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         regularization_protein=reg_protein,
         results_dir=res_dir
     )
+
+
+def get_parameter_labels(idx):
+    labels = []
+
+    # 1. Kinase Scaling (c_k)
+    for k in idx.kinases:
+        labels.append(f"c_k (Kinase: {k})")
+
+    # 2. Protein-specific params (A, B, C, D, Dp, E)
+    # The order MUST match params.py -> unpack_params
+    for p_idx, p_name in enumerate(idx.proteins):
+        labels.append(f"A_i (Synthesis) [{p_name}]")
+        labels.append(f"B_i (Degradation) [{p_name}]")
+        labels.append(f"C_i (Phos-Rate) [{p_name}]")
+        labels.append(f"D_i (Dephos-Rate) [{p_name}]")
+
+        # Site-specific dephosphorylation (Dp_i)
+        n_sites = idx.n_sites[p_idx]
+        if n_sites > 0:
+            for s_idx in range(n_sites):
+                site_name = idx.sites[p_idx][s_idx]
+                labels.append(f"Dp_i (Site-Deg: {site_name}) [{p_name}]")
+        else:
+            # Even if 0 sites, params.py usually keeps a placeholder for some models
+            # Check your unpack_params logic; if it's 1-per-protein, use:
+            # labels.append(f"Dp_i (Dephos-2) [{p_name}]")
+            pass
+
+        labels.append(f"E_i (TF-Effect) [{p_name}]")
+
+    # 3. Global TF Scale
+    labels.append("Global TF Scale")
+
+    return labels

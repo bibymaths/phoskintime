@@ -36,7 +36,7 @@ from global_model.optproblem import GlobalODE_MOO, get_weight_options
 from global_model.params import init_raw_params, unpack_params
 from global_model.refine import run_refinement, run_iterative_refinement
 from global_model.simulate import simulate_and_measure
-from global_model.utils import normalize_fc_to_t0, _base_idx, slen
+from global_model.utils import normalize_fc_to_t0, _base_idx, slen, get_parameter_labels
 from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
@@ -414,6 +414,8 @@ def main():
         pool.close()
         pool.join()
 
+    # param_names = get_parameter_labels(sys.idx)
+
     if args.refine:
         logger.info("[Refinement] Recursive refinement started.")
 
@@ -422,7 +424,8 @@ def main():
             problem,
             res,
             args,
-            max_passes=NUM_REFINE,  # How deep to recurse
+            idx=sys.idx,
+            max_passes=NUM_REFINE,
             padding=0.25
         )
 

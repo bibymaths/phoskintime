@@ -14,47 +14,70 @@ from global_model.config import RESULTS_DIR
 logger = setup_logger(log_dir=RESULTS_DIR)
 
 
-def get_refined_bounds(X, current_xl, current_xu, padding=0.2):
+def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
     """
-    Calculates tighter bounds around the existing Pareto set (X).
+    Refines bounds and prints a tree-like biological report of the network parameters.
     """
-    # 1. Find min/max of the current solutions
-    p_min = np.min(X, axis=0)
-    p_max = np.max(X, axis=0)
+    if hasattr(X, "values"):
+        X = X.values
 
-    # 2. Calculate span
-    span = p_max - p_min
+    # Calculate log-space bounds
+    p_min, p_max = np.min(X, axis=0), np.max(X, axis=0)
+    span = np.maximum(p_max - p_min, 1e-2)
+    new_xl = np.maximum(p_min - (span * padding), current_xl)
+    new_xu = np.minimum(p_max + (span * padding), current_xu)
 
-    # 3. Apply padding
-    # If a parameter didn't vary (span ~ 0), ensure a minimum search window
-    # relative to the magnitude of the value, or a hard minimum.
-    span = np.maximum(span, 1e-2)
+    logger.info("=" * 90)
+    logger.info("   NETWORK TOPOLOGY REFINEMENT REPORT (Physical Rates)")
+    logger.info("=" * 90)
 
-    # Expand bounds by padding factor
-    new_xl = p_min - (span * padding)
-    new_xu = p_max + (span * padding)
+    # Pointer to track our position in the 1094+ parameter vector
+    ptr = 0
 
-    # 4. Clip to original hard limits (safety)
-    new_xl = np.maximum(new_xl, current_xl)
-    new_xu = np.minimum(new_xu, current_xu)
+    # 1. UPSTREAM: Kinase Inputs
+    logger.info("\n[STAGE 1: KINASE MULTIPLIERS (c_k)]")
+    logger.info(f"{'Entity (Kinase)':<30} {'Min Multiplier':<15} {'Max Multiplier':<15}")
+    for k_name in idx.kinases:
+        lo, hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
+        logger.info(f"  {k_name:<30} {lo:<15.2e} {hi:<15.2e}")
+        ptr += 1
 
-    # 5. Calculate Log-Volume Reduction (Stable for High Dimensions)
-    # Vol = Product(Lengths) -> Log(Vol) = Sum(Log(Lengths))
-    # Ratio = Vol_Old / Vol_New -> Log(Ratio) = Log_Vol_Old - Log_Vol_New
+    # 2. NODES: Protein & Phosphosite Turnover
+    logger.info("\n[STAGE 2: PROTEIN & PHOSPHO KINETICS]")
+    for i, p_name in enumerate(idx.proteins):
+        logger.info(f"\nNode: {p_name} (Protein/TF)")
 
-    span_old = current_xu - current_xl + 1e-9
-    span_new = new_xu - new_xl + 1e-9
+        # Core Protein Params (A, B, C, D)
+        a_lo, a_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])  # Synthesis
+        b_lo, b_hi = np.exp(new_xl[ptr + 1]), np.exp(new_xu[ptr + 1])  # Degradation
+        c_lo, c_hi = np.exp(new_xl[ptr + 2]), np.exp(new_xu[ptr + 2])  # Phosphorylation
+        d_lo, d_hi = np.exp(new_xl[ptr + 3]), np.exp(new_xu[ptr + 3])  # Dephosphorylation
 
-    log_vol_old = np.sum(np.log(span_old))
-    log_vol_new = np.sum(np.log(span_new))
-    log_reduction = log_vol_old - log_vol_new
+        logger.info(f"  - Production (A_i)  : [{a_lo:.2e} to {a_hi:.2e}]")
+        logger.info(f"  - Decay (B_i)       : [{b_lo:.2e} to {b_hi:.2e}]")
+        logger.info(f"  - Phos Sensitivity  : [{c_lo:.2e} to {c_hi:.2e}]")
+        logger.info(f"  - Dephos Baseline   : [{d_lo:.2e} to {d_hi:.2e}]")
+        ptr += 4
 
-    print(f"[Refine] Search space concentrated. Log-volume reduction: {log_reduction:.2f}")
-    print(f"         (Roughly equivalent to shrinking space by factor of 10^{log_reduction / 2.303:.1f})")
+        # Site-specific parameters (Dp_i)
+        n_sites = idx.n_sites[i]
+        if n_sites > 0:
+            logger.info(f"  - Phosphosites ({n_sites}):")
+            for s_idx in range(n_sites):
+                site_label = idx.sites[i][s_idx]
+                dp_lo, dp_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
+                logger.info(f"    * {site_label:<20} Dp_i (Site Decay): [{dp_lo:.2e} to {dp_hi:.2e}]")
+                ptr += 1
 
-    print(f"[Refine] New bounds for each parameter:")
-    for param, (lo, hi) in zip(X.columns, zip(new_xl, new_xu)):
-        print(f"  {param}: [{lo:.2f}, {hi:.2f}]")
+        # Regulatory Effect (E_i)
+        e_lo, e_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
+        logger.info(f"  - TF Regulatory Power (E_i): [{e_lo:.2e} to {e_hi:.2e}]")
+        ptr += 1
+
+    # 3. GLOBAL: TF Scale
+    logger.info("\n[STAGE 3: GLOBAL SYSTEM SCALING]")
+    tf_lo, tf_hi = np.exp(new_xl[ptr]), np.exp(new_xu[ptr])
+    logger.info(f"  Global TF Scale Factor: [{tf_lo:.4f} to {tf_hi:.4f}]")
 
     return new_xl, new_xu
 
@@ -89,11 +112,12 @@ def create_multistart_population(X_best, pop_size, new_xl, new_xu):
     return Population.new("X", X_pop)
 
 
-def run_iterative_refinement(problem, prev_res, args, max_passes=3, padding=0.25):
+def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, padding=0.25):
     """
     Runs refinement recursively to zoom in on the optimum.
 
     Args:
+        idx: Index object containing parameter metadata.
         max_passes: How many times to re-zoom (e.g., 3 times).
         padding: The boundary padding factor (decreases slightly each pass).
     """
@@ -115,7 +139,7 @@ def run_iterative_refinement(problem, prev_res, args, max_passes=3, padding=0.25
             # 1. Calculate New Bounds based on previous result
             # We decay the padding slightly to zoom in harder on later passes
             current_padding = max(0.05, padding * (0.8 ** i))
-            new_xl, new_xu = get_refined_bounds(current_res.X, problem.xl, problem.xu, padding=current_padding)
+            new_xl, new_xu = get_refined_bounds(current_res.X, problem.xl, problem.xu, idx=idx, padding=current_padding)
 
             # Check if volume is effectively zero (converged)
             if np.allclose(new_xl, new_xu, atol=1e-5):
