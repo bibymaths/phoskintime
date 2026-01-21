@@ -231,7 +231,7 @@ def _plot_sensitivity_indices(df, out_dir):
     Bar chart of Mu_Star (Influence).
     """
     plt.figure(figsize=(10, 8))
-    sns.barplot(data=df, x="mu_star", y="Parameter", palette="viridis")
+    sns.barplot(data=df, x="mu_star", y="Parameter", palette="viridis", legend=False, hue="Parameter")
     plt.title("Morris Sensitivity Analysis (Top Parameters)")
     plt.xlabel("mu_star (Mean Absolute Influence)")
     plt.tight_layout()

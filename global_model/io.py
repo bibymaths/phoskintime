@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import re
-from global_model.utils import _normcols, _find_col
+from global_model.utils import _normcols, _find_col, process_and_scale_raw_data
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR
 from config.config import setup_logger
 
@@ -157,7 +157,14 @@ def load_data(args):
     # 3. Load MS Data (Proteins + Phospho)
     # =========================================================================
     logger.info(f"[Data] Loading MS: {args.ms}")
-    df_ms = pd.read_csv(args.ms)
+    df_ms_raw = pd.read_csv(args.ms)
+
+    df_ms = process_and_scale_raw_data(
+        df_ms_raw,
+        time_points=TIME_POINTS_PROTEIN,
+        id_cols=["GeneID", "Psite"],
+        scale_method='raw'
+    )
     df_ms = _normcols(df_ms)
 
     gcol = _find_col(df_ms, ["geneid", "protein"])
@@ -197,23 +204,31 @@ def load_data(args):
     df_pho = tidy.loc[~is_prot, ["protein", "psite", "time", "fc"]].reset_index(drop=True)
 
     # =========================================================================
-    # 4. Load RNA Data
+    # 4. Load & Process RNA Data
     # =========================================================================
     logger.info(f"[Data] Loading RNA: {args.rna}")
+
+    # 1. Read and Clean Headers
     df_rna_raw = pd.read_csv(args.rna)
     df_rna_raw = _normcols(df_rna_raw)
 
+    # 2. Identify the Gene/Protein ID column
     gcol = _find_col(df_rna_raw, ["geneid", "mrna", "gene"])
-    xcols = sorted([c for c in df_rna_raw.columns if re.fullmatch(r"x\d+", str(c))], key=lambda x: int(x[1:]))
 
-    tidy_r = df_rna_raw[[gcol] + xcols].melt(id_vars=[gcol], var_name="xcol", value_name="fc")
-    t_map = {c: TIME_POINTS_RNA[i] for i, c in enumerate(xcols) if i < len(TIME_POINTS_RNA)}
-    tidy_r["time"] = tidy_r["xcol"].map(t_map)
-    # Normalize Protein Names to Upper Case
-    tidy_r["protein"] = tidy_r[gcol].astype(str).str.strip().str.upper()
-    tidy_r["fc"] = pd.to_numeric(tidy_r["fc"], errors="coerce")
+    # 3. Rename it to 'protein' so the rest of the pipeline understands it
+    df_rna_raw = df_rna_raw.rename(columns={gcol: "protein"})
 
-    df_rna = tidy_r.dropna(subset=["fc", "time"])[["protein", "time", "fc"]].reset_index(drop=True)
+    # 4. Process (Scale -> Map Time -> Melt)
+    # The function returns the final tidy dataframe directly.
+    df_rna = process_and_scale_raw_data(
+        df_rna_raw,
+        time_points=TIME_POINTS_RNA,
+        id_cols=["protein"],
+        scale_method='raw'
+    )
+
+    # df_rna is now ready. It has columns: ["protein", "time", "fc"]
+    logger.info(f"[Data] Loaded {len(df_rna)} RNA points.")
 
     # DEBUG: Check overlap
     # model_proteins = set(df_prot["protein"].unique())

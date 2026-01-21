@@ -5,6 +5,7 @@ import logging
 import os
 
 from global_model.optuna_solver import run_optuna_solver
+from global_model.scan import run_hyperparameter_scan
 from global_model.sensitivity import run_sensitivity_analysis
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -97,11 +98,11 @@ def main():
                         default=REFINE)
     parser.add_argument("--scan", action="store_true",
                         help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
-                        default=False)
+                        default=True)
     parser.add_argument("--sensitivity", action="store_true",
                         help="Run a sensitivity analysis after optimization.",
                         default=True)
-    parser.add_argument("--solver", type=str, choices=["pymoo", "optuna"], default="optuna",
+    parser.add_argument("--solver", type=str, choices=["pymoo", "optuna"], default="pymoo",
                         help="Choice of optimization solver.")
 
     args = parser.parse_args()
@@ -396,7 +397,6 @@ def main():
 
     # --- HYPERPARAMETER SCAN BLOCK ---
     if args.scan:
-        from global_model.scan import run_hyperparameter_scan
 
         # This function will run the loop, save Excel/PNGs, and return the best dict
         best_lambdas = run_hyperparameter_scan(
@@ -423,7 +423,7 @@ def main():
 
     if args.solver == "optuna":
 
-        total_trials = args.pop * args.n_gen
+        total_trials = 1000
 
         logger.info(f"[Optuna] Running Optuna solver with {total_trials} total trials "
                     f"({args.pop} pop x {args.n_gen} generations).")
@@ -533,24 +533,25 @@ def main():
     #     pickle.dump(res, f)
     # logger.info("[Output] Saved full optimization state (pickle).")
 
-    # Export convergence history
-    df_hist = process_convergence_history(res, args.output_dir)
-    df_hist.to_csv(os.path.join(args.output_dir, "convergence_history.csv"), index=False)
+    if args.solver != "optuna":
+        # Export convergence history
+        df_hist = process_convergence_history(res, args.output_dir)
+        df_hist.to_csv(os.path.join(args.output_dir, "convergence_history.csv"), index=False)
 
-    if args.refine:
-        logger.info("[Refinement] Recursive refinement started.")
+        if args.refine:
+            logger.info("[Refinement] Recursive refinement started.")
 
-        # Pass the result of the first run (res) as the starting point
-        res = run_iterative_refinement(
-            problem,
-            res,
-            args,
-            idx=sys.idx,
-            max_passes=NUM_REFINE,
-            padding=0.25
-        )
+            # Pass the result of the first run (res) as the starting point
+            res = run_iterative_refinement(
+                problem,
+                res,
+                args,
+                idx=sys.idx,
+                max_passes=NUM_REFINE,
+                padding=0.25
+            )
 
-        logger.info("[Refinement] Recursive refinement complete.")
+            logger.info("[Refinement] Recursive refinement complete.")
 
     # 10) Save Pareto set
     X = res.X

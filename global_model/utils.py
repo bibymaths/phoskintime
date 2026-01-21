@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import re
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
@@ -72,6 +74,96 @@ def normalize_fc_to_t0(df):
     df["fc"] = df.apply(_norm_row, axis=1)
     return df.dropna(subset=["fc"])
 
+
+def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start', epsilon=1e-3):
+    """
+    Scales time-series data ensuring ALL outputs remain non-negative (>= 0).
+
+    Args:
+        scale_method (str):
+            - 'raw' / 'none': No scaling. Returns raw intensities/counts in tidy format.
+            - 'fc_start': Standard Fold-Change (x_t / x_0).
+            - 'robust_fc': Fold-Change with noise floor (x_t / (x_0 + eps)).
+            - 'max_scale': Normalizes to [0, 1] range (x_t / x_max).
+            - 'mean_scale': Centers data around 1.0 (x_t / x_mean).
+            - 'l2_norm': Unit vector scaling (x_t / ||x||).
+    """
+    if df is None or df.empty:
+        return pd.DataFrame(columns=id_cols + ['time', 'fc'])
+
+    # --- A. Identify and Sort X-Columns ---
+    x_cols = [c for c in df.columns if re.fullmatch(r"x\d+", str(c))]
+
+    if not x_cols:
+        logger.warning(f"No 'x' columns found. Returning empty.")
+        return pd.DataFrame()
+
+    x_cols.sort(key=lambda c: int(c[1:]))
+
+    if len(x_cols) > len(time_points):
+        x_cols = x_cols[:len(time_points)]
+
+    t_map = {xc: tp for xc, tp in zip(x_cols, time_points)}
+
+    # --- B. Scale Data (Non-Negative Matrix Operations) ---
+    df_work = df.copy()
+
+    # Ensure numeric
+    for c in x_cols:
+        df_work[c] = pd.to_numeric(df_work[c], errors='coerce')
+
+    # 0. Raw / None (Just formatting)
+    if scale_method in ['raw', 'none']:
+        pass  # Do nothing to values
+
+    # 1. Standard Fold-Change (x / x0)
+    elif scale_method == 'fc_start':
+        start_vals = df_work[x_cols[0]].replace(0, epsilon)
+        df_work[x_cols] = df_work[x_cols].div(start_vals, axis=0)
+
+    # 2. Robust Fold-Change
+    elif scale_method == 'robust_fc':
+        baseline = df_work[x_cols[0]] + epsilon
+        df_work[x_cols] = df_work[x_cols].div(baseline, axis=0)
+
+    # 3. Max Scaling (Peak Normalization)
+    elif scale_method == 'max_scale':
+        peaks = df_work[x_cols].max(axis=1).replace(0, epsilon)
+        df_work[x_cols] = df_work[x_cols].div(peaks, axis=0)
+
+    # 4. Mean Scaling
+    elif scale_method == 'mean_scale':
+        means = df_work[x_cols].mean(axis=1).replace(0, epsilon)
+        df_work[x_cols] = df_work[x_cols].div(means, axis=0)
+
+    # 5. L2 Norm Scaling
+    elif scale_method == 'l2_norm':
+        l2 = np.sqrt(np.square(df_work[x_cols]).sum(axis=1)).replace(0, epsilon)
+        df_work[x_cols] = df_work[x_cols].div(l2, axis=0)
+
+    # --- C. Melt to Tidy Format ---
+    valid_ids = [c for c in id_cols if c in df_work.columns]
+
+    melted = df_work[valid_ids + x_cols].melt(
+        id_vars=valid_ids,
+        value_vars=x_cols,
+        var_name="xcol",
+        value_name="fc"
+    )
+
+    melted["time"] = melted["xcol"].map(t_map)
+    melted = melted.dropna(subset=["fc", "time"])
+
+    # Text normalization
+    if "protein" in melted.columns:
+        melted["protein"] = melted["protein"].astype(str).str.strip().str.upper()
+    if "psite" in melted.columns:
+        melted["psite"] = melted["psite"].fillna("").astype(str).str.strip()
+
+    logger.info(f"[Scaled] Processed {len(melted)} rows with {len(valid_ids)} IDs and {len(x_cols)} time points.")
+    logger.info(f"[Scaled] Scaling method: {scale_method}")
+
+    return melted[valid_ids + ["time", "fc"]]
 
 @njit(cache=True, fastmath=True, nogil=True)
 def _zero_vec(a):
