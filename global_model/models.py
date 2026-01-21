@@ -1,6 +1,35 @@
 import numpy as np
-from numba import njit, prange
+from numba import njit
 
+
+# -----------------------------------------------------------------------------
+# Helper: Optimized Activation Logic
+# -----------------------------------------------------------------------------
+@njit(fastmath=True, cache=True, nogil=True, inline='always')
+def calculate_synthesis_rate(Ai, tf_scale, u_raw):
+    """
+    Rational (Hill-like) coupling with input squashing.
+    Maps unbounded TF input 'u' to a bounded synthesis rate.
+
+    Activation (u > 0): Saturates at (1 + tf_scale) * Ai
+    Repression (u < 0): Decays to Ai / (1 + tf_scale)
+    """
+    # 1. Squash input to (-1, 1) to prevent numerical instability
+    # This acts as a soft-clipping mechanism.
+    u = u_raw / (1.0 + np.abs(u_raw))
+
+    if u >= 0.0:
+        # Activation: Rate increases but hits a ceiling
+        # Formula: Ai * (1 + (scale * u) / (1 + u))
+        # As u -> 1, Rate -> Ai * (1 + scale/2)
+        term = (tf_scale * u) / (1.0 + u + 1e-6)
+        return Ai * (1.0 + term)
+    else:
+        # Repression: Rate decreases but hits a floor > 0
+        # Formula: Ai / (1 + scale * |u|)
+        # As u -> -1, Rate -> Ai / (1 + scale)
+        denom = 1.0 + tf_scale * np.abs(u)
+        return Ai / denom
 
 @njit(fastmath=True, cache=True, nogil=True)
 def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
@@ -25,61 +54,9 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
         Di = D_i[i]
         Ei = E_i[i]
 
-        # Use Linear coupling
-        # This maps u=(-1 to 1) to a linear Fold Change range.
-        # Example: tf_scale = 0.8
-        # Max Repression: 1.0 + 0.8*(-1) = 0.20x
-        # Max Activation: 1.0 + 0.8*(+1) = 1.80x
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        # synth = Ai * (1.0 + tf_scale * u)
-
-        # Use Exponential coupling
-        # This maps u=(-1 to 1) to a Fold Change range.
-        # Example: tf_scale = 2.0
-        # Max Repression: exp(-2) = 0.13x
-        # Max Activation: exp(+2) = 7.38x
+        # Calculate synthesis rate using optimized helper
         u = TF_inputs[i]
-        u = u / (1.0 + np.abs(u))
-        synth = Ai * np.exp(tf_scale * u)
-
-        # Use Logistic (Sigmoid) coupling
-        # This creates a bounded "Switch-like" behavior.
-        # At u=0 (no input), rate = Ai (Basal).
-        # As u -> +1, rate saturates at 2*Ai (Max activation).
-        # As u -> -1, rate approaches 0 (Complete repression).
-        # Higher tf_scale makes the switch sharper.
-        # u = TF_inputs[i]
-        # val = tf_scale * TF_inputs[i]
-        # synth = Ai * (2.0 / (1.0 + np.exp(-val)))
-
-        # Use Rational (Hill-like) coupling
-        # This models saturation: "Diminishing Returns"
-        # Activation (u > 0): Rate grows but hits a ceiling at (1 + tf_scale) * Ai
-        # Repression (u < 0): Rate drops but hits a floor.
-        # This prevents the "infinite energy" problem of Exponential coupling.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))  # Keep the squash
-        # if u >= 0:
-        #     # Activation: 1 + (scale * u) / (1 + u)
-        #     synth = Ai * (1.0 + (tf_scale * u) / (1.0 + u + 1e-6))
-        # else:
-        #     # Repression: 1 / (1 + scale * |u|)
-        #     synth = Ai / (1.0 + tf_scale * np.abs(u))
-
-        # Use Power-Law coupling
-        # This mimics high-sensitivity cooperative binding (Hill Coefficient).
-        # If tf_scale (n) > 1, the gene ignores low signals but spikes at high signals.
-        # u is the base fold-change driver.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        #
-        # # Map (-1, 1) to a base (0.1, 10)
-        # base = (1.0 + u) / (1.0 - u + 1e-6)  # Maps -1->0, 0->1, 1->Inf
-        #
-        # # Apply power law sensitivity
-        # # tf_scale acts as the sensitivity exponent
-        # synth = Ai * np.power(base, tf_scale)
+        synth = calculate_synthesis_rate(Ai, tf_scale, u)
 
         # mRNA
         dy[idx_R] = synth - Bi * R
@@ -135,61 +112,9 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         Di = D_i[i]
         Ei = E_i[i]
 
-        # Use Linear coupling
-        # This maps u=(-1 to 1) to a linear Fold Change range.
-        # Example: tf_scale = 0.8
-        # Max Repression: 1.0 + 0.8*(-1) = 0.20x
-        # Max Activation: 1.0 + 0.8*(+1) = 1.80x
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        # synth = Ai * (1.0 + tf_scale * u)
-
-        # Use Exponential coupling
-        # This maps u=(-1 to 1) to a Fold Change range.
-        # Example: tf_scale = 2.0
-        # Max Repression: exp(-2) = 0.13x
-        # Max Activation: exp(+2) = 7.38x
+        # Calculate synthesis rate using optimized helper
         u = TF_inputs[i]
-        u = u / (1.0 + np.abs(u))
-        synth = Ai * np.exp(tf_scale * u)
-
-        # Use Logistic (Sigmoid) coupling
-        # This creates a bounded "Switch-like" behavior.
-        # At u=0 (no input), rate = Ai (Basal).
-        # As u -> +1, rate saturates at 2*Ai (Max activation).
-        # As u -> -1, rate approaches 0 (Complete repression).
-        # Higher tf_scale makes the switch sharper.
-        # u = TF_inputs[i]
-        # val = tf_scale * TF_inputs[i]
-        # synth = Ai * (2.0 / (1.0 + np.exp(-val)))
-
-        # Use Rational (Hill-like) coupling
-        # This models saturation: "Diminishing Returns"
-        # Activation (u > 0): Rate grows but hits a ceiling at (1 + tf_scale) * Ai
-        # Repression (u < 0): Rate drops but hits a floor.
-        # This prevents the "infinite energy" problem of Exponential coupling.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))  # Keep the squash
-        # if u >= 0:
-        #     # Activation: 1 + (scale * u) / (1 + u)
-        #     synth = Ai * (1.0 + (tf_scale * u) / (1.0 + u + 1e-6))
-        # else:
-        #     # Repression: 1 / (1 + scale * |u|)
-        #     synth = Ai / (1.0 + tf_scale * np.abs(u))
-
-        # Use Power-Law coupling
-        # This mimics high-sensitivity cooperative binding (Hill Coefficient).
-        # If tf_scale (n) > 1, the gene ignores low signals but spikes at high signals.
-        # u is the base fold-change driver.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        #
-        # # Map (-1, 1) to a base (0.1, 10)
-        # base = (1.0 + u) / (1.0 - u + 1e-6)  # Maps -1->0, 0->1, 1->Inf
-        #
-        # # Apply power law sensitivity
-        # # tf_scale acts as the sensitivity exponent
-        # synth = Ai * np.power(base, tf_scale)
+        synth = calculate_synthesis_rate(Ai, tf_scale, u)
 
         # mRNA
         dy[idx_R] = synth - Bi * R
@@ -288,63 +213,11 @@ def combinatorial_rhs(
         Di = D_i[i]
         Ei = E_i[i]
 
-        # Use Linear coupling
-        # This maps u=(-1 to 1) to a linear Fold Change range.
-        # Example: tf_scale = 0.8
-        # Max Repression: 1.0 + 0.8*(-1) = 0.20x
-        # Max Activation: 1.0 + 0.8*(+1) = 1.80x
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        # synth = Ai * (1.0 + tf_scale * u)
-
-        # Use Exponential coupling
-        # This maps u=(-1 to 1) to a Fold Change range.
-        # Example: tf_scale = 2.0
-        # Max Repression: exp(-2) = 0.13x
-        # Max Activation: exp(+2) = 7.38x
+        # Calculate synthesis rate using optimized helper
         u = TF_inputs[i]
-        u = u / (1.0 + np.abs(u))
-        synth = Ai * np.exp(tf_scale * u)
+        synth = calculate_synthesis_rate(Ai, tf_scale, u)
 
-        # Use Logistic (Sigmoid) coupling
-        # This creates a bounded "Switch-like" behavior.
-        # At u=0 (no input), rate = Ai (Basal).
-        # As u -> +1, rate saturates at 2*Ai (Max activation).
-        # As u -> -1, rate approaches 0 (Complete repression).
-        # Higher tf_scale makes the switch sharper.
-        # u = TF_inputs[i]
-        # val = tf_scale * TF_inputs[i]
-        # synth = Ai * (2.0 / (1.0 + np.exp(-val)))
-
-        # Use Rational (Hill-like) coupling
-        # This models saturation: "Diminishing Returns"
-        # Activation (u > 0): Rate grows but hits a ceiling at (1 + tf_scale) * Ai
-        # Repression (u < 0): Rate drops but hits a floor.
-        # This prevents the "infinite energy" problem of Exponential coupling.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))  # Keep the squash
-        # if u >= 0:
-        #     # Activation: 1 + (scale * u) / (1 + u)
-        #     synth = Ai * (1.0 + (tf_scale * u) / (1.0 + u + 1e-6))
-        # else:
-        #     # Repression: 1 / (1 + scale * |u|)
-        #     synth = Ai / (1.0 + tf_scale * np.abs(u))
-
-        # Use Power-Law coupling
-        # This mimics high-sensitivity cooperative binding (Hill Coefficient).
-        # If tf_scale (n) > 1, the gene ignores low signals but spikes at high signals.
-        # u is the base fold-change driver.
-        # u = TF_inputs[i]
-        # u = u / (1.0 + np.abs(u))
-        #
-        # # Map (-1, 1) to a base (0.1, 10)
-        # base = (1.0 + u) / (1.0 - u + 1e-6)  # Maps -1->0, 0->1, 1->Inf
-        #
-        # # Apply power law sensitivity
-        # # tf_scale acts as the sensitivity exponent
-        # synth = Ai * np.power(base, tf_scale)
-
-        # RNA
+        # mRNA
         dy[idx_R] = synth - Bi * R
 
         # No sites: simple protein production/decay

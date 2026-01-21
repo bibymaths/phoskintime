@@ -9,44 +9,98 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 class Index:
-    def __init__(self, interactions: pd.DataFrame, tf_interactions: pd.DataFrame = None):
-        # Start with proteins from Kinase interactions (MS data/Kinase net)
+    def __init__(self,
+                 interactions: pd.DataFrame,
+                 tf_interactions: pd.DataFrame = None,
+                 kin_beta_map: dict = None,
+                 tf_beta_map: dict = None):
+        """
+        Index manager for the PhoskinTime ODE system.
+        Handles protein/kinase mapping and redirects Orphan TFs to Kinase Proxies.
+
+        Args:
+            interactions: Cleaned Kinase-Substrate network (columns: protein, psite, kinase).
+            tf_interactions: Cleaned TF-Target network (columns: tf, target).
+            kin_beta_map: Optional dictionary of optimized kinase priors {name: beta_val}.
+            tf_beta_map: Optional dictionary of optimized TF priors {name: beta_val}.
+        """
+        # --- 1. Basic Protein/Target Discovery ---
         prots = set(interactions["protein"].unique())
 
-        # --- Add TFs and Targets from TF Network ---
         if tf_interactions is not None:
-            # Add Source TFs
             if "tf" in tf_interactions.columns:
                 prots.update(tf_interactions["tf"].unique())
-            # Add Target Genes (mRNA)
             if "target" in tf_interactions.columns:
                 prots.update(tf_interactions["target"].unique())
 
-        # Sort and build map
+        # Alphabetical sort ensures consistent indexing across runs
         self.proteins = sorted(list(prots))
+
+        # Initial mapping: Name -> Unique Integer Index
         self.p2i = {p: i for i, p in enumerate(self.proteins)}
 
-        # Build sites list (robustly handle proteins with no sites/kinases)
+        # List of all unique kinases in the signaling layer
+        self.kinases = sorted(interactions["kinase"].unique().tolist())
+        self.k2i = {k: i for i, k in enumerate(self.kinases)}
+
+        # --- 2. Orphan TF Redirection (The Proxy Update) ---
+        proxy_map = {}
+        if tf_interactions is not None:
+            # Orphans = TFs in the regulatory network that have NO sites in the signaling data
+            proteins_with_sites = set(interactions["protein"].unique())
+            all_tfs = set(tf_interactions["tf"].unique())
+            orphan_tfs = all_tfs - proteins_with_sites
+
+            for orphan in orphan_tfs:
+                # Find targets of this orphan that are also known Kinases (Feedback Targets)
+                targets = tf_interactions.loc[tf_interactions["tf"] == orphan, "target"]
+                feedback_kinases = [t for t in targets if t in self.kinases]
+
+                if feedback_kinases:
+                    # Choose best proxy based on optimized Beta weights if available
+                    best_proxy = feedback_kinases[0]
+                    max_weight = -1.0
+
+                    for k in feedback_kinases:
+                        # Weighting: Prioritize TF-specific activity or overall Kinase activity
+                        weight = tf_beta_map.get(orphan, 0.0) if tf_beta_map else 0.0
+                        if kin_beta_map and k in kin_beta_map:
+                            weight += kin_beta_map[k]
+
+                        if weight > max_weight:
+                            max_weight = weight
+                            best_proxy = k
+
+                    # REDIRECTION: Hijack the index mapping.
+                    # This orphan now 'shares' the signaling state of its proxy kinase.
+                    self.p2i[orphan] = self.p2i[best_proxy]
+                    proxy_map[orphan] = best_proxy
+                    logger.info(f"[Proxy] Redirected Orphan {orphan} -> {best_proxy} (Beta Weight: {max_weight:.2f})")
+
+        self.proxy_map = proxy_map
+
+        # --- 3. Build Site and State Offsets ---
+        self.N = len(self.proteins)
         self.sites = []
+
         for p in self.proteins:
-            # Check if protein exists in kinase interaction df
+            # Build sites list for each protein (orphans will naturally have empty lists here)
             sub = interactions.loc[interactions["protein"] == p, "psite"]
             if not sub.empty:
                 s_list = sub.dropna().unique().tolist()
                 self.sites.append(sorted(s_list, key=site_key))
             else:
-                self.sites.append([])  # No phosphorylation sites for this TF/Protein
+                self.sites.append([])
+
+        # State and site counters
+        self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
 
         if MODEL == 2:
-            self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
             self.n_states = np.array([1 << int(ns) for ns in self.n_sites], dtype=np.int32)
 
-        self.kinases = sorted(interactions["kinase"].unique().tolist())
-        self.k2i = {k: i for i, k in enumerate(self.kinases)}
-        self.N = len(self.proteins)
-
-        self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
+        # Offsets map standard indices to the flattened y-vector
         self.offset_y = np.zeros(self.N, dtype=np.int32)
         self.offset_s = np.zeros(self.N, dtype=np.int32)
 
@@ -55,17 +109,25 @@ class Index:
         for i in range(self.N):
             self.offset_y[i] = curr_y
             self.offset_s[i] = curr_s
+
             if MODEL == 2:
+                # Combinatorial model states: 1 (mRNA) + 2^n (Protein states)
                 curr_y += 1 + self.n_states[i]
             else:
+                # Distributive/Sequential: 1 (mRNA) + 1 (Total Protein) + n (Phospho-sites)
                 curr_y += 2 + self.n_sites[i]
             curr_s += self.n_sites[i]
 
         self.state_dim = curr_y
         self.total_sites = int(curr_s)
-        logger.info(f"[Model] {self.N} proteins, {len(self.kinases)} kinases, {self.state_dim} state variables.")
+        self.kinase_indices_in_P = [self.p2i[k] for k in self.kinases if k in self.p2i]
+        self.p2k = {k: i for i, k in enumerate(self.kinases)}
+
+        logger.info(f"[Model] {self.N} proteins ({len(proxy_map)} orphans rewired), "
+                    f"{len(self.kinases)} kinases, {self.state_dim} state variables.")
 
     def block(self, i: int) -> slice:
+        """Helper to get the range in the state vector for protein i."""
         start = self.offset_y[i]
         if MODEL == 2:
             end = start + 1 + self.n_states[i]
@@ -217,26 +279,46 @@ class System:
     def rhs(self, t, y):
         dy = np.zeros_like(y)
 
+        # 1. Observed Kinase Activity (The Driver)
         Kt = self.kin.eval(t) * self.c_k
         S_all = self.W_global.dot(Kt)
+
         P_vec = np.zeros(self.idx.N, dtype=np.float64)
 
         for i in range(self.idx.N):
-            st = self.idx.offset_y[i]
-            if MODEL == 2:
-                ns = int(self.idx.n_states[i])
-                tot = 0.0
-                for m in range(ns):
-                    tot += y[st + 1 + m]
-            else:
-                ns = self.idx.n_sites[i]
-                tot = y[st + 1]
-                if ns > 0:
-                    tot += y[st + 2: st + 2 + ns].sum()
-            P_vec[i] = tot
+            # --- Live-Drive for Kinases ---
+            # If the protein is a kinase OR an orphan redirected to one,
+            # we drive the mRNA using the high-fidelity Kinase trajectory.
+            prot_name = self.idx.proteins[i]
 
+            # Check if this name is in the proxy map or is a kinase itself
+            if prot_name in self.idx.kinases or (hasattr(self.idx, 'proxy_map') and prot_name in self.idx.proxy_map):
+                # Resolve the kinase name (either the protein itself or its proxy)
+                k_name = prot_name if prot_name in self.idx.kinases else self.idx.proxy_map[prot_name]
+                k_idx = self.idx.k2i[k_name]
+                # Use the observed fold-change scaled by optimized multiplier c_k
+                P_vec[i] = Kt[k_idx]
+            else:
+                # Standard logic: Use the predicted phosphorylation state
+                st = self.idx.offset_y[i]
+                if MODEL == 2:
+                    ns = int(self.idx.n_states[i])
+                    tot = 0.0
+                    for m in range(ns):
+                        tot += y[st + 1 + m]
+                else:
+                    ns = self.idx.n_sites[i]
+                    tot = y[st + 1]
+                    if ns > 0:
+                        tot += y[st + 2: st + 2 + ns].sum()
+                P_vec[i] = tot
+
+        # 2. Transcription Logic
         TF_inputs = self.tf_mat.dot(P_vec)
-        TF_inputs = TF_inputs / self.tf_deg
+        # Squash inputs for stability (u / 1+|u|)
+        for i in range(len(TF_inputs)):
+            val = TF_inputs[i] / self.tf_deg[i]
+            TF_inputs[i] = val / (1.0 + abs(val))
 
         if MODEL == 0:
             distributive_rhs(
@@ -296,6 +378,26 @@ class System:
         return y
 
     def odeint_args(self, S_cache=None):
+        # Create Driver Map for Numba
+        # Maps Protein Index -> Kinase Index in Kt.
+        # -1 means "Not driven" (use simulation).
+        driver_map = np.full(self.idx.N, -1, dtype=np.int32)
+
+        # 1. Map actual Kinases
+        for k_name in self.idx.kinases:
+            if k_name in self.idx.p2i:
+                p_idx = self.idx.p2i[k_name]
+                k_idx = self.idx.k2i[k_name]
+                driver_map[p_idx] = k_idx
+
+        # 2. Map Proxies (The Orphan Fix)
+        if hasattr(self.idx, 'proxy_map'):
+            for orphan, proxy in self.idx.proxy_map.items():
+                if orphan in self.idx.p2i:
+                    p_idx = self.idx.p2i[orphan]
+                    k_idx = self.idx.k2i[proxy]
+                    driver_map[p_idx] = k_idx
+
         if MODEL == 2:
             if S_cache is None:
                 raise ValueError("MODEL==2 requires S_cache (total_sites x n_timebins).")
@@ -327,6 +429,7 @@ class System:
                 self.trans_n,
 
                 self.tf_deg,
+                driver_map,  # <--- NEW
                 self.P_vec_work,
                 self.TF_in_work
             )
@@ -349,4 +452,5 @@ class System:
             self.idx.offset_s,
             self.idx.n_sites,
             self.tf_deg,
+            driver_map  # <--- NEW
         )

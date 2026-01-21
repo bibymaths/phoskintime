@@ -66,30 +66,36 @@ def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_m
     return sparse.vstack(W_list).tocsr()
 
 
-def build_tf_matrix(tf_net, idx, tf_beta_map=None):
-    if tf_beta_map is None:
-        tf_beta_map = {}
+def build_tf_matrix(tf_net, idx, tf_beta_map=None, kin_beta_map=None):
+    if tf_beta_map is None: tf_beta_map = {}
+    if kin_beta_map is None: kin_beta_map = {}
 
     rows, cols, data = [], [], []
 
-    # Iterate interactions
     for _, r in tf_net.iterrows():
         tf = r["tf"]
         target = r["target"]
 
-        # We only model edges where BOTH nodes exist in our system state (idx)
         if tf in idx.p2i and target in idx.p2i:
-            rows.append(idx.p2i[target])  # Row = Target gene
-            cols.append(idx.p2i[tf])  # Col = Source TF
+            rows.append(idx.p2i[target])
+            cols.append(idx.p2i[tf])
 
-            # Weight = Alpha (edge strength) * Beta (TF intrinsic activity)
+            # Get the base edge strength (Alpha)
             alpha = float(r.get("alpha", 1.0))
-            beta = float(tf_beta_map.get(tf, 1.0))
 
-            # Use absolute beta if your model expects positive inputs (standard Hill/MM)
-            # If your model handles negative inputs (repressors), keep sign.
-            # Given softplus params, abs is safer unless you have explicit repressor logic.
-            weight = alpha * abs(beta)
+            # --- Proxy-Aware Beta Selection ---
+            # Check if this TF name is a redirected Orphan in the index
+            if hasattr(idx, 'proxy_map') and tf in idx.proxy_map:
+                proxy_kinase = idx.proxy_map[tf]
+                # Use the Kinase multiplier (c_k) as the activity weight
+                beta = float(kin_beta_map.get(proxy_kinase, 1.0))
+            else:
+                # Use standard TF intrinsic beta
+                beta = float(tf_beta_map.get(tf, 1.0))
+
+            # Apply absolute weight to ensure positive synthesis contributions
+            # (Repression is handled by the sign of tf_scale in the RHS)
+            weight = alpha * beta # abs(beta)
             data.append(weight)
 
     return sparse.csr_matrix((data, (rows, cols)), shape=(idx.N, idx.N))

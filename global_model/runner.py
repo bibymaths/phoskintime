@@ -34,9 +34,9 @@ from global_model.io import load_data
 from global_model.network import Index, KinaseInput, System
 from global_model.optproblem import GlobalODE_MOO, get_weight_options
 from global_model.params import init_raw_params, unpack_params
-from global_model.refine import run_refinement, run_iterative_refinement
+from global_model.refine import run_iterative_refinement
 from global_model.simulate import simulate_and_measure
-from global_model.utils import normalize_fc_to_t0, _base_idx, slen, get_parameter_labels
+from global_model.utils import normalize_fc_to_t0, _base_idx, slen, get_parameter_labels, calculate_bio_bounds
 from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
@@ -48,7 +48,7 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 @atexit.register
 def _close_log_handlers():
-    lg = logging.getLogger("phoskintime")
+    lg = logging.getLogger()
     for h in list(lg.handlers):
         try:
             h.flush()
@@ -120,7 +120,7 @@ def main():
     df_rna = df_rna.dropna(subset=["fc"])
 
     # 2) Model index to include all TF and kinases
-    idx = Index(df_kin, tf_interactions=df_tf)
+    idx = Index(df_kin, tf_interactions=df_tf, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
 
     # Restrict obs to model proteins
     df_prot = df_prot[df_prot["protein"].isin(idx.proteins)].copy()
@@ -130,38 +130,38 @@ def main():
     # =========================================================
     # INLINE DEBUG: logger.info DATA High RNA Responders (FC > 3, 4, 5)
     # =========================================================
-    logger.info("=" * 50)
-    logger.info("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
-    logger.info("=" * 50)
-
-    if df_rna is not None and not df_rna.empty:
-        # Check thresholds 3, 4, and 5
-        for thresh in [3.0, 4.0, 5.0]:
-            logger.info(f">>> Proteins with OBSERVED mRNA FC > {thresh} <<<")
-            count = 0
-
-            # Iterate through every unique protein in the observed dataframe
-            for p in df_rna["protein"].unique():
-                # Filter rows for this protein
-                sub = df_rna[df_rna["protein"] == p]
-                max_fc = sub["fc"].max()
-
-                if max_fc >= thresh:
-                    count += 1
-                    logger.info(f" ---> [!] {p} (Max Data FC: {max_fc:.3f})")
-                    logger.info("   Time (min)   Obs_FC")
-                    logger.info("   -------------------")
-                    # Sort by time and logger.info rows
-                    sub = sub.sort_values("time")
-                    for _, r in sub.iterrows():
-                        logger.info(f"   {r['time']:>9.1f}   {r['fc']:.4f}")
-
-            if count == 0:
-                logger.info("   (None found)")
-    else:
-        logger.info("[Error] df_rna is empty or None.")
-
-    logger.info("=" * 50)
+    # logger.info("=" * 50)
+    # logger.info("DEBUG: Checking OBSERVED DATA for High RNA Fold Changes")
+    # logger.info("=" * 50)
+    #
+    # if df_rna is not None and not df_rna.empty:
+    #     # Check thresholds 3, 4, and 5
+    #     for thresh in [3.0, 4.0, 5.0]:
+    #         logger.info(f">>> Proteins with OBSERVED mRNA FC > {thresh} <<<")
+    #         count = 0
+    #
+    #         # Iterate through every unique protein in the observed dataframe
+    #         for p in df_rna["protein"].unique():
+    #             # Filter rows for this protein
+    #             sub = df_rna[df_rna["protein"] == p]
+    #             max_fc = sub["fc"].max()
+    #
+    #             if max_fc >= thresh:
+    #                 count += 1
+    #                 logger.info(f" ---> [!] {p} (Max Data FC: {max_fc:.3f})")
+    #                 logger.info("   Time (min)   Obs_FC")
+    #                 logger.info("   -------------------")
+    #                 # Sort by time and logger.info rows
+    #                 sub = sub.sort_values("time")
+    #                 for _, r in sub.iterrows():
+    #                     logger.info(f"   {r['time']:>9.1f}   {r['fc']:.4f}")
+    #
+    #         if count == 0:
+    #             logger.info("   (None found)")
+    # else:
+    #     logger.info("[Error] df_rna is empty or None.")
+    #
+    # logger.info("=" * 50)
 
     # Weights - Piecewise Early Boost (modality-specific)
     tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
@@ -186,8 +186,54 @@ def main():
 
     # 3) Build W + TF
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
-    tf_mat = build_tf_matrix(df_tf, idx, tf_beta_map=tf_beta_map)
+    tf_mat = build_tf_matrix(df_tf, idx, tf_beta_map=tf_beta_map, kin_beta_map=kin_beta_map)
     kin_in = KinaseInput(idx.kinases, df_prot)
+
+    # --- Robust Labeled Export Block ---
+    logger.info("[Output] Exporting network matrices with labels...")
+
+    # Generate labels for EVERY ROW in the matrix (one for every site in the model)
+    all_site_labels = []
+    for i, p in enumerate(idx.proteins):
+        for s in idx.sites[i]:
+            all_site_labels.append(f"{p}_{s}")
+
+    # Convert to COO format to get row/col indices directly
+    w_coo = W_global.tocoo()
+
+    # Create a mapping array (faster than list comprehension for large networks)
+    site_labels_arr = np.array(all_site_labels)
+    kinase_labels_arr = np.array(idx.kinases)
+
+    df_w_export = pd.DataFrame({
+        'Site': site_labels_arr[w_coo.row],
+        'Kinase': kinase_labels_arr[w_coo.col],
+        'Weight': w_coo.data
+    })
+
+    df_w_export.to_csv(os.path.join(args.output_dir, "network_W_global.csv"), index=False)
+
+    # 2. Save tf_mat (TF -> Target mRNA)
+    tf_coo = tf_mat.tocoo()
+
+    # (Rows = Targets, Cols = Source TFs)
+    protein_labels_arr = np.array(idx.proteins)
+
+    df_tf_export = pd.DataFrame({
+        'Target': protein_labels_arr[tf_coo.row],  # Row indices -> Target Gene Names
+        'Source_TF': protein_labels_arr[tf_coo.col],  # Col indices -> Source TF Names
+        'Weight': tf_coo.data
+    })
+
+    df_tf_export.to_csv(os.path.join(args.output_dir, "network_tf_mat.csv"), index=False)
+
+    # 3. Save KinaseInput (Observed Kinase Trajectories)
+    df_kin_input = pd.DataFrame(
+        kin_in.Kmat,
+        index=idx.kinases,
+        columns=[f"t_{t}" for t in kin_in.grid]
+    )
+    df_kin_input.to_csv(os.path.join(args.output_dir, "network_kinase_inputs.csv"))
 
     # Calculate TF degree normalization (using absolute sum to handle repressors)
     # This effectively normalizes the 'regulatory input' so genes with many TFs
@@ -314,8 +360,14 @@ def main():
     loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
     loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
 
-    # 6) Decision vector bounds (raw space)
-    theta0, slices, xl, xu = init_raw_params(defaults)
+    # 6) Decision vector bounds
+
+    # Calculate optimal bounds based on network topology and data constraints
+    # custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
+
+    # Initialize raw params using these custom bounds for optimization
+    theta0, slices, xl, xu = init_raw_params(defaults) # , custom_bounds=custom_bounds)
+
     lambdas = {
         "protein": args.lambda_protein,
         "rna": args.lambda_rna,
@@ -394,7 +446,7 @@ def main():
         ftol=0.0025,
         period=30,
         n_max_gen=args.n_gen,
-        n_max_evals=100000
+        n_max_evals=10000000
     )
 
     logger.info(
@@ -481,6 +533,7 @@ def main():
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance
     F = res.F
+    solution_breakdowns = []
 
     # Compute Fréchet distances for each solution
     frechet_scores = []
@@ -493,6 +546,8 @@ def main():
         dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
             sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
         )
+
+        detailed_scores = {"prot": {}, "rna": {}, "phospho": {}}
 
         # Calculate Fréchet distance for each modality
         frechet_prot = 0.0
@@ -507,10 +562,9 @@ def main():
                 obs = obs[np.argsort(obs[:, 0])]
                 pred = pred[np.argsort(pred[:, 0])]
                 if len(obs) > 1 and len(pred) > 1:
-                    frechet_prot += frechet_distance(
-                        np.ascontiguousarray(obs, dtype=np.float64),
-                        np.ascontiguousarray(pred, dtype=np.float64),
-                    )
+                    d = frechet_distance(np.ascontiguousarray(obs), np.ascontiguousarray(pred))
+                    frechet_prot += d
+                    detailed_scores["prot"][protein] = d
 
         # RNA Fréchet distance
         if dfr_temp is not None and len(df_rna) > 0:
@@ -520,10 +574,9 @@ def main():
                 obs = obs[np.argsort(obs[:, 0])]
                 pred = pred[np.argsort(pred[:, 0])]
                 if len(obs) > 1 and len(pred) > 1:
-                    frechet_rna += frechet_distance(
-                        np.ascontiguousarray(obs, dtype=np.float64),
-                        np.ascontiguousarray(pred, dtype=np.float64),
-                    )
+                    d = frechet_distance(np.ascontiguousarray(obs), np.ascontiguousarray(pred))
+                    frechet_rna += d
+                    detailed_scores["rna"][protein] = d
 
         # Phospho Fréchet distance
         if dfph_temp is not None and len(df_pho) > 0:
@@ -533,19 +586,40 @@ def main():
                 obs = obs[np.argsort(obs[:, 0])]
                 pred = pred[np.argsort(pred[:, 0])]
                 if len(obs) > 1 and len(pred) > 1:
-                    frechet_phospho += frechet_distance(
-                        np.ascontiguousarray(obs, dtype=np.float64),
-                        np.ascontiguousarray(pred, dtype=np.float64),
-                    )
+                    d = frechet_distance(np.ascontiguousarray(obs), np.ascontiguousarray(pred))
+                    frechet_phospho += d
+                    detailed_scores["phospho"][site] = d
 
         # Weighted combination of Fréchet distances
         frechet_score = (args.lambda_protein * frechet_prot +
                          args.lambda_rna * frechet_rna +
                          args.lambda_phospho * frechet_phospho)
         frechet_scores.append(frechet_score)
+        solution_breakdowns.append(detailed_scores)
 
     # Select solution with minimum Fréchet distance
     I = np.argmin(frechet_scores)
+
+    best_breakdown = solution_breakdowns[I]
+
+    # --- DETAILED LOGGING BLOCK ---
+    logger.info("=" * 60)
+    logger.info(f"FRECHET DISTANCE BREAKDOWN FOR BEST SOLUTION (Index {I})")
+    logger.info("=" * 60)
+
+    logger.info(f"{'Modality':<10} | {'Protein/Site':<20} | {'Fréchet Dist':<12}")
+    logger.info("-" * 60)
+
+    for modality, scores in best_breakdown.items():
+        # Sort by worst fit first to spot "ballooning" or "flat" issues
+        sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        for name, val in sorted_items:
+            logger.info(f"{modality:<10} | {name:<20} | {val:>12.6f}")
+
+    logger.info("-" * 60)
+    logger.info(f"TOTAL WEIGHTED FRECHET SCORE: {frechet_scores[I]:.6f}")
+    logger.info("=" * 60)
+
     theta_best = X[I].astype(float)
     F_best = F[I]
     params = unpack_params(theta_best, slices)
@@ -606,8 +680,8 @@ def main():
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
-    logger.info("[Done] Picked solution:")
-    logger.info(json.dumps(picked, indent=2))
+    logger.info(
+        f"[Loss] Solution: prot_mse={picked['prot_mse']:.6f}, rna_mse={picked['rna_mse']:.6f}, phospho_mse={picked['phospho_mse']:.6f}, scalar_score={picked['scalar_score']:.6f}")
 
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
     logger.info("[Done] Goodness of Fit plot saved.")
@@ -671,6 +745,8 @@ def main():
     scan_prior_reg(out_dir=args.output_dir)
     logger.info("[Done] Prior regularization scan saved.")
 
+    # Finalize logging
+    logger.info(f"[Complete] All results saved to: {args.output_dir}")
 
 if __name__ == "__main__":
     try:

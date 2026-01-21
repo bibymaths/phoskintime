@@ -11,7 +11,11 @@ def solve_custom(sys, y0, t_eval, rtol, atol):
     if MODEL == 2:
         build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
         args_full = sys.odeint_args(sys.S_cache)
-        args2 = args_full[:8] + args_full[9:]  # drop kin_grid
+        # Model 2 args structure is different, ensuring driver_map is passed if present in tuple
+        # args_full usually: (params..., kin_grid, S_cache, TF_mats..., offsets..., tf_deg, driver_map, work_arrays...)
+        # We need to drop kin_grid (index 8) for the solver wrapper if it expects that.
+        # Based on solver.py: args2 = (c_k... tf_scale, S_cache, ... driver_map, P_vec, TF_in)
+        args2 = args_full[:8] + args_full[9:]
         return adaptive_rk45_model2(y0, t_eval, sys.kin_grid, args2, rtol=rtol, atol=atol)
     else:
         args = sys.odeint_args()
@@ -79,28 +83,37 @@ def rhs_nb_distributive(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg,
+        tf_deg, driver_map
 ):
     dy = np.zeros_like(y)
 
+    # 1. Update Kinase Activity (Kt)
     Kt = kin_eval_step(t, kin_grid, kin_Kmat)
     for i in range(Kt.size):
         Kt[i] *= c_k[i]
 
+    # 2. Signaling Inputs
     S_all = csr_matvec(W_indptr, W_indices, W_data, Kt, n_W_rows)
 
+    # 3. P_vec with LIVE-DRIVE
     P_vec = np.zeros(n_TF_rows, dtype=np.float64)
     for i in range(n_TF_rows):
-        y_start = offset_y[i]
-        ns = n_sites[i]
-        tot = y[y_start + 1]
-        for j in range(ns):
-            tot += y[y_start + 2 + j]
-        P_vec[i] = tot
+        d_idx = driver_map[i]
+        if d_idx >= 0:
+            P_vec[i] = Kt[d_idx]
+        else:
+            y_start = offset_y[i]
+            ns = n_sites[i]
+            tot = y[y_start + 1]
+            for j in range(ns):
+                tot += y[y_start + 2 + j]
+            P_vec[i] = tot
 
+    # 4. TF Inputs & Squashing
     TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
     for i in range(n_TF_rows):
-        TF_inputs[i] /= tf_deg[i]
+        val = TF_inputs[i] / tf_deg[i]
+        TF_inputs[i] = val / (1.0 + abs(val))
 
     distributive_rhs(
         y, dy,
@@ -119,7 +132,7 @@ def rhs_nb_sequential(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg,
+        tf_deg, driver_map
 ):
     dy = np.zeros_like(y)
 
@@ -131,16 +144,21 @@ def rhs_nb_sequential(
 
     P_vec = np.zeros(n_TF_rows, dtype=np.float64)
     for i in range(n_TF_rows):
-        y_start = offset_y[i]
-        ns = n_sites[i]
-        tot = y[y_start + 1]
-        for j in range(ns):
-            tot += y[y_start + 2 + j]
-        P_vec[i] = tot
+        d_idx = driver_map[i]
+        if d_idx >= 0:
+            P_vec[i] = Kt[d_idx]
+        else:
+            y_start = offset_y[i]
+            ns = n_sites[i]
+            tot = y[y_start + 1]
+            for j in range(ns):
+                tot += y[y_start + 2 + j]
+            P_vec[i] = tot
 
     TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
     for i in range(n_TF_rows):
-        TF_inputs[i] /= tf_deg[i]
+        val = TF_inputs[i] / tf_deg[i]
+        TF_inputs[i] = val / (1.0 + abs(val))
 
     sequential_rhs(
         y, dy,
@@ -161,7 +179,7 @@ def rhs_nb_combinatorial(
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
-        tf_deg,
+        tf_deg, driver_map,
         P_vec, TF_inputs
 ):
     dy = np.zeros_like(y)
@@ -170,6 +188,8 @@ def rhs_nb_combinatorial(
     jb = time_bucket(t, kin_grid)
 
     # build protein totals into preallocated P_vec
+    # Note: Live-Drive for Model 2 is limited without Kt access here.
+    # We fallback to standard simulation for now.
     for i in range(n_TF_rows):
         y_start = offset_y[i]
         nst = n_states[i]
@@ -182,7 +202,8 @@ def rhs_nb_combinatorial(
     # TF_inputs = TF_mat * P_vec (in-place, no allocation)
     csr_matvec_into(TF_inputs, TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
     for i in range(n_TF_rows):
-        TF_inputs[i] /= tf_deg[i]
+        val = TF_inputs[i] / tf_deg[i]
+        TF_inputs[i] = val / (1.0 + abs(val))
 
     # core dynamics using cached phosphorylation rates
     combinatorial_rhs(
@@ -204,9 +225,10 @@ elif MODEL == 1:
 elif MODEL == 2:
     RHS_NB = rhs_nb_combinatorial
 else:
-    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0 (distributive) or 1 (sequential) or 2 (combinatorial).")
+    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, or 2.")
 
 
+# --- THIS IS THE CHUNK YOU NEEDED RESTORED ---
 def rhs_odeint(y, t, *args):
     return RHS_NB(y, t, *args)
 
@@ -219,7 +241,7 @@ def fd_jacobian_nb_core_distributive(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg,
+        tf_deg, driver_map,
         eps=1e-8
 ):
     n = y.size
@@ -232,7 +254,7 @@ def fd_jacobian_nb_core_distributive(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg
+        tf_deg, driver_map
     )
 
     for j in range(n):
@@ -248,7 +270,7 @@ def fd_jacobian_nb_core_distributive(
             W_indptr, W_indices, W_data, n_W_rows,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites,
-            tf_deg
+            tf_deg, driver_map
         )
 
         invh = 1.0 / h
@@ -266,7 +288,7 @@ def fd_jacobian_nb_core_sequential(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg,
+        tf_deg, driver_map,
         eps=1e-8
 ):
     n = y.size
@@ -279,7 +301,7 @@ def fd_jacobian_nb_core_sequential(
         W_indptr, W_indices, W_data, n_W_rows,
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites,
-        tf_deg
+        tf_deg, driver_map
     )
 
     for j in range(n):
@@ -295,7 +317,7 @@ def fd_jacobian_nb_core_sequential(
             W_indptr, W_indices, W_data, n_W_rows,
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites,
-            tf_deg
+            tf_deg, driver_map
         )
 
         invh = 1.0 / h
@@ -314,14 +336,12 @@ def fd_jacobian_nb_core_combinatorial(
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
-        tf_deg,
+        tf_deg, driver_map,
         P_vec, TF_inputs,
         eps=1e-8
 ):
     n = y.size
     J = np.empty((n, n), dtype=np.float64)
-    # P_vec = np.zeros(n_TF_rows, dtype=np.float64)
-    # TF_inputs = np.zeros(n_TF_rows, dtype=np.float64)
 
     f0 = rhs_nb_combinatorial(
         y, t,
@@ -330,7 +350,7 @@ def fd_jacobian_nb_core_combinatorial(
         TF_indptr, TF_indices, TF_data, n_TF_rows,
         offset_y, offset_s, n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n,
-        tf_deg,
+        tf_deg, driver_map,
         P_vec, TF_inputs
     )
 
@@ -346,7 +366,7 @@ def fd_jacobian_nb_core_combinatorial(
             TF_indptr, TF_indices, TF_data, n_TF_rows,
             offset_y, offset_s, n_sites, n_states,
             trans_from, trans_to, trans_site, trans_off, trans_n,
-            tf_deg,
+            tf_deg, driver_map,
             P_vec, TF_inputs
         )
 
@@ -364,7 +384,7 @@ elif MODEL == 1:
 elif MODEL == 2:
     FD_JAC_NB = fd_jacobian_nb_core_combinatorial
 else:
-    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0 (distributive) or 1 (sequential) or 2 (combinatorial).")
+    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, or 2.")
 
 
 def fd_jacobian_odeint(y, t, *args):

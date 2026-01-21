@@ -268,7 +268,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_global_combinatorial"  # Output directory
+output_dir = "results_test2"  # Output directory
 cores      = 8                         # 0 or leave out to use all available cores
 seed       = 42
 
@@ -278,15 +278,16 @@ seed       = 42
 n_gen      = 1000                       # Generations (runner arg: --n-gen)
 pop        = 300                       # Population size (runner arg: --pop)
 refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 10                       # Number of refinements
+num_refinements = 0                       # Number of refinements
+loss = 4                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
 
 # ------------------------------------------------------------
 # LOSS WEIGHTS (Regularization)
 # ------------------------------------------------------------
-lambda_prior   = 0.01                  # Weight for prior adherence (runner arg: --lambda-prior)
+lambda_prior   = 0.1                  # Weight for prior adherence (runner arg: --lambda-prior)
 lambda_protein = 1.0                   # Weight for protein error (runner arg: --lambda-protein)
-lambda_rna     = 1.0                   # Weight for RNA error (runner arg: --lambda-rna)
-lambda_phospho = 1.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
+lambda_rna     = 0.2                   # Weight for RNA error (runner arg: --lambda-rna)
+lambda_phospho = 3.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
 
 # ------------------------------------------------------------
 # DATA INFERENCE FLAGS
@@ -304,18 +305,39 @@ phospho_protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 
 rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
 [global_model.bounds]
+# Kinase Activity Multiplier: Keep as is, 4.0 is a reasonable max fold-change
 c_k = [1e-3, 4.0]
+
+# Basal mRNA Transcription: Keep wide to allow for low-abundance genes
 A_i = [1e-6, 10.0]
-B_i = [1e-4, 10.0]
-C_i = [1e-5, 10.0]
-D_i = [1e-6, 10.0]
-Dp_i = [1e-2, 10.0]
+
+# mRNA Degradation: 0.1 is ~7min half-life, 0.001 is ~11 hours.
+B_i = [1e-3, 1.0]
+
+# Translation Rate (The "Balloon" Variable):
+# Lower the max significantly. Proteins rarely translate at 100x basal speed.
+C_i = [1e-3, 2.0]
+
+# Protein Deactivation (State reset):
+# Increase the floor. 1e-6 is essentially "never turns off."
+D_i = [0.1, 0.5]
+
+# Phospho-site Dephosphorylation:
+# Usually faster than total protein deactivation.
+Dp_i = [0.05, 5.0]
+
+# Transcriptional Efficacy (Alpha):
+# 10.0 is a strong regulator.
 E_i = [1e-4, 10.0]
-tf_scale = [-4.0, 4.0]
+
+# TF Scaling (The "Sensitivity" exponent):
+# If using Exponential coupling, +/- 4.0 is very high (e^4 = 54x).
+# +/- 2.0 (e^2 = 7x) is often more stable for global models.
+tf_scale = [2.0, 10.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "combinatorial"
+default_model = "distributive"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
