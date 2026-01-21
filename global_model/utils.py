@@ -254,7 +254,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     else:
         pop_size = opt_cfg.get("population_size", 100)
 
-    loss_mode = opt_cfg.get("loss", 0)
+    loss_mode = cfg.get("loss", 0)
 
     # 7. Regularization
     reg_cfg = cfg.get("regularization", {})

@@ -179,7 +179,7 @@ def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, 
                 ftol=0.001,  # Stricter tolerance
                 period=20,
                 n_max_gen=pass_gens,
-                n_max_evals=100000
+                n_max_evals=10000000
             )
 
             # 5. Execute
@@ -265,7 +265,7 @@ def run_refinement(problem, prev_res, args, padding=0.25):
             ftol=0.0025,
             period=30,
             n_max_gen=args.n_gen,
-            n_max_evals=100000
+            n_max_evals=10000000
         )
 
         res = pymoo_minimize(

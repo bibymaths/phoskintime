@@ -1074,10 +1074,9 @@ def scan_prior_reg(out_dir):
     with open(os.path.join(out_dir, "lambda_scan_recommended.json"), "w") as f:
         json.dump(rec, f, indent=2)
 
-    logger.info("Wrote:")
-    logger.info(" - lambda_scan.csv")
-    logger.info(" - lambda_scan_unique_picks.csv")
-    logger.info(" - lambda_scan_recommended.json")
+    logger.info(
+        "[Output] Lambda scan complete. "
+    )
 
     return df, uniq, rec
 

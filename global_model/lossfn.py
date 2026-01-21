@@ -1,4 +1,3 @@
-# lossfn.py
 import numpy as np
 from numba import njit
 from global_model.config import MODEL, LOSS_MODE
