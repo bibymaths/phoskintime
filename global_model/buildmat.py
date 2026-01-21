@@ -10,6 +10,7 @@ from global_model.config import RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def site_key(site: str) -> int:
     m = re.search(r"\d+", site)
     if m is None:
@@ -95,7 +96,7 @@ def build_tf_matrix(tf_net, idx, tf_beta_map=None, kin_beta_map=None):
 
             # Apply absolute weight to ensure positive synthesis contributions
             # (Repression is handled by the sign of tf_scale in the RHS)
-            weight = alpha * beta # abs(beta)
+            weight = alpha * beta  # abs(beta)
             data.append(weight)
 
     return sparse.csr_matrix((data, (rows, cols)), shape=(idx.N, idx.N))

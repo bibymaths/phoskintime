@@ -112,7 +112,7 @@ def create_multistart_population(X_best, pop_size, new_xl, new_xu):
     return Population.new("X", X_pop)
 
 
-def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, padding=0.25):
+def run_iterative_refinement(problem, prev_res, args, idx=None, max_passes=3, padding=0.25):
     """
     Runs refinement recursively to zoom in on the optimum.
 
@@ -179,7 +179,7 @@ def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, 
                 ftol=0.001,  # Stricter tolerance
                 period=20,
                 n_max_gen=pass_gens,
-                n_max_evals=10000000
+                n_max_evals=100000
             )
 
             # 5. Execute
@@ -190,7 +190,7 @@ def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, 
                 termination=termination,
                 seed=args.seed + 1 + i,
                 verbose=True,
-                save_history=True  # Only save history for the final result usually
+                save_history=False  # Only save history for the final result usually
             )
 
             # Validation: Did we improve?
@@ -200,7 +200,12 @@ def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, 
 
             logger.info(f"[Refine] Pass {i + 1} Best Objective: {new_best:.6f} (Prev: {old_best:.6f})")
 
-            current_res = res
+            if new_best < old_best:
+                logger.info(f"[Refine] Pass {i + 1} Improved solution found.")
+                current_res = res
+            else:
+                logger.info(f"[Refine] Pass {i + 1} No improvement found. Stopping refinement.")
+                break
 
     except Exception as e:
         logger.error(f"[Refine] Crash during recursive refinement: {e}")
@@ -214,6 +219,7 @@ def run_iterative_refinement(problem, prev_res, args, idx = None, max_passes=3, 
             problem.elementwise_runner = None
 
     return current_res
+
 
 ############################################################
 ########### DEPRECATED: Use run_iterative_refinement()  ####
@@ -265,7 +271,7 @@ def run_refinement(problem, prev_res, args, padding=0.25):
             ftol=0.0025,
             period=30,
             n_max_gen=args.n_gen,
-            n_max_evals=10000000
+            n_max_evals=100000
         )
 
         res = pymoo_minimize(
@@ -274,7 +280,7 @@ def run_refinement(problem, prev_res, args, padding=0.25):
             termination=termination,
             seed=args.seed + 1,
             verbose=True,
-            save_history=True
+            save_history=False  # Only save history for the final result usually
         )
 
     finally:

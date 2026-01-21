@@ -26,6 +26,8 @@ elif MODEL == 1:
     logger.info("[Model] Using Sequential Model")
 elif MODEL == 2:
     logger.info("[Model] Using Combinatorial Model")
+elif MODEL == 4:
+    logger.info("[Model] Using Saturating Model")
 else:
     raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
 
@@ -53,7 +55,7 @@ def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
         y0,
         t_eval,
         args=args,
-        Dfun=fd_jacobian_odeint, # For MODEL==2, set None if it causes issues
+        Dfun=fd_jacobian_odeint,  # For MODEL==2, set None if it causes issues
         col_deriv=False,
         rtol=rtol,
         atol=atol,

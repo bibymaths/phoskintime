@@ -23,6 +23,7 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def build_site_meta(idx):
     """
     Returns parallel arrays of length idx.total_sites:
@@ -970,7 +971,7 @@ def save_gene_timeseries_plots(
         else:
             # per-psite lines (capped)
             psites = sorted(set(ph_obs["psite"].unique()).union(set(ph_pre["psite"].unique()))) if (
-                        "psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
+                    "psite" in ph_obs.columns or "psite" in ph_pre.columns) else []
 
             # if len(psites) > max_psites:
             #     psites = psites[:max_psites]

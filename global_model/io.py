@@ -7,6 +7,7 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def load_data(args):
     # =========================================================================
     # 1. Load Kinase Network & Merge Alphas

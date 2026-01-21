@@ -268,7 +268,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_test_abl2"  # Output directory
+output_dir = "results_abl2"  # Output directory
 cores      = 8                         # 0 or leave out to use all available cores
 seed       = 42
 
@@ -276,10 +276,10 @@ seed       = 42
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
 n_gen      = 500                       # Generations (runner arg: --n-gen)
-pop        = 300                       # Population size (runner arg: --pop)
-refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 3                       # Number of refinements
-loss = 4                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
+pop        = 500                       # Population size (runner arg: --pop)
+refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
+num_refinements = 0                       # Number of refinements
+loss = 0                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
 
 # ------------------------------------------------------------
 # LOSS WEIGHTS (Regularization)
@@ -336,8 +336,8 @@ E_i = [1e-4, 10.0]
 tf_scale = [2.0, 10.0]
 
 [global_model.models]
-available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "combinatorial"
+available_models = ["distributive", "sequential", "combinatorial", "saturation"]
+default_model = "saturation"
 
 [global_model.solver]
 absolute_tolerance = 1e-8

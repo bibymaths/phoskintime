@@ -12,7 +12,9 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 from config.config import setup_logger
+
 logger = setup_logger()
+
 
 def _normcols(df):
     df = df.copy()
@@ -154,6 +156,7 @@ def pick_best_lamdas(F, weights):
             best_i = i
 
     return best_i, float(best_score)
+
 
 @dataclass(frozen=True)
 class PhosKinConfig:

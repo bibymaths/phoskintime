@@ -31,6 +31,78 @@ def calculate_synthesis_rate(Ai, tf_scale, u_raw):
         denom = 1.0 + tf_scale * np.abs(u)
         return Ai / denom
 
+
+# -----------------------------------------------------------------------------
+# Model 4: Saturating (Michaelis-Menten)
+# -----------------------------------------------------------------------------
+@njit(fastmath=True, cache=True, nogil=True)
+def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
+                   offset_y, offset_s, n_sites):
+    """
+    Model 4: Saturating Kinetics.
+    Prevents ballooning by applying Michaelis-Menten saturation to
+    Translation and Phosphorylation steps.
+    """
+    N = A_i.shape[0]
+    K_SAT = 1.0  # Saturation constant (normalized units)
+
+    for i in range(N):
+        y_start = offset_y[i]
+        idx_R = y_start
+        idx_P = y_start + 1
+
+        s_start = offset_s[i]
+        ns = n_sites[i]
+        base = y_start + 2
+
+        R = y[idx_R]
+        P = y[idx_P]
+
+        # 1. Rational Transcription
+        synth = calculate_synthesis_rate(A_i[i], tf_scale, TF_inputs[i])
+
+        # 2. mRNA Dynamics
+        dy[idx_R] = synth - B_i[i] * R
+
+        # 3. Saturating Translation (Ribosome limit)
+        # Rate = Vmax * R / (Km + R) -> Here Km=1.0 relative to normalized data
+        trans_rate = (C_i[i] * R) / (1.0 + R)
+
+        prot_deg = D_i[i] * P
+
+        if ns == 0:
+            dy[idx_P] = trans_rate - prot_deg
+        else:
+            sum_S_flux = 0.0
+            sum_back = 0.0
+
+            # 4. Saturating Phosphorylation (Kinase limit)
+            # Prevents stiff derivatives when P is large
+            for j in range(ns):
+                si = s_start + j
+                yi = base + j
+
+                s_rate_const = S_all[si]
+                ps_val = y[yi]
+
+                # Forward Rate = k * P / (1 + P)
+                forward_flux = (s_rate_const * P) / (1.0 + P)
+
+                # Backward Rate (Dephosph) - Linear or Saturating
+                # Linear is usually stable enough for phosphatase
+                backward_flux = E_i[i] * ps_val
+
+                sum_S_flux += forward_flux
+                sum_back += backward_flux
+
+                # Phospho-site state equation
+                Dpi = Dp_i[si]
+                dy[yi] = forward_flux - (Dpi + D_i[i]) * ps_val - backward_flux
+
+            # Unphosph protein equation
+            dy[idx_P] = trans_rate - prot_deg - sum_S_flux + sum_back
+
+
 @njit(fastmath=True, cache=True, nogil=True)
 def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                      offset_y, offset_s, n_sites):

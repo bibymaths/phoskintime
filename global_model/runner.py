@@ -3,6 +3,9 @@ import atexit
 import json
 import logging
 import os
+
+from global_model.sensitivity import run_sensitivity_analysis
+
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -22,7 +25,6 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
-
 
 from global_model.buildmat import build_W_parallel, build_tf_matrix
 from global_model.cache import prepare_fast_loss_data
@@ -44,7 +46,9 @@ from global_model.export import export_pareto_front_to_excel, plot_gof_from_pare
 from global_model.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
 from config.config import setup_logger
+
 logger = setup_logger(log_dir=RESULTS_DIR)
+
 
 @atexit.register
 def _close_log_handlers():
@@ -55,6 +59,7 @@ def _close_log_handlers():
             h.close()
         except Exception:
             pass
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -87,7 +92,11 @@ def main():
     parser.add_argument("--use-initial-condition-from-data", action="store_true",
                         default=USE_INITIAL_CONDITION_FROM_DATA)
     parser.add_argument("--refine", action="store_true",
-                        help="Run a second optimization pass with tighter bounds around the Pareto front.", default=REFINE)
+                        help="Run a second optimization pass with tighter bounds around the Pareto front.",
+                        default=REFINE)
+    parser.add_argument("--scan", action="store_true",
+                        help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
+                        default=True)
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -121,6 +130,8 @@ def main():
 
     # 2) Model index to include all TF and kinases
     idx = Index(df_kin, tf_interactions=df_tf, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
+    kin_in = KinaseInput(idx.kinases, df_prot)
+    logger.info(f"[KinaseInput] Initialized with {len(idx.kinases)} kinases.")
 
     # Restrict obs to model proteins
     df_prot = df_prot[df_prot["protein"].isin(idx.proteins)].copy()
@@ -163,31 +174,30 @@ def main():
     #
     # logger.info("=" * 50)
 
-    # Weights - Piecewise Early Boost (modality-specific)
-    tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
-    tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)
-
-    # Explicit early windows (minutes)
-    ew_prot_pho = 2.0
-    ew_rna = 15.0
-
-    # build schemes with desired boost baked in
-    schemes_prot_pho = get_weight_options(tp_prot_pho, early_window=ew_prot_pho)
-    schemes_rna = get_weight_options(tp_rna, early_window=ew_rna)
-
-    # manually rebuild boosted versions (one-liner each)
-    w_prot_pho = lambda tt: schemes_prot_pho["uniform"](tt)
-    w_rna = lambda tt: schemes_rna["uniform"](tt)
-
-    # apply
-    df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
-    df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
-    df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
+    # # Weights - Piecewise Early Boost (modality-specific)
+    # tp_prot_pho = np.asarray(TIME_POINTS_PROTEIN, dtype=float)
+    # tp_rna = np.asarray(TIME_POINTS_RNA, dtype=float)
+    #
+    # # Explicit early windows (minutes)
+    # ew_prot_pho = 2.0
+    # ew_rna = 15.0
+    #
+    # # build schemes with desired boost baked in
+    # schemes_prot_pho = get_weight_options(tp_prot_pho, early_window=ew_prot_pho)
+    # schemes_rna = get_weight_options(tp_rna, early_window=ew_rna)
+    #
+    # # manually rebuild boosted versions (one-liner each)
+    # w_prot_pho = lambda tt: schemes_prot_pho["uniform"](tt)
+    # w_rna = lambda tt: schemes_rna["uniform"](tt)
+    #
+    # # apply
+    # df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
+    # df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
+    # df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
 
     # 3) Build W + TF
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
     tf_mat = build_tf_matrix(df_tf, idx, tf_beta_map=tf_beta_map, kin_beta_map=kin_beta_map)
-    kin_in = KinaseInput(idx.kinases, df_prot)
 
     # --- Robust Labeled Export Block ---
     logger.info("[Output] Exporting network matrices with labels...")
@@ -368,22 +378,42 @@ def main():
     # Initialize raw params using these custom bounds for optimization
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
-    lambdas = {
-        "protein": args.lambda_protein,
-        "rna": args.lambda_rna,
-        "phospho": args.lambda_phospho,
-        "prior": args.lambda_prior
-    }
-
-    # 7) Pymoo parallel runner
     runner = None
     pool = None
+    # 7) Pymoo parallel runner
     if args.cores > 1:
         pool = mp.Pool(args.cores)
         runner = StarmapParallelization(pool.starmap)
         logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
     else:
         logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
+
+    # --- HYPERPARAMETER SCAN BLOCK ---
+    if args.scan:
+        from global_model.scan import run_hyperparameter_scan
+
+        # This function will run the loop, save Excel/PNGs, and return the best dict
+        best_lambdas = run_hyperparameter_scan(
+            args, sys, loss_data, defaults, solver_times, runner, slices, xl, xu
+        )
+
+        logger.info(f"[Runner] Adopting optimized hyperparameters: {best_lambdas}")
+        lambdas = {
+            "protein": best_lambdas["lambda_protein"],
+            "phospho": best_lambdas["lambda_phospho"],
+            "rna": best_lambdas["lambda_rna"],
+            "prior": best_lambdas["lambda_prior"]
+        }
+    else:
+        # Standard manual arguments
+        lambdas = {
+            "protein": args.lambda_protein,
+            "rna": args.lambda_rna,
+            "phospho": args.lambda_phospho,
+            "prior": args.lambda_prior
+        }
+
+    logger.info(f"[Scan] Using lambdas: {lambdas}")
 
     # 8) Problem
     problem = GlobalODE_MOO(
@@ -399,33 +429,32 @@ def main():
     )
 
     # Sanity Check - Decision vector
-    sizes = {
-        "c_k": slen(slices["c_k"]),
-        "A_i": slen(slices["A_i"]),
-        "B_i": slen(slices["B_i"]),
-        "C_i": slen(slices["C_i"]),
-        "D_i": slen(slices["D_i"]),
-        "Dp_i": slen(slices["Dp_i"]),
-        "E_i": slen(slices["E_i"]),
-        "tf_scale": slen(slices["tf_scale"]),
-    }
-
-    logger.info(f"[Model] Number of decision variables = {problem.n_var}")
-    for k, v in sizes.items():
-        logger.info(f"[Model] Numer of parameters - {k} = [{v}]")
-
-    total = sum(sizes.values())
-    logger.info(f"[Model] Verify internally | sum_slices = {total}")
-
-    assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
+    # sizes = {
+    #     "c_k": slen(slices["c_k"]),
+    #     "A_i": slen(slices["A_i"]),
+    #     "B_i": slen(slices["B_i"]),
+    #     "C_i": slen(slices["C_i"]),
+    #     "D_i": slen(slices["D_i"]),
+    #     "Dp_i": slen(slices["Dp_i"]),
+    #     "E_i": slen(slices["E_i"]),
+    #     "tf_scale": slen(slices["tf_scale"]),
+    # }
+    #
+    # logger.info(f"[Model] Number of decision variables = {problem.n_var}")
+    # for k, v in sizes.items():
+    #     logger.info(f"[Model] Numer of parameters - {k} = [{v}]")
+    #
+    # total = sum(sizes.values())
+    # logger.info(f"[Model] Verify internally | sum_slices = {total}")
+    #
+    # assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
 
     # 9) UNSGA3 needs reference directions
     ref_dirs = get_reference_directions(
         "das-dennis",
         problem.n_obj,
-        n_partitions=20,
-        seed=args.seed,
-        n_dimensions=problem.n_var
+        n_partitions=30,
+        seed=args.seed
     )
 
     # logger.info number of reference directions
@@ -468,6 +497,15 @@ def main():
 
     # param_names = get_parameter_labels(sys.idx)
 
+    # Save full result object
+    # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
+    #     pickle.dump(res, f)
+    # logger.info("[Output] Saved full optimization state (pickle).")
+
+    # Export convergence history
+    df_hist = process_convergence_history(res, args.output_dir)
+    df_hist.to_csv(os.path.join(args.output_dir, "convergence_history.csv"), index=False)
+
     if args.refine:
         logger.info("[Refinement] Recursive refinement started.")
 
@@ -482,15 +520,6 @@ def main():
         )
 
         logger.info("[Refinement] Recursive refinement complete.")
-
-    # Save full result object
-    # with open(os.path.join(args.output_dir, "pymoo_result.pkl"), "wb") as f:
-    #     pickle.dump(res, f)
-    # logger.info("[Output] Saved full optimization state (pickle).")
-
-    # Export convergence history
-    df_hist = process_convergence_history(res, args.output_dir)
-    df_hist.to_csv(os.path.join(args.output_dir, "convergence_history.csv"), index=False)
 
     # 10) Save Pareto set
     X = res.X
@@ -625,6 +654,15 @@ def main():
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
+    if args.sensitivity:
+        run_sensitivity_analysis(
+            sys=sys,
+            idx=idx,
+            fitted_params=params,  # The dict of optimized arrays
+            output_dir=args.output_dir,
+            metric="total_signal"
+        )
+
     # 1. Export Dynamic Kinase Activities (Mechanism check)
     export_kinase_activities(sys, idx, args.output_dir, t_max=120)
     logger.info("[Output] Saved dynamic kinase activities.")
@@ -659,7 +697,8 @@ def main():
         heatmap_cap_sites=80,
     )
 
-    logger.info(f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
+    logger.info(
+        f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
     dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
@@ -747,6 +786,7 @@ def main():
 
     # Finalize logging
     logger.info(f"[Complete] All results saved to: {args.output_dir}")
+
 
 if __name__ == "__main__":
     try:

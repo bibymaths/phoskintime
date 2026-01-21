@@ -8,6 +8,7 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
     """
     Simulates the system from t=0 to t_max (default 24h) to observe convergence.

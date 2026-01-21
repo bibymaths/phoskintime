@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange
 
 from global_model.config import MODEL
-from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs
+from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
 from global_model.solvers import adaptive_rk45_model01, adaptive_rk45_model2
 from global_model.utils import time_bucket
 
@@ -218,14 +218,45 @@ def rhs_nb_combinatorial(
     return dy
 
 
+@njit(cache=True, fastmath=True, nogil=True)
+def rhs_nb_saturating(y, t, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
+                      kin_grid, kin_Kmat, W_indptr, W_indices, W_data, n_W_rows,
+                      TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y, offset_s, n_sites,
+                      tf_deg, driver_map):
+    # Identical setup to distributive, but calls saturating_rhs
+    dy = np.zeros_like(y)
+    Kt = kin_eval_step(t, kin_grid, kin_Kmat)
+    for i in range(Kt.size): Kt[i] *= c_k[i]
+    S_all = csr_matvec(W_indptr, W_indices, W_data, Kt, n_W_rows)
+    P_vec = np.zeros(n_TF_rows, dtype=np.float64)
+    for i in range(n_TF_rows):
+        dk = driver_map[i]
+        if dk >= 0:
+            P_vec[i] = Kt[dk]
+        else:
+            y_start = offset_y[i]
+            ns = n_sites[i]
+            tot = y[y_start + 1]
+            for j in range(ns): tot += y[y_start + 2 + j]
+            P_vec[i] = tot
+    TF_inputs = csr_matvec(TF_indptr, TF_indices, TF_data, P_vec, n_TF_rows)
+    for i in range(n_TF_rows):
+        val = TF_inputs[i] / tf_deg[i]
+        TF_inputs[i] = val  # Squashing handled in RHS for saturating model
+    saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all, offset_y, offset_s, n_sites)
+    return dy
+
+
 if MODEL == 0:
     RHS_NB = rhs_nb_distributive
 elif MODEL == 1:
     RHS_NB = rhs_nb_sequential
 elif MODEL == 2:
     RHS_NB = rhs_nb_combinatorial
+elif MODEL == 4:
+    RHS_NB = rhs_nb_saturating
 else:
-    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, or 2.")
+    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, 2, or 4.")
 
 
 # --- THIS IS THE CHUNK YOU NEEDED RESTORED ---
@@ -377,14 +408,37 @@ def fd_jacobian_nb_core_combinatorial(
     return J
 
 
+@njit(cache=True, fastmath=True, nogil=True)
+def fd_jacobian_nb_core_saturating(y, t, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_grid, kin_Kmat, W_indptr,
+                                   W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                                   offset_s, n_sites, tf_deg, driver_map, eps=1e-8):
+    n = y.size
+    J = np.empty((n, n), dtype=np.float64)
+    f0 = rhs_nb_saturating(y, t, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_grid, kin_Kmat, W_indptr, W_indices,
+                           W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y, offset_s, n_sites,
+                           tf_deg, driver_map)
+    for j in range(n):
+        y_pert = y.copy()
+        h = eps * (1.0 if abs(y[j]) < 1.0 else abs(y[j]))
+        y_pert[j] += h
+        fj = rhs_nb_saturating(y_pert, t, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_grid, kin_Kmat, W_indptr,
+                               W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,
+                               offset_s, n_sites, tf_deg, driver_map)
+        invh = 1.0 / h
+        for i in range(n): J[i, j] = (fj[i] - f0[i]) * invh
+    return J
+
+
 if MODEL == 0:
     FD_JAC_NB = fd_jacobian_nb_core_distributive
 elif MODEL == 1:
     FD_JAC_NB = fd_jacobian_nb_core_sequential
 elif MODEL == 2:
     FD_JAC_NB = fd_jacobian_nb_core_combinatorial
+elif MODEL == 4:
+    FD_JAC_NB = fd_jacobian_nb_core_saturating
 else:
-    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, or 2.")
+    raise ValueError(f"Invalid MODEL={MODEL}. Expected 0, 1, 2, or 4.")
 
 
 def fd_jacobian_odeint(y, t, *args):

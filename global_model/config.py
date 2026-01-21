@@ -11,12 +11,14 @@ else:
     # Fallback or useful error if running from wrong dir
     raise FileNotFoundError("config.toml not found in current directory.")
 
+
 def _as_bool(x):
     if isinstance(x, bool):
         return x
     if isinstance(x, str):
         return x.lower() in {"1", "true", "yes", "on"}
     return bool(x)
+
 
 # --- Input Files ---
 KINASE_NET_FILE = cfg.kinase_net
@@ -39,8 +41,9 @@ TIME_POINTS_PHOSPHO = cfg.time_points_phospho
 BOUNDS_CONFIG = cfg.bounds_config
 
 # Map string model name to integer ID
-# 0: Distributive, 1: Sequential, 2: Combinatorial
-MODEL = 0 if cfg.model == "distributive" else (1 if cfg.model == "sequential" else 2)
+# 0: Distributive, 1: Sequential, 2: Combinatorial, 4: Saturating
+MODEL = 0 if cfg.model == "distributive" else (
+    1 if cfg.model == "sequential" else (2 if cfg.model == "combinatorial" else 4))
 
 USE_CUSTOM_SOLVER = _as_bool(cfg.use_custom_solver)
 ODE_ABS_TOL = cfg.ode_abs_tol

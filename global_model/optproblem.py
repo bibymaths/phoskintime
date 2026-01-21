@@ -102,6 +102,7 @@ class GlobalODE_MOO(ElementwiseProblem):
             obj_phospho + prior_penalty
         ], dtype=float)
 
+
 def get_weight_options(
         time_points,
         *,
