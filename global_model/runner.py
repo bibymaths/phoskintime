@@ -363,10 +363,10 @@ def main():
     # 6) Decision vector bounds
 
     # Calculate optimal bounds based on network topology and data constraints
-    # custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
+    custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
 
     # Initialize raw params using these custom bounds for optimization
-    theta0, slices, xl, xu = init_raw_params(defaults) # , custom_bounds=custom_bounds)
+    theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
     lambdas = {
         "protein": args.lambda_protein,
@@ -446,7 +446,7 @@ def main():
         ftol=0.0025,
         period=30,
         n_max_gen=args.n_gen,
-        n_max_evals=10000000
+        n_max_evals=100000
     )
 
     logger.info(
@@ -706,8 +706,8 @@ def main():
 
     logger.info("[Check] Running post-optimization dynamics check...")
 
-    # 1. Simulate for 72 hours (4320 min) to see long-term behavior
-    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 3 * 60)
+    # 1. Simulate for 7 days (10080 min) to see long-term behavior
+    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 7 * 60)
 
     # 2. Plot every single protein
     plot_steady_state_all(

@@ -28,6 +28,8 @@ def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
     rate = dist / dt
 
     logger.info(f"[SteadyState] Final rate of change: {rate:.2e}")
+    logger.info("[SteadyState] Simulate until steady-state [Done].")
+
     return t_eval, Y
 
 

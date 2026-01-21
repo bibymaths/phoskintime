@@ -360,62 +360,60 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     logger.info("=" * 60)
     logger.info("[Bounds] CALCULATION: Performing Topological & Kinetic Analysis")
 
-    # --- 1. ANALYZE DATA DYNAMIC RANGE (Prevent Ballooning) ---
-    # We look at the maximum observed fold-change to cap synthesis rates.
-    # If a protein only goes up to 5x, we shouldn't allow parameters that drive it to 10,000x.
+    # 1. ANALYZE DATA DYNAMIC RANGE
+    # Cap the maximum Fold Change the model is ALLOWED to reach.
     max_prot_fc = df_prot['fc'].max() if (df_prot is not None and not df_prot.empty) else 5.0
     max_rna_fc = df_rna['fc'].max() if (df_rna is not None and not df_rna.empty) else 5.0
 
-    # Safety buffer: Allow model to predict slightly higher than observed max
+    # Safety buffer: Tighter than before (1.5x instead of 2.0x)
     safe_prot_max = max(2.0, max_prot_fc * 1.5)
     safe_rna_max = max(2.0, max_rna_fc * 1.5)
 
-    # --- 2. mRNA KINETICS (A_i, B_i) ---
-    # Bio-Logic: mRNA half-lives range from ~5 mins to ~10 hours.
-    # B_i (Degradation) = ln(2)/t_half.
-    # Bounds: 0.001 (~11h half-life) to 0.15 (~5min half-life)
-    b_min, b_max = 0.001, 0.15
+    # 2. mRNA KINETICS (A_i, B_i)
+    # Bounds: 0.005 (~2.3h) to 0.1 (~7min)
+    # We raise the floor to prevent 'stuck' mRNA
+    b_min, b_max = 0.005, 0.15
 
-    # A_i (Basal Synthesis) must support the max RNA fold change.
-    # Equilibrium: dR/dt = Synth - B*R. To reach FoldChange (FC), Synth approx B * FC.
-    # We anchor A_i bounds to B_i bounds to ensure homeostasis at t=0 (FC=1).
-    a_min = b_min * 0.01  # Allow for deep repression (down to 0.01x)
-    a_max = b_max * safe_rna_max  # Allow synthesis to drive up to max observed FC
+    # A_i (Basal Synthesis)
+    # Synthesis must balances Degradation at steady state (FC=1).
+    # A_i approx B_i. We allow slight deviation for basal repression/activation.
+    a_min = b_min * 0.1
+    a_max = b_max * safe_rna_max
 
-    # --- 3. PROTEIN KINETICS (C_i, D_i) ---
-    # Bio-Logic: Protein degradation is generally slower than mRNA.
-    # Bounds: 0.0005 (~24h half-life) to 0.08 (~9min half-life)
-    d_min, d_max = 0.005, 0.08
+    # 3. PROTEIN KINETICS (C_i, D_i)
+    # CRITICAL FIX: Raise the degradation floor.
+    # If proteins degrade too slowly, errors accumulate over 960 minutes.
+    # New Floor: 0.01 (approx 70 min half-life). Nothing lives forever.
+    d_min, d_max = 0.01, 0.10
 
-    # C_i (Translation) must support max protein FC.
-    # Equilibrium: dP/dt = C*R - D*P.
-    c_min = d_min * 0.01
-    c_max = (d_max * safe_prot_max) / 0.5  # Divide by 0.5 assumes even low mRNA can drive protein
+    # C_i (Translation)
+    # Strict linkage: Synthesis cannot exceed Degradation * Max_Fold_Change
+    # C_max = D_max * Max_FC.
+    # If D=0.1 and MaxFC=5, C cannot exceed 0.5.
+    c_min = d_min * 0.1
+    c_max = d_max * safe_prot_max
 
-    # --- 4. TOPOLOGICAL SENSITIVITY (E_i, tf_scale) ---
-    # Analyze Regulatory Density: How many TFs regulate the average gene?
-    # Sparse Network (e.g., ABL2 test): Needs high sensitivity to detect signal.
-    # Dense Network (Global): Needs lower sensitivity to prevent additive explosion.
+    # 4. TOPOLOGICAL SENSITIVITY (E_i, tf_scale)
+    # For large networks (200+ nodes), additive inputs can be huge.
     n_edges = tf_mat.nnz
     avg_density = n_edges / max(1, idx.N)
 
-    if avg_density < 2.5:
-        # SPARSE MODE: High leverage required
-        e_max = 100.0
-        tf_scale_min, tf_scale_max = 1.0, 15.0  # Force optimizer to use inputs
-    else:
-        # DENSE MODE: Dampening required
+    if avg_density < 2.0:
+        # Sparse (Sub-network): Allow higher gain
         e_max = 20.0
-        tf_scale_min, tf_scale_max = 0.1, 5.0
+        tf_scale_min, tf_scale_max = 0.5, 5.0
+    else:
+        # Dense (Global): Clamp gain hard to prevent feedback explosions
+        e_max = 5.0  # Reduced from 20.0
+        tf_scale_min, tf_scale_max = 0.1, 2.5  # Reduced from 10.0
 
-    # --- 5. SIGNALING VELOCITY (c_k, Dp_i) ---
-    # Phosphorylation (Fastest timescale).
+    # 5. SIGNALING VELOCITY (c_k, Dp_i)
+    # Phospho is working well, keep these bounds wide to maintain signal fit.
     dp_min, dp_max = 0.1, 10.0
 
-    # Kinase Input Scaling (c_k)
-    # If input data is flat (low variance), we need high c_k to amplify it.
+    # Check input variance. If inputs are flat, we need higher c_k.
     kin_variance = np.var(kin_in.Kmat)
-    ck_max = 20.0 if kin_variance < 0.02 else 5.0
+    ck_max = 15.0 if kin_variance < 0.02 else 5.0
 
     bounds_dict = {
         "c_k": (0.01, ck_max),
@@ -428,16 +426,12 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
         "tf_scale": (tf_scale_min, tf_scale_max)
     }
 
-    logger.info(f"[Bounds] Analysis Result | Density: {avg_density:.2f} edges/gene")
-    logger.info(f"[Bounds] Max Data FC     | Prot: {max_prot_fc:.1f}x, RNA: {max_rna_fc:.1f}x")
     logger.info("-" * 60)
-    logger.info(f"{'Param':<10} | {'Min':<10} | {'Max':<10} | {'Bio-Rationale'}")
+    logger.info(f"{'Param':<10} | {'Min':<10} | {'Max':<10} | {'Constraint Logic'}")
     logger.info("-" * 60)
-    logger.info(f"{'tf_scale':<10} | {tf_scale_min:<10.3f} | {tf_scale_max:<10.3f} | {'Network Sensitivity'}")
-    logger.info(f"{'A_i':<10} | {a_min:<10.4f} | {a_max:<10.4f} | {'mRNA Basal Synthesis'}")
-    logger.info(f"{'B_i':<10} | {b_min:<10.4f} | {b_max:<10.4f} | {'mRNA Half-life'}")
-    logger.info(f"{'C_i':<10} | {c_min:<10.4f} | {c_max:<10.4f} | {'Translation Rate'}")
-    logger.info(f"{'D_i':<10} | {d_min:<10.4f} | {d_max:<10.4f} | {'Protein Half-life'}")
+    logger.info(f"{'C_i':<10} | {c_min:<10.4f} | {c_max:<10.4f} | {'Linked to D_max * MaxFC'}")
+    logger.info(f"{'D_i':<10} | {d_min:<10.4f} | {d_max:<10.4f} | {'Floor raised to 0.01'}")
+    logger.info(f"{'tf_scale':<10} | {tf_scale_min:<10.3f} | {tf_scale_max:<10.3f} | {'Clamped for stability'}")
     logger.info("=" * 60)
 
     return bounds_dict

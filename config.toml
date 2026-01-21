@@ -255,8 +255,8 @@ version = "0.1.0"
 # INPUT FILES (Required by runner)
 # Paths are relative to the project root
 # ------------------------------------------------------------
-kinase_net = "data/input2.csv"         # Kinase-Substrate Network (or similar)
-tf_net     = "data/input4.csv"         # TF-Gene Network
+kinase_net = "results_node_subnetworks/ABL2/ABL2_input2.csv"         # Kinase-Substrate Network (or similar)
+tf_net     = "results_node_subnetworks/ABL2/ABL2_input4.csv"         # TF-Gene Network
 ms         = "data/input1.csv"         # Mass Spec (Protein) Data
 rna        = "data/input3.csv"         # RNA (Transcriptomics) Data
 phospho    = "data/input1.csv"         # Phospho Data (Optional, can be same as ms if mixed)
@@ -268,26 +268,26 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_test2"  # Output directory
+output_dir = "results_test_abl2"  # Output directory
 cores      = 8                         # 0 or leave out to use all available cores
 seed       = 42
 
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
-n_gen      = 1000                       # Generations (runner arg: --n-gen)
+n_gen      = 500                       # Generations (runner arg: --n-gen)
 pop        = 300                       # Population size (runner arg: --pop)
 refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 0                       # Number of refinements
+num_refinements = 3                       # Number of refinements
 loss = 4                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
 
 # ------------------------------------------------------------
 # LOSS WEIGHTS (Regularization)
 # ------------------------------------------------------------
 lambda_prior   = 0.1                  # Weight for prior adherence (runner arg: --lambda-prior)
-lambda_protein = 1.0                   # Weight for protein error (runner arg: --lambda-protein)
-lambda_rna     = 0.2                   # Weight for RNA error (runner arg: --lambda-rna)
-lambda_phospho = 3.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
+lambda_protein = 5.0                   # Weight for protein error (runner arg: --lambda-protein)
+lambda_rna     = 0.5                   # Weight for RNA error (runner arg: --lambda-rna)
+lambda_phospho = 1.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
 
 # ------------------------------------------------------------
 # DATA INFERENCE FLAGS
@@ -337,10 +337,10 @@ tf_scale = [2.0, 10.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial"]
-default_model = "distributive"
+default_model = "combinatorial"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = true
+use_custom_solver = false
