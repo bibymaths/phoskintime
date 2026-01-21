@@ -4,6 +4,7 @@ import json
 import logging
 import os
 
+from global_model.optuna_solver import run_optuna_solver
 from global_model.sensitivity import run_sensitivity_analysis
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -96,7 +97,12 @@ def main():
                         default=REFINE)
     parser.add_argument("--scan", action="store_true",
                         help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
+                        default=False)
+    parser.add_argument("--sensitivity", action="store_true",
+                        help="Run a sensitivity analysis after optimization.",
                         default=True)
+    parser.add_argument("--solver", type=str, choices=["pymoo", "optuna"], default="optuna",
+                        help="Choice of optimization solver.")
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -415,81 +421,106 @@ def main():
 
     logger.info(f"[Scan] Using lambdas: {lambdas}")
 
-    # 8) Problem
-    problem = GlobalODE_MOO(
-        sys=sys,
-        slices=slices,
-        loss_data=loss_data,
-        defaults=defaults,
-        lambdas=lambdas,
-        time_grid=solver_times,
-        xl=xl,
-        xu=xu,
-        elementwise_runner=runner
-    )
+    if args.solver == "optuna":
 
-    # Sanity Check - Decision vector
-    # sizes = {
-    #     "c_k": slen(slices["c_k"]),
-    #     "A_i": slen(slices["A_i"]),
-    #     "B_i": slen(slices["B_i"]),
-    #     "C_i": slen(slices["C_i"]),
-    #     "D_i": slen(slices["D_i"]),
-    #     "Dp_i": slen(slices["Dp_i"]),
-    #     "E_i": slen(slices["E_i"]),
-    #     "tf_scale": slen(slices["tf_scale"]),
-    # }
-    #
-    # logger.info(f"[Model] Number of decision variables = {problem.n_var}")
-    # for k, v in sizes.items():
-    #     logger.info(f"[Model] Numer of parameters - {k} = [{v}]")
-    #
-    # total = sum(sizes.values())
-    # logger.info(f"[Model] Verify internally | sum_slices = {total}")
-    #
-    # assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
+        total_trials = args.pop * args.n_gen
 
-    # 9) UNSGA3 needs reference directions
-    ref_dirs = get_reference_directions(
-        "das-dennis",
-        problem.n_obj,
-        n_partitions=30,
-        seed=args.seed
-    )
+        logger.info(f"[Optuna] Running Optuna solver with {total_trials} total trials "
+                    f"({args.pop} pop x {args.n_gen} generations).")
 
-    # logger.info number of reference directions
-    logger.info(f"[Fit] Number of reference directions: {len(ref_dirs)}")
+        res = run_optuna_solver(
+            args=args,
+            sys=sys,
+            loss_data=loss_data,
+            slices=slices,
+            xl=xl,
+            xu=xu,
+            defaults=defaults,
+            lambdas=lambdas,
+            time_grid=solver_times,
+            n_trials=total_trials,
+            df_prot=df_prot,
+            df_rna=df_rna,
+            df_pho=df_pho
+        )
 
-    algorithm = UNSGA3(
-        pop_size=args.pop,
-        ref_dirs=ref_dirs,
-        eliminate_duplicates=True,
-        sampling=LHS(),
-        crossover=SBX(prob=0.9, eta=15),
-        mutation=PM(prob=1 / problem.n_var, eta=10),
-    )
+    else:
 
-    termination = DefaultMultiObjectiveTermination(
-        xtol=1e-8,
-        cvtol=1e-6,
-        ftol=0.0025,
-        period=30,
-        n_max_gen=args.n_gen,
-        n_max_evals=100000
-    )
+        # 8) Problem
+        problem = GlobalODE_MOO(
+            sys=sys,
+            slices=slices,
+            loss_data=loss_data,
+            defaults=defaults,
+            lambdas=lambdas,
+            time_grid=solver_times,
+            xl=xl,
+            xu=xu,
+            elementwise_runner=runner
+        )
 
-    logger.info(
-        f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
-    logger.info(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+        # Sanity Check - Decision vector
+        # sizes = {
+        #     "c_k": slen(slices["c_k"]),
+        #     "A_i": slen(slices["A_i"]),
+        #     "B_i": slen(slices["B_i"]),
+        #     "C_i": slen(slices["C_i"]),
+        #     "D_i": slen(slices["D_i"]),
+        #     "Dp_i": slen(slices["Dp_i"]),
+        #     "E_i": slen(slices["E_i"]),
+        #     "tf_scale": slen(slices["tf_scale"]),
+        # }
+        #
+        # logger.info(f"[Model] Number of decision variables = {problem.n_var}")
+        # for k, v in sizes.items():
+        #     logger.info(f"[Model] Numer of parameters - {k} = [{v}]")
+        #
+        # total = sum(sizes.values())
+        # logger.info(f"[Model] Verify internally | sum_slices = {total}")
+        #
+        # assert total == problem.n_var, f"[Model] Mismatch: sum_slices={total} != n_var={problem.n_var}"
 
-    res = pymoo_minimize(
-        problem,
-        algorithm,
-        termination,
-        seed=args.seed,
-        save_history=True,
-        verbose=True
-    )
+        # 9) UNSGA3 needs reference directions
+        ref_dirs = get_reference_directions(
+            "das-dennis",
+            problem.n_obj,
+            n_partitions=30,
+            seed=args.seed
+        )
+
+        # logger.info number of reference directions
+        logger.info(f"[Fit] Number of reference directions: {len(ref_dirs)}")
+
+        algorithm = UNSGA3(
+            pop_size=args.pop,
+            ref_dirs=ref_dirs,
+            eliminate_duplicates=True,
+            sampling=LHS(),
+            crossover=SBX(prob=0.9, eta=15),
+            mutation=PM(prob=1 / problem.n_var, eta=10),
+        )
+
+        termination = DefaultMultiObjectiveTermination(
+            xtol=1e-8,
+            cvtol=1e-6,
+            ftol=0.0025,
+            period=30,
+            n_max_gen=args.n_gen,
+            n_max_evals=100000
+        )
+
+        logger.info(
+            f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
+        logger.info(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+
+        res = pymoo_minimize(
+            problem,
+            algorithm,
+            termination,
+            seed=args.seed,
+            save_history=True,
+            verbose=True
+        )
 
     if pool is not None:
         pool.close()

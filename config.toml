@@ -255,8 +255,8 @@ version = "0.1.0"
 # INPUT FILES (Required by runner)
 # Paths are relative to the project root
 # ------------------------------------------------------------
-kinase_net = "results_node_subnetworks/ABL2/ABL2_input2.csv"         # Kinase-Substrate Network (or similar)
-tf_net     = "results_node_subnetworks/ABL2/ABL2_input4.csv"         # TF-Gene Network
+kinase_net = "results_node_subnetworks/CLK3/CLK3_input2.csv"         # Kinase-Substrate Network (or similar)
+tf_net     = "results_node_subnetworks/CLK3/CLK3_input4.csv"         # TF-Gene Network
 ms         = "data/input1.csv"         # Mass Spec (Protein) Data
 rna        = "data/input3.csv"         # RNA (Transcriptomics) Data
 phospho    = "data/input1.csv"         # Phospho Data (Optional, can be same as ms if mixed)
@@ -268,7 +268,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_abl2"  # Output directory
+output_dir = "results_CLK3"  # Output directory
 cores      = 8                         # 0 or leave out to use all available cores
 seed       = 42
 
