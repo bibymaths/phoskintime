@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 
+from global_model.dashboard import save_dashboard_bundle
 from global_model.optuna_solver import run_optuna_solver
 from global_model.scan import run_hyperparameter_scan
 from global_model.sensitivity import run_sensitivity_analysis
@@ -36,7 +37,8 @@ from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DI
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
     MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
-    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN
+    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
+    USE_CUSTOM_SOLVER
 from global_model.io import load_data
 from global_model.network import Index, KinaseInput, System
 from global_model.optproblem import GlobalODE_MOO, get_weight_options, build_weight_functions
@@ -127,6 +129,23 @@ def main():
     logger.info(f"Source Code        : {GITHUB_URL}")
     logger.info(f"Documentation      : {DOCS_URL}")
     logger.info("============================================================")
+
+    if USE_CUSTOM_SOLVER:
+        logger.info("[Solver] Using Custom Adaptive Heun Bucketed Solver")
+    else:
+        logger.info("[Solver] Using Scipy ODEint Solver")
+
+    if MODEL == 0:
+        logger.info("[Model] Using Distributive Model")
+    elif MODEL == 1:
+        logger.info("[Model] Using Sequential Model")
+    elif MODEL == 2:
+        logger.info("[Model] Using Combinatorial Model")
+    elif MODEL == 4:
+        logger.info("[Model] Using Saturating Model")
+    else:
+        raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
+
     logger.info(f"[Args] Output directory: {args.output_dir}")
     logger.info(f"[Args] Number of cores: {args.cores}")
     logger.info(f"[Args] Number of generations: {args.n_gen}")
@@ -706,6 +725,27 @@ def main():
             logger.info(f"  {label:<40} = {value:>12.6g}")
 
     logger.info("=" * 80)
+
+    bundle_path = save_dashboard_bundle(
+        output_dir=args.output_dir,
+        args=args,
+        idx=idx,
+        sys=sys,
+        res=res,
+        slices=slices,
+        xl=xl,
+        xu=xu,
+        defaults=defaults,
+        lambdas=lambdas,
+        solver_times=solver_times,
+        df_prot=df_prot,
+        df_rna=df_rna,
+        df_pho=df_pho,
+        frechet_scores=frechet_scores,
+        picked_index=int(I),
+    )
+    logger.info(f"[Dashboard] Saved dashboard bundle: {bundle_path}")
+
     # Finalize logging
     logger.info(f"[Complete] All results saved to: {args.output_dir}")
 

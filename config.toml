@@ -280,7 +280,7 @@ seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZER SELECTION
 # ------------------------------------------------------------
-optimizer = "optuna"          # Optimization backend: "optuna" or "pymoo"
+optimizer = "pymoo"          # Optimization backend: "optuna" or "pymoo"
 
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Optuna)

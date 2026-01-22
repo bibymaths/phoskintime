@@ -212,7 +212,7 @@ def run_hyperparameter_scan(args, sys, loss_data, defaults, time_grid, runner, s
     # --- 3. Run Optimization ---
     try:
         # Run at least 20 trials
-        study.optimize(objective, n_trials=100)
+        study.optimize(objective, n_trials=20)
     except KeyboardInterrupt:
         logger.info("[Scan] Interrupted by user. Saving current progress...")
     except Exception as e:

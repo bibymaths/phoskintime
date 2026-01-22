@@ -8,29 +8,8 @@ warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from global_model.config import MODEL, USE_CUSTOM_SOLVER, RESULTS_DIR
+from global_model.config import MODEL, USE_CUSTOM_SOLVER
 from global_model.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
-
-from config.config import setup_logger
-
-logger = setup_logger(log_dir=RESULTS_DIR)
-
-if USE_CUSTOM_SOLVER:
-    logger.info("[Solver] Using Adaptive Heun Bucketed Solver")
-else:
-    logger.info("[Solver] Using Scipy ODEint")
-
-if MODEL == 0:
-    logger.info("[Model] Using Distributive Model")
-elif MODEL == 1:
-    logger.info("[Model] Using Sequential Model")
-elif MODEL == 2:
-    logger.info("[Model] Using Combinatorial Model")
-elif MODEL == 4:
-    logger.info("[Model] Using Saturating Model")
-else:
-    raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
-
 
 def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
