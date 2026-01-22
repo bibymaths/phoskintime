@@ -414,7 +414,7 @@ def adaptive_rk45_model01(model_id, y0, t_eval, kin_grid, args, rtol=1e-5, atol=
 
         # K6
         for i in range(n): y_tmp[i] = y[i] + dt_use * (
-                    a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
+                a61 * k1[i] + a62 * k2[i] + a63 * k3[i] + a64 * k4[i] + a65 * k5[i])
         if model_id == 0:
             rhs_model0_bucketed_into(k6, y_tmp, jb, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, kin_Kmat, W_indptr,
                                      W_indices, W_data, n_W_rows, TF_indptr, TF_indices, TF_data, n_TF_rows, offset_y,

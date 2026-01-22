@@ -86,14 +86,14 @@ def _fig_convergence(df_conv: pd.DataFrame):
 
 
 def _plot_timeseries_obs_pred(
-    df_obs: pd.DataFrame,
-    df_pred: pd.DataFrame | None,
-    entity_col: str,
-    x_col: str,
-    y_obs: str,
-    y_pred: str,
-    title: str,
-    entity: str,
+        df_obs: pd.DataFrame,
+        df_pred: pd.DataFrame | None,
+        entity_col: str,
+        x_col: str,
+        y_obs: str,
+        y_pred: str,
+        title: str,
+        entity: str,
 ):
     obs = df_obs[df_obs[entity_col] == entity].copy()
     obs = obs.sort_values(x_col)

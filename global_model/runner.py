@@ -293,7 +293,6 @@ def main():
     # Initialize raw params using these custom bounds for optimization
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
-
     # --- HYPERPARAMETER SCAN ---
     if args.scan:
 

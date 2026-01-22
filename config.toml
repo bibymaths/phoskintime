@@ -273,7 +273,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_test_backend"  # Output directory
+output_dir = "results_test_CLK3"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 
@@ -293,10 +293,10 @@ n_trials  = 1000                      # Number of Optuna trials
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
-n_gen      = 300                       # Generations (runner arg: --n-gen)
-pop        = 500                       # Population size (runner arg: --pop)
-refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 3                       # Number of refinements
+n_gen      = 500                       # Generations (runner arg: --n-gen)
+pop        = 300                       # Population size (runner arg: --pop)
+refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
+num_refinements = 0                       # Number of refinements
 loss = 0                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
 
 # ------------------------------------------------------------

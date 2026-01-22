@@ -236,13 +236,14 @@ def get_weight_options(
 
     return out
 
+
 def build_weight_functions(
-    time_points_protein: np.ndarray,
-    time_points_rna: np.ndarray,
-    scheme_prot_pho: str = "uniform",
-    scheme_rna: str = "uniform",
-    early_window_prot_pho: float = 2.0,
-    early_window_rna: float = 15.0,
+        time_points_protein: np.ndarray,
+        time_points_rna: np.ndarray,
+        scheme_prot_pho: str = "uniform",
+        scheme_rna: str = "uniform",
+        early_window_prot_pho: float = 2.0,
+        early_window_rna: float = 15.0,
 ) -> Tuple[
     Callable[[np.ndarray], np.ndarray],
     Callable[[np.ndarray], np.ndarray],

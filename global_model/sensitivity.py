@@ -9,11 +9,13 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from tqdm import tqdm
 
-from global_model.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, SENSITIVITY_TOP_CURVES
+from global_model.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, \
+    SENSITIVITY_TOP_CURVES
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
 from global_model.simulate import simulate_and_measure
 
 from config.config import setup_logger
+
 logger = setup_logger()
 
 

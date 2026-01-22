@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from global_model.config import MODEL, USE_CUSTOM_SOLVER
 from global_model.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
 
+
 def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
     """
     Returns Y with shape (T, state_dim), matching your usage (like sol.y.T).

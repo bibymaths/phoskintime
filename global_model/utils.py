@@ -159,6 +159,7 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
 
     return melted[valid_ids + ["time", "fc"]]
 
+
 @njit(cache=True, fastmath=True, nogil=True)
 def _zero_vec(a):
     for i in range(a.size):
@@ -244,10 +245,8 @@ def pick_best_lamdas(F, weights):
     return best_i, float(best_score)
 
 
-
 @dataclass(frozen=True)
 class PhosKinConfig:
-
     kinase_net: str | Path
     tf_net: str | Path
     ms_data: str | Path
@@ -536,6 +535,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         available_models=available_models,
     )
+
 
 def get_parameter_labels(idx):
     labels = []
