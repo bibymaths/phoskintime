@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from global_model.dashboard import load_dashboard_bundle
+from global_model.dashboard_bundle import load_dashboard_bundle
 
 
 def _load_outputs(output_dir: Path):

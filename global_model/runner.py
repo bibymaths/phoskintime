@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-from global_model.dashboard import save_dashboard_bundle
+from global_model.dashboard_bundle import save_dashboard_bundle
 from global_model.optuna_solver import run_optuna_solver
 from global_model.scan import run_hyperparameter_scan
 from global_model.sensitivity import run_sensitivity_analysis
@@ -41,21 +41,22 @@ from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DI
     USE_CUSTOM_SOLVER, CORES
 from global_model.io import load_data
 from global_model.network import Index, KinaseInput, System
-from global_model.optproblem import GlobalODE_MOO, get_weight_options, build_weight_functions
+from global_model.optproblem import GlobalODE_MOO, build_weight_functions
 from global_model.params import init_raw_params, unpack_params
 from global_model.refine import run_iterative_refinement
 from global_model.simulate import simulate_and_measure
-from global_model.utils import normalize_fc_to_t0, _base_idx, get_parameter_labels, calculate_bio_bounds, \
-    load_config_toml
+from global_model.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
+    get_optimized_sets
 from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from global_model.analysis import simulate_until_steady, plot_steady_state_all
 from frechet import frechet_distance
+from config_loader import load_config_toml
 from config.config import setup_logger
 
-logger = setup_logger(log_dir=RESULTS_DIR)
+logger = setup_logger()
 
 
 @atexit.register
@@ -168,15 +169,227 @@ def main():
     df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
     df_rna = df_rna.dropna(subset=["fc"])
 
-    # 2) Model index to include all TF and kinases
-    idx = Index(df_kin, tf_interactions=df_tf, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
-    kin_in = KinaseInput(idx.kinases, df_prot)
-    logger.info(f"[KinaseInput] Initialized with {len(idx.kinases)} kinases.")
+    df_prot_raw = df_prot.copy()
 
-    # Restrict obs to model proteins
+    # -------------------------------------------------------------------------
+    # Keep ONLY proteins that are observed in at least one modality (prot/rna/phospho)
+    # -------------------------------------------------------------------------
+    # observed_proteins = (
+    #         set(df_prot["protein"].unique())
+    #         | set(df_rna["protein"].unique())
+    #         | set(df_pho["protein"].unique())
+    # )
+    #
+    # logger.info(f"[Data] Observed proteins (union prot/rna/phospho): {len(observed_proteins)}")
+
+    # -------------------------------------------------------------------------
+    # Sophisticated TF handling:
+    # - Keep TF edges even if TF is not present in kinase network
+    # - Proxy orphan TFs so build_tf_matrix can still be used:
+    #     Priority 1: proxy to a target that is a kinase (df_kin["kinase"])  [feedback-like]
+    #     Priority 2: proxy to a target that is a signaling protein with sites (df_kin["protein"])
+    # - Rewrite TF edges to use proxy TF names (so TF columns exist in idx universe)
+    # - Drop only edges that still cannot be represented after proxying
+    # -------------------------------------------------------------------------
+
+    if df_tf is None or df_tf.empty:
+        df_tf_model = df_tf  # empty is fine
+        idx = Index(df_kin, tf_interactions=df_tf_model, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
+        logger.info("[TF] TF net empty; building Index without TF edges.")
+    else:
+        required = {"tf", "target"}
+        missing = required - set(df_tf.columns)
+        if missing:
+            raise ValueError(f"TF net missing columns: {missing}. Found columns: {list(df_tf.columns)}")
+
+        proteins_with_sites = set(df_kin["protein"].unique())  # signaling layer “state-capable” proteins
+        kinase_set = set(df_kin["kinase"].unique())  # kinases (drivers / feedback proxies)
+
+        proteins_with_sites = set(df_kin["protein"].unique())  # state-capable signaling proteins
+        kinase_set = set(df_kin["kinase"].unique())
+
+        # Build a target universe that includes anything the model might plausibly score or represent
+        target_universe = (
+                set(df_kin["protein"].unique())
+                | set(df_kin["kinase"].unique())
+                | set(df_prot["protein"].unique())
+                | set(df_rna["protein"].unique())
+                | set(df_pho["protein"].unique())
+        )
+
+        # Start with TF edges whose TARGET is in target_universe (not just proteins_with_sites)
+        df_tf_model = df_tf[df_tf["target"].isin(target_universe)].copy()
+
+        # Identify orphan TFs relative to signaling proteins-with-sites
+        orphan_tfs = sorted(set(df_tf_model["tf"].unique()) - proteins_with_sites)
+
+        # Build proxy map without modifying Index:
+        # orphan TF -> proxy protein name (must be representable in idx universe)
+        TF_PROXY_MAP = {}
+
+        # Helper: score candidate proxies (optional; keeps deterministic but informed choice)
+        def _proxy_score(orphan: str, candidate: str) -> float:
+            score = 0.0
+            if tf_beta_map and orphan in tf_beta_map:
+                score += float(tf_beta_map[orphan])
+            if kin_beta_map and candidate in kin_beta_map:
+                score += float(kin_beta_map[candidate])
+            return score
+
+        for orphan in orphan_tfs:
+            targets = df_tf_model.loc[df_tf_model["tf"] == orphan, "target"].astype(str)
+
+            # Priority 1: targets that are kinases
+            cand1 = [t for t in targets if t in kinase_set]
+
+            # Priority 2: any signaling proteins-with-sites targets
+            cand2 = [t for t in targets if t in proteins_with_sites]
+
+            candidates = cand1 if cand1 else cand2
+            if candidates:
+                # Choose best candidate by score; deterministic tie-break by name
+                best = sorted(candidates, key=lambda c: (-_proxy_score(orphan, c), c))[0]
+                TF_PROXY_MAP[orphan] = best
+
+        # Rewrite TF names to proxies where available
+        if TF_PROXY_MAP:
+            df_tf_model["tf_original"] = df_tf_model["tf"]
+            df_tf_model["tf"] = df_tf_model["tf"].replace(TF_PROXY_MAP)
+
+        # After proxying, enforce representability:
+        # TF source must now be a signaling protein-with-sites (so idx/protein universe can include it)
+        n_before_src = len(df_tf_model)
+        df_tf_model = df_tf_model[df_tf_model["tf"].isin(proteins_with_sites)].copy()
+        n_after_src = len(df_tf_model)
+
+        # Optional: keep only columns used by build_tf_matrix
+        keep_cols = [c for c in df_tf_model.columns if c in ("tf", "target", "alpha")]
+        df_tf_model = df_tf_model[keep_cols].drop_duplicates()
+
+        # Build Index with proxied TF net (Index proxy_map may still be used internally; we did not modify it)
+        idx = Index(df_kin, tf_interactions=df_tf_model, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
+
+        # Logging
+        logger.info(f"[TF] TF edges in (raw): {len(df_tf)}")
+        logger.info(
+            f"[TF] TF edges after target-in-sites filter: {len(df_tf[df_tf['target'].isin(proteins_with_sites)])}")
+        logger.info(f"[TF] Orphan TFs detected (vs proteins_with_sites): {len(orphan_tfs)}")
+        logger.info(f"[TF] Orphan TFs proxied (external map): {len(TF_PROXY_MAP)}")
+        if TF_PROXY_MAP:
+            sample = list(TF_PROXY_MAP.items())[:25]
+            logger.info(f"[TF] Proxy examples (orphan->proxy): {sample}" + (" ..." if len(TF_PROXY_MAP) > 25 else ""))
+        logger.info(f"[TF] TF edges after proxy + TF-source representability: {n_before_src} → {n_after_src}")
+        logger.info(f"[TF] TF edges final (deduped): {len(df_tf_model)}")
+
+    # -------------------------------------------------------------------------
+    # Restrict observations to proteins present in the model index
+    # -------------------------------------------------------------------------
+    n_prot_before = len(df_prot)
+    n_rna_before = len(df_rna)
+    n_pho_before = len(df_pho)
+
     df_prot = df_prot[df_prot["protein"].isin(idx.proteins)].copy()
     df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
     df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
+
+    logger.info(
+        f"[Data] Observation filtering by model index | "
+        f"Protein: {n_prot_before} → {len(df_prot)}, "
+        f"RNA: {n_rna_before} → {len(df_rna)}, "
+        f"Phospho: {n_pho_before} → {len(df_pho)}"
+    )
+
+    # -------------------------------------------------------------------------
+    # Build kinase input using observed protein trajectories
+    # -------------------------------------------------------------------------
+    df_prot_kin = df_prot_raw[df_prot_raw["protein"].isin(idx.kinases)].copy()
+    kin_in = KinaseInput(idx.kinases, df_prot_kin)
+
+    # Coverage diagnostics
+    observed_kinases = set(df_prot_kin["protein"].unique())
+    missing_kinases = [k for k in idx.kinases if k not in observed_kinases]
+
+    logger.info(
+        f"[KinaseInput] Initialized with {len(idx.kinases)} kinases | "
+        f"Observed trajectories: {len(idx.kinases) - len(missing_kinases)} / {len(idx.kinases)}"
+    )
+
+    if missing_kinases:
+        logger.warning(
+            f"[KinaseInput] {len(missing_kinases)} kinases have NO observed protein FC "
+            f"(defaulting to 1.0 driver): {missing_kinases[:25]}"
+            + (" ..." if len(missing_kinases) > 25 else "")
+        )
+
+    # -------------------------------------------------------------------------
+    # Final index summary
+    # -------------------------------------------------------------------------
+    logger.info(
+        f"[Index] Model proteins: {len(idx.proteins)} | "
+        f"Kinases: {len(idx.kinases)} | "
+        f"Total sites: {idx.total_sites}"
+    )
+
+    # -----------------------------------------------------------------------------
+    # FULL-UNIVERSE MODE (LEGACY / “MODEL EVERYTHING” BEHAVIOR)
+    # -----------------------------------------------------------------------------
+    # Rationale
+    # ---------
+    # This pathway intentionally constructs the *largest possible* model universe by
+    # ingesting BOTH:
+    #   (i) the kinase–substrate signaling network (df_kin), and
+    #   (ii) the TF–target transcriptional network (df_tf).
+    #
+    # Consequence: idx.proteins becomes the UNION of:
+    #   - signaling targets ("protein" in df_kin)
+    #   - kinases ("kinase" in df_kin) if they also appear as proteins/TFs in unions
+    #   - TF sources ("tf" in df_tf)
+    #   - TF targets ("target" in df_tf)
+    #
+    # This is the “model everything” philosophy: every entity that appears anywhere
+    # in the regulatory or signaling topology is treated as part of the modeled state
+    # space (mRNA + protein + phospho states, where applicable).
+    #
+    # Practical implications
+    # ----------------------
+    # 1) Orphan TFs:
+    #    If a TF exists only in df_tf but does not have signaling sites in df_kin,
+    #    Index may still include it in idx.proteins. The Index class can optionally
+    #    *redirect* such orphan TFs to kinase proxies (proxy_map) to avoid creating
+    #    unsupported signaling states; however the protein name still exists as a
+    #    label in idx.proteins.
+    #
+    # 2) Kinase driving:
+    #    KinaseInput is constructed using df_prot trajectories. If a kinase has no
+    #    observed protein FC data, it defaults to a flat driver (1.0), and can still
+    #    be scaled by the optimized multiplier c_k. This preserves solvability while
+    #    implicitly assuming missing kinase dynamics.
+    #
+    # 3) Observation restriction:
+    #    After idx is built, each observation table is restricted to idx.proteins.
+    #    This ensures the optimizer scores only entities that the model explicitly
+    #    represents, and prevents “unknown proteins” from leaking into the loss.
+    #
+    # When to use
+    # -----------
+    # Use this mode when you explicitly want the ODE system to represent the full
+    # mechanistic + regulatory scope implied by the input networks, even if this
+    # increases dimensionality and introduces entities with incomplete observability.
+    # -----------------------------------------------------------------------------
+
+    # # 2) Model index to include all TFs and kinases (full topology union)
+    # idx = Index(df_kin, tf_interactions=df_tf, kin_beta_map=kin_beta_map, tf_beta_map=tf_beta_map)
+    #
+    # # Kinase activity input trajectories (data-driven when present; defaults otherwise)
+    # kin_in = KinaseInput(idx.kinases, df_prot)
+    # logger.info(f"[KinaseInput] Initialized with {len(idx.kinases)} kinases.")
+    #
+    # # Restrict observations to the modeled protein universe (TFs + kinases + targets)
+    # df_prot = df_prot[df_prot["protein"].isin(idx.proteins)].copy()
+    # df_rna = df_rna[df_rna["protein"].isin(idx.proteins)].copy()
+    # df_pho = df_pho[df_pho["protein"].isin(idx.proteins)].copy()
+    #
+    # logger.info(f"[Index] Proteins in model (full-universe): {len(idx.proteins)}")
 
     # Build weight functions
     w_prot_pho, w_rna = build_weight_functions(
@@ -192,12 +405,22 @@ def main():
     df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
     df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
 
-    # 3) Build W + TF
+    # 3) Build W + TF 
+    # -------------------------------------------------------------------------
+    # Network Matrix Construction
+    # -------------------------------------------------------------------------
+    # Build the kinase-substrate interaction matrix (W_global) and the 
+    # transcription factor regulatory matrix (tf_mat) in parallel for efficiency.
+    #
+    # W_global: Sparse matrix (sites × kinases) encoding kinase-substrate relationships
+    # tf_mat:   Sparse matrix (genes × TFs) encoding TF-target regulatory relationships
+    #
+    # Both matrices form the mechanistic backbone of the ODE system and are used
+    # throughout optimization to compute phosphorylation rates and transcriptional
+    # regulation, respectively.
+    # -------------------------------------------------------------------------
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
-    tf_mat = build_tf_matrix(df_tf, idx, tf_beta_map=tf_beta_map, kin_beta_map=kin_beta_map)
-
-    # --- Robust Labeled Export Block ---
-    logger.info("[Output] Exporting network matrices with labels...")
+    tf_mat = build_tf_matrix(df_tf_model, idx, tf_beta_map=tf_beta_map, kin_beta_map=kin_beta_map)
 
     # Generate labels for EVERY ROW in the matrix (one for every site in the model)
     all_site_labels = []
@@ -241,6 +464,8 @@ def main():
         columns=[f"t_{t}" for t in kin_in.grid]
     )
     df_kin_input.to_csv(os.path.join(args.output_dir, "network_kinase_inputs.csv"))
+
+    logger.info("[Output] Exporting network matrices with labels.")
 
     # Calculate TF degree normalization (using absolute sum to handle repressors)
     # This effectively normalizes the 'regulatory input' so genes with many TFs
@@ -292,6 +517,23 @@ def main():
 
     # Initialize raw params using these custom bounds for optimization
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
+
+    opt_proteins, opt_sites, opt_kinases = get_optimized_sets(idx, slices, xl, xu)
+
+    logger.info(f"[Optimized] Proteins with free vars: {len(opt_proteins)} / {idx.N}")
+    logger.info(f"[Optimized] Sites with free Dp_i:  {len(opt_sites)} / {idx.total_sites}")
+    logger.info(f"[Optimized] Kinases with free c_k: {len(opt_kinases)} / {len(idx.kinases)}")
+
+    with open(os.path.join(args.output_dir, "optimized_entities.json"), "w") as f:
+        json.dump(
+            {
+                "proteins": sorted(opt_proteins),
+                "sites": sorted(opt_sites),
+                "kinases": sorted(opt_kinases),
+            },
+            f,
+            indent=2,
+        )
 
     # --- HYPERPARAMETER SCAN ---
     if args.scan:
@@ -485,7 +727,7 @@ def main():
         df_prot_obs_all=df_prot,
         df_rna_obs_all=df_rna,
         df_phos_obs_all=df_pho,
-        top_k=None,
+        top_k=10,
         score_col="scalar_score",
     )
 

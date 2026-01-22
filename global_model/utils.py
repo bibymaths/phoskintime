@@ -658,3 +658,60 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     logger.info("=" * 60)
 
     return bounds_dict
+
+
+def _nondegenerate(mask_xl, mask_xu, eps=1e-14):
+    return (mask_xu - mask_xl) > eps
+
+
+def get_optimized_sets(idx, slices, xl, xu, eps=1e-14):
+    """
+    Returns:
+      opt_proteins: set[str]  proteins with any free variable among A/B/C/D/E
+      opt_sites: set[str]     site labels like 'EGFR_Y1173' where Dp_i is free
+      opt_kinases: set[str]   kinases with free c_k
+    """
+    xl = np.asarray(xl, dtype=float)
+    xu = np.asarray(xu, dtype=float)
+
+    N = idx.N
+
+    # Protein-level params (length N each)
+    protein_free = np.zeros(N, dtype=bool)
+    for key in ("A_i", "B_i", "C_i", "D_i", "E_i"):
+        if key not in slices:
+            continue
+        sl = slices[key]  # slice in theta
+        free = _nondegenerate(xl[sl], xu[sl], eps=eps)
+        if free.size != N:
+            raise ValueError(f"{key} slice size {free.size} != idx.N {N}")
+        protein_free |= free
+
+    opt_proteins = set(np.array(idx.proteins)[protein_free].tolist())
+
+    # Kinase activities c_k (length nK)
+    opt_kinases = set()
+    if "c_k" in slices:
+        sl = slices["c_k"]
+        free = _nondegenerate(xl[sl], xu[sl], eps=eps)
+        opt_kinases = set(np.array(idx.kinases)[free].tolist())
+
+    # Site-level params Dp_i (length total_sites)
+    opt_sites = set()
+    if "Dp_i" in slices:
+        sl = slices["Dp_i"]
+        free = _nondegenerate(xl[sl], xu[sl], eps=eps)
+
+        # Build flattened site labels in the same order as Dp_i indexing
+        flat_labels = []
+        for i, p in enumerate(idx.proteins):
+            for s in idx.sites[i]:
+                flat_labels.append(f"{p}_{s}")
+        flat_labels = np.array(flat_labels)
+
+        if free.size != flat_labels.size:
+            raise ValueError(f"Dp_i slice size {free.size} != total_sites {flat_labels.size}")
+
+        opt_sites = set(flat_labels[free].tolist())
+
+    return opt_proteins, opt_sites, opt_kinases

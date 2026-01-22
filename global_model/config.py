@@ -2,7 +2,7 @@
 Configurations for PhoskinTime Global model
 """
 import os
-from global_model.utils import load_config_toml
+from config_loader import load_config_toml
 
 # Load configuration relative to CWD (Project Root)
 if os.path.exists("config.toml"):
