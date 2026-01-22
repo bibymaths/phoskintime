@@ -274,7 +274,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # RUN SETTINGS
 # ------------------------------------------------------------
 output_dir = "results_test_backend"  # Output directory
-cores      = 65                         # 0 or leave out to use all available cores
+cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 
 # ------------------------------------------------------------
