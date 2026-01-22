@@ -713,18 +713,57 @@ def main():
             logger.info(f"  {key:<40} = {value}")
     logger.info("=" * 80)
 
-    # Display all parameters 
-    param_names = get_parameter_labels(sys.idx)
+    # Display all parameters structured by type
     logger.info("=" * 80)
     logger.info("OPTIMIZED NETWORK PARAMETERS FOR PICKED SOLUTION")
     logger.info("=" * 80)
-    for param_type, labels in param_names.items():
-        logger.info(f"\n{param_type}:")
-        logger.info("-" * 80)
-        for label, value in labels.items():
-            logger.info(f"  {label:<40} = {value:>12.6g}")
 
-    logger.info("=" * 80)
+    # 1. Kinase Activities
+    if 'c_k' in params:
+        logger.info("Kinase Activities (c_k) [Fold-Change vs Prior]:")
+        logger.info("-" * 80)
+        for i, k_name in enumerate(sys.idx.kinases):
+            val = params['c_k'][i]
+            logger.info(f"  {k_name:<40} = {val:>12.6g}")
+
+    # 2. Protein-Specific Rates
+    rate_labels = {
+        'A_i': 'Transcription Rates (A)',
+        'B_i': 'RNA Degradation Rates (B)',
+        'C_i': 'Translation Rates (C)',
+        'D_i': 'Protein Degradation Rates (D)',
+        'E_i': 'Initial Condition Multipliers (E)'
+    }
+
+    for p_key, p_desc in rate_labels.items():
+        if p_key in params:
+            logger.info(f"{p_desc}:")
+            logger.info("-" * 80)
+            for i, p_name in enumerate(sys.idx.proteins):
+                val = params[p_key][i]
+                logger.info(f"  {p_name:<40} = {val:>12.6g}")
+
+    # 3. Phosphatase Rates
+    if 'Dp_i' in params:
+        logger.info("De-phosphorylation Rates (Dp):")
+        logger.info("-" * 80)
+        flat_idx = 0
+        for i, p_name in enumerate(sys.idx.proteins):
+            sites = sys.idx.sites[i]
+            if not sites:
+                continue
+            for s_name in sites:
+                val = params['Dp_i'][flat_idx]
+                label = f"{p_name}_{s_name}"
+                logger.info(f"  {label:<40} = {val:>12.6g}")
+                flat_idx += 1
+
+    # 4. Global Scalars
+    if 'tf_scale' in params:
+        logger.info("Global Parameters:")
+        logger.info("-" * 80)
+        val = float(params['tf_scale'])
+        logger.info(f"  {'TF Saturation Scale':<40} = {val:>12.6g}")
 
     bundle_path = save_dashboard_bundle(
         output_dir=args.output_dir,

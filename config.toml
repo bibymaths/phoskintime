@@ -295,8 +295,8 @@ n_trials  = 1000                      # Number of Optuna trials
 # ------------------------------------------------------------
 n_gen      = 500                       # Generations (runner arg: --n-gen)
 pop        = 500                       # Population size (runner arg: --pop)
-refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 0                       # Number of refinements
+refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
+num_refinements = 3                       # Number of refinements
 loss = 0                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:Charbonnier)
 
 # ------------------------------------------------------------
@@ -345,7 +345,7 @@ weighting_method_phospho = "uniform"   # Weighting for phospho data
 # ------------------------------------------------------------
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
-sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
+sensitivity_analysis = true          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
 sensitivity_perturbation = 0.2        # Perturbation for sensitivity analysis
 sensitivity_trajectories = 1000       # Number of trajectories for Morris method
 sensitivity_levels = 400              # Number of levels for Morris method
