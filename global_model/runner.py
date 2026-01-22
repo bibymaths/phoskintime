@@ -38,7 +38,7 @@ from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DI
     MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
     DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
-    USE_CUSTOM_SOLVER
+    USE_CUSTOM_SOLVER, CORES
 from global_model.io import load_data
 from global_model.network import Index, KinaseInput, System
 from global_model.optproblem import GlobalODE_MOO, get_weight_options, build_weight_functions
@@ -83,7 +83,7 @@ def main():
     parser.add_argument("--tfopt", default=TFOPT_RESULTS_FILE)
 
     parser.add_argument("--output-dir", default=RESULTS_DIR)
-    parser.add_argument("--cores", type=int, default=os.cpu_count())
+    parser.add_argument("--cores", type=int, default=CORES)
 
     # Pymoo
     parser.add_argument("--n-gen", type=int, default=MAX_ITERATIONS)
@@ -293,18 +293,19 @@ def main():
     # Initialize raw params using these custom bounds for optimization
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
-    runner = None
-    pool = None
-    # 7) Pymoo parallel runner
-    if args.cores > 1:
-        pool = mp.Pool(args.cores)
-        runner = StarmapParallelization(pool.starmap)
-        logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
-    else:
-        logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
 
-    # --- HYPERPARAMETER SCAN BLOCK ---
+    # --- HYPERPARAMETER SCAN ---
     if args.scan:
+
+        runner = None
+        pool = None
+        # 7) Pymoo parallel runner
+        if args.cores > 1:
+            pool = mp.Pool(args.cores)
+            runner = StarmapParallelization(pool.starmap)
+            logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
+        else:
+            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
 
         # This function will run the loop, save Excel/PNGs, and return the best dict
         best_lambdas = run_hyperparameter_scan(
@@ -318,6 +319,11 @@ def main():
             "rna": best_lambdas["lambda_rna"],
             "prior": best_lambdas["lambda_prior"]
         }
+
+        if pool is not None:
+            pool.close()
+            pool.join()
+
     else:
         # Standard manual arguments
         lambdas = {
@@ -354,6 +360,16 @@ def main():
 
     else:
 
+        runner = None
+        pool = None
+        # 7) Pymoo parallel runner
+        if args.cores > 1:
+            pool = mp.Pool(os.cpu_count())
+            runner = StarmapParallelization(pool.starmap)
+            logger.info(f"[Fit] Parallel evaluation enabled with {os.cpu_count()} workers.")
+        else:
+            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
+
         # 8) Problem
         problem = GlobalODE_MOO(
             sys=sys,
@@ -371,7 +387,7 @@ def main():
         ref_dirs = get_reference_directions(
             "das-dennis",
             problem.n_obj,
-            n_partitions=30,
+            n_partitions=20,
             seed=args.seed
         )
 
@@ -409,10 +425,9 @@ def main():
             verbose=True
         )
 
-    if pool is not None:
-        pool.close()
-        pool.join()
-
+        if pool is not None:
+            pool.close()
+            pool.join()
 
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:

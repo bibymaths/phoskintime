@@ -260,8 +260,8 @@ docs_url = "https://bibymaths.github.io/phoskintime/"
 # INPUT FILES (Required by runner)
 # Paths are relative to the project root
 # ------------------------------------------------------------
-kinase_net = "results_node_subnetworks/CLK3/CLK3_input2.csv"         # Kinase-Substrate Network (or similar)
-tf_net     = "results_node_subnetworks/CLK3/CLK3_input4.csv"         # TF-Gene Network
+kinase_net = "data/input2.csv"         # Kinase-Substrate Network (or similar)
+tf_net     = "data/input4.csv"         # TF-Gene Network
 ms         = "data/input1.csv"         # Mass Spec (Protein) Data
 rna        = "data/input3.csv"         # RNA (Transcriptomics) Data
 phospho    = "data/input1.csv"         # Phospho Data (Optional, can be same as ms if mixed)
@@ -273,8 +273,8 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_CLK3"  # Output directory
-cores      = 8                         # 0 or leave out to use all available cores
+output_dir = "results_test_backend"  # Output directory
+cores      = 65                         # 0 or leave out to use all available cores
 seed       = 42
 
 # ------------------------------------------------------------
@@ -293,7 +293,7 @@ n_trials  = 1000                      # Number of Optuna trials
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
-n_gen      = 500                       # Generations (runner arg: --n-gen)
+n_gen      = 300                       # Generations (runner arg: --n-gen)
 pop        = 500                       # Population size (runner arg: --pop)
 refine     = true                     # Run 2nd pass with tighter bounds (runner arg: --refine)
 num_refinements = 3                       # Number of refinements
@@ -395,10 +395,10 @@ tf_scale = [2.0, 10.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial", "saturation"]
-default_model = "saturation"
+default_model = "distributive"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = false
+use_custom_solver = true

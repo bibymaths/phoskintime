@@ -185,7 +185,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
                     "params": param_values[i],
                     "y_val": y_val,
                     "prot_df": dfp[["protein", "time", "pred_fc"]].copy() if dfp is not None else None,
-                    "rna_df": dfr[["gene", "time", "pred_fc"]].copy() if dfr is not None else None,
+                    "rna_df": dfr[["protein", "time", "pred_fc"]].copy() if dfr is not None else None,
                     "phos_df": dfph[["protein", "psite", "time", "pred_fc"]].copy() if dfph is not None else None
                 })
 
