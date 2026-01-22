@@ -249,7 +249,12 @@ out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"
 
 [global_model]
 app_name = "Phoskintime-Global"
-version = "0.1.0"
+version = "0.4.0"
+parent_package = "phoskintime"
+citation = "Abhinav Mishra. (2025). bibymaths/phoskintime: v0.4.0. Zenodo."
+doi = "https://10.5281/zenodo.15351017"
+github_url = "https://github.com/bibymaths/phoskintime"
+docs_url = "https://bibymaths.github.io/phoskintime/"
 
 # ------------------------------------------------------------
 # INPUT FILES (Required by runner)
@@ -273,6 +278,19 @@ cores      = 8                         # 0 or leave out to use all available cor
 seed       = 42
 
 # ------------------------------------------------------------
+# OPTIMIZER SELECTION
+# ------------------------------------------------------------
+optimizer = "optuna"          # Optimization backend: "optuna" or "pymoo"
+
+# ------------------------------------------------------------
+# OPTIMIZATION PARAMETERS (Optuna)
+# ------------------------------------------------------------
+study_name = "phoskintime_global_model_CLK3"  # Optuna study name
+sampler    = "TPESampler"           # Optuna sampler: TPESampler, RandomSampler, CMAESampler
+pruner     = "MedianPruner"         # Optuna pruner: MedianPruner, NopPruner, SuccessiveHalvingPruner
+n_trials  = 1000                      # Number of Optuna trials
+
+# ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
 n_gen      = 500                       # Generations (runner arg: --n-gen)
@@ -290,12 +308,52 @@ lambda_rna     = 0.5                   # Weight for RNA error (runner arg: --lam
 lambda_phospho = 1.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
 
 # ------------------------------------------------------------
+# HYPERPARAMETERS SCAN OPTIONS
+# ------------------------------------------------------------
+hyperparam_scan = true              # Enable hyperparameter scan
+
+# ------------------------------------------------------------
 # DATA INFERENCE FLAGS
 # ------------------------------------------------------------
 normalize_fc_steady = false             # Normalize data to t=0 (runner arg: --normalize-fc-steady)
 use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
 
 # ------------------------------------------------------------
+# DATA SCALING OPTIONS
+# ------------------------------------------------------------
+#            - 'raw' / 'none': No scaling. Returns raw intensities/counts in tidy format.
+#            - 'fc_start': Standard Fold-Change (x_t / x_0).
+#            - 'robust_fc': Fold-Change with noise of floor value (x_t / (x_0 + eps)).
+#            - 'max_scale': Normalizes to [0, 1] range (x_t / x_max).
+#            - 'mean_scale': Centers data around 1.0 (x_t / x_mean).
+#            - 'l2_norm': Unit vector scaling (x_t / ||x||).
+scaling_method = "none"
+
+# ------------------------------------------------------------
+# DATA WEIGHTING OPTIONS
+# ------------------------------------------------------------
+# Options:
+# 'uniform', 'linear_early', 'linear_late', 'exp_early',
+# 'exp_late', 'quad_early', 'quad_late', 'log_early', 'inv_time',
+# 'inv_sqrt_time', 'piecewise_early_boost', 'gaussian_center', 'logistic_center',
+# 'distance_from_baseline'
+
+weighting_method_protein = "uniform"   # Weighting for protein data
+weighting_method_rna     = "uniform"   # Weighting for RNA data
+weighting_method_phospho = "uniform"   # Weighting for phospho data
+
+# ------------------------------------------------------------
+# SENSITIVITY ANALYSIS
+# ------------------------------------------------------------
+sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
+sensitivity_perturbation = 0.2        # Perturbation for sensitivity analysis
+sensitivity_trajectories = 1000       # Number of trajectories for Morris method
+sensitivity_levels = 400              # Number of levels for Morris method
+sensitivity_top_curves = 50              # Number of top curves to plot in sensitivity analysis
+sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "variance", "l2_norm"]
+# ------------------------------------------------------------
+
+
 # MODEL & BOUNDS CONFIGURATION
 # ------------------------------------------------------------
 

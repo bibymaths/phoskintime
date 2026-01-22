@@ -1,3 +1,5 @@
+from typing import Tuple, Callable
+
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
@@ -233,3 +235,59 @@ def get_weight_options(
         out[name + "_mean1"] = lambda tt, ff=f: _normalize_mean1(ff(tt))
 
     return out
+
+def build_weight_functions(
+    time_points_protein: np.ndarray,
+    time_points_rna: np.ndarray,
+    scheme_prot_pho: str = "uniform",
+    scheme_rna: str = "uniform",
+    early_window_prot_pho: float = 2.0,
+    early_window_rna: float = 15.0,
+) -> Tuple[
+    Callable[[np.ndarray], np.ndarray],
+    Callable[[np.ndarray], np.ndarray],
+]:
+    """
+    Build modality-specific weight functions from selected schemes.
+
+    Parameters
+    ----------
+    time_points_protein:
+        Timepoints for protein/phospho modality (your TIME_POINTS_PROTEIN).
+    time_points_rna:
+        Timepoints for RNA modality (your TIME_POINTS_RNA).
+    scheme_prot_pho:
+        Weighting scheme name for protein/phospho (must exist in get_weight_options output dict).
+    scheme_rna:
+        Weighting scheme name for RNA (must exist in get_weight_options output dict).
+    early_window_prot_pho:
+        Early window (minutes) used when building schemes for protein/phospho.
+    early_window_rna:
+        Early window (minutes) used when building schemes for RNA.
+
+    Returns
+    -------
+    w_prot_pho, w_rna:
+        Two callables that take np.ndarray of times and return np.ndarray weights.
+    """
+    tp_prot_pho = np.asarray(time_points_protein, dtype=float)
+    tp_rna = np.asarray(time_points_rna, dtype=float)
+
+    schemes_prot_pho = get_weight_options(tp_prot_pho, early_window=early_window_prot_pho)
+    schemes_rna = get_weight_options(tp_rna, early_window=early_window_rna)
+
+    if scheme_prot_pho not in schemes_prot_pho:
+        raise KeyError(
+            f"Unknown protein/phospho weighting scheme '{scheme_prot_pho}'. "
+            f"Available: {sorted(schemes_prot_pho.keys())}"
+        )
+    if scheme_rna not in schemes_rna:
+        raise KeyError(
+            f"Unknown RNA weighting scheme '{scheme_rna}'. "
+            f"Available: {sorted(schemes_rna.keys())}"
+        )
+
+    w_prot_pho = lambda tt: schemes_prot_pho[scheme_prot_pho](tt)
+    w_rna = lambda tt: schemes_rna[scheme_rna](tt)
+
+    return w_prot_pho, w_rna

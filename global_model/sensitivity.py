@@ -9,23 +9,15 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from tqdm import tqdm
 
-# Import Global Model components
+from global_model.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, SENSITIVITY_TOP_CURVES
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
 from global_model.simulate import simulate_and_measure
-from global_model.params import unpack_params
-from config.config import setup_logger
 
+from config.config import setup_logger
 logger = setup_logger()
 
-# --- Configuration Constants ---
-NUM_TRAJECTORIES = 120  # Total Morris trajectories (N)
-NUM_LEVELS = 4  # Number of grid levels for Morris (p)
-PERTURBATION = 0.2  # +/- 20% bounds around optimal
-TOP_K_PLOTS = 50  # Number of best trajectories to plot
-METRIC_TYPES = ["total_signal", "mean", "variance", "l2_norm"]
 
-
-def compute_bounds(params_dict, perturbation=PERTURBATION):
+def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
     """
     Generates [lower, upper] bounds for each parameter in the dictionary.
     """
@@ -132,7 +124,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     """
     Main driver for Morris Sensitivity Analysis.
     """
-    logger.info(f"[Sensitivity] Starting Morris Analysis (N={NUM_TRAJECTORIES}, p={NUM_LEVELS})...")
+    logger.info(f"[Sensitivity] Starting Morris Analysis (N={SENSITIVITY_TRAJECTORIES}, p={SENSITIVITY_LEVELS})...")
     logger.info(f"[Sensitivity] Metric: {metric}")
 
     # 1. Define Problem
@@ -148,7 +140,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     problem = compute_bounds(fitted_params)
 
     # 2. Sample Parameter Space (Morris)
-    param_values = morris.sample(problem, N=NUM_TRAJECTORIES, num_levels=NUM_LEVELS)
+    param_values = morris.sample(problem, N=SENSITIVITY_TRAJECTORIES, num_levels=SENSITIVITY_LEVELS)
     logger.info(f"[Sensitivity] Generated {len(param_values)} trajectories.")
 
     # 3. Parallel Execution
@@ -274,7 +266,7 @@ def _plot_perturbation_cloud(trajectories, out_dir, idx):
         # Plot individual lines lightly
         sns.lineplot(
             data=sub, x="time", y="pred_fc", units="sim_id", estimator=None,
-            color="gray", alpha=0.1, linewidth=1
+            color="gray", alpha=0.05, linewidth=1
         )
         # Plot mean trend
         sns.lineplot(
@@ -285,5 +277,5 @@ def _plot_perturbation_cloud(trajectories, out_dir, idx):
         plt.xlabel("Time (min)")
         plt.ylabel("Fold Change")
         plt.legend()
-        plt.savefig(os.path.join(sim_dir, f"cloud_{p}.png"), dpi=200)
+        plt.savefig(os.path.join(sim_dir, f"cloud_{p}.png"), dpi=300)
         plt.close()

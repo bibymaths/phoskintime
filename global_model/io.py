@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import re
 from global_model.utils import _normcols, _find_col, process_and_scale_raw_data
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR
+from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, SCALING_METHOD
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
@@ -163,7 +163,7 @@ def load_data(args):
         df_ms_raw,
         time_points=TIME_POINTS_PROTEIN,
         id_cols=["GeneID", "Psite"],
-        scale_method='raw'
+        scale_method=SCALING_METHOD
     )
     df_ms = _normcols(df_ms)
 
@@ -224,20 +224,10 @@ def load_data(args):
         df_rna_raw,
         time_points=TIME_POINTS_RNA,
         id_cols=["protein"],
-        scale_method='raw'
+        scale_method=SCALING_METHOD
     )
 
     # df_rna is now ready. It has columns: ["protein", "time", "fc"]
     logger.info(f"[Data] Loaded {len(df_rna)} RNA points.")
-
-    # DEBUG: Check overlap
-    # model_proteins = set(df_prot["protein"].unique())
-    # tf_tfs = set(df_tf_clean["tf"].unique())
-    # tf_targets = set(df_tf_clean["target"].unique())
-    #
-    # logger.info(f"\n[DEBUG] Model has {len(model_proteins)} proteins from MS.")
-    # logger.info(f"[DEBUG] TF Net has {len(tf_tfs)} TFs and {len(tf_targets)} targets.")
-    # logger.info(f"[DEBUG] Intersection TFs: {len(model_proteins.intersection(tf_tfs))}")
-    # logger.info(f"[DEBUG] Intersection Targets: {len(model_proteins.intersection(tf_targets))}")
 
     return df_kin_clean, df_tf_clean, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map
