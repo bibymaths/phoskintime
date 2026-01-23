@@ -260,8 +260,8 @@ docs_url = "https://bibymaths.github.io/phoskintime/"
 # INPUT FILES (Required by runner)
 # Paths are relative to the project root
 # ------------------------------------------------------------
-kinase_net = "data/input2.csv"         # Kinase-Substrate Network (or similar)
-tf_net     = "data/input4.csv"         # TF-Gene Network
+kinase_net = "results_node_subnetworks/ABL2/ABL2_input2.csv"         # Kinase-Substrate Network (or similar)
+tf_net     = "results_node_subnetworks/ABL2/ABL2_input4.csv"         # TF-Gene Network
 ms         = "data/input1.csv"         # Mass Spec (Protein) Data
 rna        = "data/input3.csv"         # RNA (Transcriptomics) Data
 phospho    = "data/input1.csv"         # Phospho Data (Optional, can be same as ms if mixed)
@@ -273,7 +273,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_model_global_distributive"  # Output directory
+output_dir = "results_model_global_random_abl2"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 
@@ -346,10 +346,10 @@ weighting_method_phospho = "uniform"   # Weighting for phospho data
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
 sensitivity_analysis = true          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
-sensitivity_perturbation = 0.2        # Perturbation for sensitivity analysis
-sensitivity_trajectories = 1000       # Number of trajectories for Morris method
-sensitivity_levels = 400              # Number of levels for Morris method
-sensitivity_top_curves = 50              # Number of top curves to plot in sensitivity analysis
+sensitivity_perturbation = 0.05        # Perturbation for sensitivity analysis
+sensitivity_trajectories = 100       # Number of trajectories for Morris method
+sensitivity_levels = 40              # Number of levels for Morris method
+sensitivity_top_curves = 20              # Number of top curves to plot in sensitivity analysis
 sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "variance", "l2_norm"]
 # ------------------------------------------------------------
 
@@ -395,7 +395,7 @@ tf_scale = [2.0, 10.0]
 
 [global_model.models]
 available_models = ["distributive", "sequential", "combinatorial", "saturation"]
-default_model = "distributive"
+default_model = "combinatorial"
 
 [global_model.solver]
 absolute_tolerance = 1e-8
