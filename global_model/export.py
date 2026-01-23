@@ -408,43 +408,161 @@ def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
     out.rename(columns={obs_col: "fc_obs", pred_col: "fc_pred"}, inplace=True)
     return out
 
-def _robust_sigma(residuals: np.ndarray) -> float:
-    r = np.asarray(residuals, dtype=float)
-    r = r[np.isfinite(r)]
-    if r.size < 10:
-        # fallback: plain std
-        s = float(np.std(r))
-        return s if s > 0 else 1e-12
-    med = np.median(r)
-    mad = np.median(np.abs(r - med))
-    # MAD -> sigma for Normal
-    s = 1.4826 * mad
-    return float(s if s > 0 else np.std(r) if np.std(r) > 0 else 1e-12)
-
-
-def _annotate_points(ax, df, xcol, ycol, label_col, max_labels=30):
-    # label most extreme first to avoid clutter
-    df = df.copy()
-    df["abs_resid"] = np.abs(df[ycol] - df[xcol])
-    df = df.sort_values("abs_resid", ascending=False).head(max_labels)
-
-    for _, r in df.iterrows():
-        ax.annotate(
-            str(r[label_col]),
-            (float(r[xcol]), float(r[ycol])),
-            textcoords="offset points",
-            xytext=(6, 6),
-            fontsize=8,
-            color="black",
-            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="gray", alpha=0.8),
-        )
-
-
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
                          df_rna_obs, df_rna_pred,
                          df_phos_obs, df_phos_pred,
                          output_dir, file_prefix=""):
-    # Merge and standardize
+
+    def _robust_sigma(residuals: np.ndarray) -> float:
+        r = np.asarray(residuals, dtype=float)
+        r = r[np.isfinite(r)]
+        if r.size < 10:
+            s = float(np.std(r))
+            return s if s > 0 else 1e-12
+        med = np.median(r)
+        mad = np.median(np.abs(r - med))
+        s = 1.4826 * mad
+        if s <= 0:
+            s = float(np.std(r))
+        return float(s if s > 0 else 1e-12)
+
+    def _annotate_unique(ax, df, xcol, ycol, label_col, *, max_labels=30):
+        # most extreme first
+        df = df.copy()
+        df["abs_resid"] = np.abs(df[ycol] - df[xcol])
+        df = df.sort_values("abs_resid", ascending=False)
+
+        seen = set()
+        n = 0
+        for _, r in df.iterrows():
+            lab = str(r[label_col])
+            if lab in seen:
+                continue
+            seen.add(lab)
+
+            ax.annotate(
+                lab,
+                (float(r[xcol]), float(r[ycol])),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=8,
+                color="black",
+                bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="gray", alpha=0.8),
+            )
+            n += 1
+            if n >= max_labels:
+                break
+
+    def _plot_one(df, title_suffix: str, out_name: str):
+        # style
+        sns.set_style("whitegrid")
+        fig, ax = plt.subplots(figsize=(10, 9))
+
+        # same palette/markers
+        category_styles = {
+            "Protein": {"color": "#2E86AB", "marker": "o", "label": "Protein"},
+            "RNA": {"color": "#A23B72", "marker": "s", "label": "RNA"},
+            "Phosphorylation": {"color": "#F18F01", "marker": "^", "label": "Phosphorylation"}
+        }
+
+        # scatter by category (within df)
+        for cat_type, style in category_styles.items():
+            cat_data = df[df["Type"] == cat_type]
+            if not cat_data.empty:
+                ax.scatter(
+                    cat_data["fc_obs"],
+                    cat_data["fc_pred"],
+                    c=style["color"],
+                    marker=style["marker"],
+                    s=50,
+                    alpha=0.6,
+                    edgecolors="black",
+                    linewidths=0.5,
+                    label=style["label"],
+                    rasterized=True
+                )
+
+        # identity bounds
+        all_vals = np.concatenate([df["fc_obs"].values, df["fc_pred"].values])
+        xmin, xmax = np.min(all_vals), np.max(all_vals)
+        ax.plot([xmin, xmax], [xmin, xmax], "k--", alpha=0.5, linewidth=1.5, zorder=0, label="Identity")
+
+        # CI bands around identity (robust)
+        resid = (df["fc_pred"] - df["fc_obs"]).to_numpy(dtype=float)
+        sigma = _robust_sigma(resid)
+
+        z95 = 1.959963984540054
+        z99 = 2.5758293035489004
+        d95 = z95 * sigma
+        d99 = z99 * sigma
+
+        ax.plot([xmin, xmax], [xmin + d95, xmax + d95], color="gray", linestyle="--", lw=1.2, alpha=0.8, label="95% band")
+        ax.plot([xmin, xmax], [xmin - d95, xmax - d95], color="gray", linestyle="--", lw=1.2, alpha=0.8)
+
+        ax.plot([xmin, xmax], [xmin + d99, xmax + d99], color="gray", linestyle=":", lw=1.2, alpha=0.8, label="99% band")
+        ax.plot([xmin, xmax], [xmin - d99, xmax - d99], color="gray", linestyle=":", lw=1.2, alpha=0.8)
+
+        # metrics (identity RMSE + R2 of regression)
+        x = df["fc_obs"].values
+        y = df["fc_pred"].values
+        slope, intercept, r_value, p_value, std_err = linregress(x, y)
+        r2 = r_value ** 2
+        rmse = float(np.sqrt(np.mean((y - x) ** 2)))
+
+        ax.text(
+            0.05, 0.95,
+            f"{title_suffix}:\n$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$\n$\\sigma_\\Delta={sigma:.3g}$",
+            transform=ax.transAxes,
+            va="top",
+            fontsize=11,
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray", linewidth=1)
+        )
+
+        # flag near/out 95% band and label (no circles)
+        border_frac = 0.10
+        near_lo = (1.0 - border_frac) * d95
+
+        abs_resid = np.abs(resid)
+
+        flag_out = abs_resid >= d95
+        flag_near = (abs_resid >= near_lo) & (abs_resid < d95)
+
+        # build label column (phospho includes psite)
+        if "psite" in df.columns:
+            df = df.copy()
+            df["point_label"] = np.where(
+                df["Type"] == "Phosphorylation",
+                df["protein"].astype(str) + "|" + df["psite"].astype(str),
+                df["protein"].astype(str)
+            )
+        else:
+            df = df.copy()
+            df["point_label"] = df["protein"].astype(str)
+
+        df_out = df.loc[flag_out]
+        df_near = df.loc[flag_near]
+
+        _annotate_unique(ax, df_out, "fc_obs", "fc_pred", "point_label", max_labels=25)
+        _annotate_unique(ax, df_near, "fc_obs", "fc_pred", "point_label", max_labels=15)
+
+        ax.set_xlabel("Observed FC", fontsize=12, fontweight="bold")
+        ax.set_ylabel("Predicted FC", fontsize=12, fontweight="bold")
+        ax.set_title(f"Goodness of Fit: Global ODE Model{title_suffix}", fontsize=14, fontweight="bold", pad=15)
+
+        ax.legend(loc="lower right", frameon=True, framealpha=0.9, edgecolor="gray")
+        ax.grid(True, alpha=0.3, linewidth=0.5)
+        ax.set_aspect("equal", adjustable="box")
+
+        fig.tight_layout()
+        os.makedirs(output_dir, exist_ok=True)
+        out_path = os.path.join(output_dir, out_name)
+        plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
+        plt.close()
+        logger.info(f"[Output] Saved Goodness of Fit plot to: {out_path}")
+
+    # ------------------------------------------------------------
+    # 1) Build merged data (unchanged)
+    # ------------------------------------------------------------
     mp = df_prot_obs.merge(df_prot_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
     mr = df_rna_obs.merge(df_rna_pred, on=["protein", "time"], suffixes=("_obs", "_pred"))
     mph = df_phos_obs.merge(df_phos_pred, on=["protein", "psite", "time"], suffixes=("_obs", "_pred"))
@@ -457,147 +575,30 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
     mr["Type"] = "RNA"
     mph["Type"] = "Phosphorylation"
 
-    combined = pd.concat([mp, mr, mph], ignore_index=True)
-    combined = combined.dropna(subset=["fc_obs", "fc_pred"])
+    combined = pd.concat([mp, mr, mph], ignore_index=True).dropna(subset=["fc_obs", "fc_pred"])
 
-    # Create single plot
-    sns.set_style("whitegrid")
-    fig, ax = plt.subplots(figsize=(10, 10))
-
-    # Define colors and markers for each category
-    category_styles = {
-        "Protein": {"color": "#2E86AB", "marker": "o", "label": "Protein"},
-        "RNA": {"color": "#A23B72", "marker": "s", "label": "RNA"},
-        "Phosphorylation": {"color": "#F18F01", "marker": "^", "label": "Phosphorylation"}
-    }
-
-    # Plot each category with different style
-    for cat_type, style in category_styles.items():
-        cat_data = combined[combined["Type"] == cat_type]
-        if not cat_data.empty:
-            ax.scatter(
-                cat_data["fc_obs"],
-                cat_data["fc_pred"],
-                c=style["color"],
-                marker=style["marker"],
-                s=50,
-                alpha=0.6,
-                edgecolors="black",
-                linewidths=0.5,
-                label=style["label"],
-                rasterized=True  # for crispness in PDF/PNG
-            )
-
-    # Identity line
-    all_vals = np.concatenate([combined["fc_obs"].values, combined["fc_pred"].values])
-    xmin, xmax = np.min(all_vals), np.max(all_vals)
-    ax.plot([xmin, xmax], [xmin, xmax], "k--", alpha=0.5, linewidth=1.5, zorder=0, label="Identity")
-
-    # -----------------------------
-    # Identity-parallel CI bands
-    # -----------------------------
-    combined["resid_id"] = combined["fc_pred"] - combined["fc_obs"]
-
-    # Robust sigma around identity
-    sigma = _robust_sigma(combined["resid_id"].values)
-
-    z95 = 1.959963984540054  # ~N(0,1) 97.5th percentile
-    z99 = 2.5758293035489004  # ~N(0,1) 99.5th percentile
-
-    d95 = z95 * sigma
-    d99 = z99 * sigma
-
-    # CI lines parallel to identity: y = x +/- d
-    ax.plot([xmin, xmax], [xmin + d95, xmax + d95], color="gray", linestyle="--", lw=1.2, alpha=0.8, label="95% band")
-    ax.plot([xmin, xmax], [xmin - d95, xmax - d95], color="gray", linestyle="--", lw=1.2, alpha=0.8)
-
-    ax.plot([xmin, xmax], [xmin + d99, xmax + d99], color="gray", linestyle=":", lw=1.2, alpha=0.8, label="99% band")
-    ax.plot([xmin, xmax], [xmin - d99, xmax - d99], color="gray", linestyle=":", lw=1.2, alpha=0.8)
-
-    # -----------------------------
-    # Flag border/outside 95% band
-    # -----------------------------
-    # "near border" margin: within 10% of 95% threshold
-    border_frac = 0.10
-    near_lo = (1.0 - border_frac) * d95
-    near_hi = (1.0 + border_frac) * d95
-
-    abs_resid = combined["resid_id"].abs()
-    combined["flag_95_out"] = abs_resid >= d95
-    combined["flag_95_near"] = (abs_resid >= near_lo) & (abs_resid < near_hi)
-
-    # Create a readable label
-    # For phospho, use protein|psite; else protein
-    combined["point_label"] = np.where(
-        combined["Type"] == "Phosphorylation",
-        combined["protein"].astype(str) + "|" + combined.get("psite", "").astype(str),
-        combined["protein"].astype(str)
+    # ------------------------------------------------------------
+    # 2) Full combined plot
+    # ------------------------------------------------------------
+    _plot_one(
+        combined,
+        title_suffix=" (Overall)",
+        out_name=f"{file_prefix}goodness_of_fit.png"
     )
 
-    # Extract flagged points
-    df_out = combined[combined["flag_95_out"]].copy()
-    df_near = combined[combined["flag_95_near"]].copy()
+    # ------------------------------------------------------------
+    # 3) Per-modality plots (same structure/layout)
+    # ------------------------------------------------------------
+    for typ in ["Protein", "RNA", "Phosphorylation"]:
+        sub = combined[combined["Type"] == typ].copy()
+        if sub.empty:
+            continue
+        _plot_one(
+            sub,
+            title_suffix=f" ({typ})",
+            out_name=f"{file_prefix}goodness_of_fit_{typ}.png"
+        )
 
-    # Optional: highlight flagged points visually
-    if not df_out.empty:
-        ax.scatter(df_out["fc_obs"], df_out["fc_pred"], s=90, facecolors="none", edgecolors="red", linewidths=1.2, alpha=0.9, label="Outside 95%")
-    if not df_near.empty:
-        ax.scatter(df_near["fc_obs"], df_near["fc_pred"], s=80, facecolors="none", edgecolors="orange", linewidths=1.0, alpha=0.8, label="Near 95%")
-
-    # Annotate
-    _annotate_points(ax, df_out, "fc_obs", "fc_pred", "point_label", max_labels=25)
-    _annotate_points(ax, df_near, "fc_obs", "fc_pred", "point_label", max_labels=15)
-
-    # Log the “almost border or out” entities (unique labels)
-    flagged_labels = pd.concat([df_out["point_label"], df_near["point_label"]], ignore_index=True).dropna().unique().tolist()
-    logger.info(f"[GOF] 95% band sigma={sigma:.4g} => d95={d95:.4g}, d99={d99:.4g}. Flagged (near/out): {len(flagged_labels)}")
-    if flagged_labels:
-        logger.info("[GOF] Near/Out 95% labels: " + ", ".join(map(str, flagged_labels[:200])))
-
-    # Regression line (overall)
-    x = combined["fc_obs"].values
-    y = combined["fc_pred"].values
-
-    # sns.regplot(
-    #     x=x, y=y,
-    #     scatter=False,
-    #     ci=95,
-    #     line_kws={"alpha": 0.7, "lw": 2, "color": "red", "linestyle": "-"},
-    #     ax=ax,
-    #     label="Regression"
-    # )
-
-    # Calculate overall metrics
-    slope, intercept, r_value, p_value, std_err = linregress(x, y)
-    r2 = r_value ** 2
-    rmse = float(np.sqrt(np.mean((y - x) ** 2)))
-
-    # Add metrics text box
-    ax.text(
-        0.05, 0.95,
-        f"Overall:\n$R^2 = {r2:.3f}$\n$RMSE = {rmse:.3f}$",
-        transform=ax.transAxes,
-        va="top",
-        fontsize=11,
-        bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray", linewidth=1)
-    )
-
-    ax.set_xlabel("Observed FC", fontsize=12, fontweight="bold")
-    ax.set_ylabel("Predicted FC", fontsize=12, fontweight="bold")
-    ax.set_title("Goodness of Fit: Global ODE Model", fontsize=14, fontweight="bold", pad=15)
-    ax.legend(loc="lower right", frameon=True, framealpha=0.9, edgecolor="gray")
-    ax.grid(True, alpha=0.3, linewidth=0.5)
-
-    # Equal aspect ratio for better visual comparison
-    ax.set_aspect("equal", adjustable="box")
-
-    fig.tight_layout()
-
-    os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, f"{file_prefix}goodness_of_fit.png")
-    plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
-    plt.close()
-    logger.info(f"[Output] Saved Goodness of Fit plot to: {out_path}")
 
 
 def plot_gof_from_pareto_excel(
@@ -994,7 +995,7 @@ def save_gene_timeseries_plots(
         ph_pre = _clean_ts(ph_pre, "fc_pred")
 
     # ---- Plot ----
-    fig, axes = plt.subplots(1, 3, figsize=(20, 6), sharex=False)
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6), sharey=True)
     ax_p, ax_r, ax_ph = axes
     prot_c = "C0"
     rna_c = "C1"
@@ -1010,7 +1011,7 @@ def save_gene_timeseries_plots(
     # Protein
     if not p_obs.empty:
         ax_p.plot(p_obs["time"].to_numpy(), p_obs["fc"].to_numpy(),
-                  marker="s", linewidth=2, label="obs",
+                  marker="s", linewidth=1, label="obs",
                   color=prot_obs_c, alpha=obs_alpha)
     if not p_pre.empty:
         ax_p.plot(p_pre["time"].to_numpy(), p_pre["fc_pred"].to_numpy(),
@@ -1025,7 +1026,7 @@ def save_gene_timeseries_plots(
     # RNA
     if not r_obs.empty:
         ax_r.plot(r_obs["time"].to_numpy(), r_obs["fc"].to_numpy(),
-                  marker="s", linewidth=2, label="obs",
+                  marker="s", linewidth=1, label="obs",
                   color=rna_obs_c, alpha=obs_alpha)
     if not r_pre.empty:
         ax_r.plot(r_pre["time"].to_numpy(), r_pre["fc_pred"].to_numpy(),
@@ -1053,7 +1054,7 @@ def save_gene_timeseries_plots(
             if not ph_obs.empty:
                 obs_mean = ph_obs.groupby("time", as_index=False)["fc"].mean()
                 ax_ph.plot(obs_mean["time"].to_numpy(), obs_mean["fc"].to_numpy(),
-                           marker="s", linewidth=2, label="obs (mean)",
+                           marker="s", linewidth=1, label="obs (mean)",
                            color=phos_obs_c, alpha=obs_alpha)
 
             if not ph_pre.empty:
@@ -1084,7 +1085,7 @@ def save_gene_timeseries_plots(
                     subp = ph_pre[ph_pre["psite"] == ps]
                     if not subp.empty:
                         ax_ph.plot(subp["time"].to_numpy(), subp["fc_pred"].to_numpy(),
-                                   linewidth=1, label=f"pred {ps}",
+                                   linewidth=2, label=f"pred {ps}",
                                    color=ps_color, alpha=pred_alpha)
 
         ax_ph.legend(ncol=2, fontsize=8)

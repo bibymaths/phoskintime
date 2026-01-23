@@ -8,6 +8,7 @@ import pandas as pd
 from numba import njit
 import tomllib
 from config.config import setup_logger
+from global_model.config import MODEL
 
 logger = setup_logger()
 
@@ -648,6 +649,39 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
         "E_i": (0.0, e_max),
         "tf_scale": (tf_scale_min, tf_scale_max)
     }
+
+    # Model-specific adjustments
+    # MODEL: 0 distributive, 1 sequential, 2 combinatorial, 4 saturating
+    if MODEL == 1:
+        # Sequential: tighter kinase gain, faster phospho turnover
+        bounds_dict["Dp_i"] = (0.15, 8.0)
+        ck_lo, ck_hi = bounds_dict["c_k"]
+        bounds_dict["c_k"] = (ck_lo, max(3.0, 0.75 * ck_hi))
+
+    elif MODEL == 2:
+        # Combinatorial: clamp hard (many transitions per state)
+        bounds_dict["Dp_i"] = (0.2, 3.0)
+        ck_lo, ck_hi = bounds_dict["c_k"]
+        bounds_dict["c_k"] = (ck_lo, min(2.5, ck_hi))
+
+        # E_i is dephosph/backflow; keep smaller to avoid stiff cycling
+        e_lo, e_hi = bounds_dict["E_i"]
+        if avg_density >= 2.0:
+            bounds_dict["E_i"] = (e_lo, min(e_hi, 2.5))
+        else:
+            bounds_dict["E_i"] = (e_lo, min(e_hi, 8.0))
+
+    elif MODEL == 4:
+        # Saturating: bounded forward flux allows more kinase gain and TF scale
+        bounds_dict["Dp_i"] = (0.1, 8.0)
+        ck_lo, ck_hi = bounds_dict["c_k"]
+        bounds_dict["c_k"] = (ck_lo, min(10.0, 1.5 * ck_hi))
+
+        tf_lo, tf_hi = bounds_dict["tf_scale"]
+        if avg_density >= 2.0:
+            bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 6.0))
+        else:
+            bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 10.0))
 
     logger.info("-" * 60)
     logger.info(f"{'Param':<10} | {'Min':<10} | {'Max':<10} | {'Constraint Logic'}")
