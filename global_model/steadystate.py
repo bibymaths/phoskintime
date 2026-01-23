@@ -3,11 +3,11 @@ import os
 import numpy as np
 import pandas as pd
 
-from global_model.config import MODEL
+from global_model.config import MODEL, RESULTS_DIR
 from global_model.models import sequential_rhs, combinatorial_rhs, build_random_transitions, distributive_rhs
 from config.config import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 def _dump_y0(sys, out_dir, max_sites=200):
     idx = sys.idx

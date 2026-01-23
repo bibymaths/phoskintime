@@ -8,9 +8,9 @@ import pandas as pd
 from numba import njit
 import tomllib
 from config.config import setup_logger
-from global_model.config import MODEL
+from global_model.config import MODEL, RESULTS_DIR
 
-logger = setup_logger()
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def _normcols(df):

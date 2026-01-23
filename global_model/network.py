@@ -4,8 +4,7 @@ import pandas as pd
 from global_model.buildmat import site_key
 from global_model.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
 from global_model.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
-from global_model.steadystate import build_y0_from_data, steady_state_distributive, steady_state_sequential, \
-    steady_state_combinatorial
+from global_model.steadystate import build_y0_from_data
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
@@ -270,10 +269,7 @@ class System:
             self.idx,
             self._ic_data["df_prot"],
             self._ic_data["df_rna"],
-            self._ic_data["df_pho"],
-            MODEL=MODEL,
-            alpha=0.5,
-            logger=logger
+            self._ic_data["df_pho"]
         )
 
     def rhs(self, t, y):

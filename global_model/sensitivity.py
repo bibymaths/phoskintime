@@ -10,13 +10,13 @@ from SALib.analyze.morris import analyze
 from tqdm import tqdm
 
 from global_model.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, \
-    SENSITIVITY_TOP_CURVES
+    SENSITIVITY_TOP_CURVES, RESULTS_DIR, SEED
 from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
 from global_model.simulate import simulate_and_measure
 
 from config.config import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
@@ -142,7 +142,8 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     problem = compute_bounds(fitted_params)
 
     # 2. Sample Parameter Space (Morris)
-    param_values = morris.sample(problem, N=SENSITIVITY_TRAJECTORIES, num_levels=SENSITIVITY_LEVELS)
+    param_values = morris.sample(problem, N=SENSITIVITY_TRAJECTORIES, num_levels=SENSITIVITY_LEVELS,
+                                 local_optimization=True, optimal_trajectories=True, seed=SEED)
     logger.info(f"[Sensitivity] Generated {len(param_values)} trajectories.")
 
     # 3. Parallel Execution

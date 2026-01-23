@@ -255,6 +255,73 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir):
         f"{len(df_dom)} sites with edges, {dom_counts.shape[0]} kinases represented."
     )
 
+    # ---- (C3) Kinase activity vs global phosphorylation drive (scatter + labels)
+    # Requires df_kin with columns: kinase, Kt, phospho_drive_sum
+
+    df_sc = df_kin.copy()
+    df_sc["kinase"] = df_sc["kinase"].astype(str)
+
+    eps = 1e-12
+    df_sc["mismatch"] = df_sc["Kt"] / (df_sc["phospho_drive_sum"] + eps)
+
+    top_n_drive = 15
+    top_n_kt = 15
+    top_n_mismatch = 10  # set 0 to disable
+
+    drive_set = set(df_sc.nlargest(top_n_drive, "phospho_drive_sum")["kinase"].tolist())
+    kt_set = set(df_sc.nlargest(top_n_kt, "Kt")["kinase"].tolist())
+    mismatch_set = set()
+    if top_n_mismatch > 0:
+        # only consider kinases with non-trivial Kt to avoid noise
+        mismatch_set = set(df_sc[df_sc["Kt"] > 1e-6].nlargest(top_n_mismatch, "mismatch")["kinase"].tolist())
+
+    label_set = drive_set | kt_set | mismatch_set
+
+    plt.figure(figsize=(9, 7))
+    plt.scatter(df_sc["Kt"].values, df_sc["phospho_drive_sum"].values, alpha=0.7, edgecolors="black", linewidths=0.3)
+
+    plt.xlabel("Kinase activity Kt at steady state")
+    plt.ylabel("Global phosphorylation drive Σ(W_ik * Kt_k)")
+    plt.title("Kinase activity vs phosphorylation drive (steady state)")
+
+    # annotate with de-duplication
+    for _, r in df_sc[df_sc["kinase"].isin(label_set)].iterrows():
+        x = float(r["Kt"])
+        y = float(r["phospho_drive_sum"])
+        lab = r["kinase"]
+
+        plt.annotate(
+            lab,
+            (x, y),
+            textcoords="offset points",
+            xytext=(6, 6),
+            fontsize=8,
+            bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="gray", alpha=0.8)
+        )
+
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(summary_dir, "steady_state_kinase_Kt_vs_drive.png"), dpi=300)
+    plt.close()
+
+    # Save the labeled sets for traceability
+    pd.DataFrame({"kinase": sorted(list(drive_set))}).to_csv(
+        os.path.join(summary_dir, "steady_state_labels_top_drive.csv"), index=False
+    )
+    pd.DataFrame({"kinase": sorted(list(kt_set))}).to_csv(
+        os.path.join(summary_dir, "steady_state_labels_top_Kt.csv"), index=False
+    )
+    if top_n_mismatch > 0:
+        pd.DataFrame({"kinase": sorted(list(mismatch_set))}).to_csv(
+            os.path.join(summary_dir, "steady_state_labels_top_mismatch.csv"), index=False
+        )
+
+    logger.info(
+        f"[Plot] Saved kinase Kt vs drive scatter with labels: "
+        f"{len(drive_set)} (top drive) + {len(kt_set)} (top Kt) + {len(mismatch_set)} (mismatch) "
+        f"-> {len(label_set)} unique labels."
+    )
+
     # ---- (D) S_all distribution at steady state (site-wise phosphorylation propensity)
     S_all = sys.W_global.dot(Kt)  # (total_sites,)
     pd.DataFrame({"S_all": S_all}).to_csv(os.path.join(summary_dir, "steady_state_S_all.csv"), index=False)

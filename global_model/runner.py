@@ -57,7 +57,7 @@ from frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger
 
-logger = setup_logger()
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 @atexit.register
@@ -718,6 +718,7 @@ def main():
     # 10) Save Pareto set
     X = res.X
     F = res.F
+
     np.save(os.path.join(args.output_dir, "pareto_X.npy"), X)
     np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
 
@@ -740,18 +741,18 @@ def main():
 
     logger.info(f"[Output] Saved Pareto front Excel: {excel_path}")
 
-    plot_gof_from_pareto_excel(
-        excel_path=excel_path,
-        output_dir=os.path.join(args.output_dir, "goodness_of_fits_all_solutions"),
-        plot_goodness_of_fit_func=plot_goodness_of_fit,
-        df_prot_obs_all=df_prot,
-        df_rna_obs_all=df_rna,
-        df_phos_obs_all=df_pho,
-        top_k=10,
-        score_col="scalar_score",
-    )
+    # plot_gof_from_pareto_excel(
+    #     excel_path=excel_path,
+    #     output_dir=os.path.join(args.output_dir, "goodness_of_fits_all_solutions"),
+    #     plot_goodness_of_fit_func=plot_goodness_of_fit,
+    #     df_prot_obs_all=df_prot,
+    #     df_rna_obs_all=df_rna,
+    #     df_phos_obs_all=df_pho,
+    #     top_k=10,
+    #     score_col="scalar_score",
+    # )
 
-    logger.info(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+    # logger.info(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
 
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance

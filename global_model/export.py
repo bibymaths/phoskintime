@@ -1101,7 +1101,6 @@ def save_gene_timeseries_plots(
 
 def scan_prior_reg(out_dir):
     F = np.load(os.path.join(out_dir, "pareto_F.npy"))
-    X = np.load(os.path.join(out_dir, "pareto_X.npy"))  # not used here, but kept for consistency
 
     if F.ndim != 2 or F.shape[1] != 3:
         raise ValueError(f"Expected F shape (n, 3) = [prot_mse, rna_mse, phospho_mse]. Got {F.shape}")
