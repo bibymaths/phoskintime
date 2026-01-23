@@ -429,7 +429,7 @@ def _plot_perturbation_cloud(
         axR.legend(loc="best", fontsize=8, frameon=True, ncol=1)
         axPH.legend(loc="best", fontsize=7, frameon=True, ncol=1)
 
-        plt.suptitle(f"Perturbation cloud (Morris): {p}", fontsize=14)
+        plt.suptitle(f"Perturbation cloud: {p}", fontsize=14)
         plt.tight_layout()
         out_path = os.path.join(sim_dir, f"cloud_{p}.png")
         plt.savefig(out_path, dpi=300)
