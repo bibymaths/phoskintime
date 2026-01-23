@@ -1,9 +1,82 @@
+import os
+
 import numpy as np
 import pandas as pd
 
 from global_model.config import MODEL
 from global_model.models import sequential_rhs, combinatorial_rhs, build_random_transitions, distributive_rhs
+from config.config import setup_logger
 
+logger = setup_logger()
+
+def _dump_y0(sys, out_dir, max_sites=200):
+    idx = sys.idx
+    y0 = sys.y0()  # uses custom_y0 if set
+    rows = []
+
+    for i, gene in enumerate(idx.proteins):
+        st = int(idx.offset_y[i])
+
+        # mRNA
+        R0 = float(y0[st])
+
+        if MODEL == 2:
+            nst = int(idx.n_states[i])
+            Pm0 = float(y0[st + 1])  # mask 0
+
+            # total protein mass across masks
+            Ptot = float(y0[st + 1: st + 1 + nst].sum())
+
+            rows.append(dict(entity=gene, kind="mRNA", substate="R", value=R0))
+            rows.append(dict(entity=gene, kind="protein_total", substate="P_total_masksum", value=Ptot))
+            rows.append(dict(entity=gene, kind="protein_state", substate="mask0", value=Pm0))
+
+            # optional: show single-bit masks by site name
+            ns = int(idx.n_sites[i])
+            for j, psite in enumerate(idx.sites[i][:max_sites]):
+                mask = 1 << j
+                val = float(y0[st + 1 + mask])
+                rows.append(dict(entity=gene, kind="phospho_state", substate=f"mask_{psite}", value=val))
+
+        else:
+            P0 = float(y0[st + 1])  # unphosphorylated pool
+            rows.append(dict(entity=gene, kind="mRNA", substate="R", value=R0))
+            rows.append(dict(entity=gene, kind="protein_state", substate="P0", value=P0))
+
+            ns = int(idx.n_sites[i])
+            base = st + 2
+            for j, psite in enumerate(idx.sites[i][:max_sites]):
+                val = float(y0[base + j])
+                rows.append(dict(entity=gene, kind="phospho_state", substate=str(psite), value=val))
+
+            if ns > max_sites:
+                rows.append(dict(entity=gene, kind="note", substate="truncated_sites",
+                                 value=float(ns - max_sites)))
+
+    df_y0 = pd.DataFrame(rows)
+
+    # Print a compact summary to log
+    logger.info(f"[IC] y0 rows: {len(df_y0)} | entities: {df_y0['entity'].nunique()}")
+
+    for _, r in df_y0.iterrows():
+        # label = fully qualified state name (recommended)
+        # entity = protein / gene
+        # kind = RNA / PROT / PHOS
+        label = f"{r['entity']}_{r['kind']}_{r['substate']}"
+        logger.info(
+            "[IC] %-6s | %-30s | %-40s = %.6g",
+            r.get("kind", "?"),
+            r.get("entity", "?"),
+            label,
+            float(r["value"]),
+        )
+
+    # Save full table
+    out_path = os.path.join(out_dir, "initial_conditions_y0.csv")
+    df_y0.to_csv(out_path, index=False)
+    logger.info(f"[IC] Saved y0 table: {out_path}")
+
+    return df_y0
 
 def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
     """
@@ -33,83 +106,188 @@ def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
         return {tuple(row[key_cols].astype(str)): float(row[value_col]) for _, row in g.iterrows()}
 
 
+# def build_y0_from_data(
+#         idx,
+#         df_prot,
+#         df_rna,
+#         df_pho,
+#         *,
+#         t_init=None,  # integration start time (usually 0.0)
+#         t0_prot=0.0,  # where protein baseline is defined in your loss
+#         t0_rna=4.0,  # where RNA baseline is defined in your loss
+#         t0_pho=0.0,  # where phospho baseline is defined in your loss
+#         pho_frac=0.01,  # initial phospho mass as fraction of P0
+#         eps=1e-9,
+#         time_tol=1e-8
+# ):
+#     """
+#     Build y0 aligned with your state layout:
+#       MODEL 0/1: [R, P0, Psite...]
+#       MODEL 2:   [R, P(mask0), P(mask1)...]
+#     Note: with fold-change data, absolute scaling is arbitrary. This picks safe, positive ICs.
+#     """
+#     if t_init is None:
+#         # you integrate from 0.0 in your code; keep that default
+#         t_init = 0.0
+#
+#     # values at init time (what y0 represents)
+#     prot_init = _dict_at_time(df_prot, ["protein"], t_init, tol=time_tol)
+#     rna_init = _dict_at_time(df_rna, ["protein"], t_init, tol=time_tol)
+#
+#     # if RNA not measured at t_init (common), fall back to RNA baseline time (often 4.0)
+#     if not rna_init:
+#         rna_init = _dict_at_time(df_rna, ["protein"], t0_rna, tol=time_tol)
+#
+#     # phospho "baseline fc" at t0_pho: used only as a *relative* scaler
+#     pho_base = _dict_at_time(df_pho, ["protein", "psite"], t0_pho, tol=time_tol)
+#
+#     y0 = np.zeros(int(idx.state_dim), dtype=np.float64)
+#
+#     for i, gene in enumerate(idx.proteins):
+#         st = int(idx.offset_y[i])
+#
+#         # mRNA
+#         R0 = float(rna_init.get(gene, 1.0))
+#         y0[st] = max(R0, eps)
+#
+#         # protein / states
+#         P0 = float(prot_init.get(gene, 1.0))
+#         P0 = max(P0, eps)
+#
+#         if MODEL == 2:
+#             # combinatorial: mask0 is st+1
+#             y0[st + 1] = P0
+#
+#             ns = int(idx.n_sites[i])
+#             # put tiny mass into single-site masks so phospho denominators aren't zero
+#             # (only meaningful if ns is small; MODEL==2 is infeasible for large ns anyway)
+#             total_added = 0.0
+#             for j, psite in enumerate(idx.sites[i]):
+#                 base_fc = float(pho_base.get((gene, psite), 1.0))
+#                 mass = max(eps, pho_frac * P0 * base_fc)
+#                 mask = 1 << j
+#                 y0[st + 1 + mask] = mass
+#                 total_added += mass
+#
+#             # conserve total mass roughly (optional but helps stability)
+#             y0[st + 1] = max(eps, y0[st + 1] - total_added)
+#
+#         else:
+#             # distributive/sequential: P0 is st+1, sites are st+2...
+#             y0[st + 1] = P0
+#             ns = int(idx.n_sites[i])
+#             for j, psite in enumerate(idx.sites[i]):
+#                 base_fc = float(pho_base.get((gene, psite), 1.0))
+#                 # IMPORTANT: site state is an amount, not an FC -> keep it small
+#                 y0[st + 2 + j] = max(eps, pho_frac * P0 * base_fc)
+#
+#     return y0
+
 def build_y0_from_data(
-        idx,
-        df_prot,
-        df_rna,
-        df_pho,
-        *,
-        t_init=None,  # integration start time (usually 0.0)
-        t0_prot=0.0,  # where protein baseline is defined in your loss
-        t0_rna=4.0,  # where RNA baseline is defined in your loss
-        t0_pho=0.0,  # where phospho baseline is defined in your loss
-        pho_frac=0.01,  # initial phospho mass as fraction of P0
-        eps=1e-9,
-        time_tol=1e-8
+    idx,
+    df_prot,
+    df_rna,
+    df_pho,
+    *,
+    t_init=0.0,
+    t0_pho=0.0,
+    eps=1e-9,
+    time_tol=1e-8,
+    max_pho_frac=0.3,   # at most 30% of protein initially phosphorylated
 ):
     """
-    Build y0 aligned with your state layout:
-      MODEL 0/1: [R, P0, Psite...]
-      MODEL 2:   [R, P(mask0), P(mask1)...]
-    Note: with fold-change data, absolute scaling is arbitrary. This picks safe, positive ICs.
+    Build y0 strictly from data with physically valid mass balance.
+
+    - RNA: first observed value per gene (earliest time in df_rna)
+    - Protein: value at t_init
+    - Phosphosite: data-scaled small fractions of protein (NOT normalized to 1)
     """
-    if t_init is None:
-        # you integrate from 0.0 in your code; keep that default
-        t_init = 0.0
 
-    # values at init time (what y0 represents)
+    # ------------------------------------------------------------------
+    # Protein ICs at t_init
+    # ------------------------------------------------------------------
     prot_init = _dict_at_time(df_prot, ["protein"], t_init, tol=time_tol)
-    rna_init = _dict_at_time(df_rna, ["protein"], t_init, tol=time_tol)
 
-    # if RNA not measured at t_init (common), fall back to RNA baseline time (often 4.0)
-    if not rna_init:
-        rna_init = _dict_at_time(df_rna, ["protein"], t0_rna, tol=time_tol)
+    # ------------------------------------------------------------------
+    # RNA ICs = FIRST observed value per gene
+    # ------------------------------------------------------------------
+    rna_init = {}
+    if df_rna is not None and not df_rna.empty:
+        d = df_rna.copy()
+        d["time"] = pd.to_numeric(d["time"], errors="coerce")
+        d["fc"] = pd.to_numeric(d["fc"], errors="coerce")
+        d = d.dropna(subset=["time", "fc"])
 
-    # phospho "baseline fc" at t0_pho: used only as a *relative* scaler
-    pho_base = _dict_at_time(df_pho, ["protein", "psite"], t0_pho, tol=time_tol)
+        d0 = (
+            d.sort_values("time")
+             .groupby("protein", as_index=False)
+             .first()
+        )
+        rna_init = dict(zip(d0["protein"], d0["fc"]))
 
+    # ------------------------------------------------------------------
+    # Phospho ICs at t0_pho (direct data lookup)
+    # ------------------------------------------------------------------
+    pho_init = _dict_at_time(
+        df_pho, ["protein", "psite"], t0_pho, tol=time_tol
+    )
+
+    # ------------------------------------------------------------------
+    # Allocate y0
+    # ------------------------------------------------------------------
     y0 = np.zeros(int(idx.state_dim), dtype=np.float64)
 
     for i, gene in enumerate(idx.proteins):
         st = int(idx.offset_y[i])
 
+        # -------------------
         # mRNA
+        # -------------------
         R0 = float(rna_init.get(gene, 1.0))
         y0[st] = max(R0, eps)
 
-        # protein / states
-        P0 = float(prot_init.get(gene, 1.0))
-        P0 = max(P0, eps)
+        # -------------------
+        # Protein total mass
+        # -------------------
+        P_tot = float(prot_init.get(gene, 1.0))
+        P_tot = max(P_tot, eps)
 
+        sites = idx.sites[i]
+        raw_pho = np.array(
+            [float(pho_init.get((gene, s), 0.0)) for s in sites],
+            dtype=np.float64
+        )
+
+        # Scale phospho signals into a bounded fraction of protein
+        if raw_pho.sum() > 0:
+            scale = min(max_pho_frac, max_pho_frac / raw_pho.sum())
+            site_mass = raw_pho * scale * P_tot
+        else:
+            site_mass = np.zeros_like(raw_pho)
+
+        site_mass = np.maximum(site_mass, 0.0)
+        pho_sum = site_mass.sum()
+
+        # -------------------
+        # Assign states
+        # -------------------
         if MODEL == 2:
-            # combinatorial: mask0 is st+1
-            y0[st + 1] = P0
+            # combinatorial
+            y0[st + 1] = max(P_tot - pho_sum, eps)
 
-            ns = int(idx.n_sites[i])
-            # put tiny mass into single-site masks so phospho denominators aren't zero
-            # (only meaningful if ns is small; MODEL==2 is infeasible for large ns anyway)
-            total_added = 0.0
-            for j, psite in enumerate(idx.sites[i]):
-                base_fc = float(pho_base.get((gene, psite), 1.0))
-                mass = max(eps, pho_frac * P0 * base_fc)
-                mask = 1 << j
-                y0[st + 1 + mask] = mass
-                total_added += mass
-
-            # conserve total mass roughly (optional but helps stability)
-            y0[st + 1] = max(eps, y0[st + 1] - total_added)
+            for j, mass in enumerate(site_mass):
+                if mass > 0:
+                    mask = 1 << j
+                    y0[st + 1 + mask] = max(mass, eps)
 
         else:
-            # distributive/sequential: P0 is st+1, sites are st+2...
-            y0[st + 1] = P0
-            ns = int(idx.n_sites[i])
-            for j, psite in enumerate(idx.sites[i]):
-                base_fc = float(pho_base.get((gene, psite), 1.0))
-                # IMPORTANT: site state is an amount, not an FC -> keep it small
-                y0[st + 2 + j] = max(eps, pho_frac * P0 * base_fc)
+            # distributive / sequential
+            y0[st + 1] = max(P_tot - pho_sum, eps)
+
+            for j, mass in enumerate(site_mass):
+                y0[st + 2 + j] = max(mass, eps)
 
     return y0
-
 
 # -----------------------------
 # Helpers
@@ -532,45 +710,3 @@ def steady_state_combinatorial(
         trans_from, trans_to, trans_site, trans_off, trans_n
     )
     return y, dy
-
-
-# -----------------------------
-# One wrapper: all models
-# -----------------------------
-def steady_state_all_models(
-        idx_distributive=None,
-        idx_sequential=None,
-        idx_combinatorial=None,
-        TF_inputs=None,
-        jb=0,
-        tf_scale=1.0,
-        verify_with_rhs=False,
-        **comb_kwargs
-):
-    """
-    Compute steady-state y (params=1) for any subset of models.
-    Returns dict: {"distributive": y, "sequential": y, "combinatorial": y}
-    """
-    out = {}
-
-    if idx_distributive is not None:
-        out["distributive"] = steady_state_distributive(
-            idx_distributive, TF_inputs=TF_inputs, tf_scale=tf_scale, verify_with_rhs=verify_with_rhs
-        )
-
-    if idx_sequential is not None:
-        out["sequential"] = steady_state_sequential(
-            idx_sequential, TF_inputs=TF_inputs, tf_scale=tf_scale, verify_with_rhs=verify_with_rhs
-        )
-
-    if idx_combinatorial is not None:
-        out["combinatorial"] = steady_state_combinatorial(
-            idx_combinatorial,
-            TF_inputs=TF_inputs,
-            jb=jb,
-            tf_scale=tf_scale,
-            verify_with_rhs=verify_with_rhs,
-            **comb_kwargs
-        )
-
-    return out

@@ -4,7 +4,8 @@ import pandas as pd
 from global_model.buildmat import site_key
 from global_model.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
 from global_model.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
-from global_model.steadystate import build_y0_from_data
+from global_model.steadystate import build_y0_from_data, steady_state_distributive, steady_state_sequential, \
+    steady_state_combinatorial
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
@@ -270,10 +271,9 @@ class System:
             self._ic_data["df_prot"],
             self._ic_data["df_rna"],
             self._ic_data["df_pho"],
-            t_init=0.0,
-            t0_prot=0.0,
-            t0_rna=4.0,
-            t0_pho=0.0,
+            MODEL=MODEL,
+            alpha=0.5,
+            logger=logger
         )
 
     def rhs(self, t, y):
@@ -429,7 +429,7 @@ class System:
                 self.trans_n,
 
                 self.tf_deg,
-                driver_map,  # <--- NEW
+                driver_map,
                 self.P_vec_work,
                 self.TF_in_work
             )
@@ -452,5 +452,5 @@ class System:
             self.idx.offset_s,
             self.idx.n_sites,
             self.tf_deg,
-            driver_map  # <--- NEW
+            driver_map
         )

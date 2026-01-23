@@ -9,6 +9,7 @@ from global_model.dashboard_bundle import save_dashboard_bundle
 from global_model.optuna_solver import run_optuna_solver
 from global_model.scan import run_hyperparameter_scan
 from global_model.sensitivity import run_sensitivity_analysis
+from global_model.steadystate import _dump_y0
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -165,11 +166,28 @@ def main():
         df_pho = normalize_fc_to_t0(df_pho)
         logger.info("[Data] Normalized protein and phospho FC to t=0.")
 
-    base = df_rna[df_rna["time"] == 4.0].set_index("protein")["fc"]
-    df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
-    df_rna = df_rna.dropna(subset=["fc"])
+    # base = df_rna[df_rna["time"] == 4.0].set_index("protein")["fc"]
+    # df_rna["fc"] = df_rna.apply(lambda r: r["fc"] / base.get(r["protein"], np.nan), axis=1)
+    # df_rna = df_rna.dropna(subset=["fc"])
 
     df_prot_raw = df_prot.copy()
+
+    # -------------------------------------------------------------------------
+    # STRICT MECHANISTIC PHOSPHO FILTER (drop any (protein, psite) not in df_kin)
+    # -------------------------------------------------------------------------
+    for _df in (df_kin, df_pho):
+        _df["protein"] = _df["protein"].astype(str).str.strip()
+    df_kin["psite"] = df_kin["psite"].astype(str).str.strip()
+    df_pho["psite"] = df_pho["psite"].astype(str).str.strip()
+
+    kin_site_pairs = set(zip(df_kin["protein"].values, df_kin["psite"].values))
+
+    n_before = len(df_pho)
+    pairs = list(zip(df_pho["protein"].values, df_pho["psite"].values))
+    keep = np.fromiter(((p, s) in kin_site_pairs for (p, s) in pairs), dtype=bool, count=len(pairs))
+    df_pho = df_pho.loc[keep].copy()
+
+    logger.info(f"[Phospho] Mechanistic site filter: {n_before} → {len(df_pho)} (dropped {n_before - len(df_pho)})")
 
     # -------------------------------------------------------------------------
     # Keep ONLY proteins that are observed in at least one modality (prot/rna/phospho)
@@ -500,6 +518,8 @@ def main():
             df_rna=df_rna,
             df_pho=df_pho
         )
+        sys.set_initial_conditions()
+        _dump_y0(sys, args.output_dir)
         logger.info("[Model] Initial conditions set from data.")
 
     # 5) Precompute loss data on solver time grid

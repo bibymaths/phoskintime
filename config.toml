@@ -293,7 +293,7 @@ n_trials  = 1000                      # Number of Optuna trials
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Pymoo)
 # ------------------------------------------------------------
-n_gen      = 500                       # Generations (runner arg: --n-gen)
+n_gen      = 1000                       # Generations (runner arg: --n-gen)
 pop        = 300                       # Population size (runner arg: --pop)
 refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
 num_refinements = 0                       # Number of refinements
@@ -303,8 +303,8 @@ loss = 0                        # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 4:
 # LOSS WEIGHTS (Regularization)
 # ------------------------------------------------------------
 lambda_prior   = 0.1                  # Weight for prior adherence (runner arg: --lambda-prior)
-lambda_protein = 5.0                   # Weight for protein error (runner arg: --lambda-protein)
-lambda_rna     = 0.5                   # Weight for RNA error (runner arg: --lambda-rna)
+lambda_protein = 1.0                   # Weight for protein error (runner arg: --lambda-protein)
+lambda_rna     = 1.0                   # Weight for RNA error (runner arg: --lambda-rna)
 lambda_phospho = 1.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
 
 # ------------------------------------------------------------
@@ -316,7 +316,7 @@ hyperparam_scan = false              # Enable hyperparameter scan
 # DATA INFERENCE FLAGS
 # ------------------------------------------------------------
 normalize_fc_steady = false             # Normalize data to t=0 (runner arg: --normalize-fc-steady)
-use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
+use_initial_condition_from_data = false  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
 
 # ------------------------------------------------------------
 # DATA SCALING OPTIONS
@@ -401,4 +401,4 @@ default_model = "distributive"
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = true
+use_custom_solver = false

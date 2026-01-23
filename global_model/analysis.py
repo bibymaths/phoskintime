@@ -68,7 +68,7 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir):
             # Plot Phospho
             ax_phos.plot(t, total_phos, color='#d62728', linewidth=2, label="Total Phospho")
             # Plot individual sites (top 3 to avoid clutter)
-            for j in range(min(ns, 3)):
+            for j in range(ns):
                 site_name = idx.sites[i][j]
                 ax_phos.plot(t, p_phos_states[:, j], linestyle="--", alpha=0.6, label=site_name)
             ax_phos.legend(fontsize=8)
