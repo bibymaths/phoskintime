@@ -1,3 +1,18 @@
+"""
+System State and Topology Management Module.
+
+This module defines the core data structures that represent the biological system:
+1.  **Index:** Manages the mapping between biological names (Proteins, Sites) and
+    numerical indices in the state vector. It handles the complex logic of
+    "Proxy Redirection" for orphan Transcription Factors.
+2.  **KinaseInput:** Interpolates experimental kinase data onto the simulation time grid.
+3.  **System:** The central container holding all parameters, sparse matrices (CSR),
+    and logic required to evaluate the differential equations. It acts as the bridge
+    between high-level Python objects and the low-level Numba JIT kernels.
+
+
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -11,6 +26,18 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 class Index:
+    """
+    Manages the indexing of the state vector Y and network topology.
+
+    The state vector Y is a flattened array containing all species.
+    For $N$ proteins, the layout depends on the MODEL type:
+
+
+
+    - **Distributive/Sequential:** [mRNA_i, Prot_i, Site_i_1, Site_i_2, ...]
+    - **Combinatorial:** [mRNA_i, Prot_state_0, Prot_state_1, ..., Prot_state_2^n]
+    """
+
     def __init__(self,
                  interactions: pd.DataFrame,
                  tf_interactions: pd.DataFrame = None,
@@ -46,6 +73,10 @@ class Index:
         self.k2i = {k: i for i, k in enumerate(self.kinases)}
 
         # --- 2. Orphan TF Redirection (The Proxy Update) ---
+        # 
+        # "Orphan TFs" are regulators with no upstream kinase in the data.
+        # To avoid them being static, we assume feedback: if Orphan A regulates Kinase B,
+        # we treat A's activity as proportional to B (A is a "Proxy" for B).
         proxy_map = {}
         if tf_interactions is not None:
             # Orphans = TFs in the regulatory network that have NO sites in the signaling data
@@ -137,6 +168,11 @@ class Index:
 
 
 class KinaseInput:
+    """
+    Manages the external Kinase signal inputs $K(t)$.
+    Interpolates sparse experimental observations onto the solver's dense time grid.
+    """
+
     def __init__(self, kinases, df_fc):
         self.grid = TIME_POINTS_PROTEIN
         self.Kmat = np.ones((len(kinases), len(self.grid)), float)
@@ -147,9 +183,11 @@ class KinaseInput:
                     mp_fc = dict(zip(sub["time"], sub["fc"]))
                     for j, t in enumerate(self.grid):
                         if t in mp_fc:
+                            # Clamp to small epsilon to prevent zeros
                             self.Kmat[i, j] = max(mp_fc[t], 1e-6)
 
     def eval(self, t):
+        """Returns the kinase activity vector at time t (using step interpolation)."""
         if t <= self.grid[0]:
             return self.Kmat[:, 0]
         if t >= self.grid[-1]:
@@ -159,6 +197,17 @@ class KinaseInput:
 
 
 class System:
+    """
+    The central Simulation Object.
+
+    Holds:
+    1.  Parameters (Arrays $A_i, B_i, \dots$).
+    2.  Network Topology Matrices (Sparse CSR format).
+    3.  Initial Conditions logic.
+    4.  The `rhs` method (Python-side derivative calculation).
+    5.  Argument packing logic for Numba JIT kernels.
+    """
+
     def __init__(self, idx, W_global, tf_mat, kin_input, defaults, tf_deg):
         self._ic_data = None
         self.idx = idx
@@ -169,6 +218,7 @@ class System:
         self.custom_y0 = None
         # ------------------------------------------------------------
         # Parameters (force dtype/contiguity ONCE)
+        # Numba is faster with C-contiguous float64 arrays
         # ------------------------------------------------------------
         self.c_k = np.ascontiguousarray(defaults["c_k"], dtype=np.float64)
         self.A_i = np.ascontiguousarray(defaults["A_i"], dtype=np.float64)
@@ -193,8 +243,9 @@ class System:
             self.p_indices = np.ascontiguousarray(self.idx.offset_y + 1, dtype=np.int32)
 
         # ------------------------------------------------------------
-        # CSR buffers for njit RHS (W matrix)
+        # CSR buffers for njit RHS (W matrix: Kinase -> Site)
         # ------------------------------------------------------------
+        # 
         W = self.W_global.tocsr()
         self.W_indptr = W.indptr.astype(np.int32, copy=False)
         self.W_indices = W.indices.astype(np.int32, copy=False)
@@ -202,7 +253,7 @@ class System:
         self.n_W_rows = W.shape[0]
 
         # ------------------------------------------------------------
-        # CSR buffers for TF matrix
+        # CSR buffers for TF matrix (Regulator -> Gene)
         # ------------------------------------------------------------
         TF = self.tf_mat.tocsr()
         self.TF_indptr = TF.indptr.astype(np.int32, copy=False)
@@ -230,7 +281,7 @@ class System:
             self.TF_in_work = np.zeros(self.n_TF_rows, dtype=np.float64)
             self.S_cache = np.zeros((self.n_W_rows, self.kin_Kmat.shape[1]), dtype=np.float64)
 
-            # precomputed transition lists
+            # precomputed transition lists for the combinatorial hypercube graph
             (
                 self.trans_from,
                 self.trans_to,
@@ -240,6 +291,7 @@ class System:
             ) = build_random_transitions(idx)
 
     def update(self, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale):
+        """Updates the system parameters from the optimizer."""
         self.c_k[:] = c_k
         self.A_i[:] = A_i
         self.B_i[:] = B_i
@@ -250,6 +302,7 @@ class System:
         self.tf_scale = float(tf_scale)
 
     def attach_initial_condition_data(self, df_prot, df_rna, df_pho):
+        """Attaches experimental data used to calculate t=0 state."""
         if self._ic_data is not None:
             raise RuntimeError("Initial-condition data already attached to System")
         self._ic_data = dict(
@@ -260,6 +313,7 @@ class System:
         logger.info("[Model] Initial condition data attached successfully.")
 
     def set_initial_conditions(self):
+        """Derives the y0 vector from attached experimental data."""
         if self._ic_data is None:
             raise RuntimeError(
                 "Initial-condition data not attached. Call sys.attach_initial_condition_data(df_prot, df_rna, df_pho) before optimize."
@@ -273,6 +327,18 @@ class System:
         )
 
     def rhs(self, t, y):
+        """
+        Python-side Right-Hand Side evaluation.
+        Used primarily for testing or when live interactivity/debugging is needed.
+
+        Logic Flow:
+        1.  **Live-Drive:** Calculate Kinase Activity $Kt = K_{data}(t) \times c_k$.
+        2.  **Signaling:** Calculate Phospho-Drive $S = W \cdot Kt$.
+        3.  **Protein Aggregation:** Sum phospho-states to get total protein $P$.
+            *Crucially*, if a protein is a Kinase (or Proxy), overwrite its value with $Kt$.
+        4.  **Regulation:** Calculate TF inputs $TF_{in} = TF_{mat} \cdot P$.
+        5.  **Dynamics:** Call model-specific `_rhs` kernel.
+        """
         dy = np.zeros_like(y)
 
         # 1. Observed Kinase Activity (The Driver)
@@ -353,10 +419,11 @@ class System:
         return dy
 
     def y0(self) -> np.ndarray:
-
+        """Returns the initial state vector y0."""
         if getattr(self, "custom_y0", None) is not None:
             return np.array(self.custom_y0, dtype=np.float64, copy=True)
 
+        # Default fallback (rarely used if data attached)
         y = np.zeros(self.idx.state_dim, float)
         for i in range(self.idx.N):
             st = self.idx.offset_y[i]
@@ -374,6 +441,13 @@ class System:
         return y
 
     def odeint_args(self, S_cache=None):
+        """
+        Packs all system arrays into a tuple for the Numba JIT solver.
+
+        This method constructs the `driver_map` array, which tells the low-level solver
+        which proteins are actually Kinases (or Proxies) and should be "Driven" by
+        experimental data rather than simulated.
+        """
         # Create Driver Map for Numba
         # Maps Protein Index -> Kinase Index in Kt.
         # -1 means "Not driven" (use simulation).

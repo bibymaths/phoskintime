@@ -1,3 +1,22 @@
+"""
+Multi-Objective Optimization Problem Definition.
+
+This module defines the `GlobalODE_MOO` class, which wraps the biological simulation
+and loss calculation into a format compatible with the `pymoo` optimization framework.
+
+**Key Concepts:**
+1.  **Elementwise Problem:** Each member of the population (a parameter set) is evaluated individually.
+2.  **Three Objectives:** The optimizer simultaneously minimizes error for:
+    * Protein Abundance
+    * mRNA Abundance
+    * Phosphorylation Levels
+3.  **Prior Regularization:** A penalty term ensures parameters stay close to biologically plausible
+    priors derived from upstream analysis (KinOpt/TFOpt). This penalty is added to *all* objectives
+    to steer the entire Pareto front toward realistic regions.
+
+
+"""
+
 from typing import Tuple, Callable
 
 import numpy as np
@@ -11,14 +30,35 @@ from global_model.simulate import simulate_odeint
 
 class GlobalODE_MOO(ElementwiseProblem):
     """
-    Elementwise multiobjective optimization problem.
-    Objectives: [Protein Fit, RNA Fit, Phospho Fit]
-    Each objective includes normalized MSE and a prior regularization term.
+    Defines the multi-objective optimization problem for the ODE model.
+
+    Attributes:
+        sys (System): The biological system object (contains topology and matrices).
+        slices (dict): Mapping of parameter names to indices in the decision vector `x`.
+        loss_data (dict): Pre-processed experimental data arrays for fast loss calculation.
+        defaults (dict): Prior parameter values for regularization.
+        lambdas (dict): Hyperparameters controlling the strength of penalties/weights.
+        time_grid (np.ndarray): The common time grid for simulation.
+        fail_value (float): Penalty value assigned to objectives if simulation fails.
     """
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid,
                  xl, xu, fail_value=1e12, elementwise_runner=None):
+        """
+        Initialize the MOO problem.
 
+        Args:
+            sys: System object.
+            slices: Parameter slice dictionary.
+            loss_data: Dictionary of contiguous arrays for loss function.
+            defaults: Dictionary of default/prior parameter values.
+            lambdas: Dictionary containing weights for 'protein', 'rna', 'phospho', and 'prior'.
+            time_grid: Simulation timepoints.
+            xl: Lower bounds for parameters.
+            xu: Upper bounds for parameters.
+            fail_value: Objective value to return if ODE solver diverges.
+            elementwise_runner: Optional runner for parallel execution.
+        """
         # We optimize for 3 objectives: Protein, RNA, and Phospho
         super().__init__(
             n_var=len(xl),
@@ -39,17 +79,29 @@ class GlobalODE_MOO(ElementwiseProblem):
         # --- MODALITY NORMALIZATION FACTORS ---
         # Normalize by the sum of weights (number of data points * weight boost)
         # This ensures that an MSE of 0.1 in RNA is 'weighted' the same as 0.1 in Phospho
+        # despite potentially vastly different data counts or scales.
         self.norm_p = 1.0 / max(1e-6, np.sum(loss_data["w_prot"]))
         self.norm_r = 1.0 / max(1e-6, np.sum(loss_data["w_rna"]))
         self.norm_ph = 1.0 / max(1e-6, np.sum(loss_data["w_pho"]))
 
     def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluates a single parameter set `x`.
+
+        Steps:
+        1.  Unpack `x` into model parameters (A_i, c_k, etc.).
+        2.  Calculate regularization penalty (deviation from priors).
+        3.  Simulate the ODE system.
+        4.  Compute loss vs. experimental data.
+        5.  Return the 3 objective values.
+        """
         # 1. Parameter Unpacking
         p = unpack_params(x, self.slices)
         self.sys.update(**p)
 
         # 2. Prior Regularization (Adherence to kinopt/tfopt priors)
-        # Calculate mean squared percentage error from defaults
+        # Calculate mean squared percentage error from defaults.
+        # This keeps the parameters biologically grounded.
         reg_accumulator = 0.0
         reg_count = 0
         for k in ["A_i", "B_i", "C_i", "D_i", "E_i"]:
@@ -71,14 +123,17 @@ class GlobalODE_MOO(ElementwiseProblem):
                 mxstep=ODE_MAX_STEPS
             )
         except Exception:
+            # If solver crashes, return high penalty
             out["F"] = np.full(3, self.fail_value)
             return
 
+        # Check for NaNs or Inf in result
         if Y is None or not np.all(np.isfinite(Y)):
             out["F"] = np.full(3, self.fail_value)
             return
 
         # 4. Loss Calculation (Raw Sums)
+        # Uses the JIT-compiled loss function for speed
         loss_p_sum, loss_r_sum, loss_ph_sum = LOSS_FN(
             np.ascontiguousarray(Y),
             self.loss_data["p_prot"], self.loss_data["t_prot"], self.loss_data["obs_prot"], self.loss_data["w_prot"],
@@ -115,30 +170,33 @@ def get_weight_options(
         eps=1e-12,
 ):
     """
-    Return many weighting schemes as callables.
+    Generates a library of time-dependent weighting schemes.
 
-    Each scheme is a function f(t)->w (vectorized). You can apply:
-        df["w"] = df["time"].map(lambda t: wmap[t])  (or use vectorized form)
+
+
+    Time-series data often requires non-uniform weighting. For example:
+    - **Early Transients:** Often contain the most kinetic information, so we might boost early timepoints.
+    - **Late Steady-State:** Might be noisy or less relevant for initial kinetics.
 
     Parameters
     ----------
     time_points : array-like
-        All times you want schemes to support (e.g. np.unique(concat(TIME_POINTS, TIME_POINTS_RNA))).
+        All times you want schemes to support.
     rna_time_points : array-like or None
         Optional; used only for a couple RNA-friendly schemes.
     early_window : float or None
-        Times <= early_window are "early". If None, uses ~20% quantile of time_points.
+        Times <= early_window are "early". If None, uses ~20% quantile.
     center : float or None
-        Center for gaussian/logistic. If None, uses median(time_points).
+        Center for gaussian/logistic. If None, uses median.
     baseline : float or None
-        Baseline time (for "from_baseline" schemes). If None, uses min(time_points).
+        Baseline time (for "from_baseline" schemes).
     eps : float
-        Numerical floor.
+        Numerical floor to prevent division by zero.
 
     Returns
     -------
     dict[str, callable]
-        name -> function f(t)->w
+        Dictionary mapping scheme names (e.g., 'linear_early') to functions `f(t) -> weight`.
     """
     t = np.asarray(time_points, dtype=float)
     tmin, tmax = float(np.min(t)), float(np.max(t))
@@ -168,16 +226,16 @@ def get_weight_options(
 
     schemes = {}
 
-    # 1) Uniform
+    # 1) Uniform: Equal weight for all t
     schemes["uniform"] = lambda tt: np.ones_like(np.asarray(tt, dtype=float))
 
-    # 2) Linear early emphasis (your current style): higher weight for smaller t
+    # 2) Linear early emphasis: Higher weight at t=0, decays linearly
     schemes["linear_early"] = lambda tt: 1.0 + (tmax - np.asarray(tt, float)) / max(tmax, eps)
 
-    # 3) Linear late emphasis
+    # 3) Linear late emphasis: Higher weight at t=max
     schemes["linear_late"] = lambda tt: 1.0 + (np.asarray(tt, float) - tmin) / max(trng, eps)
 
-    # 4) Quadratic early emphasis
+    # 4) Quadratic early emphasis: Decays as t^2
     schemes["quad_early"] = lambda tt: 1.0 + ((tmax - np.asarray(tt, float)) / max(trng, eps)) ** 2
 
     # 5) Quadratic late emphasis
@@ -198,7 +256,7 @@ def get_weight_options(
     # 10) Log early emphasis (mild)
     schemes["log_early"] = lambda tt: 1.0 + np.log1p((tmax - np.asarray(tt, float)) / max(trng, eps))
 
-    # 11) Piecewise: upweight early window only
+    # 11) Piecewise: Step function boosting early window only
     schemes["piecewise_early_boost"] = lambda tt, boost=4.0: np.where(
         ((np.asarray(tt, float) - tmin) / max(trng, eps)) <= ewin,
         boost,
@@ -249,27 +307,27 @@ def build_weight_functions(
     Callable[[np.ndarray], np.ndarray],
 ]:
     """
-    Build modality-specific weight functions from selected schemes.
+    Factory to build modality-specific weight functions based on configuration.
 
     Parameters
     ----------
     time_points_protein:
-        Timepoints for protein/phospho modality (your TIME_POINTS_PROTEIN).
+        Timepoints for protein/phospho modality.
     time_points_rna:
-        Timepoints for RNA modality (your TIME_POINTS_RNA).
+        Timepoints for RNA modality.
     scheme_prot_pho:
-        Weighting scheme name for protein/phospho (must exist in get_weight_options output dict).
+        Weighting scheme name for protein/phospho (e.g., 'linear_early').
     scheme_rna:
-        Weighting scheme name for RNA (must exist in get_weight_options output dict).
+        Weighting scheme name for RNA (e.g., 'uniform').
     early_window_prot_pho:
-        Early window (minutes) used when building schemes for protein/phospho.
+        Definition of 'early' (in minutes) for protein data.
     early_window_rna:
-        Early window (minutes) used when building schemes for RNA.
+        Definition of 'early' (in minutes) for RNA data.
 
     Returns
     -------
     w_prot_pho, w_rna:
-        Two callables that take np.ndarray of times and return np.ndarray weights.
+        Two callables that take time arrays and return weight arrays.
     """
     tp_prot_pho = np.asarray(time_points_protein, dtype=float)
     tp_rna = np.asarray(time_points_rna, dtype=float)

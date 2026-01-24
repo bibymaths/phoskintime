@@ -1,3 +1,16 @@
+#! /usr/bin/env python3
+
+"""
+Exporting and Visualizing Simulation Results Module
+
+Export and visualize simulation results from global model optimization.
+
+This module provides functions for exporting and visualizing simulation results from global model optimization.
+It includes functions for exporting phosphorylation drive S, scanning prior regularization parameters,
+plotting phosphorylation drive S, generating diagnostic correlation plots, plotting residuals,
+and plotting boxplots of parameters across the Pareto front.
+"""
+
 import json
 import math
 import os
@@ -26,10 +39,17 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 def build_site_meta(idx):
     """
-    Returns parallel arrays of length idx.total_sites:
-      site_protein[s] = protein name for global site s
-      site_psite[s]   = psite label for global site s
-      site_local[s]   = local site index within that protein
+    Returns parallel arrays of length idx.total_sites.
+
+    Args:
+    ----
+    idx: Index object containing model-specific information.
+
+    Returns
+    -------
+    site_protein: np.ndarray of protein names for each site
+    site_psite: np.ndarray of psite labels for each site
+    site_local: np.ndarray of local site indices within each protein
     """
     total = int(idx.total_sites)
     site_protein = np.empty(total, dtype=object)
@@ -51,6 +71,11 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     """
     Saves a high-quality 3D Scatter plot of the Pareto Front.
     Highlights the 'selected' balanced solution if provided.
+
+    Args:
+        res: Optimization result object containing Pareto front data.
+        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
+        output_dir: Directory where plots will be saved.
     """
     logger.info("[Output] Generating 3D Pareto Plot...")
 
@@ -82,7 +107,11 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
 def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo"):
     """
     Saves a Parallel Coordinate Plot (PCP).
-    Great for visualizing trade-offs across normalized axes.
+
+    Args:
+        res: Optimization result object containing Pareto front data.
+        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
+        output_dir: Directory where plots will be saved.
     """
     logger.info("[Output] Generating Parallel Coordinate Plot...")
 
@@ -117,7 +146,11 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
 def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
     """
     Creates an animation of the Pareto Front evolution using standard Matplotlib.
-    Saves as .gif (universal) or .mp4 (if ffmpeg is installed).
+
+    Args:
+        res: Optimization result object containing Pareto front data.
+        output_dir: Directory where video will be saved.
+        filename: Name of the output video file.
     """
     logger.info("[Output] Rendering Optimization Video...")
 
@@ -213,6 +246,16 @@ def export_pareto_front_to_excel(
     Notes:
       - This can get HUGE if you have many Pareto points. Use top_k_trajectories.
       - The function assumes res.X and res.F exist.
+
+    Args:
+        res: Optimization result object containing Pareto front data.
+        sys: System object containing model-specific information.
+        idx: Index object containing protein/kinase metadata.
+        slices: Slices for trajectory data (e.g., time points for protein, RNA, and phospho data).
+        output_path: Path to save the Excel workbook.
+        weights = (w_prot, w_rna, w_phos) used for scalar score + ranking.
+        top_k_trajectories: None = export trajectories for all solutions; else only top K by scalar score.
+        t_points_p, t_points_r, t_points_ph: Optional time points for trajectory data.
     """
     X = np.asarray(res.X)
     F = np.asarray(res.F)
@@ -373,8 +416,17 @@ def export_pareto_front_to_excel(
 
 def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
     """
-    Given a merged df with suffixes, produce columns: fc_obs, fc_pred.
+    Standardizes a merged DataFrame with suffixes to produce columns: fc_obs, fc_pred.
     Supports common input names: fc, pred_fc, fc_obs/fc_pred already present.
+
+    Args:
+        df: DataFrame with merged data.
+        obs_suffix: Suffix for observed data columns.
+        pred_suffix: Suffix for predicted data columns.
+
+    Returns
+    -------
+        Standardized DataFrame with fc_obs and fc_pred columns.
     """
     if {"fc_obs", "fc_pred"}.issubset(df.columns):
         return df
@@ -412,8 +464,31 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
                          df_rna_obs, df_rna_pred,
                          df_phos_obs, df_phos_pred,
                          output_dir, file_prefix=""):
+    """
+    Plots goodness of fit for protein, RNA, and phosphorylation data.
+
+    Args:
+        df_prot_obs: Protein observed data DataFrame.
+        df_prot_pred: Protein predicted data DataFrame.
+        df_rna_obs: RNA observed data DataFrame.
+        df_rna_pred: RNA predicted data DataFrame.
+        df_phos_obs: Phosphorylation observed data DataFrame.
+        df_phos_pred: Phosphorylation predicted data DataFrame.
+        output_dir: Directory where plots will be saved.
+        file_prefix: Prefix for output file names.
+
+    """
 
     def _robust_sigma(residuals: np.ndarray) -> float:
+        """
+        Calculates robust standard deviation of residuals.
+
+        Args:
+            residuals: Array of residuals (predicted - observed).
+
+        Returns:
+            Robust standard deviation estimate.
+        """
         r = np.asarray(residuals, dtype=float)
         r = r[np.isfinite(r)]
         if r.size < 10:
@@ -587,7 +662,7 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
     )
 
     # ------------------------------------------------------------
-    # 3) Per-modality plots (same structure/layout)
+    # 3) Per-modality plots
     # ------------------------------------------------------------
     for typ in ["Protein", "RNA", "Phosphorylation"]:
         sub = combined[combined["Type"] == typ].copy()
@@ -617,13 +692,12 @@ def plot_gof_from_pareto_excel(
         score_col: str = "scalar_score",
 ):
     """
-    Uses the Excel produced by export_pareto_front_to_excel (your current version):
+    Uses the Excel produced by export_pareto_front_to_excel to plot goodness of fit
+
       - summary
       - traj_protein (sol_id, protein, time, pred_fc)
       - traj_rna     (sol_id, protein, time, pred_fc)
       - traj_phospho (sol_id, protein, psite, time, pred_fc)
-
-    Observations are NOT in Excel, so we take them from df_prot_obs_all / df_rna_obs_all.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -741,7 +815,7 @@ def plot_gof_from_pareto_excel(
             file_prefix=f"sol_{sid}_"
         )
 
-    logger.info(f"[Output] GoF plots generated for {len(sol_ids)} solutions into: {output_dir}")
+    logger.info(f"[Output] Goodness of fit plots generated for {len(sol_ids)} solutions into: {output_dir}")
 
 
 def export_results(
@@ -758,11 +832,16 @@ def export_results(
     """
     Export pre-computed observed + predicted trajectories and model parameters.
 
-    Writes:
-      - model_trajectories.csv
-      - model_parameters_genes.csv
-      - model_parameters_genes_psites.csv   (long format: protein x psite)
-      - model_parameters_kinases.csv
+    Args:
+        sys: System object containing model information.
+        idx: Index of the solution to export.
+        df_prot_obs: Protein observed data DataFrame.
+        df_rna_obs: RNA observed data DataFrame.
+        df_phos_obs: Phosphorylation observed data DataFrame.
+        df_pred_p: Protein predicted data DataFrame.
+        df_pred_r: RNA predicted data DataFrame.
+        df_pred_ph: Phosphorylation predicted data DataFrame.
+        output_dir: Directory where results will be saved.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -913,20 +992,11 @@ def save_gene_timeseries_plots(
         max_psites: int = None,  # only used for per_psite
 ):
     """
-    Save a 3-panel time-series plot for ONE gene symbol:
+    Save a 3-panel time-series plot for one protein link:
       - Protein observed vs predicted (fc vs fc_pred)
       - RNA observed vs predicted
-      - Phosphorylation observed vs predicted (either mean across psites or per-psite lines)
+      - Phosphorylation observed vs predicted (either mean across psites or per-psite lines
 
-    Expected inputs:
-      Protein/RNA obs columns:  protein, time, fc
-      Protein/RNA pred columns: protein, time, pred_fc OR fc_pred
-
-      Phospho obs columns:  protein, psite, time, fc
-      Phospho pred columns: protein, psite, time, pred_fc OR fc_pred
-
-    Output:
-      {output_dir}/{filename_prefix}_{gene}.png
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1100,6 +1170,12 @@ def save_gene_timeseries_plots(
 
 
 def scan_prior_reg(out_dir):
+    """
+    Scan prior regularization parameters and save Pareto front plots.
+
+    Args:
+        out_dir: Directory containing output files.
+    """
     F = np.load(os.path.join(out_dir, "pareto_F.npy"))
 
     if F.ndim != 2 or F.shape[1] != 3:
@@ -1180,8 +1256,12 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
     Export phosphorylation drive S for optimized parameters.
     S is per-site and per time-bin (TIME_POINTS_PROTEIN / sys.kin_grid).
 
-    long=True  -> columns: protein, psite, time, S
-    long=False -> wide: protein, psite, S_t0, S_t1, ...
+    Args:
+        sys: System object containing model information.
+        idx: Index of the solution to export.
+        output_dir: Directory where results will be saved.
+        filename: Name of the output file.
+        long: If True, output in long format (protein, psite, time, S); otherwise, wide format.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1256,16 +1336,7 @@ def plot_s_rates_report(
         dpi: int = 150,
 ) -> Path:
     """
-    Robust plotting for S_rates_picked.csv (protein, psite, time, S):
-      - Global summary pages (AUC top sites, early-vs-late scatter)
-      - For each protein:
-          * optional heatmap (sites x time) capped
-          * small-multiples time series pages (paginated), ranked by AUC
-    Outputs a single multi-page PDF (no clumped mega-figure).
-
-    Returns
-    -------
-    Path to saved PDF.
+    Plot phosphorylation drive S for optimized parameters.
     """
     csv_path = Path(csv_path)
     out_pdf = Path(out_pdf)
@@ -1619,9 +1690,14 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
 
 def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     """
-    Generates diagnostic correlation plots.
-    1. Kinase Parameter Correlation (across Pareto set)
-    2. Gene Parameter Correlation (across proteins in the best solution)
+    Plots kinase parameter correlation across Pareto front and gene parameter correlation for best solution.
+
+    Args:
+        res: Result object containing optimization results.
+        slices: Dictionary of parameter slices.
+        idx: Index object containing model indices.
+        output_dir: Directory where results will be saved.
+        best_idx: Index of the best solution to plot gene parameter correlations.
     """
     X = res.X
 
@@ -1698,10 +1774,8 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
 def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
     """
     Calculates and plots residuals (Observed - Predicted) for the best solution.
-    Helps identify systematic bias (e.g., 'Always under-predicts at t=10').
+    Helps identify systematic bias (e.g., 'Always under-predicts at t=10' or 'Always over-predicts at t=100').
     """
-    from global_model.simulate import simulate_and_measure
-
     # 1. Get Predictions on data timepoints
     # We need to extract the exact timepoints from the dataframes
     tp_p = df_prot["time"].unique()
@@ -1760,6 +1834,12 @@ def export_parameter_distributions(res, slices, idx, output_dir):
     """
     Plots boxplots of parameters across the ENTIRE Pareto front.
     Shows which parameters are 'identifiable' (tight box) vs 'sloppy' (wide box).
+
+    Args:
+        res: Optimization result object containing Pareto front data.
+        slices: Dictionary mapping parameter names to their column indices in res.X.
+        idx: Index object containing model-specific information.
+        output_dir: Directory where plots will be saved.
     """
     X = res.X
 

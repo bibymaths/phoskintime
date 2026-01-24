@@ -1,3 +1,22 @@
+"""
+Kinetic Model Kernels (Right-Hand Side Definitions).
+
+This module contains the JIT-compiled kernels that define the system of Ordinary Differential Equations (ODEs)
+for different biological kinetic assumptions.
+
+**Supported Models:**
+1.  **Distributive (Model 0):** Sites on the same protein are phosphorylated independently.
+    State space scales linearly with sites ($N_{sites} + 2$).
+2.  **Sequential (Model 1):** Phosphorylation occurs in a strict order ($P_0 \to P_1 \to \dots$).
+    Useful for processive kinases. State space is linear.
+3.  **Combinatorial (Model 2):** Every possible phosphorylation pattern is a distinct state.
+    State space scales exponentially ($2^{N_{sites}} + 1$). Handles complex logic like logic gates.
+4.  **Saturating (Model 4):** Uses Michaelis-Menten kinetics for translation and phosphorylation.
+    Prevents unbiological rate explosions at high concentrations.
+
+
+"""
+
 import numpy as np
 from numba import njit
 
@@ -8,11 +27,25 @@ from numba import njit
 @njit(fastmath=True, cache=True, nogil=True, inline='always')
 def calculate_synthesis_rate(Ai, tf_scale, u_raw):
     """
-    Rational (Hill-like) coupling with input squashing.
-    Maps unbounded TF input 'u' to a bounded synthesis rate.
+    Computes the transcription rate based on Transcription Factor (TF) input.
 
-    Activation (u > 0): Saturates at (1 + tf_scale) * Ai
-    Repression (u < 0): Decays to Ai / (1 + tf_scale)
+    Uses a rational (Hill-like) function that is numerically stable and bounded.
+
+
+
+    Logic:
+    - **Soft-Clipping:** The raw input `u` is first mapped to (-1, 1) to prevent
+      numerical overflow/instability using $u_{norm} = u / (1 + |u|)$.
+    - **Activation (u > 0):** Rate increases from $A_i$ to $A_i \times (1 + tf\_scale)$.
+    - **Repression (u < 0):** Rate decreases from $A_i$ to $A_i / (1 + tf\_scale)$.
+
+    Args:
+        Ai (float): Basal synthesis rate.
+        tf_scale (float): Maximum fold-change factor.
+        u_raw (float): Raw total TF input (weighted sum of regulators).
+
+    Returns:
+        float: The calculated synthesis rate.
     """
     # 1. Squash input to (-1, 1) to prevent numerical instability
     # This acts as a soft-clipping mechanism.
@@ -39,9 +72,18 @@ def calculate_synthesis_rate(Ai, tf_scale, u_raw):
 def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
     """
-    Model 4: Saturating Kinetics.
-    Prevents ballooning by applying Michaelis-Menten saturation to
-    Translation and Phosphorylation steps.
+    Right-Hand Side for Model 4: Saturating Kinetics.
+
+
+
+    Unlike other models that use Mass Action kinetics (Rate = k * [S]), this model
+    uses Michaelis-Menten forms (Rate = Vmax * [S] / (Km + [S])) for Translation
+    and Phosphorylation. This prevents "runaway" kinetics where high protein
+    concentrations lead to infinitely fast reactions.
+
+    Physics:
+    - **Translation:** Limited by ribosome availability.
+    - **Phosphorylation:** Limited by enzyme (kinase) availability relative to substrate.
     """
     N = A_i.shape[0]
     K_SAT = 1.0  # Saturation constant (normalized units)
@@ -89,7 +131,7 @@ def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
                 forward_flux = (s_rate_const * P) / (1.0 + P)
 
                 # Backward Rate (Dephosph) - Linear or Saturating
-                # Linear is usually stable enough for phosphatase
+                # Linear is usually stable enough for phosphatase (high capacity)
                 backward_flux = E_i[i] * ps_val
 
                 sum_S_flux += forward_flux
@@ -97,6 +139,7 @@ def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
 
                 # Phospho-site state equation
                 Dpi = Dp_i[si]
+                # Note: Includes base protein degradation (Di) + specific phospho-decay (Dpi)
                 dy[yi] = forward_flux - (Dpi + D_i[i]) * ps_val - backward_flux
 
             # Unphosph protein equation
@@ -106,6 +149,13 @@ def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
 @njit(fastmath=True, cache=True, nogil=True)
 def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                      offset_y, offset_s, n_sites):
+    """
+    Right-Hand Side for Model 0: Distributive (Independent) Binding.
+
+    Assumes that the phosphorylation status of one site does not affect others.
+    We track the Unphosphorylated species $P$ and $N_{sites}$ distinct mono-phosphorylated species.
+    This is a simplification that ignores multi-phosphorylated states but captures individual site dynamics efficiently.
+    """
     N = A_i.shape[0]
 
     for i in range(N):
@@ -155,6 +205,7 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 
                 # Added protein degradation term to each phospho state decay
                 # Explanation - Phosphorylated protein is still the same protein, but has a different state
+                # Decay = (Dephosphorylation Rate + Specific Decay + Global Decay)
                 dy[yi] = s_rate * P - (Ei + Dpi + Di) * ps_val
 
             # unphosph protein
@@ -164,6 +215,15 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 @njit(fastmath=True, cache=True, nogil=True)
 def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
+    """
+    Right-Hand Side for Model 1: Sequential Binding.
+
+    Assumes phosphorylation must happen in a specific order:
+    $P_0 \xrightarrow{k_0} P_1 \xrightarrow{k_1} P_2 \dots \xrightarrow{k_{n-1}} P_n$
+
+    Dephosphorylation is assumed to be distributive (any state can revert to the previous one).
+    This model is suitable for processive kinases or mechanisms with strict steric requirements.
+    """
     N = A_i.shape[0]
 
     for i in range(N):
@@ -196,6 +256,7 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
             continue
 
         # --- P0 (unphosph) ---
+        # Consumed by k0 (first step), produced by dephosphorylation of P1
         k0 = S_all[s_start + 0]
         P1 = y[base + 0]
         dy[idx_P0] = Ci * R - Di * P0 - k0 * P0 + Ei * P1
@@ -215,7 +276,6 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         Dp1 = Dp_i[s_start + 0]
 
         # Added protein degradation term to each phospho state decay
-        # Explanation - Phosphorylated protein is still the same protein, but has a different state
         dy[base + 0] = k0 * P0 + Ei * P2 - (k1 + Ei + Dp1 + Di) * P1
 
         # --- middle states: P2..P(ns-1) ---
@@ -232,8 +292,7 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
 
             Dpj = Dp_i[s_start + j]  # j=1 corresponds to P2, etc.
 
-            # Added protein degradation term to each phospho state decay
-            # Explanation - Phosphorylated protein is still the same protein, but has a different state
+            # Flux in from left, Flux in from right (dephos), Flux out to right, Flux out to left (dephos), Decay
             dy[idx] = k_prev * P_prev + Ei * P_next - (k_next + Ei + Dpj + Di) * Pj
 
         # --- last state: Pns (index base + ns - 1) ---
@@ -244,12 +303,15 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
         Dp_last = Dp_i[s_start + (ns - 1)]
 
         # Added protein degradation term to each phospho state decay
-        # Explanation - Phosphorylated protein is still the same protein, but has a different state
         dy[idx_last] = k_last * Pprev - (Ei + Dp_last + Di) * Plast
 
 
 @njit(cache=True, nogil=True)
 def _bit_index_from_lsb(lsb):
+    """
+    Fast conversion of a Least Significant Bit (power of 2) to its integer index.
+    e.g., 4 (binary 100) -> 2.
+    """
     j = 0
     while lsb > 1:
         lsb >>= 1
@@ -266,6 +328,19 @@ def combinatorial_rhs(
         n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n
 ):
+    """
+    Right-Hand Side for Model 2: Combinatorial Binding.
+
+
+
+    Tracks all $2^N$ possible states. This allows for complex logic (e.g., "Site A facilitates Site B").
+
+    The state transition logic is split into:
+    1.  **Dephosphorylation (Implicit Graph):** Iterates over all states `m`. For every set bit in `m`, 
+        calculates decay to `m ^ lsb`.
+    2.  **Phosphorylation (Explicit Graph):** Uses pre-calculated `trans_*` arrays to apply forward 
+        transitions based on available sites.
+    """
     N = A_i.shape[0]
     jb_loc = jb  # local binding helps Numba
 
@@ -300,13 +375,13 @@ def combinatorial_rhs(
 
         nstates = n_states[i]
 
-        # translation into mask=0
+        # translation adds to the totally unphosphorylated state (mask=0)
         dy[idx_P0] += Ci * R
 
-        # decay for all states
+        # --- Decay & Dephosphorylation Loop ---
         base = idx_P0
 
-        # m = 0 state uses Di
+        # m = 0 (Unphos) state only has basic decay
         P0 = y[base]
         dy[base] += -Di * P0
 
@@ -319,12 +394,13 @@ def combinatorial_rhs(
             mm = m
             dp_rate = 0.0
 
+            # Iterate over set bits in state m to find decay paths
             while mm != 0:
-                lsb = mm & -mm
-                mm -= lsb
+                lsb = mm & -mm  # Extract lowest set bit
+                mm -= lsb  # Remove it for next iter
 
                 j = _bit_index_from_lsb(lsb)  # 0..ns-1
-                to = m ^ lsb
+                to = m ^ lsb  # Target state (current state minus one phospho group)
 
                 # dephosph transition: m -> to at rate Ei * Pm (per set bit)
                 flux = Ei * Pm
@@ -339,7 +415,8 @@ def combinatorial_rhs(
             # apply summed per-site decay to this mask
             dy[base + m] -= dp_rate * Pm
 
-        # forward phosphorylation transitions
+        # --- Phosphorylation Loop (Forward Transitions) ---
+        # Uses pre-calculated sparse graph structure
         off = trans_off[i]
         ntr = trans_n[i]
         for k in range(ntr):
@@ -347,6 +424,7 @@ def combinatorial_rhs(
             to = trans_to[off + k]
             j = trans_site[off + k]
 
+            # Rate depends on time bucket 'jb_loc'
             rate = S_cache[s_start + j, jb_loc]
             flux = rate * y[base + frm]
 
@@ -356,7 +434,9 @@ def combinatorial_rhs(
 
 def build_random_transitions(idx):
     """
-    Precompute random phosphorylation transitions for all proteins.
+    Precompute random phosphorylation transitions for all proteins (Model 2 Setup).
+
+    Constructs the sparse adjacency list for the hypercube state graph.
 
     Returns arrays for Numba:
       trans_from, trans_to, trans_site  (flattened)
@@ -385,6 +465,7 @@ def build_random_transitions(idx):
         nstates = 1 << ns
         for m in range(nstates):
             for j in range(ns):
+                # If bit j is NOT set in m, we can transition to m | (1<<j)
                 if (m & (1 << j)) == 0:
                     mp = m | (1 << j)
                     trans_from.append(m)

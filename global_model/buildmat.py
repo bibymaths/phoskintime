@@ -1,6 +1,17 @@
-import re
+"""
+Network Matrix Construction Module.
 
-import numpy as np
+This script handles the construction of the two primary connectivity matrices
+used in the global simulation:
+1.  **W Matrix (Kinase-Substrate):** A sparse matrix defining the phosphorylation
+    rates from kinases to specific phosphosites. It is built in parallel to handle
+    large interactomes.
+2.  **TF Matrix (Transcription Factor-Gene):** A sparse matrix defining the
+    transcriptional regulation strengths. It includes logic to handle "proxy"
+    TFs (orphans mapped to kinases).
+"""
+
+import re
 import multiprocessing as mp
 
 import pandas as pd
@@ -12,6 +23,18 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def site_key(site: str) -> int:
+    """
+    Extracts the numerical position from a phosphosite string for sorting.
+
+    Args:
+        site (str): e.g., "S473" or "Y1068".
+
+    Returns:
+        int: The integer position (e.g., 473).
+
+    Raises:
+        ValueError: If no digits are found in the string.
+    """
     m = re.search(r"\d+", site)
     if m is None:
         raise ValueError(f"Invalid site format: {site}")
@@ -19,6 +42,18 @@ def site_key(site: str) -> int:
 
 
 def _build_single_W(args):
+    """
+    Worker function to build the sub-matrix W for a single protein.
+
+    Constructs a sparse matrix of shape $(N_{sites}, N_{kinases})$ for the
+    specific protein $p$. The values are determined by the interaction strength $\alpha$.
+
+    Args:
+        args (tuple): (protein_name, interactions_df, sites_list, kinase_map, n_kinases)
+
+    Returns:
+        scipy.sparse.csr_matrix: The local W matrix for the given protein.
+    """
     p, interactions, sites_i, k2i, n_kinases = args
 
     # Sort sites for consistent row ordering
@@ -40,6 +75,7 @@ def _build_single_W(args):
 
             # --- CRITICAL FIX: Use the 'alpha' column ---
             # Default to 1.0 if missing, but it should be there from load_data
+            # Weight represents the base catalytic efficiency or affinity.
             weight = float(r.get("alpha", 1.0))
             data.append(weight)
 
@@ -48,6 +84,24 @@ def _build_single_W(args):
 
 
 def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_matrix:
+    """
+    Constructs the Global Kinase-Substrate Matrix W using parallel processing.
+
+
+
+    The global matrix is a vertical stack of local matrices:
+    $$
+    W_{global} = \begin{bmatrix} W_{protein_1} \\ W_{protein_2} \\ \vdots \end{bmatrix}
+    $$
+
+    Args:
+        interactions (pd.DataFrame): Dataframe containing 'protein', 'psite', 'kinase', and 'alpha'.
+        idx (IndexMap): Object containing mappings (sites, k2i, proteins).
+        n_cores (int): Number of parallel processes to use.
+
+    Returns:
+        sparse.csr_matrix: The global interaction matrix.
+    """
     logger.info(f"[Model] Building W matrices in parallel using {n_cores} cores...")
 
     # Prepare tasks
@@ -68,6 +122,28 @@ def build_W_parallel(interactions: pd.DataFrame, idx, n_cores=4) -> sparse.csr_m
 
 
 def build_tf_matrix(tf_net, idx, tf_beta_map=None, kin_beta_map=None):
+    """
+    Constructs the Transcription Factor Regulation Matrix.
+
+    This matrix defines the influence of TFs on target genes.
+    The edge weight is calculated as:
+    $$ W_{ij} = \alpha_{ij} \times \beta_{tf} $$
+    where $\alpha$ is the edge strength and $\beta$ is the activity multiplier.
+
+    **Proxy Logic:**
+    If a TF is mapped as a "proxy" (i.e., an orphan TF whose activity is inferred
+    from a kinase), we use the kinase's beta value (`kin_beta_map`) instead of
+    the TF's beta.
+
+    Args:
+        tf_net (pd.DataFrame): TF-Target interactions with 'tf', 'target', and 'alpha'.
+        idx (IndexMap): Object containing mappings (p2i, proxy_map).
+        tf_beta_map (dict, optional): Multipliers for standard TFs.
+        kin_beta_map (dict, optional): Multipliers for kinases (used for proxies).
+
+    Returns:
+        sparse.csr_matrix: An $(N, N)$ matrix where rows=targets, cols=TFs.
+    """
     if tf_beta_map is None: tf_beta_map = {}
     if kin_beta_map is None: kin_beta_map = {}
 
