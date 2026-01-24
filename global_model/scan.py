@@ -1,3 +1,22 @@
+"""
+Hyperparameter Tuning Module (Optuna + Pymoo).
+
+This module implements an "Outer Loop" optimization to tune the hyperparameters of the
+loss function itself (specifically, the regularization weights $\lambda_{protein}, \lambda_{RNA}, \dots$).
+
+**Architecture: Nested Optimization**
+1.  **Outer Loop (Optuna):** Bayesian Optimization searches for the best set of objective weights ($\lambda$).
+2.  **Inner Loop (Pymoo):** For each set of weights, a short Genetic Algorithm (UNSGA3) runs to estimate
+    how well the model *could* fit the data with those priorities.
+
+
+
+**Key Features:**
+* **Live Dashboard:** Launches the `optuna-dashboard` to visualize parameter importance and Pareto fronts in real-time.
+* **Pruning:** Uses `OptunaPruningCallback` to terminate unpromising Pymoo runs early, saving compute time.
+* **Persistent Storage:** Saves all trials to an SQLite database, enabling pause/resume functionality.
+"""
+
 import optuna
 import pandas as pd
 import numpy as np
@@ -41,16 +60,27 @@ logger = logging.getLogger(__name__)
 
 # --- Pymoo Callback for Pruning ---
 class OptunaPruningCallback(Callback):
+    """
+    Bridges Pymoo's internal generational loop with Optuna's pruning API.
+
+    This allows the outer Optuna loop to kill a running Pymoo optimization
+    if the intermediate results (at `gen_step` intervals) are significantly
+    worse than the median of previous trials.
+    """
+
     def __init__(self, trial, gen_step=5):
         super().__init__()
         self.trial = trial
         self.gen_step = gen_step
 
     def notify(self, algorithm):
+        # Check every 'gen_step' generations
         if algorithm.n_gen % self.gen_step == 0:
             pop = algorithm.pop
             F = pop.get("F")
-            # Metric: Sum of MSEs of the best solution
+
+            # Metric: Sum of MSEs of the best solution in the current population.
+            # We use a scalar aggregate because Optuna minimizes a single scalar value.
             current_score = np.min(np.sum(F, axis=1))
 
             self.trial.report(current_score, algorithm.n_gen)
@@ -60,7 +90,13 @@ class OptunaPruningCallback(Callback):
 
 class BioObjective:
     """
-    Wraps the Pymoo optimization pipeline for Optuna.
+    The Function-Object (Functor) optimized by Optuna.
+
+    Represents one "Trial":
+    1. Receives hyperparameters ($\lambda$) from Optuna.
+    2. Constructs the `GlobalODE_MOO` problem with these weights.
+    3. Runs a reduced-scope Genetic Algorithm (UNSGA3).
+    4. Returns the best achieved error score.
     """
 
     def __init__(self, sys, loss_data, defaults, time_grid, runner, args, slices, xl, xu):
@@ -76,7 +112,7 @@ class BioObjective:
 
     def __call__(self, trial):
         try:
-            # 1. Suggest Hyperparameters
+            # 1. Suggest Hyperparameters (The "Outer" Variables)
             l_prot = trial.suggest_float("lambda_protein", 1.0, 20.0)
             l_phos = trial.suggest_float("lambda_phospho", 0.5, 5.0)
             l_rna = trial.suggest_float("lambda_rna", 0.1, 2.0)
@@ -95,6 +131,7 @@ class BioObjective:
                 raise ValueError("Elementwise runner is None! Check runner.py initialization.")
 
             # 2. Build Problem
+            # The weights determined above are injected here into the inner optimization problem
             problem = GlobalODE_MOO(
                 sys=self.sys,
                 slices=self.slices,
@@ -107,7 +144,8 @@ class BioObjective:
                 elementwise_runner=self.runner
             )
 
-            # 3. Fast Optimization
+            # 3. Fast Optimization (Inner Loop)
+            # We run a "Lite" version of the genetic algorithm (fewer gens) to save time.
             SCAN_GEN = max(40, self.args.n_gen // 5)
             ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=12)
 
@@ -121,6 +159,7 @@ class BioObjective:
 
             pruning_callback = OptunaPruningCallback(trial, gen_step=5)
 
+            # Execute the inner GA
             res = pymoo_minimize(
                 problem,
                 algorithm,
@@ -133,10 +172,12 @@ class BioObjective:
             if res.F is None or len(res.F) == 0:
                 return float("inf")
 
+            # Calculate the weighted aggregated score
             scores = (l_prot * res.F[:, 0]) + (l_rna * res.F[:, 1]) + (l_phos * res.F[:, 2])
             best_score = np.min(scores)
             best_idx = np.argmin(scores)
 
+            # Report individual components as custom attributes for analysis
             trial.set_user_attr("mse_prot", float(res.F[best_idx, 0]))
             trial.set_user_attr("mse_rna", float(res.F[best_idx, 1]))
             trial.set_user_attr("mse_phos", float(res.F[best_idx, 2]))
@@ -154,7 +195,28 @@ class BioObjective:
 
 def run_hyperparameter_scan(args, sys, loss_data, defaults, time_grid, runner, slices, xl, xu):
     """
-    Orchestrates the Optuna study, launches dashboard, and saves results.
+    Main driver for the Hyperparameter Scan.
+
+    Orchestrates the entire tuning process:
+    1.  Sets up the persistent SQLite database.
+    2.  Launches the Optuna Dashboard in a background thread.
+    3.  Runs the optimization loop.
+    4.  Exports results (Excel + Plots).
+
+
+
+    Args:
+        args: Configuration arguments.
+        sys: System object.
+        loss_data: Pre-computed loss indices.
+        defaults: Default parameters.
+        time_grid: Simulation timepoints.
+        runner: Parallel runner for Pymoo.
+        slices: Parameter slices.
+        xl, xu: Parameter bounds.
+
+    Returns:
+        dict: The best set of hyperparameters found.
     """
     logger.info("=" * 60)
     logger.info("STARTING HYPERPARAMETER SCAN (OPTUNA + DASHBOARD)")
@@ -211,7 +273,8 @@ def run_hyperparameter_scan(args, sys, loss_data, defaults, time_grid, runner, s
 
     # --- 3. Run Optimization ---
     try:
-        # Run at least 20 trials
+        # Run at least 20 trials. n_jobs=8 parallelizes the *Outer* loop (multiple trials at once).
+        # Note: Be careful with n_jobs if the Inner loop is also parallelized.
         study.optimize(objective, n_trials=20, show_progress_bar=True, n_jobs=8)
     except KeyboardInterrupt:
         logger.info("[Scan] Interrupted by user. Saving current progress...")

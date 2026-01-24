@@ -1,3 +1,19 @@
+#! usr/bin/python
+
+"""
+Main Driver for PhosKinTime Global Model.
+
+This script runs the optimization and analysis steps of the PhosKinTime Global Model.
+It loads the data, builds the model, and runs the optimization.
+
+The script can be run in two modes:
+1. Standard optimization: run_optuna_solver()
+2. Sensitivity analysis: run_sensitivity_analysis()
+
+The script can also be run in parallel using the multiprocessing module.
+This is useful for running the optimization on multiple cores.
+To enable parallel execution, set the CORES environment variable to the number of cores to use.
+"""
 import argparse
 import atexit
 import json

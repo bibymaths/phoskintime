@@ -460,6 +460,7 @@ def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
     out.rename(columns={obs_col: "fc_obs", pred_col: "fc_pred"}, inplace=True)
     return out
 
+
 def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
                          df_rna_obs, df_rna_pred,
                          df_phos_obs, df_phos_pred,
@@ -571,10 +572,12 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
         d95 = z95 * sigma
         d99 = z99 * sigma
 
-        ax.plot([xmin, xmax], [xmin + d95, xmax + d95], color="gray", linestyle="--", lw=1.2, alpha=0.8, label="95% band")
+        ax.plot([xmin, xmax], [xmin + d95, xmax + d95], color="gray", linestyle="--", lw=1.2, alpha=0.8,
+                label="95% band")
         ax.plot([xmin, xmax], [xmin - d95, xmax - d95], color="gray", linestyle="--", lw=1.2, alpha=0.8)
 
-        ax.plot([xmin, xmax], [xmin + d99, xmax + d99], color="gray", linestyle=":", lw=1.2, alpha=0.8, label="99% band")
+        ax.plot([xmin, xmax], [xmin + d99, xmax + d99], color="gray", linestyle=":", lw=1.2, alpha=0.8,
+                label="99% band")
         ax.plot([xmin, xmax], [xmin - d99, xmax - d99], color="gray", linestyle=":", lw=1.2, alpha=0.8)
 
         # metrics (identity RMSE + R2 of regression)
@@ -673,7 +676,6 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
             title_suffix=f" ({typ})",
             out_name=f"{file_prefix}goodness_of_fit_{typ}.png"
         )
-
 
 
 def plot_gof_from_pareto_excel(

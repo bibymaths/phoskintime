@@ -1,3 +1,23 @@
+"""
+Native Optuna Optimization Engine (MOTPE).
+
+This module provides an alternative optimization backend using Optuna's
+Multi-Objective Tree-structured Parzen Estimator (MOTPE). It is designed to replace
+or coexist with the Pymoo genetic algorithm.
+
+**Key Features:**
+1.  **Bayesian Optimization:** Uses MOTPE to efficiently explore the parameter space
+    by modeling the probability density of good vs. bad solutions.
+2.  **Persistent Storage:** Saves all trial data to a local SQLite database (`optimization.db`),
+    allowing pause/resume and post-hoc analysis.
+3.  **Live Dashboard:** Optionally launches the `optuna-dashboard` for real-time
+    visualization of the Pareto front and parameter importances.
+4.  **Vectorized Loss:** Implements a high-performance objective function that avoids
+    Python loops during evaluation.
+
+
+"""
+
 import numpy as np
 import optuna
 import logging
@@ -8,7 +28,7 @@ import webbrowser
 from dataclasses import dataclass
 from typing import List
 
-# Check for dashboard
+# Check for dashboard support (optional dependency)
 try:
     from optuna_dashboard import run_server
 
@@ -27,6 +47,9 @@ logger = logging.getLogger(__name__)
 class OptunaResult:
     """
     Standardized result container to ensure compatibility with existing export scripts.
+
+    This mimics the structure of Pymoo's Result object so that downstream plotting
+    and export functions don't need to change.
     """
     X: np.ndarray  # Best Parameters (n_solutions, n_vars)
     F: np.ndarray  # Best Objectives (n_solutions, n_objs)
@@ -38,6 +61,12 @@ class OptunaResult:
 class NativeOptunaObjective:
     """
     The optimization kernel designed specifically for Optuna.
+
+    This class is callable `objective(trial)` and handles the entire evaluation pipeline:
+    Parameter Suggestion -> System Update -> ODE Simulation -> Loss Calculation.
+
+    It pre-calculates array indices (`_build_fast_indices`) to enable fully vectorized
+    loss computation, which is critical for performance when running thousands of trials.
     """
 
     def __init__(self, sys, slices, loss_data, time_grid, lambdas, xl, xu):
@@ -54,12 +83,12 @@ class NativeOptunaObjective:
         self.w_rna = loss_data.get("w_rna", 1.0)
         self.w_pho = loss_data.get("w_pho", 1.0)
 
-        # Build fast indices
+        # Build fast indices to avoid dictionary lookups inside the loop
         self._build_fast_indices()
 
     def _build_fast_indices(self):
-        """Helper to vectorize the sparse data lookup."""
-        # Protein
+        """Helper to vectorize the sparse data lookup using numpy arrays."""
+        # Protein Indices
         if "prot_rows" in self.loss_data:
             self.p_rows = self.loss_data["prot_rows"]
             self.p_cols = self.loss_data["prot_cols"]
@@ -71,7 +100,7 @@ class NativeOptunaObjective:
             self.p_rows = np.array(pr, dtype=np.int32)
             self.p_cols = np.array(pc, dtype=np.int32)
 
-        # RNA
+        # RNA Indices
         if "rna_rows" in self.loss_data:
             self.r_rows = self.loss_data["rna_rows"]
             self.r_cols = self.loss_data["rna_cols"]
@@ -83,7 +112,7 @@ class NativeOptunaObjective:
             self.r_rows = np.array(rr, dtype=np.int32)
             self.r_cols = np.array(rc, dtype=np.int32)
 
-        # Phospho
+        # Phospho Indices
         if "pho_rows" in self.loss_data:
             self.ph_rows = self.loss_data["pho_rows"]
             self.ph_cols = self.loss_data["pho_cols"]
@@ -96,7 +125,11 @@ class NativeOptunaObjective:
             self.ph_cols = np.array(phc, dtype=np.int32)
 
     def __call__(self, trial):
+        """
+        The main evaluation step called by Optuna.
+        """
         # 1. Define Search Space
+        # Suggest float values for all variables based on bounds xl/xu
         n_vars = len(self.xl)
         theta = np.zeros(n_vars)
 
@@ -104,12 +137,13 @@ class NativeOptunaObjective:
             theta[i] = trial.suggest_float(f"p_{i}", self.xl[i], self.xu[i])
 
         # 2. Update System Physics
+        # Map flat vector 'theta' back to physical parameters (A_i, c_k, etc.)
         params = unpack_params(theta, self.slices)
         self.sys.update(**params)
 
         # 3. Simulate
         try:
-            # Generate Initial Conditions
+            # Generate Initial Conditions (usually steady state or data-driven)
             y0 = self.sys.y0()
 
             # Solve using the fast JIT backend
@@ -118,34 +152,47 @@ class NativeOptunaObjective:
             Y = solve_custom(self.sys, y0, self.time_grid, rtol=1e-4, atol=1e-6)
 
             # --- COMPUTE MSE LOSS (Vectorized) ---
-            # Protein
+            # 
+            # Instead of looping, we index Y using pre-calculated row/col arrays.
+
+            # Protein Loss
             flat_prot_pred = Y[self.p_rows, self.p_cols]
             # Use weighted difference if weights are in loss_data, else global
             diff_p = (flat_prot_pred - self.loss_data["prot_target"])
             mse_p = np.mean(diff_p ** 2)
 
-            # RNA
+            # RNA Loss
             flat_rna_pred = Y[self.r_rows, self.r_cols]
             diff_r = (flat_rna_pred - self.loss_data["rna_target"])
             mse_r = np.mean(diff_r ** 2)
 
-            # Phospho
+            # Phospho Loss
             flat_pho_pred = Y[self.ph_rows, self.ph_cols]
             diff_ph = (flat_pho_pred - self.loss_data["pho_target"])
             mse_ph = np.mean(diff_ph ** 2)
 
+            # Return tuple for multi-objective optimization
             return mse_p, mse_r, mse_ph
 
         except Exception as e:
-            # Prune trials that crash the solver (stiffness)
+            # Prune trials that crash the solver (stiffness or numerical instability)
+            # This allows the optimizer to learn to avoid unstable regions.
             # logger.warning(f"Trial {trial.number} solver failed: {e}")
             raise optuna.TrialPruned()
 
 
 def _augment_loss_data(idx, loss_data, time_grid, df_prot, df_rna, df_pho):
     """
-    Ensures 'prot_idx' etc. exist in loss_data.
-    Uses idx.p2i and idx.sites based on network.py structure.
+    Pre-processes experimental dataframes into numerical indices for fast lookup.
+
+    This ensures 'prot_idx' (Time Index, State Index) tuples exist in loss_data.
+    It resolves string names (e.g., "AKT1") to integer state indices using the `Index` object.
+
+    Args:
+        idx: The Index object containing mappings.
+        loss_data: The dictionary to populate.
+        time_grid: The simulation time grid.
+        df_*: Pandas DataFrames containing observed data.
     """
     # 1. PROTEIN
     if "prot_idx" not in loss_data:
@@ -225,8 +272,27 @@ def _augment_loss_data(idx, loss_data, time_grid, df_prot, df_rna, df_pho):
 def run_optuna_solver(args, sys, loss_data, slices, xl, xu, defaults, lambdas, time_grid,
                       df_prot, df_rna, df_pho, n_trials=5000):
     """
-    Main driver replacing Pymoo.
-    Uses Optuna MOTPE (Multi-Objective Tree-structured Parzen Estimator).
+    Main driver function for the Optuna Optimization pipeline.
+
+    It replaces the Pymoo genetic algorithm with Optuna's MOTPE.
+
+    Workflow:
+    1.  Augment loss data with fast indices.
+    2.  Setup persistent SQLite storage (`optimization.db`).
+    3.  Launch the Optuna Dashboard (background thread) for real-time monitoring.
+    4.  Run the optimization loop.
+    5.  Extract the Pareto front from the database.
+
+    Args:
+        args: Configuration namespace (seed, output_dir, etc.).
+        sys: The system object.
+        loss_data: Pre-computed data for loss function.
+        slices: Parameter slices.
+        xl, xu: Lower/Upper parameter bounds.
+        n_trials: Number of evaluations to run.
+
+    Returns:
+        OptunaResult: Standardized result object containing Best Parameters (X) and Objectives (F).
     """
     start_time = time.time()
 
@@ -247,6 +313,7 @@ def run_optuna_solver(args, sys, loss_data, slices, xl, xu, defaults, lambdas, t
     logger.info("=" * 60)
 
     # --- 2. Create Study ---
+    # Use TPESampler with multivariate=True for capturing parameter dependencies.
     sampler = optuna.samplers.TPESampler(
         seed=args.seed,
         multivariate=True,
@@ -258,12 +325,13 @@ def run_optuna_solver(args, sys, loss_data, slices, xl, xu, defaults, lambdas, t
     study = optuna.create_study(
         study_name=study_name,
         storage=storage,
-        directions=["minimize", "minimize", "minimize"],
+        directions=["minimize", "minimize", "minimize"],  # Multi-objective
         sampler=sampler,
         load_if_exists=True
     )
 
     # --- 3. Dashboard Launch ---
+    # 
     if HAS_DASHBOARD:
         def start_dashboard():
             try:
@@ -279,12 +347,13 @@ def run_optuna_solver(args, sys, loss_data, slices, xl, xu, defaults, lambdas, t
     objective = NativeOptunaObjective(sys, slices, loss_data, time_grid, lambdas, xl, xu)
 
     try:
-        # Run in chunks to allow Ctrl+C handling
+        # Run optimization
         study.optimize(objective, n_trials=n_trials)
     except KeyboardInterrupt:
         logger.info("[Optuna] Interrupted by user. Finalizing results...")
 
     # --- 5. Extract Pareto Front ---
+    # 
     logger.info("[Optuna] Extracting Pareto Front from Database...")
 
     pareto_trials = study.best_trials
@@ -296,6 +365,7 @@ def run_optuna_solver(args, sys, loss_data, slices, xl, xu, defaults, lambdas, t
     F_out = np.zeros((n_pareto, n_obj))
 
     for i, trial in enumerate(pareto_trials):
+        # Extract params in correct order based on "p_0", "p_1"... keys
         for k_str, val in trial.params.items():
             idx_p = int(k_str.split("_")[1])
             X_out[i, idx_p] = val

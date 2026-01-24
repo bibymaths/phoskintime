@@ -1,3 +1,22 @@
+"""
+Global Sensitivity Analysis Module (Morris Method).
+
+This module performs a comprehensive sensitivity analysis to determine which model
+parameters have the most significant impact on the system's output.
+
+**Methodology:**
+It uses the **Morris Method** (Elementary Effects), which is computationally efficient
+for high-dimensional models. It works by:
+1.  **Sampling:** Generating $N$ trajectories through the parameter space, where each step changes one parameter.
+2.  **Simulation:** Running the ODE model for every sampled parameter set in parallel.
+3.  **Analysis:** Computing the mean absolute effect ($\mu^*$) and interaction/non-linearity ($\sigma$) for each parameter.
+
+**Outputs:**
+* **Sensitivity Indices:** CSV ranking parameters by influence.
+* **Perturbation Clouds:** Visualizations showing how parameter uncertainty propagates to trajectory spread.
+
+"""
+
 import os
 import math
 import numpy as np
@@ -21,7 +40,16 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
     """
-    Generates [lower, upper] bounds for each parameter in the dictionary.
+    Generates [lower, upper] bounds for each parameter based on a local perturbation.
+
+    For SALib, we define a hypercube around the optimal parameters found during calibration.
+
+    Args:
+        params_dict (dict): The best-fit parameters.
+        perturbation (float): Fraction to vary parameters (e.g., 0.2 = +/- 20%).
+
+    Returns:
+        dict: Problem definition for SALib containing 'num_vars', 'names', and 'bounds'.
     """
     bounds = []
     names = []
@@ -30,14 +58,16 @@ def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
     # But here we work with the dictionary keys for SALib
     for key, value in params_dict.items():
         if isinstance(value, np.ndarray):
+            # Flatten array parameters (e.g., A_i for all proteins) into scalar inputs
             for i, v in enumerate(value):
                 lb = v * (1 - perturbation)
                 ub = v * (1 + perturbation)
-                if abs(v) < 1e-6:  # Handle zero or near-zero
+                if abs(v) < 1e-6:  # Handle zero or near-zero to prevent collapse
                     lb, ub = 0.0, 0.01
                 bounds.append([max(0.0, lb), ub])
                 names.append(f"{key}_{i}")
         else:
+            # Handle scalar parameters (e.g., tf_scale)
             v = float(value)
             lb = v * (1 - perturbation)
             ub = v * (1 + perturbation)
@@ -51,7 +81,10 @@ def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
 
 def _reconstruct_params(param_vector, names_map, original_shapes):
     """
-    Reconstructs the parameter dictionary from the flat Morris vector.
+    Reconstructs the structured parameter dictionary from the flat Morris decision vector.
+
+    The Morris sampler returns a flat list of floats. We must map these back to
+    arrays (e.g., `A_i` shape (N,)) to update the System object.
     """
     p_out = {}
     curr = 0
@@ -61,7 +94,7 @@ def _reconstruct_params(param_vector, names_map, original_shapes):
             p_out[key] = param_vector[curr]
             curr += 1
         else:
-            # Array
+            # Array: slice the vector and reshape (though typically they are 1D here)
             size = np.prod(shape)
             arr = np.array(param_vector[curr: curr + size])
             p_out[key] = arr
@@ -72,7 +105,17 @@ def _reconstruct_params(param_vector, names_map, original_shapes):
 
 def _compute_scalar_metric(df_prot, df_rna, df_phos, metric="total_signal"):
     """
-    Compresses the complex time-series output into a single scalar Y for SALib.
+    Compresses the complex time-series output into a single scalar Y for SALib analysis.
+
+    Sensitivity analysis requires a scalar output to measure "effect". We support various
+    aggregation metrics to capture different aspects of the system's response.
+
+    Args:
+        df_*: DataFrames of simulated trajectories.
+        metric (str): 'total_signal', 'mean', 'variance', or 'l2_norm'.
+
+    Returns:
+        float: The aggregated scalar metric.
     """
     # 1. Concatenate all signal columns
     # We prioritize Protein > Phospho > RNA for signal magnitude usually
@@ -100,24 +143,27 @@ def _compute_scalar_metric(df_prot, df_rna, df_phos, metric="total_signal"):
 def _worker_simulation(task_args):
     """
     Worker function for parallel execution.
+
+    This function runs inside a separate process. It receives a parameter set,
+    runs the ODE simulation, and returns the scalar metric and trajectories.
     """
     (idx, param_vector, names_map, original_shapes, sys, idx_sys, times_p, times_r, times_ph, metric) = task_args
 
-    # 1. Rebuild params
+    # 1. Rebuild params from the flat vector
     p_new = _reconstruct_params(param_vector, names_map, original_shapes)
 
     # 2. Update System
     # Note: System object is pickled. This is heavy but necessary for multiprocessing.
     sys.update(**p_new)
 
-    # 3. Simulate
+    # 3. Simulate the ODE
     dfp, dfr, dfph = simulate_and_measure(sys, idx_sys, times_p, times_r, times_ph)
 
     # 4. Compute Scalar Y (Sensitivity Target)
     y_val = _compute_scalar_metric(dfp, dfr, dfph, metric)
 
     # 5. Compute Goodness of Fit (RMSE) against DATA (if data was passed, assuming it's in sys)
-    # We assume sys has _ic_data attached or we pass it. For brevity, we return raw preds.
+    # We return the full dataframes to allow plotting "perturbation clouds" later.
 
     return idx, y_val, dfp, dfr, dfph
 
@@ -125,6 +171,28 @@ def _worker_simulation(task_args):
 def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_signal"):
     """
     Main driver for Morris Sensitivity Analysis.
+
+    Workflow:
+    1.  **Define Problem:** Create bounds around `fitted_params`.
+    2.  **Sample:** Generate Morris trajectories using SALib.
+    3.  **Simulate:** Run parallel simulations for all samples.
+    4.  **Analyze:** Compute Morris indices ($\mu^*$, $\sigma$).
+    5.  **Visualize:** Plot influence bars and trajectory perturbation clouds.
+
+
+
+[Image of parallel processing flow chart]
+
+
+    Args:
+        sys: The System object.
+        idx: Index object.
+        fitted_params: Dictionary of optimal parameters.
+        output_dir: Path to save results.
+        metric: Scalar metric for sensitivity target.
+
+    Returns:
+        pd.DataFrame: The computed sensitivity indices.
     """
     logger.info(f"[Sensitivity] Starting Morris Analysis (N={SENSITIVITY_TRAJECTORIES}, p={SENSITIVITY_LEVELS})...")
     logger.info(f"[Sensitivity] Metric: {metric}")
@@ -142,11 +210,12 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     problem = compute_bounds(fitted_params)
 
     # 2. Sample Parameter Space (Morris)
+    # Generates N * (num_vars + 1) samples
     param_values = morris.sample(problem, N=SENSITIVITY_TRAJECTORIES, num_levels=SENSITIVITY_LEVELS,
                                  local_optimization=True, seed=SEED)
     logger.info(f"[Sensitivity] Generated {len(param_values)} trajectories.")
 
-    # 3. Parallel Execution
+    # 3. Parallel Execution setup
     tasks = []
     # We need to pass the system object.
     # Warning: 'sys' might be large. If pickle fails, we need a lighter pickling strategy.
@@ -165,7 +234,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
         ))
 
     results_y = np.zeros(len(param_values))
-    trajectory_storage = []  # To store top K plots
+    trajectory_storage = []  # To store top K plots for visualization
 
     # Use fewer workers than cores to prevent memory overflow with large System objects
     n_workers = max(1, int(os.cpu_count() * 0.75))
@@ -196,11 +265,11 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     logger.info("[Sensitivity] Computing Morris Indices...")
     Si = analyze(problem, param_values, results_y, conf_level=0.95, print_to_console=False)
 
-    # Convert to DataFrame
+    # Convert results to DataFrame
     df_sens = pd.DataFrame({
         "Parameter": problem['names'],
-        "mu_star": Si['mu_star'],
-        "sigma": Si['sigma'],
+        "mu_star": Si['mu_star'],  # Mean absolute influence
+        "sigma": Si['sigma'],  # Non-linearity / Interaction effect
         "mu_star_conf": Si['mu_star_conf']
     })
 
@@ -212,6 +281,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     df_sens.to_csv(out_csv, index=False)
     logger.info(f"[Sensitivity] Indices saved to {out_csv}")
 
+    # Save trajectories for the top perturbed curves
     trajectory_storage = sorted(trajectory_storage, key=lambda x: x["y_val"], reverse=True)
     trajectory_storage = trajectory_storage[:SENSITIVITY_TOP_CURVES]
     traj_df = pd.DataFrame(trajectory_storage)
@@ -221,7 +291,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
     _plot_sensitivity_indices(df_sens.head(30), output_dir)
 
     # 6. Plotting Trajectory Cloud (Perturbation Analysis)
-    # We plot the spread of the model predictions around the mean
+    # We plot the spread of the model predictions around the mean to visualize robustness.
     _plot_perturbation_cloud(trajectory_storage, output_dir, idx)
 
     return df_sens
@@ -229,7 +299,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
 
 def _plot_sensitivity_indices(df, out_dir):
     """
-    Bar chart of Mu_Star (Influence).
+    Plots a bar chart of the top sensitive parameters ($\mu^*$).
     """
     plt.figure(figsize=(10, 8))
     sns.barplot(data=df, x="mu_star", y="Parameter", palette="viridis", legend=False, hue="Parameter")
@@ -241,28 +311,33 @@ def _plot_sensitivity_indices(df, out_dir):
 
 
 def _plot_perturbation_cloud(
-    trajectories,
-    out_dir,
-    idx,
-    top_n_proteins=40,
-    top_k_sites=6,
-    draw_spaghetti=True,
-    spaghetti_alpha=0.03,
+        trajectories,
+        out_dir,
+        idx,
+        top_n_proteins=40,
+        top_k_sites=6,
+        draw_spaghetti=True,
+        spaghetti_alpha=0.03,
 ):
     """
-    For each selected protein, plot a 3-panel perturbation cloud:
-      (1) Protein pred_fc
-      (2) RNA pred_fc
-      (3) Phospho: total phospho + top-k variable psites
+    Generates "Cloud" plots showing the variance in model predictions due to parameter uncertainty.
 
-    Outputs:
-      out_dir/sensitivity_perturbations/cloud_<PROTEIN>.png
+
+
+    For each selected protein, generates a 3-panel plot:
+      1. Protein FC Cloud
+      2. RNA FC Cloud
+      3. Phospho FC Cloud (Total + Top Sites)
+
+    Visualizes uncertainty using:
+    - **Spaghetti:** Individual simulation lines (faint).
+    - **Bands:** Quantile areas (5th-95th percentile).
     """
     sim_dir = os.path.join(out_dir, "sensitivity_perturbations")
     os.makedirs(sim_dir, exist_ok=True)
 
     # -------------------------
-    # 1) Concatenate all modalities
+    # 1) Concatenate all modalities from storage
     # -------------------------
     prot_all = []
     rna_all = []
@@ -293,11 +368,14 @@ def _plot_perturbation_cloud(
         logger.info("[Sensitivity] No trajectories available for perturbation cloud plotting.")
         return
 
-    prot_df = pd.concat(prot_all, ignore_index=True) if prot_all else pd.DataFrame(columns=["protein","time","pred_fc","sim_id"])
-    rna_df  = pd.concat(rna_all,  ignore_index=True) if rna_all  else pd.DataFrame(columns=["protein","time","pred_fc","sim_id"])
-    phos_df = pd.concat(phos_all, ignore_index=True) if phos_all else pd.DataFrame(columns=["protein","psite","time","pred_fc","sim_id"])
+    prot_df = pd.concat(prot_all, ignore_index=True) if prot_all else pd.DataFrame(
+        columns=["protein", "time", "pred_fc", "sim_id"])
+    rna_df = pd.concat(rna_all, ignore_index=True) if rna_all else pd.DataFrame(
+        columns=["protein", "time", "pred_fc", "sim_id"])
+    phos_df = pd.concat(phos_all, ignore_index=True) if phos_all else pd.DataFrame(
+        columns=["protein", "psite", "time", "pred_fc", "sim_id"])
 
-    # Ensure numeric
+    # Ensure numeric types
     for d in (prot_df, rna_df):
         if len(d) > 0:
             d["time"] = d["time"].astype(float)
@@ -310,7 +388,7 @@ def _plot_perturbation_cloud(
 
     # -------------------------
     # 2) Choose proteins to plot (systematic, not arbitrary)
-    #    Score = max std across time of median trajectory (protein modality preferred)
+    #    Score = max std dev across time of median trajectory (finds most variable responses)
     # -------------------------
     def _protein_score(d, col="pred_fc"):
         if len(d) == 0:
@@ -321,7 +399,7 @@ def _plot_perturbation_cloud(
         return s
 
     s_prot = _protein_score(prot_df)
-    s_rna  = _protein_score(rna_df)
+    s_rna = _protein_score(rna_df)
     # prefer protein modality; fallback to RNA if protein missing
     scores = pd.concat([s_prot.assign(src="prot"), s_rna.assign(src="rna")], ignore_index=True)
 
@@ -329,12 +407,12 @@ def _plot_perturbation_cloud(
         # last resort: use idx order
         proteins_to_plot = idx.proteins[:top_n_proteins]
     else:
-        # For each protein keep best score across modalities
+        # For each protein keep best score across modalities and pick top N
         scores = scores.sort_values("score", ascending=False).drop_duplicates("protein")
         proteins_to_plot = scores["protein"].head(top_n_proteins).tolist()
 
     # -------------------------
-    # 3) Helpers: quantile bands + optional spaghetti
+    # 3) Helpers: quantile bands + optional spaghetti plots
     # -------------------------
     def _summarize_band(d, group_cols):
         """
@@ -343,7 +421,7 @@ def _plot_perturbation_cloud(
         if len(d) == 0:
             return None
         q = d.groupby(group_cols)["pred_fc"].quantile([0.01, 0.05, 0.5, 0.95, 0.99]).unstack()
-        q = q.rename(columns={0.01:"q01", 0.05:"q05", 0.5:"med", 0.95:"q95", 0.99:"q99"}).reset_index()
+        q = q.rename(columns={0.01: "q01", 0.05: "q05", 0.5: "med", 0.95: "q95", 0.99: "q99"}).reset_index()
         return q
 
     def _plot_band(ax, qdf, xcol="time", label=None):
@@ -406,9 +484,9 @@ def _plot_perturbation_cloud(
             # Compute variability across sims per site (max std across time)
             site_var = (
                 dPH.groupby(["psite", "time"])["pred_fc"].std()
-                   .reset_index(name="std")
-                   .groupby("psite")["std"].max()
-                   .sort_values(ascending=False)
+                .reset_index(name="std")
+                .groupby("psite")["std"].max()
+                .sort_values(ascending=False)
             )
             top_sites = site_var.head(top_k_sites).index.tolist()
 

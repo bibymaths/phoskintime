@@ -85,7 +85,7 @@ POPULATION_SIZE = cfg.population_size  # Number of particles/individuals in the 
 SEED = cfg.seed
 CORES = cfg.cores  # Multiprocessing core count
 REFINE = _as_bool(cfg.refine)  # Whether to run a local optimization polish after global search
-NUM_REFINE = cfg.num_refine    # Number of iterations for the refinement step
+NUM_REFINE = cfg.num_refine  # Number of iterations for the refinement step
 
 # --- Regularization ---
 # Penalties to enforce biological constraints (e.g., sparsity, smooth trajectories)

@@ -62,6 +62,7 @@ def charbonnier(diff, eps=1e-3):
     """
     return (diff * diff + eps * eps) ** 0.5 - eps
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def log_cosh(diff):
     """
@@ -75,6 +76,7 @@ def log_cosh(diff):
         return s - 0.69314718056
     return np.log(np.cosh(diff))
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def cauchy_loss(diff, c=1.0):
     """
@@ -83,6 +85,7 @@ def cauchy_loss(diff, c=1.0):
     Extremely robust to outliers; the influence of an outlier tends to zero.
     """
     return np.log(1.0 + (diff / c) ** 2)
+
 
 @njit(fastmath=True, cache=True, nogil=True)
 def poisson_scaled_mse(diff, pred_val, eps=1e-6):
@@ -95,6 +98,7 @@ def poisson_scaled_mse(diff, pred_val, eps=1e-6):
     # Loss = (Obs - Pred)^2 / Pred
     return (diff * diff) / (np.abs(pred_val) + eps)
 
+
 @njit(fastmath=True, cache=True, nogil=True)
 def geman_mcclure(diff, delta=1.0):
     """
@@ -104,6 +108,7 @@ def geman_mcclure(diff, delta=1.0):
     """
     x2 = diff * diff
     return x2 / (x2 + delta * delta)
+
 
 @njit(fastmath=True, cache=True, nogil=True)
 def loss_function_noncomb(

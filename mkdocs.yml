@@ -37,7 +37,8 @@ nav:
       - Configuration: Documentation/config/README.md
       - Kinase Optimization: Documentation/kinopt/README.md
       - Transcription Factor Optimization: Documentation/tfopt/README.md
-      - Models: Documentation/models/README.md
+      - Protein Wise Models: Documentation/models/README.md
+      - Global Network Model: Documentation/global/README.md
       - Steady State Calculation: Documentation/steady/README.md
       - Parameter Estimation: Documentation/paramest/README.md
       - Confidence Intervals: Documentation/identifiability/README.md

@@ -1,3 +1,18 @@
+"""
+Initial Condition and Steady-State Logic Module.
+
+This module is responsible for defining the starting state ($y_0$) of the ODE system.
+It supports two primary modes:
+1.  **Data-Driven Initialization (`build_y0_from_data`):** Uses experimental data (Protein/RNA abundance
+    at t=0) to set the initial conditions directly. This is crucial for matching the
+    absolute scale of the measurements.
+2.  **Analytical Steady-State (`steady_state_*`):** Solves the algebraic equilibrium equations
+    ($dy/dt = 0$) for a system where all kinetic parameters are set to 1.0. This is useful for
+    testing structural consistency or initializing systems without data.
+
+
+"""
+
 import os
 
 import numpy as np
@@ -9,7 +24,12 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def _dump_y0(sys, out_dir, max_sites=200):
+    """
+    Exports the computed initial condition vector $y_0$ to a CSV file for inspection.
+    Useful for debugging which biological entity corresponds to which numerical value.
+    """
     idx = sys.idx
     y0 = sys.y0()  # uses custom_y0 if set
     rows = []
@@ -17,21 +37,22 @@ def _dump_y0(sys, out_dir, max_sites=200):
     for i, gene in enumerate(idx.proteins):
         st = int(idx.offset_y[i])
 
-        # mRNA
+        # mRNA State
         R0 = float(y0[st])
 
         if MODEL == 2:
+            # Combinatorial Model: States are bitmasks
             nst = int(idx.n_states[i])
-            Pm0 = float(y0[st + 1])  # mask 0
+            Pm0 = float(y0[st + 1])  # mask 0 (Unphosphorylated)
 
-            # total protein mass across masks
+            # Sum total protein mass across all 2^n states
             Ptot = float(y0[st + 1: st + 1 + nst].sum())
 
             rows.append(dict(entity=gene, kind="mRNA", substate="R", value=R0))
             rows.append(dict(entity=gene, kind="protein_total", substate="P_total_masksum", value=Ptot))
             rows.append(dict(entity=gene, kind="protein_state", substate="mask0", value=Pm0))
 
-            # optional: show single-bit masks by site name
+            # Optional: show single-bit masks by site name for clarity
             ns = int(idx.n_sites[i])
             for j, psite in enumerate(idx.sites[i][:max_sites]):
                 mask = 1 << j
@@ -39,6 +60,7 @@ def _dump_y0(sys, out_dir, max_sites=200):
                 rows.append(dict(entity=gene, kind="phospho_state", substate=f"mask_{psite}", value=val))
 
         else:
+            # Distributive/Sequential: States are linear P0, P1, ...
             P0 = float(y0[st + 1])  # unphosphorylated pool
             rows.append(dict(entity=gene, kind="mRNA", substate="R", value=R0))
             rows.append(dict(entity=gene, kind="protein_state", substate="P0", value=P0))
@@ -78,10 +100,11 @@ def _dump_y0(sys, out_dir, max_sites=200):
 
     return df_y0
 
+
 def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
     """
-    Return dict: key -> mean(value_col) at time ~= t0 (tolerance-based).
-    key_cols can be ["protein"] or ["protein","psite"].
+    Helper to extract a dictionary of {Entity -> Value} at a specific time t0.
+    Handles floating point tolerance for time matching.
     """
     if df is None or df.empty:
         return {}
@@ -184,23 +207,37 @@ def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
 #     return y0
 
 def build_y0_from_data(
-    idx,
-    df_prot,
-    df_rna,
-    df_pho,
-    *,
-    t_init=0.0,
-    t0_pho=0.0,
-    eps=1e-9,
-    time_tol=1e-8,
-    max_pho_frac=0.3,   # at most 30% of protein initially phosphorylated
+        idx,
+        df_prot,
+        df_rna,
+        df_pho,
+        *,
+        t_init=0.0,
+        t0_pho=0.0,
+        eps=1e-9,
+        time_tol=1e-8,
+        max_pho_frac=0.3,  # at most 30% of protein initially phosphorylated
 ):
     """
-    Build y0 strictly from data with physically valid mass balance.
+    Constructs the initial state vector $y_0$ strictly from experimental data.
 
-    - RNA: first observed value per gene (earliest time in df_rna)
-    - Protein: value at t_init
-    - Phosphosite: data-scaled small fractions of protein (NOT normalized to 1)
+    **Physics-Compliant Mass Balance:**
+    1.  **Protein Total ($P_{tot}$):** Taken from `df_prot` at `t_init`.
+    2.  **Phospho Mass:** Taken from `df_pho` at `t0_pho`. Because phospho signals are often
+        relative intensities, we scale them such that the total phosphorylated mass does not
+        exceed `max_pho_frac` (e.g., 30%) of $P_{tot}$.
+    3.  **Unphosphorylated Mass ($P_0$):** Calculated by conservation: $P_0 = P_{tot} - \sum P_{phos}$.
+
+
+
+    Args:
+        idx: System index object.
+        df_prot, df_rna, df_pho: Tidy dataframes of observations.
+        t_init (float): The simulation start time (usually 0.0).
+        max_pho_frac (float): Cap on the initial fraction of phosphorylated protein.
+
+    Returns:
+        np.ndarray: The assembled initial condition vector.
     """
 
     # ------------------------------------------------------------------
@@ -220,8 +257,8 @@ def build_y0_from_data(
 
         d0 = (
             d.sort_values("time")
-             .groupby("protein", as_index=False)
-             .first()
+            .groupby("protein", as_index=False)
+            .first()
         )
         rna_init = dict(zip(d0["protein"], d0["fc"]))
 
@@ -259,6 +296,7 @@ def build_y0_from_data(
         )
 
         # Scale phospho signals into a bounded fraction of protein
+        # If sum(raw_pho) is huge (arbitrary units), scale it down so sum <= 0.3 * P_tot
         if raw_pho.sum() > 0:
             scale = min(max_pho_frac, max_pho_frac / raw_pho.sum())
             site_mass = raw_pho * scale * P_tot
@@ -272,7 +310,7 @@ def build_y0_from_data(
         # Assign states
         # -------------------
         if MODEL == 2:
-            # combinatorial
+            # combinatorial: P0 is mask 0
             y0[st + 1] = max(P_tot - pho_sum, eps)
 
             for j, mass in enumerate(site_mass):
@@ -281,13 +319,14 @@ def build_y0_from_data(
                     y0[st + 1 + mask] = max(mass, eps)
 
         else:
-            # distributive / sequential
+            # distributive / sequential: P0 is first protein state
             y0[st + 1] = max(P_tot - pho_sum, eps)
 
             for j, mass in enumerate(site_mass):
                 y0[st + 2 + j] = max(mass, eps)
 
     return y0
+
 
 # -----------------------------
 # Helpers
@@ -322,11 +361,14 @@ def _bit_index_from_lsb_py(lsb: int) -> int:
 
 def _thomas_tridiag(a, b, c, d):
     """
-    Solve tridiagonal system with Thomas algorithm.
-    a: lower diag (a[0]=0)
-    b: main diag
-    c: upper diag (c[-1]=0)
-    d: rhs
+    Solve tridiagonal linear system `Mx = d` using Thomas algorithm (TDMA).
+    Used for the Sequential Model steady-state, which forms a linear chain.
+
+    Args:
+        a: lower diag (a[0]=0)
+        b: main diag
+        c: upper diag (c[-1]=0)
+        d: rhs
     """
     n = len(b)
     cp = np.zeros(n, dtype=np.float64)
@@ -358,9 +400,11 @@ def _thomas_tridiag(a, b, c, d):
 # -----------------------------
 def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=False):
     """
-    Returns y_ss (and optionally dy(y_ss)) for distributive model with ALL params = 1.
-    Needs idx fields: N, offset_y, offset_s, n_sites
-    Uses your distributive_rhs for optional verification.
+    Analytically computes the steady state for the Distributive Model
+    assuming all kinetic parameters (A, B, C, D, E, k) are 1.0.
+
+    This serves as a structural validation of the network topology. If the
+    topology is valid, a stable steady state should exist.
     """
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
@@ -375,7 +419,7 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
     total_s = _infer_total_s(offset_s, n_sites)
     total_y = _infer_total_y_distrib_seq(offset_y, n_sites)
 
-    # ALL params = 1
+    # ALL params = 1 (Canonical normalization)
     A_i = np.ones(N, dtype=np.float64)
     B_i = np.ones(N, dtype=np.float64)
     C_i = np.ones(N, dtype=np.float64)
@@ -404,10 +448,8 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
             y[y0 + 1] = P
             continue
 
-        # General linear steady-state (still params=1 here)
-        # ps_j = (s_j * P) / (E + Dp_j)
-        # 0 = C R - (D + sum_s) P + sum(E * ps_j)
-        # => P = (C R) / (D + sum_s - sum(E*s_j/(E+Dp_j)))
+        # General linear steady-state solution for independent sites
+        # $P = \frac{C \cdot R}{D + \sum S_j - \sum \frac{E \cdot S_j}{E + Dp_j}}$
         sum_s = 0.0
         sum_frac = 0.0
         for j in range(ns):
@@ -451,9 +493,10 @@ def steady_state_distributive(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs
 # -----------------------------
 def steady_state_sequential(idx, TF_inputs=None, tf_scale=1.0, verify_with_rhs=False):
     """
-    Returns y_ss (and optionally dy(y_ss)) for sequential model with ALL params = 1.
-    Needs idx fields: N, offset_y, offset_s, n_sites
-    Uses your sequential_rhs for optional verification.
+    Analytically computes the steady state for the Sequential Model.
+
+    Because the states form a linear chain ($P_0 \leftrightarrow P_1 \leftrightarrow \dots$),
+    the steady state can be found by solving a tridiagonal linear system.
     """
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
@@ -567,12 +610,10 @@ def steady_state_combinatorial(
         verify_with_rhs=False,
 ):
     """
-    Returns y_ss (and optionally dy(y_ss)) for combinatorial model with ALL params = 1.
+    Computes steady state for the Combinatorial Model.
 
-    Needs idx fields:
-      N, offset_y, offset_s, n_sites, n_states
-    For rhs verification you also need transition arrays (or we build them if not provided):
-      trans_from, trans_to, trans_site, trans_off, trans_n
+    This involves solving a sparse linear system $A P = b$ for each protein, where
+    $A$ is the transition rate matrix of the $2^N$ states graph.
     """
     N = int(getattr(idx, "N", len(idx.n_sites)))
     offset_y = np.asarray(idx.offset_y, dtype=np.int32)
@@ -629,7 +670,7 @@ def steady_state_combinatorial(
         y[y0 + 0] = R
 
         # Solve A P + b = 0  for P over masks (size nst)
-        # b[0] = C*R, others 0
+        # b[0] = C*R, others 0 (Input flux only into unphosphorylated state)
         b = np.zeros(nst, dtype=np.float64)
         b[0] = float(C_i[i]) * R
 
@@ -638,8 +679,7 @@ def steady_state_combinatorial(
         Di = float(D_i[i])
         Ei = float(E_i[i])
 
-        # Preload per-site rates for this protein (all ones here, but keep structure)
-        # phosphorylation rate for site j is S_cache[s0+j, jb]
+        # Preload per-site rates for this protein
         S = S_cache[s0: s0 + ns, int(jb)] if ns > 0 else np.zeros(0, dtype=np.float64)
         Dp = Dp_i[s0: s0 + ns] if ns > 0 else np.zeros(0, dtype=np.float64)
 

@@ -1,3 +1,19 @@
+"""
+Utilities and Configuration Management Module.
+
+This module provides essential helper functions and classes for:
+1.  **Data Normalization:** Functions to clean column names (`_normcols`), calculate fold-changes
+    relative to a baseline (`normalize_fc_to_t0`), and scale data for consistent modeling.
+2.  **Configuration Loading:** The `load_config_toml` function parses the `config.toml` file
+    into a structured `PhosKinConfig` dataclass, centralizing all run settings.
+3.  **Dynamic Bound Calculation:** `calculate_bio_bounds` intelligently sets parameter limits
+    based on the input data range and network topology, ensuring biological plausibility.
+4.  **Math Helpers:** JIT-compiled kernels for common operations like `softplus` (for positive parameters)
+    and `time_bucket` (for discrete input grids).
+
+
+"""
+
 from __future__ import annotations
 
 import re
@@ -14,32 +30,45 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def _normcols(df):
+    """Normalize DataFrame column names (lowercase, strip, replace spaces)."""
     df = df.copy()
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     return df
 
 
 def _base_idx(times, t0):
+    """Find the index of the timepoint closest to t0."""
     return np.int32(int(np.argmin(np.abs(times - float(t0)))))
 
 
 def _find_col(df, cands):
+    """Return the first column name from `cands` that exists in `df`."""
     for c in cands:
         if c in df.columns:
             return c
     return None
 
+
 def normcols(df):
     return _normcols(df)
 
+
 def find_col(df, cands):
     return _find_col(df, cands)
+
 
 def slen(s: slice) -> int:
     return int(s.stop) - int(s.start)
 
 
 def normalize_fc_to_t0(df):
+    """
+    Normalizes a Fold-Change (FC) DataFrame relative to the value at time t=0.
+
+    Logic:
+    For each (protein, psite) group, find the FC at t=0.
+    New_FC(t) = Raw_FC(t) / Raw_FC(0).
+    """
     df = df.copy()
 
     df["time"] = pd.to_numeric(df["time"], errors="coerce")
@@ -79,9 +108,14 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
     """
     Scales time-series data ensuring ALL outputs remain non-negative (>= 0).
 
+
+
+    This function handles the conversion from "Wide" format (columns x1, x2, ...) to "Long" format
+    and applies the selected scaling transformation.
+
     Args:
         scale_method (str):
-            - 'raw' / 'none': No scaling. Returns raw intensities/counts in tidy format.
+            - 'raw' / 'none': No scaling. Returns raw intensities/counts.
             - 'fc_start': Standard Fold-Change (x_t / x_0).
             - 'robust_fc': Fold-Change with noise floor (x_t / (x_0 + eps)).
             - 'max_scale': Normalizes to [0, 1] range (x_t / x_max).
@@ -168,12 +202,17 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
 
 @njit(cache=True, fastmath=True, nogil=True)
 def _zero_vec(a):
+    """JIT helper to zero out an array."""
     for i in range(a.size):
         a[i] = 0.0
 
 
 @njit(cache=True, fastmath=True, nogil=True)
 def time_bucket(t, grid):
+    """
+    Finds the index `j` such that `grid[j] <= t < grid[j+1]`.
+    Used for piecewise-constant input interpolation.
+    """
     if t <= grid[0]:
         return 0
     if t >= grid[-1]:
@@ -188,6 +227,10 @@ def time_bucket(t, grid):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
+    """
+    Softplus activation: log(1 + exp(x)).
+    Maps real numbers to positive numbers. Used for parameter transformation.
+    """
     out = np.empty_like(x)
     for i in range(x.size):
         xi = x[i]
@@ -200,6 +243,7 @@ def softplus(x):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def inv_softplus(y):
+    """Inverse Softplus: log(exp(y) - 1). Maps positive numbers to real numbers."""
     out = np.empty_like(y)
     for i in range(y.size):
         yi = y[i]
@@ -211,6 +255,9 @@ def inv_softplus(y):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def pick_best_lamdas(F, weights):
+    """
+    Selects the best solution from a Pareto front based on a weighted sum of normalized objectives.
+    """
     F = np.asarray(F, dtype=np.float64)
     weights = np.asarray(weights, dtype=np.float64)
 
@@ -220,6 +267,7 @@ def pick_best_lamdas(F, weights):
     F_min = np.empty(m, dtype=np.float64)
     F_ptp = np.empty(m, dtype=np.float64)
 
+    # Normalize objectives to [0, 1] range
     for j in range(m):
         mn = F[0, j]
         mx = F[0, j]
@@ -253,6 +301,10 @@ def pick_best_lamdas(F, weights):
 
 @dataclass(frozen=True)
 class PhosKinConfig:
+    """
+    Immutable configuration object holding all settings for the simulation run.
+    Loaded from `config.toml`.
+    """
     kinase_net: str | Path
     tf_net: str | Path
     ms_data: str | Path
@@ -328,6 +380,10 @@ class PhosKinConfig:
 
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
+    """
+    Parses `config.toml` and returns a validated `PhosKinConfig` object.
+    Includes fallbacks and default values for missing keys.
+    """
     path = Path(path)
 
     with path.open("rb") as f:
@@ -544,6 +600,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
 
 def get_parameter_labels(idx):
+    """Generates descriptive labels for all parameters in the flattened decision vector."""
     labels = []
 
     # 1. Kinase Scaling (c_k)
@@ -582,6 +639,10 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     """
     Dynamically calculates optimization bounds by analyzing network topology,
     data dynamic ranges, and kinetic equilibrium requirements.
+
+    This ensures that the optimizer doesn't waste time searching parameter space
+    regions that are mathematically impossible to yield the observed data
+    (e.g., degradation rates that are too slow to match the observed decay).
 
     Returns:
         dict: Custom bounds for each parameter group.
@@ -705,6 +766,9 @@ def _nondegenerate(mask_xl, mask_xu, eps=1e-14):
 
 def get_optimized_sets(idx, slices, xl, xu, eps=1e-14):
     """
+    Identifies which entities (Proteins, Sites, Kinases) actually have
+    free parameters being optimized (i.e., bounds are not collapsed).
+
     Returns:
       opt_proteins: set[str]  proteins with any free variable among A/B/C/D/E
       opt_sites: set[str]     site labels like 'EGFR_Y1173' where Dp_i is free

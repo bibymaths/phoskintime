@@ -1,3 +1,22 @@
+"""
+Parameter Management and Transformation Module.
+
+This module handles the interface between the biological model (which requires
+positive physical parameters like rate constants) and the numerical optimizer
+(which operates on a flat vector of decision variables).
+
+**Key Concepts:**
+1.  **Positivity Constraint:** Biological rates cannot be negative. To enforce this
+    during optimization without using hard constraints, we use a **Softplus** transformation:
+    $$ P_{physical} = \ln(1 + e^{\\theta_{raw}}) $$
+    This maps any real number $\\theta$ to a positive value $P$.
+2.  **Vectorization:** The optimizer expects a single 1D array (`theta`). This module
+    packs all distinct parameter arrays ($A_i, B_i, \dots$) into this vector and
+    maintains a `slices` dictionary to unpack them back.
+
+
+"""
+
 import numpy as np
 
 from global_model.config import BOUNDS_CONFIG
@@ -6,33 +25,49 @@ from global_model.utils import inv_softplus, softplus
 
 def init_raw_params(defaults, custom_bounds=None):
     """
-    Initializes decision vector and bounds for optimization.
+    Initializes the decision vector and bounds for the optimizer.
+
+    This function performs three main tasks:
+    1.  **Transformation:** Converts default physical values to "raw" optimization space
+        using the inverse softplus function.
+    2.  **Flattening:** Concatenates all parameter arrays into a single 1D vector `theta0`.
+    3.  **Bounds Mapping:** Transforms physical bounds (min, max) into raw space bounds.
+
+
 
     Args:
-        defaults (dict): Initial values for parameters (physical space).
-        custom_bounds (dict, optional): Dictionary of (min, max) tuples for each parameter key.
-                                        If provided, overrides global BOUNDS_CONFIG.
+        defaults (dict): Dictionary of initial physical values (e.g., {'A_i': [0.1, ...], ...}).
+        custom_bounds (dict, optional): Dictionary of (min, max) tuples for specific keys.
+                                        Overrides the global `BOUNDS_CONFIG`.
 
     Returns:
-        tuple: (theta0, slices, xl, xu)
+        tuple: A tuple containing:
+            - theta0 (np.ndarray): The initial flattened decision vector.
+            - slices (dict): Mapping of parameter names to slice objects for unpacking.
+            - xl (np.ndarray): Lower bounds vector in raw space.
+            - xu (np.ndarray): Upper bounds vector in raw space.
     """
     if custom_bounds is None:
         custom_bounds = {}
 
-    vecs = []
-    slices = {}
-    bounds = []
-    curr = 0
+    vecs = []  # List to hold flattened raw parameter arrays
+    slices = {}  # Dictionary to store slice indices for retrieval
+    bounds = []  # List of (min, max) tuples for every element
+    curr = 0  # Current index pointer in the flat vector
 
-    # 1. Iterate over array-based parameters
+    # 1. Iterate over array-based parameters (Genes/Proteins)
+    # These are vectors of length N (number of proteins)
     for k in ["c_k", "A_i", "B_i", "C_i", "D_i", "Dp_i", "E_i"]:
+        # Transform Physical -> Raw
         raw = inv_softplus(defaults[k])
         vecs.append(raw)
+
+        # Record the slice for this parameter group
         length = len(raw)
         slices[k] = slice(curr, curr + length)
         curr += length
 
-        # Priority: Custom Bounds > Global Config
+        # Determine physical bounds: Priority: Custom Bounds > Global Config
         if k in custom_bounds:
             phys_min, phys_max = custom_bounds[k]
         else:
@@ -46,7 +81,7 @@ def init_raw_params(defaults, custom_bounds=None):
         # Extend bounds list for every element in this parameter vector
         bounds.extend([(raw_min, raw_max)] * length)
 
-    # 2. Handle scalar tf_scale
+    # 2. Handle scalar tf_scale (Global scaling factor)
     raw_tf = inv_softplus(np.array([defaults["tf_scale"]]))
     vecs.append(raw_tf)
     slices["tf_scale"] = slice(curr, curr + 1)
@@ -70,7 +105,20 @@ def init_raw_params(defaults, custom_bounds=None):
 
 def unpack_params(theta, slices):
     """
-    Converts raw decision vector (theta) back to physical parameters using softplus.
+    Converts the raw decision vector back to physical parameters.
+
+    Applies the Softplus transformation:
+    $$ P = \\ln(1 + e^{\\theta}) $$
+    This ensures that all output parameters are strictly positive, regardless of
+    the values chosen by the optimizer.
+
+    Args:
+        theta (np.ndarray): The flat decision vector from the optimizer.
+        slices (dict): The slicing dictionary created by `init_raw_params`.
+
+    Returns:
+        dict: A dictionary of physical parameters keys (e.g., 'A_i', 'c_k') mapped
+              to positive numpy arrays or scalars.
     """
     return {
         "c_k": softplus(theta[slices["c_k"]]),

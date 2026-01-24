@@ -30,25 +30,24 @@ import numpy as np
 
 
 def save_dashboard_bundle(
-    output_dir: str | Path,
-    *,
-    args: Any,
-    res: Any,
-    slices: Any,
-    xl: Any,
-    xu: Any,
-    defaults: dict,
-    lambdas: dict,
-    solver_times,
-    df_prot,
-    df_rna,
-    df_pho,
-    frechet_scores=None,
-    picked_index: int | None = None,
+        output_dir: str | Path,
+        *,
+        args: Any,
+        res: Any,
+        slices: Any,
+        xl: Any,
+        xu: Any,
+        defaults: dict,
+        lambdas: dict,
+        solver_times,
+        df_prot,
+        df_rna,
+        df_pho,
+        frechet_scores=None,
+        picked_index: int | None = None,
 ) -> Path:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-
 
     pareto_F = np.asarray(getattr(res, "F", None)) if res is not None else None
     pareto_X = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None

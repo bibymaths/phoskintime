@@ -28,17 +28,21 @@ from global_model.dashboard_bundle import load_dashboard_bundle
 import base64
 import json
 
+
 def _list_files(output_dir: Path, patterns: list[str]):
     files = []
     for pat in patterns:
         files.extend(output_dir.glob(pat))
     return sorted(files)
 
+
 def _show_image(path: Path, caption: str | None = None):
     st.image(str(path), caption=caption, use_container_width=True)
 
+
 def _show_video(path: Path):
     st.video(str(path))
+
 
 def _show_pdf(path: Path, height: int = 700):
     pdf_bytes = path.read_bytes()
@@ -46,8 +50,10 @@ def _show_pdf(path: Path, height: int = 700):
     html = f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="{height}px"></iframe>'
     st.markdown(html, unsafe_allow_html=True)
 
+
 def _read_json(path: Path):
     return json.loads(path.read_text())
+
 
 def _load_outputs(output_dir: Path):
     # Prefer bundle (rich objects). Also load standard artifacts if present.

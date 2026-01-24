@@ -1,3 +1,18 @@
+"""
+Iterative Refinement and Optimization Zooming Module.
+
+This module implements a multi-stage optimization strategy to fine-tune the biological
+model parameters. After an initial global search (Exploration), this module performs
+iterative "Refinement" passes (Exploitation) by:
+
+1.  **Zooming:** Calculating a tighter bounding box around the best solutions found so far.
+2.  **Seeding:** Creating a hybrid population that mixes the best previous solutions ("Warm Start")
+    with fresh random samples within the new bounds to maintain diversity.
+3.  **Parallel Execution:** Using multiprocessing to speed up the re-evaluation of the refined space.
+
+
+"""
+
 import numpy as np
 import multiprocessing as mp
 from pymoo.algorithms.moo.unsga3 import UNSGA3
@@ -16,12 +31,31 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
     """
-    Refines bounds and prints a tree-like biological report of the network parameters.
+    Calculates tighter parameter bounds based on the spread of the current best solutions.
+    Also logs a detailed "Biological Report" showing the physical ranges of these new bounds.
+
+
+
+    The new bounds are calculated as:
+    $$ [min(X) - padding \times range, max(X) + padding \times range] $$
+    clamped to the original `current_xl` and `current_xu`.
+
+    Args:
+        X (np.ndarray): The decision vectors of the current Pareto front.
+        current_xl (np.ndarray): The absolute lower bounds of the search space.
+        current_xu (np.ndarray): The absolute upper bounds of the search space.
+        idx (Index): The system index object (for mapping parameters to names).
+        padding (float): The expansion factor for the new bounds (default 20%).
+
+    Returns:
+        tuple: (new_xl, new_xu) arrays.
     """
     if hasattr(X, "values"):
         X = X.values
 
     # Calculate log-space bounds
+    # Note: Parameters are usually optimized in log-space (Softplus inverse), so this linear
+    # arithmetic corresponds to geometric zooming in physical space.
     p_min, p_max = np.min(X, axis=0), np.max(X, axis=0)
     span = np.maximum(p_max - p_min, 1e-2)
     new_xl = np.maximum(p_min - (span * padding), current_xl)
@@ -84,17 +118,34 @@ def get_refined_bounds(X, current_xl, current_xu, idx, padding=0.2):
 
 def create_multistart_population(X_best, pop_size, new_xl, new_xu):
     """
-    Creates hybrid population: 50% Warm Start, 50% Fresh Sampling.
+    Creates a hybrid population for the next optimization stage.
+
+
+
+    Strategy:
+    - **50% Warm Start:** Reuses the best individuals from the previous run (perturbed slightly).
+    - **50% Fresh Sampling:** Randomly samples new points within the refined bounds to prevent
+      premature convergence to a local minimum.
+
+    Args:
+        X_best (np.ndarray): Array of best solutions from previous run.
+        pop_size (int): Target population size.
+        new_xl, new_xu: The new boundaries.
+
+    Returns:
+        Population: A Pymoo Population object ready for the algorithm.
     """
     n_best = len(X_best)
     n_warm = int(pop_size * 0.5)
     n_fresh = pop_size - n_warm
 
-    # Warm Start
+    # Warm Start Construction
     if n_best >= n_warm:
+        # If we have enough best solutions, pick a random subset
         indices = np.random.choice(n_best, n_warm, replace=False)
         X_warm = X_best[indices]
     else:
+        # If not enough, duplicate and add Gaussian noise
         X_warm = np.zeros((n_warm, X_best.shape[1]))
         X_warm[:n_best] = X_best
         n_needed = n_warm - n_best
@@ -102,9 +153,10 @@ def create_multistart_population(X_best, pop_size, new_xl, new_xu):
         noise = np.random.normal(0, 0.05, (n_needed, X_best.shape[1])) * (new_xu - new_xl)
         X_warm[n_best:] = X_best[src_indices] + noise
 
+    # Ensure warm start stays within bounds
     X_warm = np.clip(X_warm, new_xl, new_xu)
 
-    # Fresh Sampling
+    # Fresh Sampling (LHS-like random)
     val = np.random.random((n_fresh, len(new_xl)))
     X_fresh = new_xl + val * (new_xu - new_xl)
 
@@ -114,12 +166,23 @@ def create_multistart_population(X_best, pop_size, new_xl, new_xu):
 
 def run_iterative_refinement(problem, prev_res, args, idx=None, max_passes=3, padding=0.25):
     """
-    Runs refinement recursively to zoom in on the optimum.
+    Executes the recursive refinement loop.
+
+    Repeatedly zooms in on the optimal region by:
+    1.  Defining a tighter box around the current Pareto front.
+    2.  Launching a new optimization run within that box.
+    3.  Checking if the solution improved; if not, stopping early.
 
     Args:
-        idx: Index object containing parameter metadata.
-        max_passes: How many times to re-zoom (e.g., 3 times).
-        padding: The boundary padding factor (decreases slightly each pass).
+        problem (GlobalODE_MOO): The optimization problem instance.
+        prev_res (Result): The result object from the previous (global) run.
+        args (Namespace): Configuration arguments.
+        idx (Index): System index object for logging.
+        max_passes (int): Maximum number of refinement iterations.
+        padding (float): Initial padding factor for bounds expansion.
+
+    Returns:
+        Result: The final, most refined optimization result.
     """
     current_res = prev_res
 
@@ -155,7 +218,8 @@ def run_iterative_refinement(problem, prev_res, args, idx=None, max_passes=3, pa
             current_pop = create_multistart_population(current_res.X, args.pop, new_xl, new_xu)
 
             # 3. Setup Algorithm
-            # We increase eta (stiffness) each pass to encourage fine-tuning over jumping
+            # We increase eta (stiffness) each pass to encourage fine-tuning over jumping.
+            # Higher eta = children are closer to parents (Exploitation).
             current_eta = 20 + (i * 10)
 
             algorithm = UNSGA3(
@@ -194,7 +258,7 @@ def run_iterative_refinement(problem, prev_res, args, idx=None, max_passes=3, pa
             )
 
             # Validation: Did we improve?
-            # Check mean error of the best solution found
+            # Check mean error of the best solution found (minimization problem)
             old_best = np.min(current_res.F[:, 0]) if current_res.F is not None else float('inf')
             new_best = np.min(res.F[:, 0]) if res.F is not None else float('inf')
 
@@ -226,7 +290,7 @@ def run_iterative_refinement(problem, prev_res, args, idx=None, max_passes=3, pa
 ############################################################
 def run_refinement(problem, prev_res, args, padding=0.25):
     """
-    Main driver with Parallel Processing support.
+    Legacy wrapper for a single refinement pass. Deprecated in favor of the recursive `run_iterative_refinement`.
     """
     logger.info("=" * 40)
     logger.info("       STARTING REFINEMENT (ZOOM-IN)      ")

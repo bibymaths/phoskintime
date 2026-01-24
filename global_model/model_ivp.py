@@ -17,6 +17,7 @@ import numpy as np
 
 from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
 
+
 def _c(a, dtype=None):
     """
     Ensure contiguous arrays (helps Numba + reduces hidden copies).
