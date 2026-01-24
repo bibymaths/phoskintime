@@ -147,7 +147,7 @@ def run_mechanistic_discovery(sys, idx, df_tf, results_dir):
 # --- 2. THE MAIN LOADER ---
 
 if __name__ == "__main__":
-    RES_DIR = "./results_global_combinatorial"
+    RES_DIR = "./results_model_global_distributive"
 
     # Replicate your specific loading logic
     with open(Path(RES_DIR) / "fitted_params_picked.json", "r") as f:
