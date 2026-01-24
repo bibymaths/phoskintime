@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -28,7 +27,11 @@ st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
 
 
 def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
-    """Map TF network columns to expected ('tf','target') names where possible."""
+    """
+    Standardizes the column names of a DataFrame for transcription factors (TF).
+
+    This function ensures that the DataFrame contains standardized column names
+    of "tf" (representing the transcription factor) and"""
     if df_tf is None or df_tf.empty:
         return df_tf
     cols = df_tf.columns.tolist()
@@ -50,18 +53,20 @@ def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_df_tf_model(
-    df_tf_raw: pd.DataFrame,
-    df_kin: pd.DataFrame,
-    df_prot: pd.DataFrame,
-    df_rna: pd.DataFrame,
-    df_pho: pd.DataFrame,
-    kin_beta_map: dict | None,
-    tf_beta_map: dict | None,
+        df_tf_raw: pd.DataFrame,
+        df_kin: pd.DataFrame,
+        df_prot: pd.DataFrame,
+        df_rna: pd.DataFrame,
+        df_pho: pd.DataFrame,
+        kin_beta_map: dict | None,
+        tf_beta_map: dict | None,
 ) -> tuple[pd.DataFrame | None, dict]:
     """
-    Port of runner.py 'Sophisticated TF handling' (proxy orphan TFs, filter to representable universe).
-    Returns (df_tf_model, TF_PROXY_MAP).
-    """
+    Builds a transcription factor (TF) model dataframe and maps orphan transcription factors to
+    proxy proteins based on their targets and associated scoring logic.
+
+    This function processes raw transcription factor data and filters it to include only entries
+    with valid targets present in"""
     if df_tf_raw is None or df_tf_raw.empty:
         return df_tf_raw, {}
 
@@ -76,11 +81,11 @@ def _build_df_tf_model(
     kinase_set = set(df_kin["kinase"].astype(str).str.strip().unique())
 
     target_universe = (
-        set(df_kin["protein"].astype(str).str.strip().unique())
-        | set(df_kin["kinase"].astype(str).str.strip().unique())
-        | set(df_prot["protein"].astype(str).str.strip().unique())
-        | set(df_rna["protein"].astype(str).str.strip().unique())
-        | set(df_pho["protein"].astype(str).str.strip().unique())
+            set(df_kin["protein"].astype(str).str.strip().unique())
+            | set(df_kin["kinase"].astype(str).str.strip().unique())
+            | set(df_prot["protein"].astype(str).str.strip().unique())
+            | set(df_rna["protein"].astype(str).str.strip().unique())
+            | set(df_pho["protein"].astype(str).str.strip().unique())
     )
 
     df_tf_model = df_tf[df_tf["target"].astype(str).str.strip().isin(target_universe)].copy()
@@ -101,8 +106,8 @@ def _build_df_tf_model(
 
     for orphan in orphan_tfs:
         targets = df_tf_model.loc[df_tf_model["tf"] == orphan, "target"].astype(str)
-        cand1 = [t for t in targets if t in kinase_set]               # Priority 1
-        cand2 = [t for t in targets if t in proteins_with_sites]      # Priority 2
+        cand1 = [t for t in targets if t in kinase_set]  # Priority 1
+        cand2 = [t for t in targets if t in proteins_with_sites]  # Priority 2
         candidates = cand1 if cand1 else cand2
         if candidates:
             best = sorted(candidates, key=lambda c: (-_proxy_score(orphan, c), c))[0]
@@ -122,7 +127,16 @@ def _build_df_tf_model(
 
 
 def _mechanistic_phospho_filter(df_kin: pd.DataFrame, df_pho: pd.DataFrame) -> pd.DataFrame:
-    """Exact runner.py: keep only (protein, psite) in df_kin."""
+    """
+    Filters a phosphorylation site dataset to retain only the rows that match protein and phosphorylation site 
+    pairs present in a kinase dataset. This function ensures that only mechanistically relevant phosphorylation 
+    site data remains.
+
+    Args:
+        df_kin (pd.DataFrame): DataFrame containing kinase information with 'protein' and 'psite' columns. 
+            Each row represents a kinase and its associated phosphorylation site.
+        df_pho (pd.DataFrame): DataFrame containing phosphorylation site data with 'protein' and 'psite' 
+            columns. Rows in this DataFrame are filtered"""
     if df_pho is None or df_pho.empty:
         return df_pho
 
@@ -142,6 +156,16 @@ def _mechanistic_phospho_filter(df_kin: pd.DataFrame, df_pho: pd.DataFrame) -> p
 
 @st.cache_resource
 def load_system():
+    """
+    Caches and initializes a System object along with associated parameters, indices, and data models.
+
+    This function performs a comprehensive setup to construct a `System` object for further analysis.
+    It loads data, preprocesses various datasets (e.g., kinase, transcription factor, and protein data),
+    and compiles the necessary matrices and configurations required by the system. Additionally, it handles
+    parameters derived from an optimization run, reconstructing necessary input for reanalysis or dashboarding.
+
+    Returns:
+        tuple: A tuple containing the"""
     # IMPORTANT: ensure model selection matches run *before* building System
     config.MODEL = 0
 
@@ -236,8 +260,24 @@ def load_system():
 
 
 def run_sim(sys, idx, mod_params):
+    """
+    Updates a system with given modification parameters and executes a simulation to return measurements.
+
+    This function takes a system object, updates its attributes based on the provided 
+    modification parameters, and runs a simulation. Measurements for protein, RNA, and 
+    phosphorylation levels are taken at predefined time points.
+
+    Args:
+        sys: The system object to be updated and simulated.
+        idx: An integer index specifying which part of the system to simulate.
+        mod_params: A dictionary containing the modification parameters to update 
+            the system with.
+
+    Returns:
+        The measurements obtained from the simulation"""
     sys.update(**mod_params)
-    return simulate_and_measure(sys, idx, config.TIME_POINTS_PROTEIN, config.TIME_POINTS_RNA, config.TIME_POINTS_PHOSPHO)
+    return simulate_and_measure(sys, idx, config.TIME_POINTS_PROTEIN, config.TIME_POINTS_RNA,
+                                config.TIME_POINTS_PHOSPHO)
 
 
 # --- UI Setup ---
@@ -251,8 +291,20 @@ ko_params = {k: v.copy() if isinstance(v, np.ndarray) else v for k, v in best_pa
 
 Kmat_backup = None  # default
 
+
 def restore_Kinase():
+    """
+    Restores the state or data related to Kinase to its default or initial configuration.
+
+    This function is designed to reset or reconstruct necessary elements connected
+    to Kinase, which can include internal systems, data, or processes, based on
+    the implementation.
+
+    Returns:
+        None: This function does not return any value.
+    """
     return None
+
 
 if ko_type == "Protein (Synthesis)":
     target = st.sidebar.selectbox("Select Target Protein", idx.proteins)
@@ -274,10 +326,22 @@ elif ko_type == "Kinase (Activity)":
     sys.kin.Kmat[k_idx, :] *= scale
     ko_params["c_k"][k_idx] *= scale
 
+
     # Restore both after KO simulation
     def restore_Kinase():
+        """
+        Restores the kinase matrix and kinase concentration values to their original backup states.
+
+        This function resets specific global system variables to their previously saved states using backup
+        values. It is particularly useful for restoring system consistency after temporary modifications.
+
+        Raises:
+            AttributeError: If any of the required backup attributes are not available or have been removed
+            from the system.
+        """
         sys.kin.Kmat = Kmat_backup
         sys.c_k = c_k_backup
+
 
     sys.update(**ko_params)
 else:
@@ -513,7 +577,7 @@ t_max = st.slider(
     "Simulation Time (minutes)",
     min_value=2,
     max_value=14 * 24 * 60,  # 14 days
-    value=960,       # default: 16 hrs
+    value=960,  # default: 16 hrs
     step=60
 )
 
@@ -522,8 +586,24 @@ n_points = 10000
 # Simulate WT to steady state
 t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
 
+
 # Extract per-protein output
 def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
+    """
+    Extracts and processes feature components from a dataset for a given protein.
+
+    This function retrieves RNA, protein, and phosphorylation site data associated with 
+    a specified protein from a dataset. It supports normalization of input data and 
+    returns a processed DataFrame containing time-series data for RNA, total protein, 
+    and (if available) phosphorylation site values.
+
+    Args:
+        Y: ndarray
+            Input dataset containing RNA, protein, and phosphorylation site measurements.
+            The dimensions of `Y` include time points as rows and feature components as 
+            columns.
+        idx: object
+            An"""
     p_idx = idx.p2i[protein]
     st_y = idx.offset_y[p_idx]
     rna_vals = Y[:, st_y]
@@ -561,6 +641,7 @@ def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
 
     return df
 
+
 # WT values
 df_wt = extract_fc_from_Y(Y_wt, idx, t_fine, selected_p)
 
@@ -577,16 +658,19 @@ with col1:
     fig_fine_r = go.Figure()
     fig_fine_r.add_trace(go.Scatter(x=df_wt["time"], y=df_wt["rna"], name="WT", line=dict(color="black", dash="dash")))
     fig_fine_r.add_trace(go.Scatter(x=df_ko["time"], y=df_ko["rna"], name="KO", line=dict(color="red")))
-    fig_fine_r.update_layout(title="mRNA Simulation", xaxis_title="Time", yaxis_title="Fold Change", template="plotly_white")
+    fig_fine_r.update_layout(title="mRNA Simulation", xaxis_title="Time", yaxis_title="Fold Change",
+                             template="plotly_white")
     fig_fine_r.update_xaxes(type="log")
     st.plotly_chart(fig_fine_r, use_container_width=True)
 
 # --- Plot Protein
 with col2:
     fig_fine_p = go.Figure()
-    fig_fine_p.add_trace(go.Scatter(x=df_wt["time"], y=df_wt["protein"], name="WT", line=dict(color="black", dash="dash")))
+    fig_fine_p.add_trace(
+        go.Scatter(x=df_wt["time"], y=df_wt["protein"], name="WT", line=dict(color="black", dash="dash")))
     fig_fine_p.add_trace(go.Scatter(x=df_ko["time"], y=df_ko["protein"], name="KO", line=dict(color="blue")))
-    fig_fine_p.update_layout(title="Protein Simulation", xaxis_title="Time", yaxis_title="Fold Change", template="plotly_white")
+    fig_fine_p.update_layout(title="Protein Simulation", xaxis_title="Time", yaxis_title="Fold Change",
+                             template="plotly_white")
     fig_fine_p.update_xaxes(type="log")
     st.plotly_chart(fig_fine_p, use_container_width=True)
 
@@ -691,23 +775,27 @@ col1, col2, col3 = st.columns(3)
 with col1:
     fig_insp_r = go.Figure()
     fig_insp_r.add_trace(
-        go.Scatter(x=wt_r_data["time"], y=wt_r_data["pred_fc"], name="Wild Type", line=dict(dash="dash", color="black", width=2))
+        go.Scatter(x=wt_r_data["time"], y=wt_r_data["pred_fc"], name="Wild Type",
+                   line=dict(dash="dash", color="black", width=2))
     )
     fig_insp_r.add_trace(
         go.Scatter(x=ko_r_data["time"], y=ko_r_data["pred_fc"], name="Knockout", line=dict(color="red", width=3))
     )
-    fig_insp_r.update_layout(title=f"{selected_p} mRNA Response", xaxis_title="Time (min)", yaxis_title="Fold Change", template="plotly_white")
+    fig_insp_r.update_layout(title=f"{selected_p} mRNA Response", xaxis_title="Time (min)", yaxis_title="Fold Change",
+                             template="plotly_white")
     st.plotly_chart(fig_insp_r, use_container_width=True)
 
 with col2:
     fig_insp_p = go.Figure()
     fig_insp_p.add_trace(
-        go.Scatter(x=wt_p_data["time"], y=wt_p_data["pred_fc"], name="Wild Type", line=dict(dash="dash", color="black", width=2))
+        go.Scatter(x=wt_p_data["time"], y=wt_p_data["pred_fc"], name="Wild Type",
+                   line=dict(dash="dash", color="black", width=2))
     )
     fig_insp_p.add_trace(
         go.Scatter(x=ko_p_data["time"], y=ko_p_data["pred_fc"], name="Knockout", line=dict(color="blue", width=3))
     )
-    fig_insp_p.update_layout(title=f"{selected_p} Protein Abundance", xaxis_title="Time (min)", yaxis_title="Fold Change", template="plotly_white")
+    fig_insp_p.update_layout(title=f"{selected_p} Protein Abundance", xaxis_title="Time (min)",
+                             yaxis_title="Fold Change", template="plotly_white")
     st.plotly_chart(fig_insp_p, use_container_width=True)
 
 # st.divider()
@@ -781,12 +869,14 @@ with col3:
             site_wt = wt_pho_data[wt_pho_data["psite"] == site]
             site_ko = ko_pho_data[ko_pho_data["psite"] == site]
             fig_sites.add_trace(
-                go.Scatter(x=site_wt["time"], y=site_wt["pred_fc"], name=f"WT Site: {site}", line=dict(dash="dash", color=color))
+                go.Scatter(x=site_wt["time"], y=site_wt["pred_fc"], name=f"WT Site: {site}",
+                           line=dict(dash="dash", color=color))
             )
             fig_sites.add_trace(
                 go.Scatter(x=site_ko["time"], y=site_ko["pred_fc"], name=f"KO Site: {site}", line=dict(color=color))
             )
-        fig_sites.update_layout(title=f"{selected_p} Phospho-site Dynamics", xaxis_title="Time (min)", yaxis_title="Fold Change", template="plotly_white")
+        fig_sites.update_layout(title=f"{selected_p} Phospho-site Dynamics", xaxis_title="Time (min)",
+                                yaxis_title="Fold Change", template="plotly_white")
     st.plotly_chart(fig_sites, use_container_width=True)
 
 st.divider()
@@ -794,7 +884,8 @@ st.divider()
 # --- Graph Options ---
 st.sidebar.divider()
 st.sidebar.header("🕸️ Graph Options")
-depth = st.sidebar.slider("Cascade Depth", min_value=1, max_value=3, value=1, help="1: Direct targets only. 2+: Includes targets of targets.")
+depth = st.sidebar.slider("Cascade Depth", min_value=1, max_value=3, value=1,
+                          help="1: Direct targets only. 2+: Includes targets of targets.")
 
 # --- Functional Hierarchy Map ---
 if ko_type != "None" and df_tf_model is not None and not df_tf_model.empty and target is not None:
@@ -970,24 +1061,42 @@ st.divider()
 
 
 def _total_protein_from_y(y_last: np.ndarray, idx: Index, protein: str) -> float:
-    """Total protein = unphospho protein + sum(phospho states)."""
+    """
+    Calculates the total protein abundance from a given state vector.
+
+    This function computes the total abundance of a specified protein, including its phosphorylated forms,
+    based on the provided state vector and index.
+
+    Args:
+        y_last (np.ndarray): The state vector representing the abundance of different species.
+        idx (Index): An index object containing mappings and offsets for protein data.
+        protein (str): The name of the protein for which the total abundance is calculated.
+
+    Returns:
+        float: The total abundance of the specified protein, including phosphorylated forms.
+    """
     p_i = idx.p2i[protein]
     st_y = idx.offset_y[p_i]
     prot = float(y_last[st_y + 1])
     ns = int(idx.n_sites[p_i])
     if ns > 0:
-        phos_sum = float(np.sum(y_last[st_y + 2 : st_y + 2 + ns]))
+        phos_sum = float(np.sum(y_last[st_y + 2: st_y + 2 + ns]))
         return prot + phos_sum
     return prot
 
 
 def _compute_state_snapshot(sys: System, idx: Index, params: dict, t_eval: float = 960.0):
     """
-    Returns:
-      Kt: (nK,) kinase activity vector at t_eval (sys.kin.eval(t)*sys.c_k)
-      y_last: last state from simulate_until_steady up to t_eval
-      totalP: dict protein->total protein abundance at steady state
-    """
+    Updates the system state and computes a snapshot of system variables and metrics at
+    a specific evaluation time.
+
+    Args:
+        sys (System): The system object representing the model or structure being evaluated.
+        idx (Index): The index structure containing mappings for protein indices or similar
+            elements in the system.
+        params (dict): A dictionary of parameters that will override or update the system's
+            current state.
+        t_eval (float, optional): The simulation evaluation time. Defaults to 960"""
     # backup current system state minimally by re-applying later outside this helper if needed
     sys.update(**params)
 
@@ -1004,17 +1113,23 @@ def _compute_state_snapshot(sys: System, idx: Index, params: dict, t_eval: float
 
 
 def _build_global_edge_tables(
-    sys: System,
-    idx: Index,
-    params: dict,
-    df_tf_model: pd.DataFrame | None,
-    t_eval: float = 960.0,
+        sys: System,
+        idx: Index,
+        params: dict,
+        df_tf_model: pd.DataFrame | None,
+        t_eval: float = 960.0,
 ):
     """
-    Build two edge tables:
-      1) signaling edges: kinase -> protein (aggregated over sites), weighted by phosphorylation drive
-      2) transcription edges: tf -> target, weighted by tf_drive (tf_mat * TF_level * tf_scale)
-    """
+    Builds global edge tables for signaling and transcription interactions based on the provided
+    system state, kinase and protein indices, parameters, transcript factor models, and evaluation time.
+
+    This function computes and aggregates signaling edges between kinases and proteins, as well as
+    transcription edges between transcription factors and target proteins, forming two distinct edge 
+    dataframes. Signaling edge contributions depend on the system's global weight matrix and the state 
+    snapshot, while transcription edges are derived from transcription factor interactions.
+
+    Args:
+        sys (System): The system object containing global matrices, required weights, and"""
     Kt, y_last, totalP = _compute_state_snapshot(sys, idx, params, t_eval=t_eval)
 
     # ---- Signaling edges: kinase -> protein (aggregate per target protein) ----
@@ -1085,12 +1200,24 @@ def _build_global_edge_tables(
 
 
 def _merge_and_filter_edges(
-    df_sig: pd.DataFrame,
-    df_tf: pd.DataFrame,
-    max_edges: int = 300,
-    min_abs_weight: float = 1e-3,
-    include_tf: bool = True,
+        df_sig: pd.DataFrame,
+        df_tf: pd.DataFrame,
+        max_edges: int = 300,
+        min_abs_weight: float = 1e-3,
+        include_tf: bool = True,
 ):
+    """
+    Merges and filters edges from the given dataframes based on specified conditions.
+
+    This function combines two dataframes, applies a filter based on the absolute weight
+    of edges, and limits the total number of edges returned. It ensures only significant
+    edges, as defined by the minimum absolute weight and a maximum number of edges, are 
+    retained.
+
+    Args:
+        df_sig (pd.DataFrame): The dataframe containing significant edges.
+        df_tf (pd.DataFrame): The dataframe containing transcription factor (TF) edges.
+        max_edges (int): The maximum number of edges to include in the"""
     df_all = df_sig.copy()
     if include_tf and df_tf is not None and not df_tf.empty:
         df_all = pd.concat([df_all, df_tf], ignore_index=True)
@@ -1108,7 +1235,18 @@ def _merge_and_filter_edges(
 
 
 def _gravis_html_from_edges(df_edges: pd.DataFrame, title: str):
+    """
+    Generates an HTML representation of a directed graph visualization based on the provided
+    edges. The graph is constructed using the NetworkX library and visualized using Gravis.
 
+    Args:
+        df_edges (pd.DataFrame): A DataFrame containing the edges of the graph. Each edge
+            should specify the source node, target node, weight, and type.
+        title (str): The title to be displayed above the graph visualization.
+
+    Returns:
+        str: An HTML string containing the graph visualization with interactivity and styling.
+    """
     G = nx.DiGraph()
 
     for r in df_edges.itertuples(index=False):
@@ -1176,8 +1314,18 @@ def _gravis_html_from_edges(df_edges: pd.DataFrame, title: str):
 
 def _plotly_network_from_edges(df_edges: pd.DataFrame, title: str):
     """
-    Plotly fallback (works without gravis). Suitable up to a few hundred edges.
-    """
+    Creates and returns a Plotly visual representation of a directed graph constructed 
+    from the given edges DataFrame.
+
+    This function uses NetworkX to generate a directed graph and visualizes it using 
+    Plotly with nodes and edges styled appropriately. The layout of the graph is 
+    calculated using a spring layout. Nodes are displayed as markers with labels, and 
+    edges are represented as lines with hover information showing details about 
+    the connection.
+
+    Args:
+        df_edges (pd.DataFrame): A DataFrame representing graph edges. Each row should 
+            contain the source node ('src'),"""
     G = nx.DiGraph()
     for r in df_edges.itertuples(index=False):
         G.add_edge(r.src, r.tgt, weight=float(r.weight), etype=r.type)
@@ -1257,6 +1405,259 @@ def _plotly_network_from_edges(df_edges: pd.DataFrame, title: str):
 
 
 # =========================
+# Functional Influence (gravis) — KO consistent, WT/KO/Δ like global panel
+# =========================
+
+def _totalP_dict_from_snapshot(y_last: np.ndarray, idx: Index) -> dict[str, float]:
+    """
+    Calculates total protein abundance for each protein in the provided snapshot.
+
+    This function generates a dictionary mapping each protein to its total abundance,
+    based on the given simulation snapshot and protein index.
+
+    Args:
+        y_last (np.ndarray): The state vector of the system from a simulation snapshot.
+        idx (Index): An index object that provides mappings and references to proteins
+            in the system.
+
+    Returns:
+        dict[str, float]: A dictionary where the keys are protein names and the values
+        are the corresponding total protein abundances.
+    """
+    return {p: _total_protein_from_y(y_last, idx, p) for p in idx.proteins}
+
+
+def _snapshot_for_params(sys_local: System, idx_local: Index, params: dict, t_eval: float):
+    """
+    Creates a snapshot for the system based on the given parameters and evaluation time.
+
+    This function computes the state snapshot of the system using the provided system 
+    and index objects, parameter dictionary, and a specific evaluation time. It returns 
+    three computed values that represent the state snapshot of the system at the specified 
+    time.
+
+    Args:
+        sys_local (System): The system object representing the current system configuration.
+        idx_local (Index): The index object representing the indices or mappings used in 
+            computation.
+        params (dict): A dictionary of parameters required for the computation of 
+    """
+    Kt, y_last, totalP = _compute_state_snapshot(sys_local, idx_local, params, t_eval=float(t_eval))
+    return Kt, y_last, totalP
+
+
+def _cascade_edges_from_seed(
+        sys_local: System,
+        idx_local: Index,
+        params: dict,
+        df_tf_model_local: pd.DataFrame | None,
+        seed: str,
+        depth: int = 1,
+        t_eval: float = 960.0,
+        include_tf: bool = True,
+        max_edges: int = 400,
+        min_abs_weight: float = 1e-3,
+):
+    """
+    Generates a cascaded network of edges based on a seed node using depth-limited expansion. The
+    function calculates kinase-protein signaling edges, evaluates transcription factor (TF)-target
+    edges, and performs a depth-limited breadth-first search (BFS) for edge expansion.
+
+    Args:
+        sys_local (System): The system instance containing global and localized matrices for
+            kinase-protein signaling and transcription factors.
+        idx_local (Index): An index mapping object for kinase and protein IDs.
+    """
+    Kt, y_last, totalP = _snapshot_for_params(sys_local, idx_local, params, t_eval=float(t_eval))
+
+    # Precompute fast signaling lookup:
+    # For each kinase k, get all site rows it hits, and map those site rows -> protein
+    W = sys_local.W_global.tocoo()
+    # drive per site-edge: beta * Kt_k
+    edge_drive = W.data * Kt[W.col]
+
+    # site_row -> protein index
+    prot_idx = np.searchsorted(idx_local.offset_s, W.row, side="right") - 1
+    prot_idx = np.clip(prot_idx, 0, len(idx_local.proteins) - 1)
+    prot_name = np.asarray(idx_local.proteins, dtype=object)[prot_idx]
+    kin_name = np.asarray(idx_local.kinases, dtype=object)[W.col]
+
+    df_site = pd.DataFrame(
+        {"src": kin_name, "tgt": prot_name, "weight": edge_drive.astype(float)}
+    )
+    # aggregate to kinase->protein
+    df_sig = df_site.groupby(["src", "tgt"], as_index=False).agg(weight=("weight", "sum"))
+    df_sig["type"] = "signaling"
+
+    # TF edges as in your global table, but evaluated at this snapshot
+    df_tf_edges = pd.DataFrame(columns=["src", "tgt", "weight", "type"])
+    if include_tf and df_tf_model_local is not None and not df_tf_model_local.empty:
+        tf_mat = sys_local.tf_mat
+        tf_scale = float(getattr(sys_local, "tf_scale", 1.0))
+
+        rows = []
+        for r in df_tf_model_local.itertuples(index=False):
+            tf = getattr(r, "tf")
+            tgt = getattr(r, "target")
+            if tf not in idx_local.p2i or tgt not in idx_local.p2i:
+                continue
+            i_tgt = idx_local.p2i[tgt]
+            j_tf = idx_local.p2i[tf]
+            try:
+                coeff = float(tf_mat[i_tgt, j_tf])
+            except Exception:
+                coeff = float(np.asarray(tf_mat[i_tgt, j_tf]).squeeze())
+            if abs(coeff) < 1e-14:
+                continue
+            tf_level = float(totalP.get(tf, 0.0))
+            drive = tf_scale * coeff * tf_level
+            rows.append((tf, tgt, float(drive)))
+
+        if rows:
+            df_tf_edges = pd.DataFrame(rows, columns=["src", "tgt", "weight"])
+            df_tf_edges["type"] = "transcription"
+
+    # -------- Depth-limited expansion (BFS on directed edges) --------
+    # We expand from current frontier nodes by:
+    #  - if node is a kinase: outgoing signaling edges kinase -> proteins
+    #  - if node is a protein: outgoing TF edges protein(tf) -> targets (only if it appears as tf)
+    edges_out_sig = df_sig
+    edges_out_tf = df_tf_edges
+
+    frontier = {seed}
+    visited = set()
+    keep_rows = []
+
+    for _ in range(int(depth)):
+        if not frontier:
+            break
+
+        next_frontier = set()
+        for node in frontier:
+            # Signaling expansion if node is kinase
+            if node in idx_local.k2i:
+                sub = edges_out_sig[edges_out_sig["src"] == node]
+                if not sub.empty:
+                    keep_rows.append(sub)
+                    next_frontier.update(sub["tgt"].tolist())
+
+            # TF expansion if node is protein and is TF in df_tf_edges
+            if include_tf and (node in idx_local.p2i):
+                sub = edges_out_tf[edges_out_tf["src"] == node]
+                if not sub.empty:
+                    keep_rows.append(sub)
+                    next_frontier.update(sub["tgt"].tolist())
+
+        visited.update(frontier)
+        frontier = next_frontier - visited
+
+    if not keep_rows:
+        return pd.DataFrame(columns=["src", "tgt", "type", "weight", "absw"])
+
+    df_edges = pd.concat(keep_rows, ignore_index=True).drop_duplicates()
+    df_edges["absw"] = df_edges["weight"].abs()
+    df_edges = df_edges[df_edges["absw"] >= float(min_abs_weight)].copy()
+    df_edges = df_edges.sort_values("absw", ascending=False).head(int(max_edges)).copy()
+    return df_edges
+
+
+def _functional_influence_edges(mode: str, seed: str, depth: int, t_eval: float,
+                                include_tf: bool, max_edges: int, min_abs_w: float):
+    """
+    Calculates functional influence on edges in a network model under wild-type (WT) conditions,
+    knockout (KO) conditions, or their differences. The results can be filtered based on minimum
+    absolute weight and limited to a maximum number of edges.
+
+    Args:
+        mode (str): Specifies the mode of operation. Can be "WT", "KO", or calculate
+            differences ("Δ(KO−WT)").
+        seed (str): Initial node or seed for cascading influence calculation.
+        depth (int): Maximum depth of propagation in the network.
+        t_eval ("""
+    # WT
+    sys_wt, idx_wt, _, df_tf_wt, _ = load_system()
+    df_wt = _cascade_edges_from_seed(
+        sys_wt, idx_wt, best_params, df_tf_wt,
+        seed=seed, depth=depth, t_eval=t_eval,
+        include_tf=include_tf, max_edges=max_edges, min_abs_weight=min_abs_w
+    )
+
+    # KO
+    sys_ko, idx_ko, _, df_tf_ko, _ = load_system()
+    df_ko = _cascade_edges_from_seed(
+        sys_ko, idx_ko, ko_params, df_tf_ko,
+        seed=seed, depth=depth, t_eval=t_eval,
+        include_tf=include_tf, max_edges=max_edges, min_abs_weight=min_abs_w
+    )
+
+    if mode == "WT":
+        return df_wt, f"Functional influence (WT) — seed={seed} — depth={depth} — t={t_eval:.1f} min"
+    if mode == "KO":
+        return df_ko, f"Functional influence (KO) — seed={seed} — depth={depth} — t={t_eval:.1f} min"
+
+    # Δ(KO−WT) align edges
+    key = ["src", "tgt", "type"]
+    df_w = df_wt[key + ["weight"]].rename(columns={"weight": "w_wt"})
+    df_k = df_ko[key + ["weight"]].rename(columns={"weight": "w_ko"})
+    df_d = df_k.merge(df_w, on=key, how="outer")
+    df_d["w_ko"] = df_d["w_ko"].fillna(0.0)
+    df_d["w_wt"] = df_d["w_wt"].fillna(0.0)
+    df_d["weight"] = df_d["w_ko"] - df_d["w_wt"]
+    df_d = df_d[key + ["weight"]]
+    df_d["absw"] = df_d["weight"].abs()
+    df_d = df_d[df_d["absw"] >= float(min_abs_w)].sort_values("absw", ascending=False).head(int(max_edges)).copy()
+
+    return df_d, f"Functional influence Δ(KO−WT) — seed={seed} — depth={depth} — t={t_eval:.1f} min"
+
+
+# -------------------------
+# UI panel (uses your existing KO selection)
+# -------------------------
+st.divider()
+st.header("🧭 Functional Influence (gravis)")
+
+seed = st.selectbox("Seed node", sorted(set(idx.proteins) | set(idx.kinases)), index=0)
+
+if target is None:
+    st.info("Select a KO target (protein or kinase) in the sidebar to enable influence mapping.")
+else:
+    cI1, cI2, cI3, cI4 = st.columns(4)
+    with cI1:
+        infl_view = st.selectbox("View", ["KO", "WT", "Δ(KO−WT)"], index=0, key="infl_view")
+    with cI2:
+        infl_t = st.slider("Evaluation time (min)", min_value=10, max_value=960, value=960, step=10, key="infl_t")
+    with cI3:
+        infl_depth = st.slider("Cascade depth", min_value=1, max_value=4, value=int(depth), step=1, key="infl_depth")
+    with cI4:
+        infl_include_tf = st.checkbox("Include TF edges", value=True, key="infl_include_tf")
+
+    cJ1, cJ2 = st.columns(2)
+    with cJ1:
+        infl_max_edges = st.slider("Max edges (top-|weight|)", 50, 1200, 300, 50, key="infl_max_edges")
+    with cJ2:
+        infl_min_abs_w = st.number_input("Min |weight| filter", min_value=0.0, value=0.001, step=0.001,
+                                         format="%.4f", key="infl_min_abs_w")
+
+    df_infl, infl_title = _functional_influence_edges(
+        mode=infl_view,
+        seed=seed,
+        depth=int(infl_depth),
+        t_eval=float(infl_t),
+        include_tf=bool(infl_include_tf),
+        max_edges=int(infl_max_edges),
+        min_abs_w=float(infl_min_abs_w),
+    )
+
+    if df_infl.empty:
+        st.warning(
+            "No edges passed the current filters for this influence graph. Lower the |weight| threshold or increase max edges.")
+    else:
+        html = _gravis_html_from_edges(df_infl, infl_title)
+        components.html(html, height=760, scrolling=True)
+        with st.expander("Show influence edge table"):
+            st.dataframe(df_infl[["src", "tgt", "type", "weight", "absw"]].head(500), use_container_width=True)
+
+# =========================
 # PANEL UI
 # =========================
 st.divider()
@@ -1275,30 +1676,53 @@ with cC:
 with cD:
     min_abs_w = st.number_input("Min |weight| filter", min_value=0.0, value=0.001, step=0.001, format="%.4f")
 
+
 # Compute WT / KO edge tables for unmutated global system
 # df_sig_wt, df_tf_wt = _build_global_edge_tables(sys, idx, best_params, df_tf_model, t_eval=float(t_eval))
 # df_sig_ko, df_tf_ko = _build_global_edge_tables(sys, idx, ko_params, df_tf_model, t_eval=float(t_eval))
 
 def build_network_from_params(params):
-    """Build edge tables for a given parameter set."""
-        # HARD RESET
+    """
+    Builds a network from the given parameters and returns the result.
+
+    This function leverages the provided system and index data to construct
+    global edge tables and produce the resultant network. It takes in a set
+    of parameters necessary for the network-building process.
+
+    Args:
+        params: Parameters required to build the network.
+    """
+    # HARD RESET
     sys_local, idx_local, _, _, _ = load_system()
     return _build_global_edge_tables(
         sys_local, idx_local, params, df_tf_model, t_eval=float(t_eval)
     )
 
+
 df_sig_wt, df_tf_wt = build_network_from_params(best_params)
 df_sig_ko, df_tf_ko = build_network_from_params(ko_params)
 
+
 # Merge + filter per mode
 def _prepare_edges_for_mode(mode: str):
+    """
+    Prepares and filters edges for a specified network mode. Depending on the mode, this function
+    can generate edges for WT (wild type), KO (knockout), or the delta network (difference between
+    knockout and wild type). The filtering process may include merging edges, aligning weights, 
+    removing redundant data, and applying thresholds based on the provided parameters. The result 
+    includes the appropriately filtered edge data and a descriptive title.
+
+    Args:
+        mode (str): The network mode"""
     if mode == "WT":
-        df_edges = _merge_and_filter_edges(df_sig_wt, df_tf_wt, max_edges=max_edges, min_abs_weight=min_abs_w, include_tf=include_tf_edges)
+        df_edges = _merge_and_filter_edges(df_sig_wt, df_tf_wt, max_edges=max_edges, min_abs_weight=min_abs_w,
+                                           include_tf=include_tf_edges)
         title = f"WT network at t={t_eval} min"
         return df_edges, title
 
     if mode == "KO":
-        df_edges = _merge_and_filter_edges(df_sig_ko, df_tf_ko, max_edges=max_edges, min_abs_weight=min_abs_w, include_tf=include_tf_edges)
+        df_edges = _merge_and_filter_edges(df_sig_ko, df_tf_ko, max_edges=max_edges, min_abs_weight=min_abs_w,
+                                           include_tf=include_tf_edges)
         title = f"KO network at t={t_eval} min (perturbation applied)"
         return df_edges, title
 
@@ -1371,7 +1795,7 @@ with cS3:
     sweep_n = st.slider(
         "Timepoints (rendered)",
         min_value=4,
-        max_value=24,      # keep this modest; gravis HTML is heavy
+        max_value=24,  # keep this modest; gravis HTML is heavy
         value=9,
         step=1,
         key="sweep_n",
@@ -1418,12 +1842,23 @@ st.caption(
 
 from global_model.simulate import simulate_odeint  # uses odeint under the hood
 
+
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):
     """
-    Sweep-safe version:
-      - constructs a strictly monotonic t_eval grid for odeint
-      - returns last state at ~t_eval (final element of grid)
-    """
+    Computes the state snapshot for a system over a specified time range.
+
+    This function evaluates the state of a system after applying specific 
+    parameters and computes its time evolution over a defined evaluation 
+    time (`t_eval`). It integrates the system's state using numerical 
+    integration, ensuring stability and consistency of the results. 
+    The function also calculates additional outputs like kinetic evaluations 
+    and total protein quantities.
+
+    Args:
+        sys (System): The dynamic system object representing the modeled 
+            process. Must include methods for updating parameters and 
+            state integration, as well as kinetic evaluation.
+       """
     sys.update(**params)
 
     t_eval = float(t_eval)
@@ -1451,15 +1886,23 @@ def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval:
 
 
 def _build_global_edge_tables_at_time_sweep(
-    sys: System,
-    idx: Index,
-    params: dict,
-    df_tf_model: pd.DataFrame | None,
-    t_eval: float,
+        sys: System,
+        idx: Index,
+        params: dict,
+        df_tf_model: pd.DataFrame | None,
+        t_eval: float,
 ):
     """
-    Identical to your _build_global_edge_tables, but uses the sweep-safe snapshot.
-    """
+    Builds global edge tables for signaling and transcription edges at a given time point in a system.
+
+    This function computes the state snapshot at a specific time and constructs two dataframes:
+    one for signaling edges and the other for transcriptional regulation edges. The signaling
+    edges consider contributions from kinases to proteins based on weighted connectivity, while 
+    the transcription edges consider transcription factor activity on their target genes.
+
+    Args:
+        sys (System): The system object containing global data, such as the global edge matrix 
+            (`W_global`) and transcription factor matrix (`tf_mat`), required for edge"""
     Kt, y_last, totalP = _compute_state_snapshot_sweep(sys, idx, params, t_eval=float(t_eval))
 
     # ---- Signaling edges ----
@@ -1516,15 +1959,38 @@ def _build_global_edge_tables_at_time_sweep(
 
     return df_sig, df_tf_edges
 
+
 def build_network_from_params_at_time(params, t_eval_local: float):
+    """
+    Builds a network configuration at a specific time using the provided parameters.
+
+    This function constructs a network configuration by loading the system, applying
+    parameters, and evaluating at a specified time. It leverages helper functions
+    to generate global edge tables during the time sweep process.
+
+    Args:
+        params: Network configuration parameters to be applied when building the 
+            network.
+        t_eval_local (float): The specific evaluation time for applying the 
+            parameters while constructing the network.
+
+    Returns:
+        The resulting global edge tables after applying the parameters at the 
+        specified time.
+    """
     sys_local, idx_local, _, _, _ = load_system()
     return _build_global_edge_tables_at_time_sweep(
         sys_local, idx_local, params, df_tf_model, t_eval=float(t_eval_local)
     )
 
+
 def _prepare_edges_for_mode_at_time(mode: str, t_eval_local: float):
+    """
+    Prepares edges for visualization or analysis based on the given mode and time.
+    Generates a dataframe of network edges and an associated title representing the
+    state (wild type, knockout, or differential) at a specific time"""
     df_sig_wt, df_tf_wt = build_network_from_params_at_time(best_params, t_eval_local)
-    df_sig_ko, df_tf_ko = build_network_from_params_at_time(ko_params,  t_eval_local)
+    df_sig_ko, df_tf_ko = build_network_from_params_at_time(ko_params, t_eval_local)
 
     if mode == "WT":
         df_edges = _merge_and_filter_edges(
@@ -1570,6 +2036,7 @@ def _prepare_edges_for_mode_at_time(mode: str, t_eval_local: float):
     title = f"Δ(KO−WT) @ t={float(t_eval_local):.1f} min"
     return df_delta, title
 
+
 # --- sweep execution + rendering ---
 if st.button("Generate sweep graphs", key="sweep_run_btn"):
     times = np.linspace(0.0, float(sweep_t_end), int(sweep_n))
@@ -1579,7 +2046,7 @@ if st.button("Generate sweep graphs", key="sweep_run_btn"):
     status = st.empty()
 
     for i, tt in enumerate(times):
-        status.write(f"Computing {i+1}/{len(times)} at t={tt:.1f} min")
+        status.write(f"Computing {i + 1}/{len(times)} at t={tt:.1f} min")
         df_edges_i, title_i = _prepare_edges_for_mode_at_time(sweep_view_mode, float(tt))
         sweep_results.append((float(tt), df_edges_i, title_i))
         prog.progress((i + 1) / len(times))
