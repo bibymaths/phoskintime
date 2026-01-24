@@ -1,3 +1,17 @@
+#!/usr/bin/env python
+"""
+Dashboard application for PhosKinTime.
+
+This module provides a Streamlit-based dashboard for visualizing and analyzing
+results from PhosKinTime simulations. It includes features for visualizing
+pareto frontiers, goodness of fit, residuals analysis, and more.
+
+The dashboard is intended to be run from the command line, e.g.:
+```
+streamlit run run_dashboard.py -- --output_dir=/path/to/output
+```
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,6 +25,29 @@ import streamlit as st
 
 from global_model.dashboard_bundle import load_dashboard_bundle
 
+import base64
+import json
+
+def _list_files(output_dir: Path, patterns: list[str]):
+    files = []
+    for pat in patterns:
+        files.extend(output_dir.glob(pat))
+    return sorted(files)
+
+def _show_image(path: Path, caption: str | None = None):
+    st.image(str(path), caption=caption, use_container_width=True)
+
+def _show_video(path: Path):
+    st.video(str(path))
+
+def _show_pdf(path: Path, height: int = 700):
+    pdf_bytes = path.read_bytes()
+    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    html = f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="{height}px"></iframe>'
+    st.markdown(html, unsafe_allow_html=True)
+
+def _read_json(path: Path):
+    return json.loads(path.read_text())
 
 def _load_outputs(output_dir: Path):
     # Prefer bundle (rich objects). Also load standard artifacts if present.
@@ -144,9 +181,77 @@ def main():
         )
 
     # Tabs
-    tab_overview, tab_timeseries, tab_network, tab_params = st.tabs(
-        ["Overview", "Time series", "Network", "Parameters"]
+    tab_overview, tab_timeseries, tab_network, tab_params, tab_browser = st.tabs(
+        ["Overview", "Time series", "Network", "Parameters", "Browse results"]
     )
+
+    with tab_browser:
+        st.subheader("Quick gallery")
+
+        gallery = [
+            "pareto_front_3d.png",
+            "pareto_pcp.png",
+            "goodness_of_fit.png",
+            "residuals_analysis.png",
+            "kinase_activities_plot.png",
+            "sensitivity_mu_star.png",
+            "convergence_plot.png",
+        ]
+        cols = st.columns(3)
+        for i, fn in enumerate(gallery):
+            p = output_dir / fn
+            if p.exists():
+                with cols[i % 3]:
+                    _show_image(p, caption=fn)
+
+        st.divider()
+        st.subheader("Open a result file")
+
+        kind = st.selectbox("Type", ["Images", "CSVs", "JSON", "PDF", "Video", "Subfolders"], index=0)
+
+        if kind == "Images":
+            imgs = _list_files(output_dir, ["*.png", "*.jpg", "*.jpeg"])
+            choice = st.selectbox("File", [p.name for p in imgs], index=0 if imgs else None)
+            if choice:
+                _show_image(output_dir / choice, caption=choice)
+
+        elif kind == "CSVs":
+            csvs = _list_files(output_dir, ["*.csv"])
+            choice = st.selectbox("File", [p.name for p in csvs], index=0 if csvs else None)
+            if choice:
+                df = pd.read_csv(output_dir / choice)
+                st.write(df.head(50))
+                st.download_button("Download CSV", data=(output_dir / choice).read_bytes(), file_name=choice)
+
+        elif kind == "JSON":
+            jss = _list_files(output_dir, ["*.json"])
+            choice = st.selectbox("File", [p.name for p in jss], index=0 if jss else None)
+            if choice:
+                st.json(_read_json(output_dir / choice))
+
+        elif kind == "PDF":
+            pdfs = _list_files(output_dir, ["*.pdf"])
+            choice = st.selectbox("File", [p.name for p in pdfs], index=0 if pdfs else None)
+            if choice:
+                _show_pdf(output_dir / choice)
+
+        elif kind == "Video":
+            vids = _list_files(output_dir, ["*.mp4"])
+            choice = st.selectbox("File", [p.name for p in vids], index=0 if vids else None)
+            if choice:
+                _show_video(output_dir / choice)
+
+        else:  # Subfolders
+            sub = st.selectbox("Folder", ["sensitivity_perturbations", "steady_state_plots", "timeseries_plots",
+                                          "steady_state_summary"])
+            folder = output_dir / sub
+            if folder.exists():
+                imgs = sorted(folder.glob("*.png"))
+                choice = st.selectbox("File", [p.name for p in imgs], index=0 if imgs else None)
+                if choice:
+                    _show_image(folder / choice, caption=f"{sub}/{choice}")
+            else:
+                st.info(f"{sub} not found.")
 
     with tab_overview:
         c1, c2 = st.columns([2, 1])
@@ -224,22 +329,45 @@ def main():
 
         # Phospho
         st.subheader("Phospho trajectories (obs vs pred)")
-        sites = sorted(df_pho_obs["psite"].unique().tolist()) if "psite" in df_pho_obs.columns else []
-        site = st.selectbox("P-site", sites, index=0 if sites else None)
-        if site:
-            st.plotly_chart(
-                _plot_timeseries_obs_pred(
-                    df_obs=df_pho_obs,
-                    df_pred=df_pred_pho,
-                    entity_col="psite",
-                    x_col="time",
-                    y_obs="fc",
-                    y_pred="pred_fc",
-                    title=f"Phospho: {site}",
-                    entity=site,
-                ),
-                use_container_width=True,
-            )
+
+        # adjust if your column is not literally "protein"
+        prot_col = "protein"  # or "GeneID" / "gene" depending on your table
+        site_col = "psite"
+
+        if prot_col not in df_pho_obs.columns or site_col not in df_pho_obs.columns:
+            st.info(f"Phospho table must contain '{prot_col}' and '{site_col}' columns.")
+        else:
+            # 1) pick protein (drives the site menu)
+            pho_proteins = sorted(df_pho_obs[prot_col].dropna().unique().tolist())
+            pho_prot = st.selectbox("Phospho protein", pho_proteins, index=0 if pho_proteins else None)
+
+            if pho_prot:
+                df_pho_obs_p = df_pho_obs[df_pho_obs[prot_col] == pho_prot]
+                sites = sorted(df_pho_obs_p[site_col].dropna().unique().tolist())
+
+                # 2) pick site among sites for that protein
+                site = st.selectbox("P-site", sites, index=0 if sites else None)
+
+                # 3) filter predictions the same way (if present)
+                df_pred_pho_p = None
+                if df_pred_pho is not None and prot_col in df_pred_pho.columns and site_col in df_pred_pho.columns:
+                    df_pred_pho_p = df_pred_pho[df_pred_pho[prot_col] == pho_prot]
+
+                if site:
+                    # filter obs/pred to the chosen site
+                    fig = _plot_timeseries_obs_pred(
+                        df_obs=df_pho_obs_p,  # already filtered by protein
+                        df_pred=df_pred_pho_p,  # already filtered by protein (or None)
+                        entity_col=site_col,
+                        x_col="time",
+                        y_obs="fc",
+                        y_pred="pred_fc",
+                        title=f"Phospho: {pho_prot} — {site}",
+                        entity=site,
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No phosphosites found for this protein.")
 
     with tab_network:
         st.subheader("Network exports")

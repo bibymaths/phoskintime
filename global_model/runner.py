@@ -1045,8 +1045,6 @@ def main():
     bundle_path = save_dashboard_bundle(
         output_dir=args.output_dir,
         args=args,
-        idx=idx,
-        sys=sys,
         res=res,
         slices=slices,
         xl=xl,
