@@ -29,6 +29,11 @@ def _find_col(df, cands):
             return c
     return None
 
+def normcols(df):
+    return _normcols(df)
+
+def find_col(df, cands):
+    return _find_col(df, cands)
 
 def slen(s: slice) -> int:
     return int(s.stop) - int(s.start)
