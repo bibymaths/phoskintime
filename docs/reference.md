@@ -110,7 +110,7 @@
 
 ::: models.diagram.helpers
 
-### Model Types
+### Protein Wise Model Types
 
 ::: models.distmod
 ::: models.randmod
@@ -130,4 +130,51 @@
 
 ::: utils.display
 ::: utils.tables
-::: utils.latexit
+::: utils.latexit 
+
+## Global ODE Model
+
+### Core Data Structures & Topology
+
+::: global_model.network
+::: global_model.buildmat
+::: global_model.params
+
+### Configuration & Data Loading
+
+::: global_model.config
+::: global_model.io
+
+### Physics Kernels (JIT)
+
+::: global_model.models
+
+### Numerical Integration & Solvers
+
+::: global_model.simulate
+::: global_model.solvers
+::: global_model.jacspeedup
+::: global_model.steadystate
+::: global_model.model_ivp
+
+### Optimization & Loss Functions
+
+::: global_model.optproblem
+::: global_model.lossfn
+::: global_model.optuna_solver
+::: global_model.runner
+::: global_model.refine
+::: global_model.scan
+
+### Analysis & Visualization
+
+::: global_model.sensitivity
+::: global_model.analysis
+::: global_model.export
+::: global_model.dashboard_app
+::: global_model.dashboard_bundle
+
+### Utilities
+
+::: global_model.utils
+::: global_model.cache

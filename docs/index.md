@@ -56,6 +56,34 @@ mechanistic hypotheses, including:
 
 ---
 
+## Modeling backends (local vs global)
+
+PhosKinTime provides two complementary modeling stacks:
+
+1) **Local phosphorylation ODE models (per protein / per site)**  
+   These implement the classic mechanistic hypotheses (distributive, successive, random) and are optimized against
+   phosphoproteomics time series. They are intended for detailed fitting of individual proteins or phosphorylation sites. 
+
+2) **Global coupled signaling–GRN model (`global_model`)**  
+   This is a network-scale ODE system that couples kinase-driven phosphorylation dynamics to TF-mediated transcriptional
+   regulation. It is intended for system-level simulations (e.g., global knockouts, functional influence propagation)
+   and calibration against multi-omics time series.
+
+For the full mathematical specification of the coupled global system (all equations), see:`global_model/README.md`
+
+Package mapping:
+- **`kinopt`**: optimization + post-processing for local phosphorylation models
+- **`tfopt`**: TF→mRNA constrained optimization and reporting
+- **`global_model`**: coupled kinase-signaling + GRN simulation and optimization wrappers
+
+Typical workflows:
+- **Local phosphorylation fitting**: `prep → kinopt → model → sensitivity → plotting`
+- **TF regulation fitting**: `prep → tfopt → reports`
+- **Global network simulation**: `prep → global_model → simulate → measure → KO analysis` 
+- **Global network optimization**: `prep → global_model → optimize → measure → KO analysis` 
+
+---
+
 ## Core Modules
 
 **config**

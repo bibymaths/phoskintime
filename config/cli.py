@@ -26,7 +26,11 @@ python phoskintime kinopt --mode evol
 
 # run the model
 python phoskintime model
+
+# run the integrated Global Model
+python phoskintime global_model
 """
+import shutil
 from pathlib import Path
 import subprocess as sp
 import sys
@@ -136,6 +140,56 @@ def model(
     """
     _run(_python_module("bin.main", conf))
 
+@app.command()
+def global_model(
+        conf: Path | None = typer.Option(
+            "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
+            help="Path to global model config file. Uses config.toml by default."
+        ),
+):
+    """
+    Run the integrated Global Model (global_model.runner).
+
+    This runs the unified optimization pipeline defined in the [global_model]
+    section of your configuration.
+    """
+    # Assuming the package is named 'global_model' and has a 'runner.py'
+    _run(_python_module("global_model.runner", conf))
+
+
+@app.command()
+def clean():
+    """
+    Remove all __pycache__, .pyc, .nbc, and build artifacts recursively.
+    """
+    patterns = [
+        "__pycache__",
+        "*.pyc",
+        "*.pyo",
+        "*.nbc",  # Numba cache
+        ".pytest_cache",
+        ".mypy_cache",
+        "build",  # setuptools build dir
+        "dist",  # setuptools dist dir
+        "*.egg-info"
+    ]
+
+    count = 0
+    # Use ROOT from your existing cli.py
+    for pattern in patterns:
+        # rglob finds files recursively
+        for path in ROOT.rglob(pattern):
+            try:
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
+                count += 1
+                # typer.echo(f"Deleted: {path}") # Uncomment for verbose output
+            except Exception as e:
+                typer.echo(f"Error deleting {path}: {e}")
+
+    typer.echo(f"Cleaned up {count} cached files and directories.")
 
 @app.command()
 def all(
