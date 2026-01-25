@@ -325,12 +325,12 @@ def main():
     has_ps = ~(b2["PSite"].isna() | (ps_str == "") | (ps_str.str.lower().isin({"nan", "none"})))
     psite_stats = (
         b2.assign(has_psite=has_ps)
-          .groupby("TF", as_index=False)
-          .agg(
-              n_beta=("Value", "size"),
-              n_psites=("has_psite", "sum"),
-              has_any_psite=("has_psite", "max"),
-          )
+        .groupby("TF", as_index=False)
+        .agg(
+            n_beta=("Value", "size"),
+            n_psites=("has_psite", "sum"),
+            has_any_psite=("has_psite", "max"),
+        )
     )
     psite_stats.to_csv(OUT_DIR / "tfopt_tf_psite_stats.csv", index=False)
 

@@ -94,15 +94,15 @@ def density_hist(values: np.ndarray, bins: int = 40):
 # Small plotting utilities
 # -----------------------------
 def top_n_barh(
-    df: pd.DataFrame,
-    value_col: str,
-    label_col: str,
-    n: int,
-    title: str,
-    xlabel: str,
-    outname: str,
-    annotate: callable | None = None,
-    xlim: tuple[float, float] | None = None,
+        df: pd.DataFrame,
+        value_col: str,
+        label_col: str,
+        n: int,
+        title: str,
+        xlabel: str,
+        outname: str,
+        annotate: callable | None = None,
+        xlim: tuple[float, float] | None = None,
 ):
     d = df.sort_values(value_col, ascending=False).head(n).copy()
     d = d.iloc[::-1]
@@ -346,8 +346,8 @@ def plot_egfr_control_logic_dag(ko: pd.DataFrame, td: pd.DataFrame):
     TOPK_PER_SITE = 17
     eg = (
         eg.sort_values(["Psite", "abs_delta"], ascending=[True, False])
-          .groupby("Psite", as_index=False)
-          .head(TOPK_PER_SITE)
+        .groupby("Psite", as_index=False)
+        .head(TOPK_PER_SITE)
     )
 
     # Nodes
@@ -356,7 +356,7 @@ def plot_egfr_control_logic_dag(ko: pd.DataFrame, td: pd.DataFrame):
     kinase_nodes = sorted(eg["KnockedKinase"].astype(str).unique())
 
     site_ids = {_sanitize_id("site", s): s for s in site_nodes}
-    kin_ids  = {_sanitize_id("kin", k): k for k in kinase_nodes}
+    kin_ids = {_sanitize_id("kin", k): k for k in kinase_nodes}
 
     G = nx.DiGraph()
 

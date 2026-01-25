@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Replicate the kinase-optimization schematic (P–S–K–KS) using NetworkX + Matplotlib.
+This script creates constraints based and without constraints based schematics for kinase-TF optimization.
+It uses Graphviz via either pygraphviz or pydot to render DOT diagrams.
 
-Output: kinopt_diagram.png
+Author: Abhinav Mishra
 """
 
 from __future__ import annotations
@@ -10,14 +11,15 @@ import pydot
 import os
 import pygraphviz as pgv
 
+
 def make_kinopt_diagram_dot(
-    outfile: str = "kinopt_diagram.png",
-    *,
-    fmt: str | None = None,
-    engine: str = "dot",
-    dpi: int = 300,
-    rankdir: str = "TB",
-    kin_psites: int = 1,              # PSites per kinase: β_{1,k}..β_{kin_psites,k}
+        outfile: str = "kinopt_diagram.png",
+        *,
+        fmt: str | None = None,
+        engine: str = "dot",
+        dpi: int = 300,
+        rankdir: str = "TB",
+        kin_psites: int = 1,  # PSites per kinase: β_{1,k}..β_{kin_psites,k}
 ):
     """
     Kinopt DOT schematic (consistent with the integrated global diagram):
@@ -53,7 +55,8 @@ def make_kinopt_diagram_dot(
     dot.append(
         f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", nodesep=0.55, ranksep=0.85];'
     )
-    dot.append('  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
     dot.append('  edge  [fontname="Helvetica", fontsize=14, fontcolor="black", penwidth=2, arrowsize=0.9];')
 
     dot.append(f'  P [label=<P<sub>i</sub>>, fillcolor="{col_P}", width=1.1, fixedsize=true];')
@@ -127,13 +130,13 @@ def make_kinopt_diagram_dot(
 
 
 def make_tfopt_diagram_dot(
-    outfile: str = "tfopt_diagram.png",
-    *,
-    fmt: str | None = None,
-    engine: str = "dot",
-    dpi: int = 300,
-    rankdir: str = "TB",
-    tf_psites: int = 1,               # PSites per TF: β_{1,j}..β_{tf_psites,j}
+        outfile: str = "tfopt_diagram.png",
+        *,
+        fmt: str | None = None,
+        engine: str = "dot",
+        dpi: int = 300,
+        rankdir: str = "TB",
+        tf_psites: int = 1,  # PSites per TF: β_{1,j}..β_{tf_psites,j}
 ):
     """
     TFopt DOT schematic:
@@ -165,7 +168,8 @@ def make_tfopt_diagram_dot(
     dot.append(
         f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", nodesep=0.55, ranksep=0.85];'
     )
-    dot.append('  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
     dot.append('  edge  [fontname="Helvetica", fontsize=14, fontcolor="black", penwidth=2, arrowsize=0.9];')
 
     dot.append(f'  P [label=<P<sub>i</sub>>, fillcolor="{col_P}", width=1.1, fixedsize=true];')
@@ -223,15 +227,16 @@ def make_tfopt_diagram_dot(
 
     print(f"Saved: {outfile}")
 
+
 def make_global_diagram_dot(
-    outfile: str = "kin_tf_opt_diagram.png",
-    *,
-    fmt: str | None = None,          # inferred from outfile if None
-    engine: str = "dot",             # "dot" (schematic), "neato" (manual-ish), "fdp", "sfdp"
-    dpi: int = 300,
-    rankdir: str = "TB",             # "TB" (top-bottom) or "LR" (left-right)
-    kin_psites: int = 1,             # number of PSites per kinase (β2,k etc.)
-    tf_psites: int = 1,              # number of PSites per TF
+        outfile: str = "kin_tf_opt_diagram.png",
+        *,
+        fmt: str | None = None,  # inferred from outfile if None
+        engine: str = "dot",  # "dot" (schematic), "neato" (manual-ish), "fdp", "sfdp"
+        dpi: int = 300,
+        rankdir: str = "TB",  # "TB" (top-bottom) or "LR" (left-right)
+        kin_psites: int = 1,  # number of PSites per kinase (β2,k etc.)
+        tf_psites: int = 1,  # number of PSites per TF
 ):
     """
     Single DOT/Graphviz-rendered diagram integrating kinopt + tfopt, with consistent labeling.
@@ -258,12 +263,12 @@ def make_global_diagram_dot(
         fmt = ext.lstrip(".").lower() or "png"
 
     # Palette consistent with your previous figures
-    col_P = "#ff1a1a"       # red
-    col_S = "#1f77ff"       # blue (S nodes / TF nodes)
-    col_K = "#7cb518"       # green (K nodes)
-    col_inp = "#00a6ff"     # cyan (inputs/PSites)
-    col_alpha = "#7cb518"   # green α edges
-    col_beta = "#1f77ff"    # blue β edges
+    col_P = "#ff1a1a"  # red
+    col_S = "#1f77ff"  # blue (S nodes / TF nodes)
+    col_K = "#7cb518"  # green (K nodes)
+    col_inp = "#00a6ff"  # cyan (inputs/PSites)
+    col_alpha = "#7cb518"  # green α edges
+    col_beta = "#1f77ff"  # blue β edges
 
     # ---- Kinopt config ----
     S_nodes = ["S1", "S2"]
@@ -285,7 +290,8 @@ def make_global_diagram_dot(
         f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", '
         f'nodesep=0.55, ranksep=0.85];'
     )
-    dot.append('  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
     dot.append('  edge  [fontname="Helvetica", fontsize=14, fontcolor="black", penwidth=2, arrowsize=0.9];')
 
     # Shared hub node P
@@ -417,7 +423,437 @@ def make_global_diagram_dot(
 
     print(f"Saved: {outfile}")
 
+
+def _render_dot(dot_str: str, outfile: str, *, fmt: str, engine: str) -> None:
+    """Render DOT via pygraphviz if available, else pydot."""
+    try:
+        A = pgv.AGraph(string=dot_str)
+        A.layout(prog=engine)
+        A.draw(outfile, format=fmt)
+        return
+    except Exception:
+        pass
+
+    try:
+        graphs = pydot.graph_from_dot_data(dot_str)
+        if not graphs:
+            raise RuntimeError("pydot failed to parse DOT.")
+        g = graphs[0]
+        write_fn = getattr(g, f"write_{fmt}", None)
+        if write_fn is None:
+            g.write_raw(outfile)
+        else:
+            write_fn(outfile, prog=engine)
+    except Exception as e:
+        raise RuntimeError(
+            "Could not render via pygraphviz or pydot. You likely need Graphviz + one of: pygraphviz, pydot.\n"
+            "Install examples:\n"
+            "  sudo apt-get install graphviz graphviz-dev\n"
+            "  pip install pygraphviz\n"
+            "or:\n"
+            "  pip install pydot\n"
+            f"Original error: {e}"
+        ) from e
+
+
+def make_kinopt_constraints_graph_dot(
+        outfile: str = "kinopt_constraints.png",
+        *,
+        fmt: str | None = None,
+        engine: str = "dot",
+        dpi: int = 300,
+        rankdir: str = "TB",
+        kin_psites: int = 2,
+):
+    """
+    Kinopt constraints diagram.
+
+    Constraints visualized:
+      - Alpha on P->S edges: 0<=alpha<=1 and SUM_s alpha_s = 1  (all site-alphas sum to 1)
+      - Beta bounds global: -4<=beta<=4
+      - Per-kinase beta-mixture normalization: SUM_p beta_{p,k} = 1, p=0..kin_psites
+      - (Optional) regulatory beta on S->K edges: beta_{k,s} bounded [-4,4] (not normalized unless you add it)
+    """
+    import os
+
+    if fmt is None:
+        _, ext = os.path.splitext(outfile)
+        fmt = ext.lstrip(".").lower() or "png"
+
+    # Palette
+    col_P = "#ff1a1a"
+    col_S = "#1f77ff"
+    col_K = "#7cb518"
+    col_inp = "#00a6ff"
+    col_alpha = "#7cb518"
+    col_beta = "#1f77ff"
+    col_note = "#f2f2f2"
+
+    # Config (matches your earlier schematic)
+    S_nodes = ["S1", "S2"]
+    K_nodes = ["K1", "K2", "K3", "K4"]
+    kin_alpha_edges = [("P", "S1"), ("P", "S2")]
+    kin_beta_edges = [("S1", "K1"), ("S1", "K2"), ("S2", "K3"), ("S2", "K4")]
+
+    dot = []
+    dot.append("digraph KINOPT_CONSTRAINTS {")
+    dot.append(f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", nodesep=0.55, ranksep=0.9];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append('  edge  [fontname="Helvetica", fontsize=12, fontcolor="black", penwidth=2, arrowsize=0.9];')
+
+    dot.append(f'  P [label=<P>, fillcolor="{col_P}", width=1.0, fixedsize=true];')
+
+    # Constraint summary
+    dot.append(
+        '  C [shape=box, style="rounded,filled", '
+        f'fillcolor="{col_note}", fontsize=12, label=<'
+        '<b>Constraints</b><br/>'
+        '&#945;: 0&#8804;&#945;&#8804;1 and &#8721;<sub>s</sub>&#945;<sub>s</sub>=1 (P&#8594;S)<br/>'
+        '&#946;: -4&#8804;&#946;&#8804;4 (global)<br/>'
+        '&#8721;<sub>p</sub>&#946;<sub>p,k</sub>=1 (per kinase mixture; p=0..K)'
+        '>];'
+    )
+    dot.append('  { rank=source; C; }')
+
+    # Nodes
+    for s_idx, s in enumerate(S_nodes, start=1):
+        dot.append(f'  {s} [label=<S<sub>{s_idx}</sub>>, fillcolor="{col_S}", width=1.0, fixedsize=true];')
+    for k_idx, k in enumerate(K_nodes, start=1):
+        dot.append(f'  {k} [label=<K<sub>{k_idx}</sub>>, fillcolor="{col_K}", width=1.0, fixedsize=true];')
+
+    # Alpha normalization box (site-level)
+    dot.append(
+        f'  NA_S [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+        f'label=<&#8721;<sub>s=1..{len(S_nodes)}</sub> &#945;<sub>s</sub> = 1<br/>'
+        f'<font point-size="10">&#945;<sub>s</sub> &#8712; [0,1]</font>>];'
+    )
+    for s in S_nodes:
+        dot.append(f'  NA_S -> {s} [style=dashed, color="gray50", arrowhead=none];')
+
+    # α edges P->S (with bounds)
+    for (_, s) in kin_alpha_edges:
+        s_idx = int(s.replace("S", ""))
+        dot.append(
+            f'  P -> {s} [color="{col_alpha}", '
+            f'label=<&#945;<sub>{s_idx}</sub><br/><font point-size="10">[0,1]</font>>];'
+        )
+
+    # Regulatory β edges S->K (bounded)
+    for (s, k) in kin_beta_edges:
+        s_idx = int(s.replace("S", ""))
+        k_idx = int(k.replace("K", ""))
+        dot.append(
+            f'  {s} -> {k} [color="{col_beta}", '
+            f'label=<&#946;<sub>{k_idx},{s_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+
+    # Per-kinase β-mixture normalization + inputs
+    for k_idx, k in enumerate(K_nodes, start=1):
+        bsum = f"NB_{k}"
+        dot.append(
+            f'  {bsum} [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+            f'label=<&#8721;<sub>p=0..{kin_psites}</sub> &#946;<sub>p,{k_idx}</sub> = 1<br/>'
+            f'<font point-size="10">&#946;<sub>p,{k_idx}</sub> &#8712; [-4,4]</font>>];'
+        )
+        dot.append(f'  {bsum} -> {k} [style=dashed, color="gray50", arrowhead=none];')
+
+        k0 = f"{k}_0"
+        dot.append(f'  {k0} [label=<K<sub>{k_idx}</sub>(t)>, fillcolor="{col_inp}", width=1.25, fixedsize=true];')
+        dot.append(
+            f'  {k0} -> {k} [color="{col_beta}", '
+            f'label=<&#946;<sub>0,{k_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+
+        for p in range(1, kin_psites + 1):
+            kp = f"{k}_p{p}"
+            dot.append(
+                f'  {kp} [label=<PSite<sub>{p},{k_idx}</sub>(t)>, fillcolor="{col_inp}", width=1.45, fixedsize=true];')
+            dot.append(
+                f'  {kp} -> {k} [color="{col_beta}", '
+                f'label=<&#946;<sub>{p},{k_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+            )
+
+    dot.append("}")
+    _render_dot("\n".join(dot), outfile, fmt=fmt, engine=engine)
+    print(f"Saved: {outfile}")
+
+
+def make_tfopt_constraints_graph_dot(
+        outfile: str = "tfopt_constraints.png",
+        *,
+        fmt: str | None = None,
+        engine: str = "dot",
+        dpi: int = 300,
+        rankdir: str = "TB",
+        tf_psites: int = 2,
+        n_tfs: int = 4,
+):
+    """
+    TFopt constraints diagram.
+
+    Constraints visualized:
+      - Alpha on TF->P edges: 0<=alpha<=1 and SUM_j alpha_{i,j} = 1  (all TF-alphas sum to 1 into P)
+      - Beta bounds global: -4<=beta<=4
+      - Per-TF beta-mixture normalization: SUM_p beta_{p,j} = 1, p=0..tf_psites
+    """
+    import os
+
+    if fmt is None:
+        _, ext = os.path.splitext(outfile)
+        fmt = ext.lstrip(".").lower() or "png"
+
+    col_P = "#ff1a1a"
+    col_TF = "#1f77ff"
+    col_inp = "#00a6ff"
+    col_alpha = "#7cb518"
+    col_beta = "#1f77ff"
+    col_note = "#f2f2f2"
+
+    TFs = [f"TF{j}" for j in range(1, n_tfs + 1)]
+
+    dot = []
+    dot.append("digraph TFOPT_CONSTRAINTS {")
+    dot.append(f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", nodesep=0.55, ranksep=0.9];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append('  edge  [fontname="Helvetica", fontsize=12, fontcolor="black", penwidth=2, arrowsize=0.9];')
+
+    dot.append(f'  P [label=<P>, fillcolor="{col_P}", width=1.0, fixedsize=true];')
+
+    dot.append(
+        '  C [shape=box, style="rounded,filled", '
+        f'fillcolor="{col_note}", fontsize=12, label=<'
+        '<b>Constraints</b><br/>'
+        '&#945;: 0&#8804;&#945;&#8804;1 and &#8721;<sub>j</sub>&#945;<sub>i,j</sub>=1 (TF&#8594;P)<br/>'
+        '&#946;: -4&#8804;&#946;&#8804;4 (global)<br/>'
+        '&#8721;<sub>p</sub>&#946;<sub>p,j</sub>=1 (per TF mixture; p=0..K)'
+        '>];'
+    )
+    dot.append('  { rank=source; C; }')
+
+    # Alpha normalization box (TF-level)
+    dot.append(
+        f'  NA_TF [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+        f'label=<&#8721;<sub>j=1..{n_tfs}</sub> &#945;<sub>i,j</sub> = 1<br/>'
+        f'<font point-size="10">&#945;<sub>i,j</sub> &#8712; [0,1]</font>>];'
+    )
+
+    for j, tf in enumerate(TFs, start=1):
+        dot.append(f'  {tf} [label=<TF<sub>{j}</sub>>, fillcolor="{col_TF}", width=1.0, fixedsize=true];')
+
+        # Connect alpha-normalization node to each TF (dashed)
+        dot.append(f'  NA_TF -> {tf} [style=dashed, color="gray50", arrowhead=none];')
+
+        # α edge TF -> P
+        dot.append(
+            f'  {tf} -> P [color="{col_alpha}", '
+            f'label=<&#945;<sub>i,{j}</sub><br/><font point-size="10">[0,1]</font>>];'
+        )
+
+        # β-mixture normalization per TF
+        bsum = f"NB_{tf}"
+        dot.append(
+            f'  {bsum} [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+            f'label=<&#8721;<sub>p=0..{tf_psites}</sub> &#946;<sub>p,{j}</sub> = 1<br/>'
+            f'<font point-size="10">&#946;<sub>p,{j}</sub> &#8712; [-4,4]</font>>];'
+        )
+        dot.append(f'  {bsum} -> {tf} [style=dashed, color="gray50", arrowhead=none];')
+
+        # Inputs feeding TF
+        tf0 = f"{tf}_0"
+        dot.append(f'  {tf0} [label=<TF<sub>{j}</sub>(t)>, fillcolor="{col_inp}", width=1.25, fixedsize=true];')
+        dot.append(
+            f'  {tf0} -> {tf} [color="{col_beta}", '
+            f'label=<&#946;<sub>0,{j}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+
+        for p in range(1, tf_psites + 1):
+            ps = f"{tf}_p{p}"
+            dot.append(
+                f'  {ps} [label=<PSite<sub>{p},{j}</sub>(t)>, fillcolor="{col_inp}", width=1.45, fixedsize=true];')
+            dot.append(
+                f'  {ps} -> {tf} [color="{col_beta}", '
+                f'label=<&#946;<sub>{p},{j}</sub><br/><font point-size="10">[-4,4]</font>>];'
+            )
+
+    dot.append("}")
+    _render_dot("\n".join(dot), outfile, fmt=fmt, engine=engine)
+    print(f"Saved: {outfile}")
+
+
+def make_global_constraints_graph_dot(
+        outfile: str = "global_constraints.png",
+        *,
+        fmt: str | None = None,
+        engine: str = "dot",
+        dpi: int = 300,
+        rankdir: str = "TB",
+        kin_psites: int = 2,
+        tf_psites: int = 2,
+        n_tfs: int = 4,
+):
+    """
+    Global constraints diagram combining kinopt + tfopt constraints.
+
+    Constraints visualized:
+      - Alpha bounds fixed to [0,1] AND normalized:
+          kinopt: SUM_s alpha_s = 1 on P->S edges
+          tfopt:  SUM_j alpha_{i,j} = 1 on TF->P edges
+      - Beta bounds global [-4,4]
+      - Beta-mixture normalization:
+          per kinase: SUM_p beta_{p,k} = 1 (p=0..kin_psites)
+          per TF:     SUM_p beta_{p,j} = 1 (p=0..tf_psites)
+      - Regulatory beta on S->K edges shown bounded [-4,4] (not normalized unless you add that constraint)
+    """
+    import os
+
+    if fmt is None:
+        _, ext = os.path.splitext(outfile)
+        fmt = ext.lstrip(".").lower() or "png"
+
+    col_P = "#ff1a1a"
+    col_S = "#1f77ff"
+    col_K = "#7cb518"
+    col_TF = "#1f77ff"
+    col_inp = "#00a6ff"
+    col_alpha = "#7cb518"
+    col_beta = "#1f77ff"
+    col_note = "#f2f2f2"
+
+    S_nodes = ["S1", "S2"]
+    K_nodes = ["K1", "K2", "K3", "K4"]
+    TFs = [f"TF{j}" for j in range(1, n_tfs + 1)]
+
+    kin_alpha_edges = [("P", "S1"), ("P", "S2")]
+    kin_beta_edges = [("S1", "K1"), ("S1", "K2"), ("S2", "K3"), ("S2", "K4")]
+
+    dot = []
+    dot.append("digraph GLOBAL_CONSTRAINTS {")
+    dot.append(f'  graph [rankdir={rankdir}, dpi={dpi}, splines=true, bgcolor="white", nodesep=0.55, ranksep=0.9];')
+    dot.append(
+        '  node  [shape=circle, style=filled, fontname="Helvetica", fontsize=16, fontcolor="black", penwidth=2];')
+    dot.append('  edge  [fontname="Helvetica", fontsize=12, fontcolor="black", penwidth=2, arrowsize=0.9];')
+
+    dot.append(f'  P [label=<P>, fillcolor="{col_P}", width=1.0, fixedsize=true];')
+
+    dot.append(
+        '  C [shape=box, style="rounded,filled", '
+        f'fillcolor="{col_note}", fontsize=12, label=<'
+        '<b>Global constraints</b><br/>'
+        '&#945;: 0&#8804;&#945;&#8804;1 and normalized (&#8721;&#945;=1 per block)<br/>'
+        '&#946;: -4&#8804;&#946;&#8804;4 (global)<br/>'
+        '&#946; mixtures normalized: &#8721;&#946;=1 (per TF / per Kinase)'
+        '>];'
+    )
+    dot.append('  { rank=source; C; }')
+
+    # Alpha normalization nodes
+    dot.append(
+        f'  NA_S [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+        f'label=<Kinopt: &#8721;<sub>s=1..{len(S_nodes)}</sub> &#945;<sub>s</sub>=1<br/>'
+        f'<font point-size="10">&#945;<sub>s</sub>&#8712;[0,1]</font>>];'
+    )
+    dot.append(
+        f'  NA_TF [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+        f'label=<TFopt: &#8721;<sub>j=1..{n_tfs}</sub> &#945;<sub>i,j</sub>=1<br/>'
+        f'<font point-size="10">&#945;<sub>i,j</sub>&#8712;[0,1]</font>>];'
+    )
+
+    # Kinopt: S and K nodes + edges
+    for s_idx, s in enumerate(S_nodes, start=1):
+        dot.append(f'  {s} [label=<S<sub>{s_idx}</sub>>, fillcolor="{col_S}", width=1.0, fixedsize=true];')
+        dot.append(f'  NA_S -> {s} [style=dashed, color="gray50", arrowhead=none];')
+
+    for k_idx, k in enumerate(K_nodes, start=1):
+        dot.append(f'  {k} [label=<K<sub>{k_idx}</sub>>, fillcolor="{col_K}", width=1.0, fixedsize=true];')
+
+    for (_, s) in kin_alpha_edges:
+        s_idx = int(s.replace("S", ""))
+        dot.append(
+            f'  P -> {s} [color="{col_alpha}", label=<&#945;<sub>{s_idx}</sub><br/><font point-size="10">[0,1]</font>>];'
+        )
+
+    for (s, k) in kin_beta_edges:
+        s_idx = int(s.replace("S", ""))
+        k_idx = int(k.replace("K", ""))
+        dot.append(
+            f'  {s} -> {k} [color="{col_beta}", label=<&#946;<sub>{k_idx},{s_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+
+    for k_idx, k in enumerate(K_nodes, start=1):
+        bsum = f"NB_{k}"
+        dot.append(
+            f'  {bsum} [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+            f'label=<Kinase: &#8721;<sub>p=0..{kin_psites}</sub> &#946;<sub>p,{k_idx}</sub>=1<br/>'
+            f'<font point-size="10">&#946;<sub>p,{k_idx}</sub>&#8712;[-4,4]</font>>];'
+        )
+        dot.append(f'  {bsum} -> {k} [style=dashed, color="gray50", arrowhead=none];')
+
+        k0 = f"{k}_0"
+        dot.append(f'  {k0} [label=<K<sub>{k_idx}</sub>(t)>, fillcolor="{col_inp}", width=1.25, fixedsize=true];')
+        dot.append(
+            f'  {k0} -> {k} [color="{col_beta}", label=<&#946;<sub>0,{k_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+        for p in range(1, kin_psites + 1):
+            kp = f"{k}_p{p}"
+            dot.append(
+                f'  {kp} [label=<PSite<sub>{p},{k_idx}</sub>(t)>, fillcolor="{col_inp}", width=1.45, fixedsize=true];')
+            dot.append(
+                f'  {kp} -> {k} [color="{col_beta}", label=<&#946;<sub>{p},{k_idx}</sub><br/><font point-size="10">[-4,4]</font>>];'
+            )
+
+    # TFopt: TF nodes + edges
+    for j, tf in enumerate(TFs, start=1):
+        dot.append(f'  {tf} [label=<TF<sub>{j}</sub>>, fillcolor="{col_TF}", width=1.0, fixedsize=true];')
+        dot.append(f'  NA_TF -> {tf} [style=dashed, color="gray50", arrowhead=none];')
+
+        dot.append(
+            f'  {tf} -> P [color="{col_alpha}", label=<&#945;<sub>i,{j}</sub><br/><font point-size="10">[0,1]</font>>];'
+        )
+
+        bsum = f"NB_{tf}"
+        dot.append(
+            f'  {bsum} [shape=box, style="rounded,filled", fillcolor="{col_note}", fontsize=12, '
+            f'label=<TF: &#8721;<sub>p=0..{tf_psites}</sub> &#946;<sub>p,{j}</sub>=1<br/>'
+            f'<font point-size="10">&#946;<sub>p,{j}</sub>&#8712;[-4,4]</font>>];'
+        )
+        dot.append(f'  {bsum} -> {tf} [style=dashed, color="gray50", arrowhead=none];')
+
+        tf0 = f"{tf}_0"
+        dot.append(f'  {tf0} [label=<TF<sub>{j}</sub>(t)>, fillcolor="{col_inp}", width=1.25, fixedsize=true];')
+        dot.append(
+            f'  {tf0} -> {tf} [color="{col_beta}", label=<&#946;<sub>0,{j}</sub><br/><font point-size="10">[-4,4]</font>>];'
+        )
+        for p in range(1, tf_psites + 1):
+            ps = f"{tf}_p{p}"
+            dot.append(
+                f'  {ps} [label=<PSite<sub>{p},{j}</sub>(t)>, fillcolor="{col_inp}", width=1.45, fixedsize=true];')
+            dot.append(
+                f'  {ps} -> {tf} [color="{col_beta}", label=<&#946;<sub>{p},{j}</sub><br/><font point-size="10">[-4,4]</font>>];'
+            )
+
+    dot.append("}")
+    _render_dot("\n".join(dot), outfile, fmt=fmt, engine=engine)
+    print(f"Saved: {outfile}")
+
+
 if __name__ == "__main__":
-    make_tfopt_diagram_dot("tfopt_diagram.png", engine="dot", dpi=300)
-    make_kinopt_diagram_dot("kinopt_diagram.png", engine="dot", dpi=300)
-    make_global_diagram_dot("global_diagram.png", engine="dot", dpi=300)
+    kinase_psites = 1
+    transcription_factor_psites = 1
+
+    # Engines : dot, neato, twopi, circo, fdp, sfdp
+    engine = "dot"
+
+    # Constraints Network diagram
+    make_kinopt_constraints_graph_dot("kinopt_constraints.png", dpi=300, kin_psites=kinase_psites, engine=engine)
+    make_tfopt_constraints_graph_dot("tfopt_constraints.png", dpi=300, tf_psites=transcription_factor_psites,
+                                     engine=engine)
+    make_global_constraints_graph_dot("global_constraints.png", dpi=300, tf_psites=transcription_factor_psites,
+                                      kin_psites=kinase_psites, engine=engine)
+
+    # Without Constraints Network diagram
+    make_tfopt_diagram_dot("tfopt_diagram.png", engine=engine, dpi=300, tf_psites=transcription_factor_psites)
+    make_kinopt_diagram_dot("kinopt_diagram.png", engine=engine, dpi=300, kin_psites=kinase_psites)
+    make_global_diagram_dot("global_diagram.png", engine=engine, dpi=300, tf_psites=transcription_factor_psites,
+                            kin_psites=kinase_psites)

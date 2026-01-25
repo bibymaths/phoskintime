@@ -34,12 +34,11 @@ import networkx as nx
 
 from scipy.integrate import trapezoid
 
-
 # -----------------------
 # CONFIG
 # -----------------------
-IN_DIR = Path("./results_scripts/figures_tfopt")          # where readout CSVs are written
-OUT_DIR = Path("./results_scripts/figures_tfopt")     # where figures are written
+IN_DIR = Path("./results_scripts/figures_tfopt")  # where readout CSVs are written
+OUT_DIR = Path("./results_scripts/figures_tfopt")  # where figures are written
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 EDGES_CSV = Path("data/input4.csv")  # optional (Source,Target)
@@ -48,13 +47,13 @@ EDGES_CSV = Path("data/input4.csv")  # optional (Source,Target)
 MRNA_TIME_POINTS = np.array([4, 8, 15, 30, 60, 120, 240, 480, 960], dtype=float)
 
 # labeling controls
-MAX_POINT_LABELS = 5   # for scatter outliers
-TOP_TF_BAR = 25         # top TFs in load bar
-TOP_TARGETS = 25        # top targets in dominance display
-TOP_KO_PER_TARGET = 8   # TFs shown per target in KO heatmap
+MAX_POINT_LABELS = 5  # for scatter outliers
+TOP_TF_BAR = 25  # top TFs in load bar
+TOP_TARGETS = 25  # top targets in dominance display
+TOP_KO_PER_TARGET = 8  # TFs shown per target in KO heatmap
 
 # scatter outlier rule (95% band): label top-N by perpendicular distance to identity line
-LABEL_BY = "perp_dist"    # abs(pred-obs)
+LABEL_BY = "perp_dist"  # abs(pred-obs)
 
 # file formats
 SAVE_PNG_DPI = 300
@@ -353,10 +352,12 @@ def plot_network_overview(edges_csv: Path, tf_load: pd.DataFrame, dom: pd.DataFr
     plt.axis("off")
     savefig(OUT_DIR / "network_overview_top")
 
+
 # -----------------------------
 # EGFR-centric control logic (TFopt)
 # -----------------------------
 from networkx.drawing.nx_pydot import to_pydot, graphviz_layout
+
 
 def graphviz_lr_layout(G: nx.DiGraph) -> dict:
     """
@@ -408,9 +409,9 @@ def _dot_layout(G: nx.DiGraph) -> dict:
 
 
 def plot_egfr_control_logic_tfopt(
-    ko: pd.DataFrame,
-    target: str = "EGFR",
-    topk: int = 70,
+        ko: pd.DataFrame,
+        target: str = "EGFR",
+        topk: int = 70,
 ):
     """
     Build EGFR control logic from KO effects:
@@ -502,9 +503,9 @@ def plot_egfr_control_logic_tfopt(
 
 
 def plot_egfr_ko_bar_tfopt(
-    ko: pd.DataFrame,
-    target: str = "EGFR",
-    topk: int = 70,
+        ko: pd.DataFrame,
+        target: str = "EGFR",
+        topk: int = 70,
 ):
     """
     Horizontal barplot of KO effects (delta_auc_abs) for EGFR.
@@ -533,6 +534,7 @@ def plot_egfr_ko_bar_tfopt(
 def add_egfr_panels(ko: pd.DataFrame):
     plot_egfr_control_logic_tfopt(ko, target="EGFR", topk=18)
     plot_egfr_ko_bar_tfopt(ko, target="EGFR", topk=20)
+
 
 # -----------------------
 # MAIN

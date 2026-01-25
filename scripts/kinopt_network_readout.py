@@ -44,7 +44,6 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import trapezoid
 
-
 # ------------------------
 # Config
 # ------------------------
@@ -52,13 +51,13 @@ XLSX = "data/kinopt_results.xlsx"
 OUTDIR = Path("./results_scripts")
 OUTDIR.mkdir(parents=True, exist_ok=True)
 
-BETA_BOUND = 4.0      # confirmed by you
+BETA_BOUND = 4.0  # confirmed by you
 BOUND_TOL = 1e-9
 EPS = 1e-12
 
 # Use observed kinase sites P^k_j(t) by default (as in your equation).
 # If you want, you can switch to "Estimated" for kinase-site signals.
-KINASE_SITE_SOURCE = "Observed"   # "Observed" or "Estimated"
+KINASE_SITE_SOURCE = "Observed"  # "Observed" or "Estimated"
 
 # Knockout mode:
 # - If True: renormalize remaining alphas for that target so sum_j alpha_{i,j}=1 continues to hold.
@@ -111,6 +110,7 @@ def _time_array(time_cols: list[str]) -> np.ndarray:
 
 def _auc(t: np.ndarray, y: np.ndarray) -> float:
     return float(trapezoid(y, t))
+
 
 def _windows(nT: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -192,7 +192,8 @@ def main():
     alpha_col_a = _find_col(alpha, ["Alpha", "alpha"])
 
     edges = alpha[[gene_col_a, psite_col_a, kinase_col_a, alpha_col_a]].copy()
-    edges.rename(columns={gene_col_a: "Gene", psite_col_a: "Psite", kinase_col_a: "Kinase", alpha_col_a: "Alpha"}, inplace=True)
+    edges.rename(columns={gene_col_a: "Gene", psite_col_a: "Psite", kinase_col_a: "Kinase", alpha_col_a: "Alpha"},
+                 inplace=True)
     edges["Gene"] = edges["Gene"].astype(str)
     edges["Psite"] = edges["Psite"].astype(str)
     edges["Kinase"] = edges["Kinase"].astype(str)
