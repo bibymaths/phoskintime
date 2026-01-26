@@ -161,7 +161,7 @@ def make_tfopt_diagram_dot(
     col_alpha = "#7cb518"
     col_beta = "#1f77ff"
 
-    TFs = [f"TF{j}" for j in range(1, 5)]
+    TFs = [f"TF{j}" for j in range(1, 3)]
 
     dot = []
     dot.append("digraph TFOPT {")
@@ -587,7 +587,7 @@ def make_tfopt_constraints_graph_dot(
         dpi: int = 300,
         rankdir: str = "TB",
         tf_psites: int = 2,
-        n_tfs: int = 4,
+        n_tfs: int = 2,
 ):
     """
     TFopt constraints diagram.
@@ -691,7 +691,7 @@ def make_global_constraints_graph_dot(
         rankdir: str = "TB",
         kin_psites: int = 2,
         tf_psites: int = 2,
-        n_tfs: int = 4,
+        n_tfs: int = 2,
 ):
     """
     Global constraints diagram combining kinopt + tfopt constraints.
