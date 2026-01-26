@@ -839,14 +839,14 @@ def fig_timeseries_target_decomp(tcfg: TimeConfig, gene: str, psite: str, decomp
             fig.add_trace(go.Scatter(
                 x=tcfg.time_points_min, y=C[i, :],
                 mode="lines",
-                name=f"C: {kinases[i]}",
+                name=f"K: {kinases[i]}",
                 opacity=0.75
             ))
 
     fig.update_layout(
         title=f"Target reconstruction and contributions: {gene} {psite}",
         xaxis_title="Time (min)",
-        yaxis_title="Signal (arb.)",
+        yaxis_title="Fold Changes",
         height=520,
         margin=dict(l=10, r=10, t=50, b=10),
     )
