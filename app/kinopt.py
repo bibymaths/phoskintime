@@ -54,6 +54,7 @@ If Graphviz is installed, EGFR DAG layout improves (DOT). Without it, a layered 
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Optional
 
@@ -67,6 +68,20 @@ from scipy.integrate import trapezoid
 
 import gravis as gv
 
+PLOTLY_CONFIG_HIRES = {
+    "displaylogo": False,
+    "responsive": True,
+    "toImageButtonOptions": {
+        # Use "png" for raster hi-res, "svg" or "pdf" for vector.
+        "format": "png",          # "png" | "svg" | "jpeg" | "webp"
+        "filename": "kinopt_plot",
+        "height": 900,            # export canvas size (px)
+        "width": 1400,
+        "scale": 4,               # main hi-res knob for raster (2–6 typical)
+    },
+    # Optional: tidy the modebar
+    # "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+}
 
 # =========================
 # App config
@@ -628,6 +643,197 @@ def compute_all(file_bytes: bytes, input1_bytes: Optional[bytes], params: AppPar
 # Plotly viz functions (in-app analogs of your figure script)
 # =========================
 
+def _psite_sort_key(psite: str):
+    """
+    Attempts to sort phosphorylation sites in a sane way.
+    Examples: Y1068 -> (1068, 'Y1068'), S473 -> (473, 'S473'), 'TF' -> (1e18, 'TF')
+    """
+    s = str(psite)
+    m = re.search(r"(\d+)", s)
+    if m:
+        return (int(m.group(1)), s)
+    return (10**18, s)
+
+
+def build_ko_heatmap_matrix(
+    ko: pd.DataFrame,
+    value_col: str = "delta_auc_abs",
+    top_pos_edges: int = 80,
+    top_neg_edges: int = 80,
+    min_abs: float = 0.0,
+    max_kinases: int = 60,
+    max_targets: int = 120,
+) -> dict:
+    """
+    Returns:
+      - kinases (ordered list)
+      - x_genes, x_psites (ordered lists, same length = n_targets)
+      - Z (2D numpy array [n_kinases, n_targets], with NaNs for missing)
+      - df_long (filtered long-format edges used)
+    """
+    if ko is None or ko.empty:
+        return {"kinases": [], "x_genes": [], "x_psites": [], "Z": np.zeros((0, 0)), "df_long": pd.DataFrame()}
+
+    d = ko[["Gene", "Psite", "KnockedKinase", value_col]].copy()
+    d.rename(columns={"KnockedKinase": "Kinase", value_col: "Effect"}, inplace=True)
+    d["Gene"] = d["Gene"].astype(str)
+    d["Psite"] = d["Psite"].astype(str)
+    d["Kinase"] = d["Kinase"].astype(str)
+    d["Effect"] = pd.to_numeric(d["Effect"], errors="coerce")
+
+    d = d.dropna(subset=["Effect"])
+    if min_abs > 0:
+        d = d[d["Effect"].abs() >= float(min_abs)]
+
+    if d.empty:
+        return {"kinases": [], "x_genes": [], "x_psites": [], "Z": np.zeros((0, 0)), "df_long": d}
+
+    # Pick strongest activating (+) and strongest suppressing (-) edges
+    pos = d.sort_values("Effect", ascending=False).head(int(top_pos_edges))
+    neg = d.sort_values("Effect", ascending=True).head(int(top_neg_edges))
+    df_long = pd.concat([pos, neg], axis=0).drop_duplicates(subset=["Gene", "Psite", "Kinase"])
+
+    # Define target identity as (Gene, Psite)
+    df_long["Target"] = df_long["Gene"] + "|" + df_long["Psite"]
+
+    # Keep only a manageable set of kinases/targets based on total |effect|
+    kinase_order = (
+        df_long.groupby("Kinase")["Effect"]
+        .apply(lambda s: float(np.nansum(np.abs(s.to_numpy()))))
+        .sort_values(ascending=False)
+    )
+    target_order = (
+        df_long.groupby(["Gene", "Psite"])["Effect"]
+        .apply(lambda s: float(np.nansum(np.abs(s.to_numpy()))))
+        .sort_values(ascending=False)
+    )
+
+    kinases = kinase_order.head(int(max_kinases)).index.tolist()
+    targets = target_order.head(int(max_targets)).index.tolist()  # list of tuples (Gene, Psite)
+
+    df_long = df_long[df_long["Kinase"].isin(kinases)].copy()
+    df_long = df_long[df_long.set_index(["Gene", "Psite"]).index.isin(pd.MultiIndex.from_tuples(targets))].copy()
+
+    # Recompute final orders after trimming
+    kinase_order2 = (
+        df_long.groupby("Kinase")["Effect"]
+        .apply(lambda s: float(np.nansum(np.abs(s.to_numpy()))))
+        .sort_values(ascending=False)
+    )
+    kinases = kinase_order2.index.tolist()
+
+    # Targets: group by Gene then sort by site key inside each gene, but also keep genes with bigger total |effect| first
+    gene_strength = (
+        df_long.groupby("Gene")["Effect"]
+        .apply(lambda s: float(np.nansum(np.abs(s.to_numpy()))))
+        .sort_values(ascending=False)
+    )
+    genes_sorted = gene_strength.index.tolist()
+
+    # build ordered (Gene,Psite) list
+    targets_by_gene = []
+    for g in genes_sorted:
+        sub_sites = sorted(df_long.loc[df_long["Gene"] == g, "Psite"].unique().tolist(), key=_psite_sort_key)
+        for p in sub_sites:
+            targets_by_gene.append((g, p))
+
+    # Now build matrix with NaN fill
+    x_genes = [g for g, p in targets_by_gene]
+    x_psites = [p for g, p in targets_by_gene]
+
+    Z = np.full((len(kinases), len(targets_by_gene)), np.nan, dtype=float)
+
+    # Map indices
+    k2i = {k: i for i, k in enumerate(kinases)}
+    t2j = {(g, p): j for j, (g, p) in enumerate(targets_by_gene)}
+
+    # If duplicates exist, aggregate by mean
+    df_agg = (
+        df_long.groupby(["Kinase", "Gene", "Psite"], as_index=False)["Effect"]
+        .mean()
+    )
+    for r in df_agg.itertuples(index=False):
+        i = k2i.get(str(r.Kinase))
+        j = t2j.get((str(r.Gene), str(r.Psite)))
+        if i is not None and j is not None:
+            Z[i, j] = float(r.Effect)
+
+    Z_plot = Z.copy()
+    Z_plot = np.nan_to_num(Z_plot, nan=0.0)
+
+    return {"kinases": kinases, "x_genes": x_genes, "x_psites": x_psites, "Z": Z_plot, "df_long": df_long}
+
+
+def fig_ko_heatmap(
+    ko: pd.DataFrame,
+    value_col: str = "delta_auc_abs",
+    top_pos_edges: int = 80,
+    top_neg_edges: int = 80,
+    min_abs: float = 0.0,
+    max_kinases: int = 60,
+    max_targets: int = 120,
+) -> go.Figure:
+    out = build_ko_heatmap_matrix(
+        ko=ko,
+        value_col=value_col,
+        top_pos_edges=top_pos_edges,
+        top_neg_edges=top_neg_edges,
+        min_abs=min_abs,
+        max_kinases=max_kinases,
+        max_targets=max_targets,
+    )
+
+    kinases = out["kinases"]
+    x_genes = out["x_genes"]
+    x_psites = out["x_psites"]
+    Z = out["Z"]
+
+    if len(kinases) == 0 or Z.size == 0:
+        return go.Figure().update_layout(title="KO heatmap (no data after filtering)")
+
+    # symmetric color range around 0
+    m = float(np.nanmax(np.abs(Z))) if np.isfinite(np.nanmax(np.abs(Z))) else 1.0
+    m = max(m, 1e-9)
+
+    # Multi-category x-axis: first row = Gene, second row = Psite
+    x_multicat = [x_genes, x_psites]
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=Z,
+            x=x_multicat,
+            y=kinases,
+            zmin=-m,
+            zmax=+m,
+            zmid=0.0,  # <- critical
+            colorscale="RdBu",  # or "BrBG", "PiYG"
+            colorbar=dict(title=value_col),
+            hovertemplate=(
+                    "Kinase: %{y}<br>"
+                    "Gene: %{x[0]}<br>"
+                    "Site: %{x[1]}<br>"
+                    f"{value_col}: " + "%{z:.4g}<extra></extra>"
+            ),
+        )
+    )
+
+    fig.update_layout(
+        title=f"Kinase × TargetSite KO effect",
+        height=max(600, 8 * len(x_psites) + 300),
+        width=max(500, 16 * len(x_genes) + 1000),
+        margin=dict(l=10, r=10, t=50, b=160),
+        xaxis=dict(title="Targets (Gene, Residue/Position)"),
+        yaxis=dict(title="Knocked kinase"),
+    )
+    fig.update_xaxes(
+        tickangle=-90,
+        showticklabels=True,
+    )
+    fig.update_layout(
+        font=dict(color="black"),
+    )
+    return fig
+
 def fig_bar_kinase_control_load(kinase_load: pd.DataFrame, top_n: int = 25) -> go.Figure:
     d = kinase_load.sort_values("total_load_auc_abs", ascending=False).head(min(top_n, len(kinase_load))).copy()
     d = d.sort_values("total_load_auc_abs", ascending=True)
@@ -655,7 +861,7 @@ def fig_scatter_breadth_vs_load(kinase_load: pd.DataFrame, label_threshold: floa
         title="Kinase breadth vs control load",
         labels={"n_targets": "Number of targets", "total_load_auc_abs": "Control load"},
     )
-    fig.update_traces(textposition="top center")
+    fig.update_traces(textposition="top left", textfont_size=16)
     fig.update_layout(height=500, margin=dict(l=10, r=10, t=50, b=10))
     return fig
 
@@ -759,6 +965,8 @@ def fig_obs_vs_reconstructed(target_dom: pd.DataFrame, outlier_quantile: float, 
         height=520,
         margin=dict(l=10, r=10, t=50, b=10)
     )
+
+    fig.update_traces(textposition="top left", textfont_size=16)
     return fig
 
 
@@ -1099,6 +1307,14 @@ with st.sidebar:
     outlier_band_quantile = st.slider("Obs vs recon: band quantile", min_value=0.50, max_value=0.99, value=0.95, step=0.01)
     outlier_max_labels = st.slider("Obs vs recon: max labels", min_value=0, max_value=30, value=5, step=1)
 
+    st.subheader("KO heatmap")
+    heatmap_metric = st.selectbox("Heatmap metric", ["delta_auc_abs", "delta_peak_abs"], index=0)
+    heatmap_top_pos = st.slider("Top activating edges (+)", 10, 500, 80, 10)
+    heatmap_top_neg = st.slider("Top suppressing edges (-)", 10, 500, 80, 10)
+    heatmap_min_abs = st.number_input("Min |effect| to include", min_value=0.0, value=0.0, step=0.1)
+    heatmap_max_kin = st.slider("Max kinases (rows)", 10, 200, 60, 10)
+    heatmap_max_tar = st.slider("Max targets (cols)", 20, 400, 120, 20)
+
     st.subheader("Network filters")
     min_alpha_filter = st.number_input("Min |α| edge filter", min_value=0.0, value=0.0, step=0.01)
 
@@ -1209,31 +1425,59 @@ with tab_viz:
     section_header("Kinase-level")
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(fig_bar_kinase_control_load(kinase_load, top_n=25), use_container_width=True)
+        st.plotly_chart(fig_bar_kinase_control_load(kinase_load, top_n=25), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
     with c2:
-        st.plotly_chart(fig_scatter_breadth_vs_load(kinase_load, label_threshold=params.kinase_label_load_threshold), use_container_width=True)
+        st.plotly_chart(fig_scatter_breadth_vs_load(kinase_load, label_threshold=params.kinase_label_load_threshold), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
-    st.plotly_chart(fig_scatter_boundpressure_vs_load(kinase_load), use_container_width=True)
+    st.plotly_chart(fig_scatter_boundpressure_vs_load(kinase_load), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
     section_header("Target-level")
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(fig_target_dominance_distribution(target_dom), use_container_width=True)
+        st.plotly_chart(fig_target_dominance_distribution(target_dom), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
     with c2:
-        st.plotly_chart(fig_fragile_targets_bar(target_dom, top_n=25), use_container_width=True)
+        st.plotly_chart(fig_fragile_targets_bar(target_dom, top_n=25), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
     st.plotly_chart(fig_obs_vs_reconstructed(target_dom, outlier_quantile=params.outlier_band_quantile, max_labels=params.outlier_max_labels),
-                    use_container_width=True)
+                    use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
     section_header("Knockout landscape")
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(fig_knockout_distribution(ko), use_container_width=True)
+        st.plotly_chart(fig_knockout_distribution(ko), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
     with c2:
-        st.plotly_chart(fig_knockout_top_edges(ko, direction="activating", top_n=20), use_container_width=True)
+        st.plotly_chart(fig_knockout_top_edges(ko, direction="activating", top_n=20), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
-    st.plotly_chart(fig_knockout_top_edges(ko, direction="suppressing", top_n=20), use_container_width=True)
+    st.plotly_chart(fig_knockout_top_edges(ko, direction="suppressing", top_n=20), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
+    section_header("KO heatmap (kinases × target sites)")
+    fig_hm = fig_ko_heatmap(
+        ko,
+        value_col=heatmap_metric,
+        top_pos_edges=heatmap_top_pos,
+        top_neg_edges=heatmap_top_neg,
+        min_abs=heatmap_min_abs,
+        max_kinases=heatmap_max_kin,
+        max_targets=heatmap_max_tar,
+    )
+    st.plotly_chart(fig_hm, use_container_width=True, config=PLOTLY_CONFIG_HIRES)
+
+    hm_data = build_ko_heatmap_matrix(
+        ko,
+        value_col=heatmap_metric,
+        top_pos_edges=heatmap_top_pos,
+        top_neg_edges=heatmap_top_neg,
+        min_abs=heatmap_min_abs,
+        max_kinases=heatmap_max_kin,
+        max_targets=heatmap_max_tar,
+    )
+    df_long = hm_data["df_long"]
+    st.download_button(
+        "Download heatmap edges (CSV)",
+        data=_to_bytes_csv(df_long),
+        file_name=f"ko_heatmap_edges_{heatmap_metric}.csv",
+        mime="text/csv",
+    )
 
 with tab_drilldown:
     section_header("Kinase drilldown (latent A_j(t) and β-site composition)")
@@ -1245,7 +1489,7 @@ with tab_drilldown:
 
         with c1:
             sel_kin = st.selectbox("Select kinase", kinases, index=0)
-            st.plotly_chart(fig_timeseries_kinase(latent, tcfg, sel_kin), use_container_width=True)
+            st.plotly_chart(fig_timeseries_kinase(latent, tcfg, sel_kin), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
         with c2:
             st.write("β-site rows for selected kinase")
@@ -1268,7 +1512,7 @@ with tab_drilldown:
 
         show_top_k = st.slider("Show top-k kinase contributions", min_value=1, max_value=25, value=8, step=1)
         decomp = target_decomp_cache[(gene, psite)]
-        st.plotly_chart(fig_timeseries_target_decomp(tcfg, gene, psite, decomp, show_top_k=show_top_k), use_container_width=True)
+        st.plotly_chart(fig_timeseries_target_decomp(tcfg, gene, psite, decomp, show_top_k=show_top_k), use_container_width=True, config=PLOTLY_CONFIG_HIRES)
 
         # Provide the per-target knockout subset
         st.write("Knockout effects for selected target")
