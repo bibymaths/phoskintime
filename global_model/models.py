@@ -215,7 +215,7 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 @njit(fastmath=True, cache=True, nogil=True)
 def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
-    """
+    r"""
     Right-Hand Side for Model 1: Sequential Binding.
 
     Assumes phosphorylation must happen in a specific order:
