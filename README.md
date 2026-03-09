@@ -1,11 +1,34 @@
 <div align="center">
   <img src="static/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
   
-  # PhosKinTime
-  **A Network Dynamics Toolkit for Phosphorylation Cascades**
+  # PhosKinTime  
+
+  [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
+   
+  **A Network Dynamics Toolkit for Phosphorylation Cascades** 
+
 </div> 
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
+--- 
+
+> 💡 **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
+parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers
+explore kinase-substrate interactions in a temporal context. 
+
+<details>
+<summary><strong>🚧 Work in Progress: Web Interface & Package Finalization</strong> (Click to expand)</summary>
+<br>
+
+I am actively working to make these powerful network dynamics tools as accessible and adaptable as possible for all researchers.
+
+Currently, I am focusing on two major updates:
+
+1. **A No-Code Web Interface:** I am building a frontend that will allow you to upload data, run parameter estimations, and generate interactive visualizations (PCA, t-SNE, network topology) directly from your browser—no command line required.
+2. **Finalizing the Python Package:** The core ODE modeling and optimization logic is built. I am currently finalizing the documentation for experimental data preparation and refining the command-line entry points to make the package easily adaptable to your specific datasets.
+
+*Note: Whether you prefer running Python scripts or using a graphical web app, be sure to **"Watch"** this repository (click the star/watch button at the top right) to be notified as soon as the complete documentation and frontend are released!*
+
+</details>
 
 ## The Problem: Phosphorylation Cascades
 
@@ -26,12 +49,8 @@ PhosKinTime allows you to visualize network topology, track protein signal loss/
 
 --- 
 
-> **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
-parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers
-explore kinase-substrate interactions in a temporal context.
-
 <details>
-<summary>Acknowledgements</summary>
+<summary>Acknowledgements (Click to expand) </summary>
 
 This project originated as part of my master's thesis work at Theoretical Biophysics group (
 now, [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/)), Humboldt Universität zu Berlin.
