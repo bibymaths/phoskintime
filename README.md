@@ -1,12 +1,37 @@
-# PhosKinTime
- 
+<div align="center">
+  <img src="static/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
+  
+  # PhosKinTime
+  **A Network Dynamics Toolkit for Phosphorylation Cascades**
+</div> 
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017)
 
-**PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
+## The Problem: Phosphorylation Cascades
+
+In cellular signaling pathways, a series of proteins are phosphorylated in an activation cascade that drives cellular responses. Understanding these post-translational modifications is critical.
+
+![Phosphorylation Cascade Concept](static/images/phoskintime_problem.png)
+
+*Figure 1: Overview of protein post-translational modifications and the phosphorylation cascade mechanism.*
+
+---
+
+## Features & Analysis
+PhosKinTime allows you to visualize network topology, track protein signal loss/propagation over time, and evaluate model convergence. 
+
+![PhosKinTime Analysis Outputs](static/images/phoskintime_analysis.png)
+
+*Figure 2: PhosKinTime outputs including network graphing, kinetic time-series modeling, and residual analysis.* 
+
+--- 
+
+> **PhosKinTime** is an ODE-based modeling package for analyzing phosphorylation dynamics over time. It integrates
 parameter estimation, sensitivity analysis, steady-state computation, and visualization tools to help researchers
 explore kinase-substrate interactions in a temporal context.
 
-## Acknowledgments
+<details>
+<summary>Acknowledgements</summary>
 
 This project originated as part of my master's thesis work at Theoretical Biophysics group (
 now, [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/)), Humboldt Universität zu Berlin.
@@ -19,6 +44,8 @@ now, [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/)),
 I am especially grateful
 to [Ivo Maintz](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/54-people/6-staff/60-maintz) for his generous
 technical support, enabling seamless experimentation with packages and server setups.
+
+</details>
 
 ## Overview
 
