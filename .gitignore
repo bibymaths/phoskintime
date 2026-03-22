@@ -56,3 +56,4 @@ __pycache__/
 
 # Ignore any dist files - wheels
 /dist/
+.idea/
