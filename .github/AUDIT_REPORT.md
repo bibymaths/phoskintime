@@ -13,7 +13,7 @@
 
 | Item | Location | Notes |
 |---|---|---|
-| `background/` | `background/` (root) | Directory containing images referenced by the package; no `__init__.py`, no README, no mention in docs or README. Purpose is unknown to users. |
+| `background/` | `background/` (root) | Directory containing images referenced by the package; no `__init__.py`, and its own `README.md` is not referenced from the main project README or docs, so its purpose may be unclear to users. |
 | `scripts/` | `scripts/` (root) | Contains seven standalone analysis scripts (`analyze_tf_kin_counts.py`, `compare_mechanisms.py`, `curve_similarity.py`, `export_subnetworks.py`, `find_protein_accumulators.py`, `mechanistic_insights.py`, `temporal_sensitivity.py`). None are mentioned in the README, docs, or any module index. |
 | `run_dashboard.py` | `run_dashboard.py` (root) | Root-level entry point that launches the interactive `global_model` Dash dashboard. Not mentioned in README, CLI docs, or the docs portal. |
 | `config_loader.py` | `config_loader.py` (root) | Central TOML configuration loader for the global pipeline. Exports the `PhosKinConfig` frozen dataclass and `load_config_toml()`. Critical to `global_model` operation, but absent from all documentation. |
@@ -170,7 +170,7 @@ Both are referred to as "sensitivity analysis" in documentation without distingu
 
 ## 4. Duplication
 
-### 4.1 Logging Configuration Repeated Across Four Subpackages
+### 4.1 Logging Configuration Repeated Across `config` and Four Subpackages
 
 The logging setup pattern (colored console formatter + rotating file handler) is independently re-implemented in:
 - `config/logconf.py`
