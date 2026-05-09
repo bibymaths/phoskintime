@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Abhinav Mishra" /><link rel="canonical" href="https://bibymaths.github.io/phoskintime/Documentation/global/index.html" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Global Network Model - phoskintime</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../../styles/overrides.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Global Network Model";
+        var mkdocs_page_input_path = "Documentation/global/README.md";
+        var mkdocs_page_url = "/phoskintime/Documentation/global/index.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../index.html" class="icon icon-home"> phoskintime
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CHANGELOG.html">Changelog</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Documentation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../processing/index.html">Processing & Mapping</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../config/index.html">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../kinopt/index.html">Kinase Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../tfopt/index.html">Transcription Factor Optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Protein Wise Models</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Global Network Model</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#scope-and-outputs">Scope and Outputs</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notation-and-state-vector">Notation and State Vector</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#mathematical-framework">Mathematical Framework</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#signaling-layer-kinase-inputs">Signaling Layer (Kinase Inputs)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kinetic-topologies-phosphorylation-dynamics">Kinetic Topologies (Phosphorylation Dynamics)</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#a-distributive-independent-model-0">A. Distributive / Independent (Model 0)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#b-sequential-model-1">B. Sequential (Model 1)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#c-combinatorial-hypercube-model-2">C. Combinatorial / Hypercube (Model 2)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#d-saturating-michaelismenten-model-4">D. Saturating / Michaelis–Menten (Model 4)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#gene-expression-layer-grn-coupling">Gene Expression Layer (GRN Coupling)</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#transcriptional-regulation-input">Transcriptional Regulation Input</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#rational-hill-bounded-modulation">Rational Hill / Bounded Modulation</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#mrna-and-protein-turnover">mRNA and Protein Turnover</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#biological-interpretations">Biological Interpretations</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#proxy-logic-for-orphan-tfs">Proxy Logic for Orphan TFs</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#parameter-dictionary">Parameter Dictionary</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#module-architecture">Module Architecture</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configuration-and-data-expectations">Configuration and Data Expectations</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#implementation-notes">Implementation Notes</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../steady/index.html">Steady State Calculation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../paramest/index.html">Parameter Estimation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../identifiability/index.html">Confidence Intervals</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../sensitivity/index.html">Sensitivity Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../knockout/index.html">Knockout Analysis</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plotting/index.html">Plotting</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utils/index.html">Utils</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">phoskintime</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html" class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Documentation</li>
+      <li class="breadcrumb-item active">Global Network Model</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/bibymaths/phoskintime/edit/master/docs/Documentation/global/README.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="global-model-subpackage-global_model">Global Model Subpackage (<code>global_model</code>)</h1>
+<p>The <code>global_model</code> subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.</p>
+<p>Key design goals:
+- High-throughput simulation (Numba JIT RHS kernels; sparse topologies).
+- Stable, bounded regulation dynamics (saturating transcription/translation modifiers).
+- Optimization-ready API (parameter packing/unpacking, multi-objective loss aggregation).
+- Explicit handling of missing network coverage (proxy logic for orphan TFs).</p>
+<hr />
+<h2 id="scope-and-outputs">Scope and Outputs</h2>
+<p>The model simulates three coupled layers per gene/protein entity:
+- mRNA abundance for gene <em>g</em>: (R_g(t))
+- total protein abundance for gene <em>g</em>: (P_g(t))
+- phosphorylation-state abundances for protein <em>g</em>: (P_{g,\cdot}(t)) (model-dependent)</p>
+<p>The core simulation returns time-indexed tables (typically pandas DataFrames) for:
+- total protein (P_g(t)),
+- mRNA (R_g(t)),
+- phospho-states or phospho-observables (site-wise or state-wise, depending on topology).</p>
+<hr />
+<h2 id="notation-and-state-vector">Notation and State Vector</h2>
+<p>We model (G) genes/proteins, (K) kinases, and (optionally) transcription factors (TFs) as a subset of proteins.</p>
+<p>For each gene/protein (g \in {1,\dots,G}):
+- (R_g(t)) is mRNA.
+- (P_g(t)) is total protein.
+- (P_{g,s}(t)) is a phosphorylation state or site-associated pool (definitions depend on the kinetic topology).</p>
+<p>The full state vector is
+$$
+x(t) =
+\begin{bmatrix}
+R_1(t),\dots,R_G(t),\;
+P_1(t),\dots,P_G(t),\;
+\text{phospho states}(t)
+\end{bmatrix}^\top
+$$</p>
+<p>We use:
+- $u_k(t)$: observed kinase proxy input for kinase (k) (from MS abundance or derived activity proxy).
+- $\beta_k$: learnable kinase gain scaling for kinase (k).
+- $A$: sparse kinase-to-substrate-site adjacency (topology) from curated/constructed kinase–substrate links.
+- $W$: TF-to-gene regulatory interaction matrix (GRN weights).</p>
+<p>All equations below are written in continuous time; in practice, inputs are provided at discrete time points and integrated using a solver that respects these discrete changes (see <a href="#implementation-notes">Implementation Notes</a>).</p>
+<hr />
+<h2 id="mathematical-framework">Mathematical Framework</h2>
+<h3 id="signaling-layer-kinase-inputs">Signaling Layer (Kinase Inputs)</h3>
+<p>Mass spectrometry typically measures abundance rather than catalytic activity. We therefore treat each kinase input as a scaled, learnable proxy:</p>
+<p>For kinase $k$:
+$$
+\tilde{u}_k(t) = \beta_k \, u_k(t)
+$$</p>
+<p>For a given substrate protein $g$ and phosphorylation site (or transition) $s$, the total phosphorylation drive (“propensity”) is a sparse weighted sum over upstream kinases:
+$$
+\pi_{g,s}(t) = \sum_{k=1}^{K} A_{k\to(g,s)} \, \tilde{u}<em k="1">k(t)
+= \sum</em> \, \beta_k \, u_k(t)
+$$}^{K} A_{k\to(g,s)</p>
+<p>Here $A_{k\to(g,s)}$ is typically binary (presence/absence) or may encode prior confidence/strength. In code, this is implemented as sparse lookups to avoid dense $K \times \sum_g S_g$ operations.</p>
+<hr />
+<h3 id="kinetic-topologies-phosphorylation-dynamics">Kinetic Topologies (Phosphorylation Dynamics)</h3>
+<p>The model supports multiple kinetic topologies to capture different biological mechanisms. Each topology specifies how phosphorylation state variables are defined and how mass flows between them.</p>
+<p>Common parameters used across models:
+- $\delta_{g,s}$: dephosphorylation (or reverse transition) rate for site/state $s$ on protein $g$.
+- $\gamma_{g,s}$: degradation/turnover rate for site/state $s$ on protein $g$ (optional, when the state is explicitly tracked).
+- $\rho_g$: basal protein turnover (for total protein).
+- $\kappa_{g,s}$: effective forward phosphorylation rate scaling for site/state $s$ (often absorbed into $\pi_{g,s}$ depending on implementation).</p>
+<p>The propensities $\pi_{g,s}(t)$ drive forward fluxes; dephosphorylation provides reverse fluxes.</p>
+<h4 id="a-distributive-independent-model-0">A. Distributive / Independent (Model 0)</h4>
+<p>Assumption: sites behave independently; each site draws from a shared unphosphorylated pool $P_{g,0}(t)$ and produces a mono-phosphorylated pool $P_{g,s}(t)$.</p>
+<p>State variables per protein $g$:
+- $P_{g,0}(t)$: unphosphorylated pool.
+- $P_{g,s}(t)$ for $s=1,\dots,S_g$: mono-phosphorylated pools per site.</p>
+<p>Fluxes:
+$$
+F^{\text{phos}}<em g_s="g,s">{g,s}(t) = \pi</em>(t)
+\quad,\quad
+F^{\text{deph}}}(t)\, P_{g,0<em g_s="g,s">{g,s}(t) = \delta</em>(t)
+$$}\, P_{g,s</p>
+<p>ODEs:
+$$
+\frac{dP_{g,0}}{dt} =
+\underbrace{\sum_{s=1}^{S_g} \delta_{g,s} P_{g,s}}<em s="1">{\text{return from dephos}} -
+\underbrace{\sum</em>}^{S_g} \pi_{g,s}(t) P_{g,0}<em g_0="g,0">{\text{forward phos}} -
+\gamma</em>
+$$} P_{g,0</p>
+<p>$$
+\frac{dP_{g,s}}{dt} =
+\pi_{g,s}(t) P_{g,0} - \delta_{g,s} P_{g,s}  - \gamma_{g,s} P_{g,s}
+\quad,\quad s=1,\dots,S_g
+$$</p>
+<p>Observation mapping (common choice):
+- site signal for $(g,s)$ is proportional to $P_{g,s}(t)$ (optionally normalized to $t=0$) in post-processing).</p>
+<hr />
+<h4 id="b-sequential-model-1">B. Sequential (Model 1)</h4>
+<p>Assumption: phosphorylation occurs in a strict order:
+$$
+P_{g,0} \rightarrow P_{g,1} \rightarrow \cdots \rightarrow P_{g,S_g}
+$$
+where $P_{g,i}$ denotes the state with exactly the first $i$ sites phosphorylated (or the $i$-th sequential stage).</p>
+<p>Define transition propensities $\pi_{g,i}(t)$ for step $i: P_{g,i-1}\to P_{g,i}$.</p>
+<p>Forward and reverse fluxes:
+$$
+F^{+}<em g_i="g,i">{g,i}(t) = \pi</em>(t)
+\quad,\quad
+F^{-}}(t)\, P_{g,i-1<em g_i="g,i">{g,i}(t) = \delta</em>(t)
+$$}\, P_{g,i</p>
+<p>ODEs:
+$$
+\frac{dP_{g,0}}{dt} =
+\delta_{g,1} P_{g,1} - \pi_{g,1}(t) P_{g,0} - \gamma_{g,0} P_{g,0}
+$$</p>
+<p>For intermediate states $i=1,\dots,S_g-1$:
+$$
+\frac{dP_{g,i}}{dt} = \pi_{g,i}(t) P_{g,i-1} + \delta_{g,i+1} P_{g,i+1} - \delta_{g,i} P_{g,i} - \pi_{g,i+1}(t) P_{g,i} - \gamma_{g,i} P_{g,i}
+$$</p>
+<p>For the terminal state $i=S_g$:
+$$
+\frac{dP_{g,S_g}}{dt} =
+\pi_{g,S_g}(t) P_{g,S_g-1} -
+\delta_{g,S_g} P_{g,S_g} -
+\gamma_{g,S_g} P_{g,S_g}
+$$</p>
+<hr />
+<h4 id="c-combinatorial-hypercube-model-2">C. Combinatorial / Hypercube (Model 2)</h4>
+<p>Assumption: all combinations of site phosphorylation are explicitly tracked, enabling synergistic/conditional effects. For $S_g$ sites, there are $2^{S_g}$ states.</p>
+<p>Let $m \in {0,1}^{S_g}$ be a bitmask encoding a state (1 indicates phosphorylated). Denote the abundance of state $(m) as (P_{g,m}(t)$$.</p>
+<p>For each site (s), define the neighboring states:
+- (m) with bit (s=0) transitions to (m^{(s,+)}) where bit (s) is flipped to 1.
+- (m) with bit (s=1) transitions back to (m^{(s,-)}) where bit (s) is flipped to 0.</p>
+<p>A generic mass-action flux for a site flip:</p>
+<p>$$
+F^{(s,+)}<em g_s="g,s">{g,m}(t) = \pi</em> m_s=0
+$$ }(t)\, P_{g,m}(t) \quad \text{if </p>
+<p>$$
+F^{(s,-)}<em g_s="g,s">{g,m}(t) = \delta</em> m_s=1
+$$}\, P_{g,m}(t) \quad \text{if </p>
+<p>The ODE for each state (m) sums incoming and outgoing fluxes across all sites:</p>
+<p>$$
+\frac{dP_{g,m}}{dt} =
+\sum_{s: m_s=1} \pi_{g,s}(t)\, P_{g,m^{(s,-)}} +
+\sum_{s: m_s=0} \delta_{g,s}\, P_{g,m^{(s,+)}} -
+\sum_{s: m_s=0} \pi_{g,s}(t)\, P_{g,m} -
+\sum_{s: m_s=1} \delta_{g,s}\, P_{g,m} -
+\gamma_{g,m}\, P_{g,m}
+$$</p>
+<p>Observation mapping can be site-wise:
+$$
+\text{site signal }(g,s) \propto \sum_{m: m_s=1} P_{g,m}(t)
+$$</p>
+<p>This topology is the most expressive but also the most expensive ((O(2^{S_g})) state scaling); it is only practical for small (S_g).</p>
+<hr />
+<h4 id="d-saturating-michaelismenten-model-4">D. Saturating / Michaelis–Menten (Model 4)</h4>
+<p>Assumption: phosphorylation is enzyme-saturated at high substrate concentration, preventing “runaway” kinetics.</p>
+<p>Let (S(t)) denote the relevant substrate pool for a given site/transition (often a state abundance such as (P_{g,0}) or (P_{g,i})). The saturated forward flux for site (s) is:
+$$
+F^{\text{MM}}<em g_s="g,s">{g,s}(t) =
+V^{\max}</em>
+$$}(t)\, \frac{S(t)}{K_{M} + S(t)</p>
+<p>We parameterize the effective maximum velocity as proportional to kinase drive:
+$$
+V^{\max}<em g_s="g,s">{g,s}(t) = \pi</em>(t)
+$$</p>
+<p>Using non-dimensionalized units, (K_M) is typically normalized to (1.0) unless explicitly estimated:
+$$
+F^{\text{MM}}<em g_s="g,s">{g,s}(t) =
+\pi</em>
+$$}(t)\, \frac{S(t)}{1 + S(t)</p>
+<p>Example for an independent-site form (illustrative):
+$$
+\frac{dP_{g,s}}{dt} =
+\pi_{g,s}(t)\, \frac{P_{g,0}}{1 + P_{g,0}} -
+\delta_{g,s} P_{g,s} - \gamma_{g,s} P_{g,s}
+$$</p>
+<p>The saturating topology can be combined with sequential or distributive state definitions; the defining feature is the replacement of linear mass-action forward flux with the rational saturation term.</p>
+<hr />
+<h3 id="gene-expression-layer-grn-coupling">Gene Expression Layer (GRN Coupling)</h3>
+<p>Protein levels feed back to gene expression via TF-mediated regulation. Let (T) be the set of TF indices, and let (W \in \mathbb{R}^{G \times |T|}) be the TF-to-gene interaction matrix, where (W_{g,t}) is positive for activation and negative for repression.</p>
+<h4 id="transcriptional-regulation-input">Transcriptional Regulation Input</h4>
+<p>Define the raw regulatory signal to gene (g):
+$$
+z_g(t) = \sum_{t \in T} W_{g,t}\, P_t(t)
+$$</p>
+<p>Optionally, a global scaling factor (<code>tf_scale</code>) is applied:
+$$
+\tilde{z}<em _text_tf="\text{tf">g(t) = \alpha</em>\, z_g(t)
+$$}</p>
+<h4 id="rational-hill-bounded-modulation">Rational Hill / Bounded Modulation</h4>
+<p>We map the unbounded (\tilde{z}_g(t)) to a bounded synthesis modifier (h_g(t)) using a rational function for numerical stability and saturation.</p>
+<p>First, input squashing:
+$$
+q_g(t) = \frac{\tilde{z}_g(t)}{1 + \left|\tilde{z}_g(t)\right|}
+\quad\Rightarrow\quad
+q_g(t)\in(-1,1)
+$$</p>
+<p>Then, activation vs repression mapping. A convenient rational form is:</p>
+<p>Activation branch ((q_g \ge 0)):
+$$
+h_g(t) = 1 + \eta_g\, \frac{q_g(t)}{1 + q_g(t)}
+$$</p>
+<p>Repression branch ((q_g &lt; 0)):
+$$
+h_g(t) = 1 - \xi_g\, \frac{-q_g(t)}{1 - q_g(t)}
+$$</p>
+<p>Here (\eta_g \ge 0) controls maximal fold-activation above baseline, and (\xi_g \ge 0) controls maximal fold-repression below baseline. This keeps (h_g(t)) bounded and avoids overflow for large (|z_g|).</p>
+<h4 id="mrna-and-protein-turnover">mRNA and Protein Turnover</h4>
+<p>mRNA dynamics:
+$$
+\frac{dR_g}{dt} = s_g \, h_g(t) - d_g\, R_g
+$$
+where (s_g) is basal transcription and (d_g) is mRNA decay.</p>
+<p>Protein dynamics (mass-action translation):
+$$
+\frac{dP_g}{dt} = k_g\, R_g - \rho_g\, P_g
+$$
+where (k_g) is translation rate and (\rho_g) is protein turnover.</p>
+<p>For saturating translation (ribosome-limited), a bounded alternative is:
+$$
+\frac{dP_g}{dt} = k_g\, \frac{R_g}{1 + R_g} - \rho_g\, P_g
+$$</p>
+<hr />
+<h2 id="biological-interpretations">Biological Interpretations</h2>
+<h3 id="proxy-logic-for-orphan-tfs">Proxy Logic for Orphan TFs</h3>
+<p>A common issue is missing phosphoproteomics coverage for TFs in the GRN. If a TF (t) is absent from observed/proxied inputs, leaving it constant can break feedback loops and reduce realism.</p>
+<p>We therefore use a <strong>proxy strategy</strong>: if an orphan TF (t) is known (via the GRN or curated links) to regulate a kinase (k), we approximate TF activity as proportional to the kinase proxy:
+$$
+P_t(t) \propto \tilde{u}_k(t)
+$$</p>
+<p>In practice, this “rewiring” injects dynamics into otherwise disconnected TF nodes while preserving the sign/structure of feedback loops.</p>
+<hr />
+<h2 id="parameter-dictionary">Parameter Dictionary</h2>
+<p>The exact set of parameters depends on topology and configuration. Common parameters include:</p>
+<p>Gene expression:
+- $s_g$: basal transcription rate of gene $g$.
+- $d_g$: mRNA decay rate $\mathrm{time}^{-1}$.
+- $k_g$: translation rate per mRNA $\mathrm{time}^{-1}$.
+- $\rho_g$: protein turnover $\mathrm{time}^{-1}$.
+- $\alpha_{\text{tf}}$: global TF scaling (<code>tf_scale</code>).
+- $\eta_g$, $\xi_g$: activation/repression strength (bounded modifiers).</p>
+<p>Kinase signaling:
+- $\beta_k$: kinase gain (global multiplier per kinase).
+- $A_{k\to(g,s)}$: kinase-to-site topology/strength (sparse, usually fixed).</p>
+<p>Phosphorylation dynamics:
+- $\delta_{g,s}$: dephosphorylation rate for site/state.
+- $\gamma_{g,\cdot}$: state-specific degradation/turnover (optional; may be shared).</p>
+<hr />
+<h2 id="module-architecture">Module Architecture</h2>
+<p>The package is structured to separate data management, topology construction, physics kernels, numerical integration, and optimization.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>network.py</code></td>
+<td>Topology engine. Defines the <code>Index</code> class mapping biological entities to state-vector indices. Implements proxy rewiring and builds sparse interaction structures.</td>
+</tr>
+<tr>
+<td><code>models.py</code></td>
+<td>Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics.</td>
+</tr>
+<tr>
+<td><code>solvers.py</code></td>
+<td>Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts.</td>
+</tr>
+<tr>
+<td><code>simulate.py</code></td>
+<td>Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points.</td>
+</tr>
+<tr>
+<td><code>optproblem.py</code></td>
+<td>Optimization wrapper. <code>GlobalODE_MOO</code> class compatible with <code>pymoo</code>; handles parameter unpacking, simulation, and loss aggregation.</td>
+</tr>
+<tr>
+<td><code>optimizer.py</code></td>
+<td>Strategy layer. Orchestrates global search (evolutionary / GA), iterative refinement (“zooming”), and hyperparameter tuning (e.g., via Optuna).</td>
+</tr>
+<tr>
+<td><code>lossfn.py</code></td>
+<td>Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points.</td>
+</tr>
+<tr>
+<td><code>steadystate.py</code></td>
+<td>Initialization routines. Computes (x_0) by algebraic equilibrium or by mapping measured data at (t=0).</td>
+</tr>
+<tr>
+<td><code>sensitivity.py</code></td>
+<td>Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.).</td>
+</tr>
+<tr>
+<td><code>config.py</code></td>
+<td>Central configuration loader for <code>config.toml</code> (paths, solver tolerances, bounds, time grids).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="configuration-and-data-expectations">Configuration and Data Expectations</h2>
+<p>The typical workflow assumes:
+1. <code>config.toml</code> defines dataset file paths, time point vectors per modality (protein / RNA / phospho), and solver tolerances.
+2. Data loaders produce:
+   - kinase proxy input table indexed by time (or aligned to nearest time buckets),
+   - protein and RNA measurements for initialization and loss evaluation,
+   - phospho measurements for site/state losses,
+   - interaction maps (kinase–substrate and TF–target) to construct (A) and (W).</p>
+<p>Practical requirements:
+- Unique identifiers must be consistent across datasets (gene symbols / protein IDs).
+- Time points should be strictly increasing; uneven spacing is supported.
+- Missing values should be filtered or masked before optimization; loss functions typically include NaN guards.</p>
+<hr />
+<h2 id="implementation-notes">Implementation Notes</h2>
+<p>Numerical integration:
+- Inputs (u_k(t)) are typically available at discrete experimental times. The solver therefore treats kinase inputs as piecewise-constant (or bucketed) in time, which avoids interpolation-induced artifacts when dynamics are fast relative to sampling.
+- Adaptive RK45 controls local error using absolute/relative tolerances (configured in <code>config.toml</code>).</p>
+<p>Performance:
+- RHS kernels are Numba JIT-compiled; hot loops avoid Python object allocation.
+- Sparse adjacency is stored in index lists / CSR-like structures to avoid dense matrix multiplies.
+- Combinatorial topology is exponential in the number of sites per protein; use only for small (S_g).</p>
+<p>Stability:
+- Regulation modifiers are bounded by construction; this prevents explosive transcription/translation at large regulatory inputs.
+- Optional normalization (e.g., fold-change to (t=0)) is applied in post-processing for comparability to MS logFC conventions.</p>
+<p>Reproducibility:
+- Keep <code>config.toml</code> and interaction maps under version control.
+- Persist fitted parameter sets and seeds for optimization runs; log solver tolerances and objective weights.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../models/index.html" class="btn btn-neutral float-left" title="Protein Wise Models"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../steady/index.html" class="btn btn-neutral float-right" title="Steady State Calculation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+      <p>Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.</p>
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/bibymaths/phoskintime" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../models/index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../steady/index.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js"></script>
+      <script src="../../js/katex-setup.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
