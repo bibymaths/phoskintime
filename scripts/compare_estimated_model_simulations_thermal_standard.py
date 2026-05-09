@@ -405,4 +405,4 @@ for m_name, size, offsets, labels in model_configs:
                 ax.legend(by_label.values(), by_label.keys(), bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
 
     plt.tight_layout(rect=[0, 0, 0.9, 0.96])
-    plt.show(dpi=300)
+    plt.show()

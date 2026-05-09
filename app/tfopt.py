@@ -656,11 +656,10 @@ def compute_all(xlsx_bytes: bytes, input1_bytes: bytes, params: AppParams, tcfg:
     missing_prot = sorted([tf for tf in beta_tfs if tf not in prot_have])
 
     if missing_prot:
-        st.error(
+        raise ValueError(
             f"Missing protein-level TF time series for {len(missing_prot)} TFs used in Beta Values. "
             f"Not found in input1.csv (PSite empty rows) nor input3.csv. Example: {missing_prot[:15]}"
         )
-        st.stop()
 
     latent, tf_psite_stats = build_tf_latent_activity(
         tf_prot_14=tf_prot_14,
@@ -1238,13 +1237,17 @@ with st.spinner("Computing TFopt readouts from XLSX..."):
         st.error("input1.csv is required for TF time series (original TFopt readout logic).")
         st.stop()
 
-    out = compute_all(
-        xlsx_bytes=file_bytes,
-        input1_bytes=uploaded_input1.getvalue(),
-        input3_bytes=(uploaded_input3.getvalue() if uploaded_input3 is not None else None),
-        params=params,
-        tcfg=tcfg,
-    )
+    try:
+        out = compute_all(
+            xlsx_bytes=file_bytes,
+            input1_bytes=uploaded_input1.getvalue(),
+            input3_bytes=(uploaded_input3.getvalue() if uploaded_input3 is not None else None),
+            params=params,
+            tcfg=tcfg,
+        )
+    except ValueError as e:
+        st.error(str(e))
+        st.stop()
 
 obs = out["obs"]
 est = out["est"]

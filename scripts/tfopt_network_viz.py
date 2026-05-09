@@ -175,11 +175,11 @@ def plot_obs_vs_recon(dom: pd.DataFrame):
     # 95% band threshold (around the identity line, not a fit to the data)
     thr = np.quantile(d_nz["perp_dist"].to_numpy(), 0.95)
 
-    # label only points that fall within the 95% parallel band to identity
-    in_band = d_nz[d_nz["perp_dist"] <= thr].copy()
+    # label only outliers outside the 95% parallel band (largest deviations from identity)
+    out_of_band = d_nz[d_nz["perp_dist"] > thr].copy()
 
-    # optionally cap how many labels (pick closest to identity so labels are "most within" band)
-    lab = in_band.sort_values("perp_dist", ascending=True).head(MAX_POINT_LABELS)
+    # cap how many labels (pick furthest from identity)
+    lab = out_of_band.sort_values("perp_dist", ascending=False).head(MAX_POINT_LABELS)
 
     # --- identity-centered scatter (no negative axis shown) ---
     x = d["obs"].to_numpy()
@@ -356,7 +356,7 @@ def plot_network_overview(edges_csv: Path, tf_load: pd.DataFrame, dom: pd.DataFr
 # -----------------------------
 # EGFR-centric control logic (TFopt)
 # -----------------------------
-from networkx.drawing.nx_pydot import to_pydot, graphviz_layout
+from networkx.drawing.nx_pydot import graphviz_layout
 
 
 def graphviz_lr_layout(G: nx.DiGraph) -> dict:
@@ -364,18 +364,14 @@ def graphviz_lr_layout(G: nx.DiGraph) -> dict:
     Guaranteed left-to-right DOT layout.
     Raises if Graphviz fails.
     """
-    P = to_pydot(G)
-
-    # Force left-to-right layout
-    P.set_rankdir("LR")
-
-    # Optional but helps aesthetics
-    P.set_nodesep("0.35")
-    P.set_ranksep("0.6")
+    # Set graph-level DOT attributes on G.graph so graphviz_layout picks them up
+    G.graph["rankdir"] = "LR"
+    G.graph["nodesep"] = "0.35"
+    G.graph["ranksep"] = "0.6"
 
     # Validate nodes exist
-    if not P.get_nodes():
-        raise RuntimeError("DOT graph has no nodes — check node IDs.")
+    if not G.number_of_nodes():
+        raise RuntimeError("Graph has no nodes — check node IDs.")
 
     pos = graphviz_layout(G, prog="dot")
 

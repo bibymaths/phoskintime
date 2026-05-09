@@ -167,11 +167,11 @@ def load_tf_series_input1(path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     Expected columns:
       - TF identifier column: TF or Gene or GeneID (auto-detected)
       - PSite column: PSite (auto-detected)
-      - x1..x9
+      - x1..x14
 
     Returns:
-      tf_prot: index TF, columns x1..x9
-      tf_ps: columns TF, PSite, x1..x9
+      tf_prot: index TF, columns x1..x14 (interpolated to mRNA grid)
+      tf_ps: columns TF, PSite, x1..x14
     """
     df = _standardize_colnames(pd.read_csv(path))
     # detect TF id column

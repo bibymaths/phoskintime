@@ -81,11 +81,11 @@ $$
 **Subject to:**
 
 $$
-0 \leq \alpha_{i,j} \leq 1, \quad \sum_{j} \alpha_{i,j} = 1 (fixed per protein or globally)
+0 \leq \alpha_{i,j} \leq 1, \quad \sum_{j} \alpha_{i,j} = 1 \quad \text{(fixed per protein or globally)}
 $$
 
 $$
--4 \leq \beta_{k,j} \leq 4, \quad \sum_{k} \beta_{k,j} = 1 (can vary per protein or globally)
+-4 \leq \beta_{k,j} \leq 4, \quad \sum_{k} \beta_{k,j} = 1 \quad \text{(can vary per protein or globally)}
 $$
 
 **Where:**

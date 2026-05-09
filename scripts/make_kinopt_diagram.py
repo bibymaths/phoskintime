@@ -9,7 +9,11 @@ Author: Abhinav Mishra
 from __future__ import annotations
 import pydot
 import os
-import pygraphviz as pgv
+
+try:
+    import pygraphviz as pgv
+except ImportError:
+    pgv = None  # type: ignore[assignment]
 
 
 def make_kinopt_diagram_dot(

@@ -30,7 +30,7 @@ IMPORTANT INTERPRETATION NOTES:
 Run:
   python kinopt_network_readout.py
 
-Outputs in ./out:
+Outputs in ./results_scripts/figures_kinopt:
   - kinopt_latent_kinase_activity_summary.csv
   - kinopt_target_dominant_kinases.csv
   - kinopt_kinase_load.csv
@@ -48,7 +48,7 @@ from scipy.integrate import trapezoid
 # Config
 # ------------------------
 XLSX = "data/kinopt_results.xlsx"
-OUTDIR = Path("./results_scripts")
+OUTDIR = Path("./results_scripts/figures_kinopt")
 OUTDIR.mkdir(parents=True, exist_ok=True)
 
 BETA_BOUND = 4.0  # confirmed by you
