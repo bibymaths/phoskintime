@@ -35,8 +35,9 @@ Tests for `config/logconf.py`:
 | `logger_handles_no_log_directory` | Logger works without a log dir (stream-only) |
 | `logger_respects_custom_formatter` | Logger uses `ColoredFormatter` for all handlers |
 
-> **Note:** These test functions are not prefixed with `test_`, so pytest will not collect them
-> automatically. Prefix them with `test_` to make them active (e.g., `def test_logger_handles_...`).
+> **Known issue:** These test functions are not prefixed with `test_`, so pytest does **not**
+> collect or run them automatically. They must be renamed (e.g. `def test_logger_handles_...`)
+> before they become active tests. This is a pre-existing gap in the test suite.
 
 ---
 
