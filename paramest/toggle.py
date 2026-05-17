@@ -3,9 +3,11 @@ from paramest.normest import normest
 
 def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):
     """
+    Wrapper around the normal estimation workflow in ``paramest/normest.py``.
 
-    This function allows for the selection of the estimation mode
-    and handles the parameter estimation process accordingly.
+    This function delegates parameter estimation to :func:`paramest.normest.normest`.
+    There is currently only one estimation mode (normal). A sequential estimation mode
+    does not exist; ``paramest/seqest.py`` is not part of this package.
 
     Args:
         gene (str): Gene name.
@@ -21,7 +23,7 @@ def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, ti
     Returns:
         model_fits (list): List of model fits.
         estimated_params (array): Estimated parameters.
-        seq_model_fit (array): Sequence model fit.
+        seq_model_fit (array): Model fit array of shape (num_psites, len(time_points)).
         errors (array): Errors in the estimation.
         reg_term (float): Regularization term.
     """

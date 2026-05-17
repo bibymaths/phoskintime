@@ -100,6 +100,10 @@ def ensure_dirs() -> None:
 
 # Phokintime Global Config
 # sync with global_model/config.py
+# TODO: Both config_loader.py and global_model/config.py load overlapping configuration
+# surfaces from config.toml. They should be unified in a future refactor so that
+# global_model/config.py imports from config_loader.py rather than duplicating logic.
+# See: https://github.com/bibymaths/phoskintime/issues (technical debt)
 
 @dataclass(frozen=True)
 class PhosKinConfig:

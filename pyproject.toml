@@ -37,14 +37,19 @@ classifiers = [
 packages = [
     { include = "bin" },
     { include = "config" },
+    { include = "frechet" },
+    { include = "global_model" },
     { include = "kinopt" },
+    { include = "knockout" },
     { include = "models" },
     { include = "paramest" },
     { include = "plotting" },
+    { include = "processing" },
     { include = "sensitivity" },
     { include = "steady" },
     { include = "tfopt" },
     { include = "utils" },
+    { include = "config_loader.py" },
 ]
 
 # Extra non‑code files to include
