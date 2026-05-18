@@ -204,6 +204,10 @@ def all(
     Run every stage in sequence.
     Preprocessing -> TF optimisation -> Kinase optimisation -> Model.
 
+    Note: This command does NOT run the global network simulation (global_model).
+    To run the global model, use the separate entry point ``phoskintime-global``
+    (or ``python -m global_model.runner``) after this command completes.
+
     Args:
         tf_mode: tfopt mode: local | evol
         kin_mode: kinopt mode: local | evol

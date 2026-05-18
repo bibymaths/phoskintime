@@ -1,5 +1,9 @@
 # Global Model Subpackage (`global_model`)
 
+> **Note for contributors:** The canonical version of this documentation is `global_model/README.md`
+> at the repository root. This docs copy (`docs/Documentation/global/README.md`) mirrors it.
+> Always update the root file first, then propagate changes here.
+
 The `global_model` subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.
 
 Key design goals:

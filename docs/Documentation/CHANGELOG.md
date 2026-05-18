@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note for contributors:** The canonical changelog is `CHANGELOG.md` at the repository root.
+> This file (`docs/Documentation/CHANGELOG.md`) is a mirror kept in sync for the documentation site.
+> Always update the root `CHANGELOG.md` first, then propagate changes here.
+
 ## [0.1.0] - 2025-04-19
 
 ### Added
@@ -104,7 +108,7 @@ Removed
 - Deprecated analysis modes and unused constants.  
 - Combined time-weight calculation from data preprocessing. 
 
-## [0.4.0] – Unreleased
+## [0.4.0] – 2025-06-05
 
 ### Added
 
