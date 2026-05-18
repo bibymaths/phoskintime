@@ -6,7 +6,7 @@ title: "phoskintime: ODE-based modeling of phosphorylation kinetics and transcri
 authors:
   - family-names: Mishra
     given-names: Abhinav
-    email: mishraabhinav36@gmail.com
+    orcid: "https://orcid.org/0009-0005-3179-7408"
 repository-code: "https://github.com/bibymaths/phoskintime"
 url: "https://bibymaths.github.io/phoskintime"
 license: BSD-3-Clause
