@@ -23,16 +23,16 @@ import numpy as np
 import pandas as pd
 from scipy.signal import correlate
 
-from global_model.config import (
+from networkmodel.config import (
     TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO,
     RESULTS_DIR, KINASE_NET_FILE, TF_NET_FILE, MS_DATA_FILE,
     RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, CORES
 )
-from global_model.network import Index, KinaseInput, System
-from global_model.buildmat import build_W_parallel, build_tf_matrix
-from global_model.simulate import simulate_and_measure
-from global_model.io import load_data
-from global_model.params import unpack_params
+from networkmodel.network import Index, KinaseInput, System
+from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.simulate import simulate_and_measure
+from networkmodel.io import load_data
+from networkmodel.params import unpack_params
 from config.config import setup_logger
 
 logger = setup_logger()

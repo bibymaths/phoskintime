@@ -5,7 +5,7 @@ This module provides factory functions that generate callable Right-Hand Side (R
 functions compatible with `scipy.integrate.solve_ivp`.
 
 These factories bridge the gap between high-level Python solvers and the low-level,
-JIT-compiled Numba kernels defined in `global_model.models`. They handle:
+JIT-compiled Numba kernels defined in `networkmodel.models`. They handle:
 1.  **Type Safety:** Ensuring all arrays are C-contiguous and float64 for Numba.
 2.  **Input Normalization:** Wrapping transcription factor (TF) inputs whether they are constants or time-dependent functions.
 3.  **Closure Creation:** Returning a simple `fun(t, y)` that closes over all static model parameters, optimizing solver overhead.
@@ -15,7 +15,7 @@ JIT-compiled Numba kernels defined in `global_model.models`. They handle:
 
 import numpy as np
 
-from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
+from networkmodel.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
 
 
 def _c(a, dtype=None):

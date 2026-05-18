@@ -22,8 +22,8 @@ in Numba-compiled code, we achieve C-like performance while maintaining flexibil
 
 import numpy as np
 from numba import njit
-from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
-from global_model.utils import _zero_vec
+from networkmodel.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
+from networkmodel.utils import _zero_vec
 
 
 @njit(cache=True, fastmath=True, nogil=True)

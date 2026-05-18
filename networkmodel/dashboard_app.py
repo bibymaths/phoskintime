@@ -23,7 +23,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from global_model.dashboard_bundle import load_dashboard_bundle
+from networkmodel.dashboard_bundle import load_dashboard_bundle
 
 import base64
 import json

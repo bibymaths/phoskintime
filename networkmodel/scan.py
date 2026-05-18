@@ -53,7 +53,7 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
 from pymoo.core.callback import Callback
-from global_model.optproblem import GlobalODE_MOO
+from networkmodel.optproblem import GlobalODE_MOO
 
 logger = logging.getLogger(__name__)
 

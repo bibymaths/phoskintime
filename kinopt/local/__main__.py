@@ -5,7 +5,7 @@ from kinopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DAT
 from kinopt.local.config.helpers import location
 from kinopt.local.exporter.plotout import export_outcomes_to_csv, plot_multistart_summary_runtime_overlay
 from kinopt.local.exporter.sheetutils import output_results, export_params_npz
-from kinopt.local.opt.optrun import run_optimization, multistart_run_optimization
+from kinopt.local.opt.optrun import multistart_run_optimization
 from kinopt.local.optcon.construct import check_kinases
 from kinopt.local.utils.iodata import load_and_scale_data, organize_output_files, create_report
 from kinopt.local.objfn import objective_wrapper
@@ -15,7 +15,7 @@ from kinopt.local.utils.params import compute_metrics, extract_parameters
 from kinopt.local.config.logconf import setup_logger
 from kinopt.optimality.KKT import post_optimization_results
 from kinopt.fitanalysis import optimization_performance
-from utils import latexit
+from common.utils import latexit
 
 logger = setup_logger()
 

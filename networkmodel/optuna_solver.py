@@ -36,9 +36,9 @@ try:
 except ImportError:
     HAS_DASHBOARD = False
 
-from global_model.params import unpack_params
-from global_model.utils import _base_idx
-from global_model.jacspeedup import solve_custom
+from networkmodel.params import unpack_params
+from networkmodel.utils import _base_idx
+from networkmodel.jacspeedup import solve_custom
 
 logger = logging.getLogger(__name__)
 

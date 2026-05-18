@@ -24,7 +24,7 @@ import pandas as pd
 from numba import njit
 import tomllib
 from config.config import setup_logger
-from global_model.config import MODEL, RESULTS_DIR
+from networkmodel.config import MODEL, RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
@@ -389,7 +389,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     with path.open("rb") as f:
         full_cfg = tomllib.load(f)
 
-    cfg = (full_cfg or {}).get("global_model", {}) or {}
+    cfg = (full_cfg or {}).get("networkmodel", {}) or {}
 
     # -------------------------
     # 0) Metadata

@@ -14,14 +14,14 @@ from pathlib import Path
 import io
 import imageio.v2 as imageio
 
-from global_model import config
-from global_model.network import Index, KinaseInput, System
-from global_model.simulate import simulate_and_measure
-from global_model.analysis import simulate_until_steady
-from global_model.params import init_raw_params, unpack_params
-from global_model.io import load_data
-from global_model.buildmat import build_W_parallel, build_tf_matrix
-from global_model.utils import normalize_fc_to_t0
+from networkmodel import config
+from networkmodel.network import Index, KinaseInput, System
+from networkmodel.simulate import simulate_and_measure
+from networkmodel.analysis import simulate_until_steady
+from networkmodel.params import init_raw_params, unpack_params
+from networkmodel.io import load_data
+from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.utils import normalize_fc_to_t0
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
 
@@ -1840,7 +1840,7 @@ st.caption(
     "or the browser will become heavy."
 )
 
-from global_model.simulate import simulate_odeint  # uses odeint under the hood
+from networkmodel.simulate import simulate_odeint  # uses odeint under the hood
 
 
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):

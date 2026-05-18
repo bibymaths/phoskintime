@@ -28,10 +28,10 @@ from pymoo.visualization.scatter import Scatter
 from scipy.interpolate import interp1d
 from scipy.stats import linregress
 
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
-from global_model.params import unpack_params
-from global_model.simulate import simulate_and_measure
-from global_model.jacspeedup import build_S_cache_into
+from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
+from networkmodel.params import unpack_params
+from networkmodel.simulate import simulate_and_measure
+from networkmodel.jacspeedup import build_S_cache_into
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)

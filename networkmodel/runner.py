@@ -21,11 +21,11 @@ import logging
 import os
 from pathlib import Path
 
-from global_model.dashboard_bundle import save_dashboard_bundle
-from global_model.optuna_solver import run_optuna_solver
-from global_model.scan import run_hyperparameter_scan
-from global_model.sensitivity import run_sensitivity_analysis
-from global_model.steadystate import _dump_y0
+from networkmodel.dashboard_bundle import save_dashboard_bundle
+from networkmodel.optuna_solver import run_optuna_solver
+from networkmodel.scan import run_hyperparameter_scan
+from networkmodel.sensitivity import run_sensitivity_analysis
+from networkmodel.steadystate import _dump_y0
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -47,28 +47,28 @@ from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize as pymoo_minimize
 
-from global_model.buildmat import build_W_parallel, build_tf_matrix
-from global_model.cache import prepare_fast_loss_data
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
+from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.cache import prepare_fast_loss_data
+from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
     MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
     DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
     USE_CUSTOM_SOLVER, CORES
-from global_model.io import load_data
-from global_model.network import Index, KinaseInput, System
-from global_model.optproblem import GlobalODE_MOO, build_weight_functions
-from global_model.params import init_raw_params, unpack_params
-from global_model.refine import run_iterative_refinement
-from global_model.simulate import simulate_and_measure
-from global_model.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
+from networkmodel.io import load_data
+from networkmodel.network import Index, KinaseInput, System
+from networkmodel.optproblem import GlobalODE_MOO, build_weight_functions
+from networkmodel.params import init_raw_params, unpack_params
+from networkmodel.refine import run_iterative_refinement
+from networkmodel.simulate import simulate_and_measure
+from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
     get_optimized_sets
-from global_model.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
+from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
-from global_model.analysis import simulate_until_steady, plot_steady_state_all
+from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger

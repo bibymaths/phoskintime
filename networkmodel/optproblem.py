@@ -22,10 +22,10 @@ from typing import Tuple, Callable
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-from global_model.config import ODE_MAX_STEPS, ODE_ABS_TOL, ODE_REL_TOL
-from global_model.lossfn import LOSS_FN
-from global_model.params import unpack_params
-from global_model.simulate import simulate_odeint
+from networkmodel.config import ODE_MAX_STEPS, ODE_ABS_TOL, ODE_REL_TOL
+from networkmodel.lossfn import LOSS_FN
+from networkmodel.params import unpack_params
+from networkmodel.simulate import simulate_odeint
 
 
 class GlobalODE_MOO(ElementwiseProblem):

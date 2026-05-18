@@ -19,8 +19,8 @@ positive physical parameters like rate constants) and the numerical optimizer
 
 import numpy as np
 
-from global_model.config import BOUNDS_CONFIG
-from global_model.utils import inv_softplus, softplus
+from networkmodel.config import BOUNDS_CONFIG
+from networkmodel.utils import inv_softplus, softplus
 
 
 def init_raw_params(defaults, custom_bounds=None):

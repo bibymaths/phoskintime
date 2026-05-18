@@ -27,8 +27,8 @@ warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from global_model.config import MODEL, USE_CUSTOM_SOLVER
-from global_model.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
+from networkmodel.config import MODEL, USE_CUSTOM_SOLVER
+from networkmodel.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
 
 
 def simulate_odeint(sys, t_eval, rtol, atol, mxstep):

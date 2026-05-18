@@ -12,8 +12,8 @@ time-series data into a standardized 'tidy' format for the modeling pipeline.
 import os
 import pandas as pd
 import re
-from global_model.utils import _normcols, _find_col, process_and_scale_raw_data
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, SCALING_METHOD
+from networkmodel.utils import _normcols, _find_col, process_and_scale_raw_data
+from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, SCALING_METHOD
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)

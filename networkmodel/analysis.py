@@ -19,8 +19,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from global_model.config import RESULTS_DIR
-from global_model.simulate import simulate_odeint
+from networkmodel.config import RESULTS_DIR
+from networkmodel.simulate import simulate_odeint
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)

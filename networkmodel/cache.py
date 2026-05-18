@@ -13,7 +13,7 @@ that can be passed directly to a fast JIT-compiled or Cython loss function.
 import numpy as np
 import pandas as pd
 
-from global_model.config import MODEL
+from networkmodel.config import MODEL
 
 
 def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):

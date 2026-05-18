@@ -17,7 +17,7 @@ import multiprocessing as mp
 import pandas as pd
 from scipy import sparse
 from config.config import setup_logger
-from global_model.config import RESULTS_DIR
+from networkmodel.config import RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 

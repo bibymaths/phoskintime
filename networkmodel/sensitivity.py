@@ -28,10 +28,10 @@ from SALib.sample import morris
 from SALib.analyze.morris import analyze
 from tqdm import tqdm
 
-from global_model.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, \
+from networkmodel.config import SENSITIVITY_TRAJECTORIES, SENSITIVITY_LEVELS, SENSITIVITY_PERTURBATION, \
     SENSITIVITY_TOP_CURVES, RESULTS_DIR, SEED
-from global_model.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
-from global_model.simulate import simulate_and_measure
+from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+from networkmodel.simulate import simulate_and_measure
 
 from config.config import setup_logger
 

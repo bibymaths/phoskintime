@@ -200,7 +200,7 @@ python phoskintime all
 > ```bash
 > phoskintime-global
 > # or
-> python -m global_model.runner
+> python -m networkmodel.runner
 > ```
 > The global model requires outputs from `kinopt` and `tfopt` as inputs. Run `all` (or the individual
 > optimization stages) before invoking `phoskintime-global`.

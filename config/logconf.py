@@ -6,7 +6,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 from config.constants import LOG_DIR
-from utils.display import format_duration
+from common.utils import format_duration
 
 # Color mapping for console output
 LOG_COLORS = {

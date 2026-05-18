@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="static/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
+  <img src="docs/assets/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
   
   # PhosKinTime  
 
@@ -34,7 +34,7 @@ Currently, I am focusing on two major updates:
 
 In cellular signaling pathways, a series of proteins are phosphorylated in an activation cascade that drives cellular responses. Understanding these post-translational modifications is critical.
 
-![Phosphorylation Cascade Concept](static/images/phoskintime_problem.png)
+![Phosphorylation Cascade Concept](docs/assets/images/phoskintime_problem.png)
 
 *Figure 1: Overview of protein post-translational modifications and the phosphorylation cascade mechanism.*
 
@@ -43,7 +43,7 @@ In cellular signaling pathways, a series of proteins are phosphorylated in an ac
 ## Features & Analysis
 PhosKinTime allows you to visualize network topology, track protein signal loss/propagation over time, and evaluate model convergence. 
 
-![PhosKinTime Analysis Outputs](static/images/phoskintime_analysis.png)
+![PhosKinTime Analysis Outputs](docs/assets/images/phoskintime_analysis.png)
 
 *Figure 2: PhosKinTime outputs including network graphing, kinetic time-series modeling, and residual analysis.* 
 

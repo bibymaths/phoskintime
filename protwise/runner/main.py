@@ -17,8 +17,8 @@ from config.constants import (model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR,
 from config.logconf import setup_logger
 from protwise.paramest import process_gene_wrapper
 from protwise.plotting import Plotter
-from utils import latexit
-from utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
+from common.utils import latexit
+from common.utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
 
 logger = setup_logger()
 

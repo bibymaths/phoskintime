@@ -244,7 +244,7 @@ out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"
 
 # ============================================================
 # GLOBAL MODEL (Integrated ODE Optimization)
-# Used by: global_model.runner
+# Used by: networkmodel.runner
 # ============================================================
 
 [global_model]

@@ -22,10 +22,10 @@ Key responsibilities:
 import numpy as np
 from numba import njit, prange
 
-from global_model.config import MODEL
-from global_model.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
-from global_model.solvers import adaptive_rk45_model01, adaptive_rk45_model2
-from global_model.utils import time_bucket
+from networkmodel.config import MODEL
+from networkmodel.models import distributive_rhs, sequential_rhs, combinatorial_rhs, saturating_rhs
+from networkmodel.solvers import adaptive_rk45_model01, adaptive_rk45_model2
+from networkmodel.utils import time_bucket
 
 
 def solve_custom(sys, y0, t_eval, rtol, atol):

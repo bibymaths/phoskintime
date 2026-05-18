@@ -20,7 +20,7 @@ between model predictions ($Y$) and experimental data (Protein, RNA, Phospho).
 
 import numpy as np
 from numba import njit
-from global_model.config import MODEL, LOSS_MODE
+from networkmodel.config import MODEL, LOSS_MODE
 
 EPS = 1e-9
 
