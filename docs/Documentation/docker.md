@@ -39,8 +39,11 @@ docker build -t phoskintime .
 
 ### Run the default CLI
 
+The Dockerfile uses `CMD` (not `ENTRYPOINT`), so you must include the full `poetry run phoskintime`
+invocation when overriding the command:
+
 ```bash
-docker run --rm phoskintime --help
+docker run --rm phoskintime poetry run phoskintime --help
 ```
 
 ### Run with your data mounted
@@ -51,7 +54,7 @@ Mount your local `data/` directory and a results output directory into the conta
 docker run --rm \
   -v "$PWD/data:/app/data" \
   -v "$PWD/results:/app/results_model" \
-  phoskintime all
+  phoskintime poetry run phoskintime all
 ```
 
 ### Run a specific pipeline stage
@@ -61,13 +64,13 @@ docker run --rm \
 docker run --rm \
   -v "$PWD/data:/app/data" \
   -v "$PWD/results:/app/results_model" \
-  phoskintime prep
+  phoskintime poetry run phoskintime prep
 
 # Kinase optimization (local solver)
 docker run --rm \
   -v "$PWD/data:/app/data" \
   -v "$PWD/results:/app/results_model" \
-  phoskintime kinopt --mode local
+  phoskintime poetry run phoskintime kinopt --mode local
 ```
 
 ### Run the global model
@@ -88,7 +91,7 @@ docker run --rm \
   -v "$PWD/my_config.toml:/app/config.toml" \
   -v "$PWD/data:/app/data" \
   -v "$PWD/results:/app/results_model" \
-  phoskintime all
+  phoskintime poetry run phoskintime all
 ```
 
 The container reads `config.toml` from `/app/` (the `WORKDIR`). Mount your own config file

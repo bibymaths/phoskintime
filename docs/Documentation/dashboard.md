@@ -77,9 +77,36 @@ http://localhost:8501
 
 ### Option 2: Via the phoskintime-global entry point
 
+`phoskintime-global` runs `global_model/runner.py`. All settings default to `config.toml` values
+and can be overridden via CLI arguments:
+
 ```bash
-phoskintime-global --conf config.toml
+# Run with defaults from config.toml
+phoskintime-global
+
+# Override specific settings
+phoskintime-global \
+  --output-dir results_global \
+  --n-gen 500 \
+  --pop 200 \
+  --solver pymoo
 ```
+
+Key arguments (all optional — defaults come from `config.toml`):
+
+| Argument | Description |
+|---|---|
+| `--kinase-net` | Path to kinase-substrate network |
+| `--tf-net` | Path to TF-gene network |
+| `--ms` | Path to MS protein data |
+| `--rna` | Path to RNA data |
+| `--output-dir` | Output directory |
+| `--n-gen` | Number of generations |
+| `--pop` | Population size |
+| `--solver` | `pymoo` or `optuna` |
+| `--sensitivity` | Enable sensitivity analysis |
+| `--refine` | Enable refinement pass |
+| `--scan` | Run hyperparameter scan |
 
 This runs the full optimization pipeline via `global_model/runner.py` and saves the bundle.
 After it finishes, launch the dashboard with Option 1 above.

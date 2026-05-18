@@ -83,6 +83,8 @@ cobyqa = "*"
 typer = "*"
 py2cytoscape = "*"
 jinja2 = "*"
+optuna = "*"
+tomli = {version = "*", python = "<3.11"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

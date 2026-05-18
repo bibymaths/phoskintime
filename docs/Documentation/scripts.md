@@ -31,11 +31,16 @@ results. Computes phosphosite (PSite) statistics per entity.
 
 **Example:**
 ```bash
-python scripts/analyze_tf_kin_counts.py \
-  --tfopt-xlsx data/tfopt_results.xlsx \
-  --kinopt-xlsx data/kinopt_results.xlsx \
-  --out-dir results_scripts
+python scripts/analyze_tf_kin_counts.py
 ```
+
+> **Note:** `analyze_tf_kin_counts.py` does not accept command-line arguments. It uses hardcoded
+> default paths:
+> - Input: `data/tfopt_results.xlsx`, `data/kinopt_results.xlsx`
+> - Output: `results_scripts/`
+>
+> To change input paths, edit the `main()` call at the bottom of the script or import and call
+> `main(tfopt_xlsx=..., kinopt_xlsx=..., out_dir=...)` from your own script.
 
 ---
 
@@ -109,9 +114,10 @@ TF network (`input4`). Useful for focused network analysis around specific prote
 **Example:**
 ```bash
 python scripts/export_subnetworks.py \
-  --hops 2 \
+  --input2 data/input2.csv \
+  --input4 data/input4.csv \
   --outdir results_subnetworks \
-  data/input2.csv data/input4.csv
+  --hops 2
 ```
 
 Use `--hops auto` to extract the full weakly connected component instead of a fixed hop radius.

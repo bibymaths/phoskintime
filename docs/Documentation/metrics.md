@@ -89,18 +89,38 @@ to contextualize individual scores.
 
 ## Loss Functions (Optimization)
 
-Both local and global optimizers support configurable loss functions. See the
-[Configuration Reference](configuration.md) for the integer codes.
+Both local and global optimizers support configurable loss functions, but **the integer codes
+differ between the two**. See the [Configuration Reference](configuration.md) for how to set
+`loss_type` (local) or `loss` (global).
+
+### Local optimizer loss codes (`[tfopt]` / `[kinopt]` → `loss_type`)
+
+Used by `tfopt` and `kinopt` via SciPy least-squares or evolutionary optimizer:
 
 | Code | Name | Use case |
 |---|---|---|
 | 0 | MSE | Standard squared error |
-| 1 | MAE / Huber | Robust to outliers |
-| 2 | Soft L1 / Pseudo-Huber | Smooth transition MSE↔MAE |
-| 3 | Cauchy / Log-Cosh | Heavy-tail robust |
+| 1 | MAE | Mean absolute error |
+| 2 | Soft L1 | Smooth transition MSE↔MAE |
+| 3 | Cauchy | Heavy-tail robust |
 | 4 | Arctan | Bounded outlier penalty |
-| 5 | Elastic Net | Sparsity + smoothness (default tfopt) |
+| 5 | Elastic Net | Sparsity + smoothness (default `tfopt`) |
 | 6 | Tikhonov | L2 regularization |
+
+### Global model loss codes (`[global_model]` → `loss`)
+
+Used by `global_model/lossfn.py`:
+
+| Code | Name | Description |
+|---|---|---|
+| 0 | Squared Error (MSE) | Standard squared error |
+| 1 | Huber | Smooth L1/L2 transition |
+| 2 | Pseudo-Huber | Differentiable Huber approximation |
+| 3 | Log-Cosh | Smooth approximation of MAE; grad-friendly near 0 |
+| 4 | Cauchy | Heavy-tail robust loss |
+| 5 | Poisson-scaled MSE | MSE scaled by predicted value |
+| 6 | Geman-McClure | Soft-saturating robust loss |
+| -1 | Charbonnier | Differentiable L1 (`√(x² + ε²)`) |
 
 ---
 

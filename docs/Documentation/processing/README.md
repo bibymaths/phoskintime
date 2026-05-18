@@ -107,19 +107,19 @@ Mass-spectrometry phosphoproteomics data with Gaussian-fitted log2 abundances.
 | `GeneID` | string | Protein/gene identifier |
 | `site` | string | Phosphorylation site (e.g. `S256`, `T308`) |
 | `unit_time` | int | Time index (0–13, representing 14 time points) |
-| `mean` | float | Log2 mean abundance at this time point |
-| `std` | float | Log2 standard deviation (used for error propagation) |
+| `predict_mean` | float | Log2 mean abundance at this time point |
+| `predict_std` | float | Log2 standard deviation (used for error propagation) |
 
 The script pivots the data to wide format using `(GeneID, Psite)` as index and `unit_time` as
 columns. After transformation:
-- `mean` values are exponentiated: `2^mean`
-- `std` is propagated: `σ_y = 2^x * ln(2) * σ_x`
+- `predict_mean` values are exponentiated: `2^predict_mean`
+- `predict_std` is propagated: `σ_y = 2^predict_mean * ln(2) * predict_std`
 - Only rows with `Psite` starting with `Y_`, `S_`, `T_`, or empty are retained
 - Time columns are renamed `x1`–`x14`
 
 **Minimal example row:**
 ```
-GeneID,site,unit_time,mean,std
+GeneID,site,unit_time,predict_mean,predict_std
 ABL2,S256,0,1.23,0.05
 ABL2,S256,1,1.45,0.06
 ```
