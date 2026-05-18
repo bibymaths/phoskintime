@@ -3,6 +3,9 @@ hide:
   - toc
 ---
  
+<img class="only-light hero-image" src="assets/images/16_9/light.png" alt="PhosKinTime overview - light mode">
+<img class="only-dark hero-image" src="assets/images/16_9/dark.png" alt="PhosKinTime overview - dark mode">
+
 # PhosKinTime Documentation
 
 Welcome to the official documentation for **PhosKinTime**, an ODE-based modeling toolkit for phosphorylation kinetics
@@ -31,7 +34,7 @@ technical support, enabling seamless experimentation with packages and server se
   and [Pandas](https://pandas.pydata.org/) for numerical computations and data handling.
 - The package also utilizes [Numba](https://numba.pydata.org/) for JIT compilation, enhancing performance for
   computationally intensive tasks.
-- The package is designed to be compatible with [Python 3.8+](https://www.python.org/downloads/) and is tested on
+- The package is designed to be compatible with **Python >=3.10,<3.14** and is tested on
   various platforms, including Windows, macOS, and Linux.
 
 ---
@@ -64,23 +67,24 @@ PhosKinTime provides two complementary modeling stacks:
    These implement the classic mechanistic hypotheses (distributive, successive, random) and are optimized against
    phosphoproteomics time series. They are intended for detailed fitting of individual proteins or phosphorylation sites. 
 
-2) **Global coupled signaling–GRN model (`global_model`)**  
+2) **Global coupled signaling–GRN model (`networkmodel`)**  
    This is a network-scale ODE system that couples kinase-driven phosphorylation dynamics to TF-mediated transcriptional
    regulation. It is intended for system-level simulations (e.g., global knockouts, functional influence propagation)
    and calibration against multi-omics time series.
 
-For the full mathematical specification of the coupled global system (all equations), see:`global_model/README.md`
+For the full mathematical specification of the coupled global system (all equations), see:
+[Global model documentation](Documentation/global/README.md)
 
 Package mapping:
 - **`kinopt`**: optimization + post-processing for local phosphorylation models
 - **`tfopt`**: TF→mRNA constrained optimization and reporting
-- **`global_model`**: coupled kinase-signaling + GRN simulation and optimization wrappers
+- **`networkmodel`**: coupled kinase-signaling + GRN simulation and optimization wrappers
 
 Typical workflows:
 - **Local phosphorylation fitting**: `prep → kinopt → model → sensitivity → plotting`
 - **TF regulation fitting**: `prep → tfopt → reports`
-- **Global network simulation**: `prep → global_model → simulate → measure → KO analysis` 
-- **Global network optimization**: `prep → global_model → optimize → measure → KO analysis` 
+- **Global network simulation**: `prep → networkmodel → simulate → measure → KO analysis` 
+- **Global network optimization**: `prep → networkmodel → optimize → measure → KO analysis` 
 
 ---
 
@@ -94,9 +98,9 @@ Typical workflows:
 
 - Implements ODE systems for different phosphorylation hypotheses. 
 
-**models**
+**paramest**
 
-- Parameter estimation routines for ODE models.
+- Parameter estimation routines for ODE models (currently using `paramest/normest.py`).
 
 **steady**
 
@@ -193,6 +197,16 @@ Run the entire pipeline with the default (local) solver:
 ```bash
 python phoskintime all
 ```
+
+> **Note:** The `all` command runs `prep → tfopt → kinopt → model` only. It does **not** invoke the
+> global network simulation (`networkmodel`). To run the global model, use the separate entry point:
+> ```bash
+> phoskintime-global
+> # or
+> python -m networkmodel.runner
+> ```
+> The global model requires outputs from `kinopt` and `tfopt` as inputs. Run `all` (or the individual
+> optimization stages) before invoking `phoskintime-global`.
 
 ### Run Preprocessing Only
 Execute only the preprocessing stage:

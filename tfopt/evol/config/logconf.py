@@ -7,6 +7,12 @@ from logging.handlers import RotatingFileHandler
 from tfopt.evol.config.constants import LOG_DIR
 from tfopt.evol.utils.iodata import format_duration
 
+# NOTE: This module is a near-duplicate of config/logconf.py.
+# The two implementations cannot be trivially merged because they import LOG_DIR and
+# format_duration from different subpackage paths, and config/logconf.py includes an
+# additional `mp_file_logging` parameter not present here.
+# TODO: Unify into a shared base in a future refactor. (Technical debt)
+
 # Color mapping for console output
 LOG_COLORS = {
     "DEBUG": "\033[92m",  # Green

@@ -1,0 +1,107 @@
+[workspace]
+name = "phoskintime"
+version = "0.4.0"
+description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
+authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+license = "BSD-3-Clause"
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+
+# Core numerical/scientific stack
+numpy = "*"
+pandas = "*"
+scipy = "*"
+scikit-learn = "*"
+statsmodels = "*"
+numba = "*"
+
+# Plotting, visualization, and file I/O
+matplotlib = "*"
+seaborn = "*"
+plotly = "*"
+openpyxl = "*"
+xlsxwriter = "*"
+adjusttext = "*"
+
+# Optimization, sensitivity analysis, and modeling utilities
+pymoo = "*"
+cobyqa = "*"
+salib = "*"
+optuna = "*"
+
+# Graph/network tooling
+graphviz = "*"
+python-graphviz = "*"
+pydot = "*"
+networkx = "*"
+
+# Bioinformatics / annotation utilities
+mygene = "*"
+
+# CLI/config/runtime utilities
+tqdm = "*"
+python-dotenv = "*"
+typer = "*"
+jinja2 = "*"
+tomli = "*"
+
+[pypi-dependencies]
+# Not reliably available as a current conda package across all target platforms.
+py2cytoscape = "*"
+
+[feature.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+
+[feature.docs.dependencies]
+pymdown-extensions = "*"
+mkdocstrings = "*"
+mkdocstrings-python = "*"
+mkdocs-autorefs = "*"
+
+[feature.docs.pypi-dependencies]
+zensical = ">=0.0.42, <0.0.43"
+
+[feature.viz.dependencies]
+optuna-dashboard = "*"
+gravis = "*"
+
+[feature.viz.target.linux-64.dependencies]
+pygraphviz = "*"
+
+[feature.viz.target.osx-64.dependencies]
+pygraphviz = "*"
+
+[feature.viz.target.osx-arm64.dependencies]
+pygraphviz = "*"
+
+[tasks]
+test = "PYTHONPATH=. pytest"
+test-cov = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing"
+
+check-import = "PYTHONPATH=. python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
+
+kinopt-local = "PYTHONPATH=. python -m kinopt.local"
+kinopt-evol = "PYTHONPATH=. python -m kinopt.evol"
+kinopt-fitanalysis = "PYTHONPATH=. python -m kinopt.fitanalysis"
+
+tfopt-local = "PYTHONPATH=. python -m tfopt.local"
+tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
+
+network-dashboard = "PYTHONPATH=. python run_dashboard.py"
+
+docs-serve = "zensical serve"
+docs-build = "zensical build"
+
+tree-clean = "tree -a -I '.git|.pixi|.venv|venv|env|ENV|__pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.tox|dist|build|*.egg-info|results_*|result_*|logs|.ipynb_checkpoints'"
+
+[environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+viz = { features = ["viz"], solve-group = "default" }
+full = { features = ["dev", "docs", "viz"], solve-group = "default" }

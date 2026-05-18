@@ -99,7 +99,11 @@ def ensure_dirs() -> None:
     (root / ode_data_dir).mkdir(parents=True, exist_ok=True)
 
 # Phokintime Global Config
-# sync with global_model/config.py
+# sync with networkmodel/config.py
+# TODO: Both config_loader.py and networkmodel/config.py load overlapping configuration
+# surfaces from config.toml. They should be unified in a future refactor so that
+# networkmodel/config.py imports from config_loader.py rather than duplicating logic.
+# See: https://github.com/bibymaths/phoskintime/issues (technical debt)
 
 @dataclass(frozen=True)
 class PhosKinConfig:
@@ -183,7 +187,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     with path.open("rb") as f:
         full_cfg = tomllib.load(f)
 
-    cfg = (full_cfg or {}).get("global_model", {}) or {}
+    cfg = (full_cfg or {}).get("networkmodel", {}) or {}
 
     # -------------------------
     # 0) Metadata

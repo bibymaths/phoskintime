@@ -83,98 +83,98 @@
 
 ### Core Functions
 
-::: paramest.normest
-::: paramest.toggle
+::: protwise.paramest.normest
+::: protwise.paramest.toggle
 
 ### Weights for Curve Fitting
 
-::: models.weights
+::: protwise.models.weights
 
 ### Parameter Estimation
 
-::: paramest.core
+::: protwise.paramest.core
 
 ### Confidence Intervals using Linearization
 
-::: paramest.identifiability.ci
+::: protwise.paramest.identifiability.ci
 
 ### Knockout Analysis
 
-::: knockout.helper
+::: protwise.knockout.helper
 
 ### Perturbation & Parameter Sensitivity Analysis
 
-::: sensitivity.analysis
+::: protwise.sensitivity.analysis
 
 ### Model Diagram
 
-::: models.diagram.helpers
+::: protwise.models.diagram.helpers
 
 ### Protein Wise Model Types
 
-::: models.distmod
-::: models.randmod
-::: models.succmod
+::: protwise.models.distmod
+::: protwise.models.randmod
+::: protwise.models.succmod
 
 ### Steady-State Calculation
 
-::: steady.initdist
-::: steady.initrand
-::: steady.initsucc
+::: protwise.steady.initdist
+::: protwise.steady.initrand
+::: protwise.steady.initsucc
 
 ### Plotting
 
-::: plotting.plotting
+::: protwise.plotting.plotting
 
 ### Utility Functions
 
-::: utils.display
-::: utils.tables
-::: utils.latexit 
+::: common.utils.display
+::: common.utils.tables
+::: common.utils.latexit 
 
 ## Global ODE Model
 
 ### Core Data Structures & Topology
 
-::: global_model.network
-::: global_model.buildmat
-::: global_model.params
+::: networkmodel.network
+::: networkmodel.buildmat
+::: networkmodel.params
 
 ### Configuration & Data Loading
 
-::: global_model.config
-::: global_model.io
+::: networkmodel.config
+::: networkmodel.io
 
 ### Physics Kernels (JIT)
 
-::: global_model.models
+::: networkmodel.models
 
 ### Numerical Integration & Solvers
 
-::: global_model.simulate
-::: global_model.solvers
-::: global_model.jacspeedup
-::: global_model.steadystate
-::: global_model.model_ivp
+::: networkmodel.simulate
+::: networkmodel.solvers
+::: networkmodel.jacspeedup
+::: networkmodel.steadystate
+::: networkmodel.model_ivp
 
 ### Optimization & Loss Functions
 
-::: global_model.optproblem
-::: global_model.lossfn
-::: global_model.optuna_solver
-::: global_model.runner
-::: global_model.refine
-::: global_model.scan
+::: networkmodel.optproblem
+::: networkmodel.lossfn
+::: networkmodel.optuna_solver
+::: networkmodel.runner
+::: networkmodel.refine
+::: networkmodel.scan
 
 ### Analysis & Visualization
 
-::: global_model.sensitivity
-::: global_model.analysis
-::: global_model.export
-::: global_model.dashboard_app
-::: global_model.dashboard_bundle
+::: networkmodel.sensitivity
+::: networkmodel.analysis
+::: networkmodel.export
+::: networkmodel.dashboard_app
+::: networkmodel.dashboard_bundle
 
 ### Utilities
 
-::: global_model.utils
-::: global_model.cache
+::: networkmodel.utils
+::: networkmodel.cache

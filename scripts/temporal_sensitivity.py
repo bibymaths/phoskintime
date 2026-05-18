@@ -25,11 +25,11 @@ from SALib.analyze import sobol
 from SALib.sample import saltelli
 import plotly.express as px
 
-from global_model.config import RNA_DATA_FILE, KINASE_NET_FILE, TF_NET_FILE, MS_DATA_FILE, TIME_POINTS_PROTEIN
-from global_model.network import Index, KinaseInput, System
-from global_model.buildmat import build_W_parallel, build_tf_matrix
-from global_model.simulate import simulate_and_measure
-from global_model.utils import normcols, find_col
+from networkmodel.config import RNA_DATA_FILE, KINASE_NET_FILE, TF_NET_FILE, MS_DATA_FILE, TIME_POINTS_PROTEIN
+from networkmodel.network import Index, KinaseInput, System
+from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.simulate import simulate_and_measure
+from networkmodel.utils import normcols, find_col
 
 from config.config import setup_logger
 

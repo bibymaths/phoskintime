@@ -2,37 +2,44 @@ site_name: phoskintime
 site_url: https://bibymaths.github.io/phoskintime
 site_description: phoskintime - a toolkit for ODE based parameter estimation and optimization for phosphorylation models.
 site_author: Abhinav Mishra
-use_directory_urls: false
 repo_url: https://github.com/bibymaths/phoskintime
+use_directory_urls: false
 
 theme:
-  name: readthedocs
+  variant: modern
+  language: en
   palette:
-    - scheme: default
-      primary: deep purple
-      accent: indigo
-    - scheme: slate
-      primary: deep purple
+    # Automatic/system preference mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: lucide/sun-moon
+        name: Switch to light mode
+
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
       accent: indigo
       toggle:
-        icon: material/weather-night
+        icon: lucide/sun
         name: Switch to dark mode
-  features:
-    - navigation.instant
-    - navigation.sections
-    - content.code.annotate
-    - content.tabs.link
-    - content.action.edit
-    - content.tooltips
-    - navigation.expand
-    - toc.follow
-  language: en
+
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: lucide/moon
+        name: Switch to system preference
 
 nav:
   - Home: index.md
   - Reference: reference.md
   - Changelog: Documentation/CHANGELOG.md
   - Documentation:
+      - Architecture & Data Flow: Documentation/architecture.md
+      - Configuration Reference: Documentation/configuration.md
       - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
       - Kinase Optimization: Documentation/kinopt/README.md
@@ -46,11 +53,16 @@ nav:
       - Knockout Analysis: Documentation/knockout/README.md
       - Plotting: Documentation/plotting/README.md
       - Utils: Documentation/utils/README.md
+      - Dashboard: Documentation/dashboard.md
+      - Scripts: Documentation/scripts.md
+      - Docker: Documentation/docker.md
+      - Testing: Documentation/testing.md
+      - Metrics & Distance Measures: Documentation/metrics.md
 
 markdown_extensions:
   - pymdownx.arithmatex:
-      inline_syntax: [ '$', '$' ]
-      block_syntax: [ '$$', '$$' ]
+      inline_syntax: ["$", "$"]
+      block_syntax: ["$$", "$$"]
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.extra
@@ -73,7 +85,8 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [ "." ]
+          paths:
+            - .
           options:
             show_source: false
             show_root_heading: true
@@ -83,6 +96,13 @@ plugins:
 
 watch:
   - docs
+  - kinopt
+  - tfopt
+  - protwise
+  - networkmodel
+  - common
+  - config
+  - processing
 
 copyright: >
   Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.

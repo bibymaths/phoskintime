@@ -7,7 +7,7 @@ from kinopt.evol.exporter.sheetutils import output_results
 from kinopt.evol.objfn import estimated_series, residuals
 from kinopt.evol.optcon.construct import check_kinases
 from kinopt.fitanalysis import optimization_performance
-from utils import latexit
+from common.utils import latexit
 
 if METHOD == "DE":
     from kinopt.evol.objfn.minfndiffevo import PhosphorylationOptimizationProblem

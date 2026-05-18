@@ -45,7 +45,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from frechet import frechet_distance
+from common.frechet import frechet_distance
 
 
 def _find_common_id_cols(obs: pd.DataFrame, est: pd.DataFrame) -> list[str]:

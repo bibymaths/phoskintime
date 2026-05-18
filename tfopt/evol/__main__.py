@@ -12,7 +12,7 @@ from tfopt.evol.utils.iodata import organize_output_files, create_report
 from tfopt.evol.utils.params import create_no_psite_array, compute_beta_indices, create_initial_guess, create_bounds, \
     get_parallel_runner, print_alpha_mapping, print_beta_mapping, extract_best_solution
 from tfopt.fitanalysis.helper import Plotter
-from utils import latexit
+from common.utils import latexit
 
 logger = setup_logger()
 

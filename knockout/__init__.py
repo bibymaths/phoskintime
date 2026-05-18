@@ -1,4 +1,0 @@
-from knockout.helper import _apply_knockout, _generate_knockout_combinations
-
-apply_knockout = _apply_knockout
-generate_knockout_combinations = _generate_knockout_combinations

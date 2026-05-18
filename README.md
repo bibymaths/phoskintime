@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="static/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
+  <img src="docs/assets/images/phoskintime_logo.svg" alt="PhosKinTime Logo" width="350">
   
   # PhosKinTime  
 
@@ -34,7 +34,7 @@ Currently, I am focusing on two major updates:
 
 In cellular signaling pathways, a series of proteins are phosphorylated in an activation cascade that drives cellular responses. Understanding these post-translational modifications is critical.
 
-![Phosphorylation Cascade Concept](static/images/phoskintime_problem.png)
+![Phosphorylation Cascade Concept](docs/assets/images/phoskintime_problem.png)
 
 *Figure 1: Overview of protein post-translational modifications and the phosphorylation cascade mechanism.*
 
@@ -43,7 +43,7 @@ In cellular signaling pathways, a series of proteins are phosphorylated in an ac
 ## Features & Analysis
 PhosKinTime allows you to visualize network topology, track protein signal loss/propagation over time, and evaluate model convergence. 
 
-![PhosKinTime Analysis Outputs](static/images/phoskintime_analysis.png)
+![PhosKinTime Analysis Outputs](docs/assets/images/phoskintime_analysis.png)
 
 *Figure 2: PhosKinTime outputs including network graphing, kinetic time-series modeling, and residual analysis.* 
 
@@ -79,7 +79,7 @@ The package is designed with modularity in mind. It consists of several key comp
 
 - **Configuration:** Centralized settings (paths, parameter bounds, logging, etc.) are defined in the config module.
 - **Models:** Different ODE models (distributive, successive, random) are implemented to simulate phosphorylation.
-- **Parameter Estimation:** Multiple routines (sequential and normal estimation) estimate kinetic parameters from
+- **Parameter Estimation:** Normal estimation routines (`paramest/normest.py`) estimate kinetic parameters from
   experimental data.
 - **Sensitivity Analysis:** Morris sensitivity analysis is used to evaluate the influence of each parameter on the model
   output.
@@ -291,6 +291,13 @@ Run the entire pipeline with the default (local) solver:
 python phoskintime all
 ```
 
+> **Note:** The `all` command runs `prep → tfopt → kinopt → model` only. It does **not** invoke
+> the global network simulation. To run the global model, use the separate entry point after `all`
+> completes:
+> ```bash
+> phoskintime-global
+> ```
+
 ### Run Preprocessing Only
 Execute only the preprocessing stage:
 ```bash
@@ -335,10 +342,11 @@ Here’s a brief overview of the execution flow:
     - Command-line arguments are parsed to override default settings.
 
 2. **Parameter Estimation:**
-    - Depending on the chosen estimation mode (sequential or normal), functions from `paramest/seqest.py` or
-      `paramest/normest.py` are used.
-    - The toggle functionality in `paramest/toggle.py` selects the appropriate routine.
+    - Parameter estimation uses `paramest/normest.py` (normal estimation).
+    - The `paramest/toggle.py` module is a wrapper around `normest()`.
     - Results are saved and passed for visualization.
+
+    > **Note:** There is no sequential estimation mode; `paramest/seqest.py` does not exist.
 
 3. **Model Simulation and Visualization:**
     - The selected ODE model (from `models/`) is used to simulate system dynamics.
@@ -403,6 +411,18 @@ generate comprehensive visual and tabular reports. Whether you are exploring bas
 in-depth sensitivity analysis, PhosKinTime offers the necessary tools for robust model-based analysis.
 
 For more information, please refer to the individual module documentation and source code.
+
+## For Contributors: Documentation Files
+
+| File | Purpose |
+|---|---|
+| `README.md` | GitHub-facing project README (this file) |
+| `PYPI_README.md` | PyPI package description (set via `readme` in `pyproject.toml`) |
+| `docs/index.md` | MkDocs documentation site home page |
+
+Any user-facing installation instructions, feature descriptions, or CLI changes should be reflected
+in **both** `README.md` and `PYPI_README.md` unless the content is intentionally platform-specific
+(e.g., GitHub badges only belong in `README.md`).
 
 ## License
 

@@ -28,7 +28,7 @@ python phoskintime kinopt --mode evol
 python phoskintime model
 
 # run the integrated Global Model
-python phoskintime global_model
+python phoskintime networkmodel
 """
 import shutil
 from pathlib import Path
@@ -131,30 +131,30 @@ def model(
         ),
 ):
     """
-    Run the model (bin.main).
+    Run the model (runner.main).
 
     Args:
         conf: Path to model config file. Uses defaults if omitted.
     Returns:
         None
     """
-    _run(_python_module("bin.main", conf))
+    _run(_python_module("runner.main", conf))
 
 @app.command()
-def global_model(
+def networkmodel(
         conf: Path | None = typer.Option(
             "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to global model config file. Uses config.toml by default."
         ),
 ):
     """
-    Run the integrated Global Model (global_model.runner).
+    Run the integrated Global Model (networkmodel.runner).
 
-    This runs the unified optimization pipeline defined in the [global_model]
+    This runs the unified optimization pipeline defined in the [networkmodel]
     section of your configuration.
     """
-    # Assuming the package is named 'global_model' and has a 'runner.py'
-    _run(_python_module("global_model.runner", conf))
+    # Assuming the package is named 'networkmodel' and has a 'runner.py'
+    _run(_python_module("networkmodel.runner", conf))
 
 
 @app.command()
@@ -203,6 +203,10 @@ def all(
     """
     Run every stage in sequence.
     Preprocessing -> TF optimisation -> Kinase optimisation -> Model.
+
+    Note: This command does NOT run the global network simulation (networkmodel).
+    To run the global model, use the separate entry point ``phoskintime-global``
+    (or ``python -m networkmodel.runner``) after this command completes.
 
     Args:
         tf_mode: tfopt mode: local | evol

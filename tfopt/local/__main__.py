@@ -3,7 +3,7 @@ import shutil
 from config.helpers import location
 from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
 from tfopt.local.config.logconf import setup_logger
-from tfopt.local.utils.iodata import organize_output_files, create_report, summarize_stats
+from tfopt.local.utils.iodata import organize_output_files, create_report
 from tfopt.local.exporter.plotout import plot_estimated_vs_observed, plot_multistart_summary_runtime_overlay
 from tfopt.local.exporter.sheetutils import save_results_to_excel, export_multistart_results, \
     save_multistart_solutions_npz
@@ -12,7 +12,7 @@ from tfopt.local.opt.optrun import run_optimizer, run_optimizer_multistart, Mult
 from tfopt.local.optcon.filter import load_and_filter_data, prepare_data
 from tfopt.local.utils.params import get_optimization_parameters, postprocess_results
 from tfopt.fitanalysis.helper import Plotter
-from utils import latexit
+from common.utils import latexit
 
 logger = setup_logger()
 
