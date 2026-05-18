@@ -51,7 +51,7 @@ The final result is `cost[-1, -1]`.
 
 ### Where it is used
 
-- **`global_model/runner.py`**: After optimization, Fréchet scores are computed between observed
+- **`networkmodel/runner.py`**: After optimization, Fréchet scores are computed between observed
   and predicted time-series trajectories for each gene. These scores are stored in the dashboard
   bundle (`frechet_scores` field) and displayed in the Streamlit dashboard.
 - **`scripts/curve_similarity.py`**: Stand-alone script that computes per-row Fréchet distances
@@ -108,9 +108,9 @@ Used by `tfopt` and `kinopt` via SciPy least-squares or evolutionary optimizer:
 | 5 | Elastic Net | Sparsity + smoothness (default `tfopt`) |
 | 6 | Tikhonov | L2 regularization |
 
-### Global model loss codes (`[global_model]` → `loss`)
+### Global model loss codes (`[networkmodel]` → `loss`)
 
-Used by `global_model/lossfn.py`:
+Used by `networkmodel/lossfn.py`:
 
 | Code | Name | Description |
 |---|---|---|
@@ -125,7 +125,7 @@ Used by `global_model/lossfn.py`:
 
 ---
 
-## Sensitivity Metrics (`global_model/sensitivity.py`)
+## Sensitivity Metrics (`networkmodel/sensitivity.py`)
 
 After global optimization, trajectory-based sensitivity is computed. The sensitivity metric
 aggregates the model output into a scalar before computing Morris elementary effects:
@@ -137,4 +137,4 @@ aggregates the model output into a scalar before computing Morris elementary eff
 | `variance` | Variance of state values across time |
 | `l2_norm` | L2 norm of the trajectory vector |
 
-Set via `sensitivity_metric` in `config.toml` under `[global_model]`.
+Set via `sensitivity_metric` in `config.toml` under `[networkmodel]`.

@@ -141,7 +141,7 @@ def model(
     _run(_python_module("runner.main", conf))
 
 @app.command()
-def global_model(
+def networkmodel(
         conf: Path | None = typer.Option(
             "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to global model config file. Uses config.toml by default."

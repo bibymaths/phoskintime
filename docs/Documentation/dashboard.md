@@ -7,7 +7,7 @@ global network model optimization.
 
 ## Components
 
-### `global_model/dashboard_app.py`
+### `networkmodel/dashboard_app.py`
 
 The main Streamlit application. It loads result files from a specified output directory and renders:
 
@@ -18,7 +18,7 @@ The main Streamlit application. It loads result files from a specified output di
 - **Image/video galleries** of exported plots (PNG, JPEG, MP4)
 - **PDF report viewer**
 
-### `global_model/dashboard_bundle.py`
+### `networkmodel/dashboard_bundle.py`
 
 Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 
@@ -37,7 +37,7 @@ The bundle avoids pickling complex Pymoo objects, making it portable across Pyth
 
 ### `run_dashboard.py`
 
-Root-level launcher script. Sets up `sys.path` and calls `global_model.dashboard_app.main()`.
+Root-level launcher script. Sets up `sys.path` and calls `networkmodel.dashboard_app.main()`.
 
 ---
 
@@ -47,13 +47,13 @@ The dashboard looks for files in the `--output-dir` you specify. Required / opti
 
 | File | Status | Description |
 |---|---|---|
-| `dashboard_bundle.pkl` | Required | Saved by `global_model/runner.py` after optimization |
+| `dashboard_bundle.pkl` | Required | Saved by `networkmodel/runner.py` after optimization |
 | `pareto_F.csv` | Optional (falls back to bundle) | Pareto objective values |
 | `convergence_history.csv` | Optional | Generation-by-generation convergence |
 | `pred_prot_picked.csv` | Optional | Predicted protein time series (picked solution) |
 | `pred_rna_picked.csv` | Optional | Predicted RNA time series (picked solution) |
 | `pred_phospho_picked.csv` | Optional | Predicted phospho time series (picked solution) |
-| `*.png` / `*.jpg` | Optional | Any image outputs from `global_model/export.py` |
+| `*.png` / `*.jpg` | Optional | Any image outputs from `networkmodel/export.py` |
 | `*.mp4` | Optional | Convergence animation |
 | `*.pdf` | Optional | Report PDFs |
 
@@ -77,7 +77,7 @@ http://localhost:8501
 
 ### Option 2: Via the phoskintime-global entry point
 
-`phoskintime-global` runs `global_model/runner.py`. All settings default to `config.toml` values
+`phoskintime-global` runs `networkmodel/runner.py`. All settings default to `config.toml` values
 and can be overridden via CLI arguments:
 
 ```bash
@@ -108,7 +108,7 @@ Key arguments (all optional — defaults come from `config.toml`):
 | `--refine` | Enable refinement pass |
 | `--scan` | Run hyperparameter scan |
 
-This runs the full optimization pipeline via `global_model/runner.py` and saves the bundle.
+This runs the full optimization pipeline via `networkmodel/runner.py` and saves the bundle.
 After it finishes, launch the dashboard with Option 1 above.
 
 ### Option 3: Python script
@@ -143,7 +143,7 @@ streamlit run run_dashboard.py --server.port 8502 -- --output-dir ...
 ## Relationship Between `dashboard_app.py` and `dashboard_bundle.py`
 
 - `dashboard_bundle.py` is a **save/load utility** — it knows nothing about Streamlit.
-  It is called by `global_model/runner.py` at the end of optimization to persist results.
+  It is called by `networkmodel/runner.py` at the end of optimization to persist results.
 - `dashboard_app.py` is the **Streamlit UI** — it calls `dashboard_bundle.py`'s `load_dashboard_bundle()`
   at startup to restore the persisted results.
 

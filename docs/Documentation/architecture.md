@@ -23,7 +23,7 @@ Solves a coupled ODE system spanning all genes, proteins, and kinases simultaneo
 against multi-omics time series (protein, mRNA, phospho). Uses Optuna + Pymoo for hyperparameter
 scanning and multi-objective evolutionary optimization.
 
-Packages involved: `processing`, `global_model`, `frechet`, `knockout`.
+Packages involved: `processing`, `networkmodel`, `frechet`, `knockout`.
 
 ---
 
@@ -46,10 +46,10 @@ flowchart TD
     end
 
     subgraph global_wf ["Global Network Workflow"]
-        H["global_model/runner.py\n• Optuna + Pymoo optimization\n• scan.py (hyperparameter scan)\n• refine.py (iterative refinement)"]
-        I["global_model/simulate.py\n• coupled ODE integration\n• jacspeedup.py (Numba JIT)"]
-        J["global_model/sensitivity.py\n• trajectory-based perturbation\n• Morris elementary effects"]
-        K["global_model/export.py\n• Pareto front, Excel, plots\n• convergence video"]
+        H["networkmodel/runner.py\n• Optuna + Pymoo optimization\n• scan.py (hyperparameter scan)\n• refine.py (iterative refinement)"]
+        I["networkmodel/simulate.py\n• coupled ODE integration\n• jacspeedup.py (Numba JIT)"]
+        J["networkmodel/sensitivity.py\n• trajectory-based perturbation\n• Morris elementary effects"]
+        K["networkmodel/export.py\n• Pareto front, Excel, plots\n• convergence video"]
         L["dashboard_app.py\n• Streamlit visualization\n(run via run_dashboard.py)"]
     end
 
@@ -75,7 +75,7 @@ flowchart TD
 ```
 
 > **Note:** The `all` CLI command runs `prep → tfopt → kinopt → model` only. It does **not** invoke
-> `global_model`. Run `phoskintime-global` (or `python -m global_model.runner`) separately after
+> `networkmodel`. Run `phoskintime-global` (or `python -m networkmodel.runner`) separately after
 > the local pipeline completes.
 
 ---
@@ -92,7 +92,7 @@ flowchart TD
 | `sensitivity/` | Morris sensitivity analysis (local ODE models) |
 | `steady/` | Steady-state initial condition computation |
 | `plotting/` | Static publication-ready plots and HTML reports |
-| `global_model/` | Network-scale coupled ODE simulation and calibration |
+| `networkmodel/` | Network-scale coupled ODE simulation and calibration |
 | `frechet/` | Discrete Fréchet distance metric (Numba JIT) |
 | `knockout/` | Network knockout / perturbation analysis |
 | `config/` | CLI, constants, logging, shared configuration helpers |
@@ -107,9 +107,9 @@ flowchart TD
 |---|---|
 | Fit individual protein phosphorylation dynamics | Local workflow (`kinopt` + `models`) |
 | Fit TF → mRNA regulation | `tfopt` |
-| System-level network simulation | `global_model` (requires kinopt/tfopt outputs) |
+| System-level network simulation | `networkmodel` (requires kinopt/tfopt outputs) |
 | Sensitivity of individual ODE parameters | `sensitivity/analysis.py` |
-| Sensitivity of global coupled model parameters | `global_model/sensitivity.py` |
+| Sensitivity of global coupled model parameters | `networkmodel/sensitivity.py` |
 | Interactive exploration of results | `run_dashboard.py` (Streamlit) |
 
 ---
@@ -129,7 +129,7 @@ phoskintime/
 ├── sensitivity/        Morris sensitivity analysis
 ├── steady/             Steady-state solvers
 ├── plotting/           Visualization and reports
-├── global_model/       Global coupled ODE pipeline
+├── networkmodel/       Global coupled ODE pipeline
 ├── frechet/            Fréchet distance metric
 ├── knockout/           Knockout analysis
 ├── utils/              Shared helpers
@@ -149,7 +149,7 @@ phoskintime/
   `kinopt/evol/config/`, `tfopt/local/config/`, and `tfopt/evol/config/`. They cannot be trivially
   consolidated because each imports `LOG_DIR` and `format_duration` from its own subpackage, and the
   top-level version adds a `mp_file_logging` parameter. Unification is tracked as a TODO in each file.
-- **Configuration overlap**: `config_loader.py` and `global_model/config.py` both load sections of
+- **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both load sections of
   `config.toml`. The latter should eventually import from the former to avoid duplication.
 - **`kinopt/` and `tfopt/` mirroring**: Both subpackages expose identical `local/` and `evol/`
   sub-interfaces. A shared strategy abstraction would reduce duplication but is deferred.

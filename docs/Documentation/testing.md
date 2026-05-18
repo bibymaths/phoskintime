@@ -43,7 +43,7 @@ Tests for `config/logconf.py`:
 
 ## Current Limitations
 
-- Most pipeline modules (`kinopt`, `tfopt`, `global_model`, `paramest`) have no automated tests.
+- Most pipeline modules (`kinopt`, `tfopt`, `networkmodel`, `paramest`) have no automated tests.
 - The test suite does not cover ODE solving, parameter estimation, optimization, or data I/O.
 - Integration tests (end-to-end pipeline runs) do not exist.
 
@@ -77,7 +77,7 @@ def test_logger_creates_log_dir(tmp_path):
 
 - A minimal end-to-end run of `processing.cleanup` with a synthetic input CSV
 - `kinopt.local` or `tfopt.local` with a small synthetic dataset
-- `global_model.runner` with a tiny synthetic 2-gene network
+- `networkmodel.runner` with a tiny synthetic 2-gene network
 
 ### Running with Poetry
 

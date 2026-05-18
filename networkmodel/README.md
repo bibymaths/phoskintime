@@ -1,6 +1,6 @@
-# Global Model Subpackage (`global_model`)
+# Global Model Subpackage (`networkmodel`)
 
-The `global_model` subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.
+The `networkmodel` subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.
 
 Key design goals:
 - High-throughput simulation (Numba JIT RHS kernels; sparse topologies).

@@ -9,7 +9,7 @@ be run directly with Python from the project root.
 ## When to Run These Scripts
 
 Run scripts **after** the main pipeline has produced result files (Excel exports, CSV predictions,
-JSON parameters). The scripts require outputs from `kinopt`, `tfopt`, or `global_model`.
+JSON parameters). The scripts require outputs from `kinopt`, `tfopt`, or `networkmodel`.
 
 ---
 
@@ -49,9 +49,9 @@ python scripts/analyze_tf_kin_counts.py
 **Purpose:** Interactive Streamlit application for comparing network mechanisms across different
 model topologies. Visualizes kinase-substrate and TF-gene networks with global knockout effects.
 
-**When to run:** After `global_model` has produced results.
+**When to run:** After `networkmodel` has produced results.
 
-**Inputs:** Uses `global_model.config` defaults (reads `config.toml`).
+**Inputs:** Uses `networkmodel.config` defaults (reads `config.toml`).
 
 **Outputs:** Interactive Streamlit dashboard (browser).
 
@@ -130,11 +130,11 @@ Use `--hops auto` to extract the full weakly connected component instead of a fi
 predicted mRNA fold-change (ratio > 100), suggesting post-transcriptional regulation or high
 protein stability.
 
-**When to run:** After `global_model` has produced predicted protein and RNA files.
+**When to run:** After `networkmodel` has produced predicted protein and RNA files.
 
 **Inputs:**
-- `pred_prot_picked.csv` — predicted protein fold-change (from `global_model` output)
-- `pred_rna_picked.csv` — predicted RNA fold-change (from `global_model` output)
+- `pred_prot_picked.csv` — predicted protein fold-change (from `networkmodel` output)
+- `pred_rna_picked.csv` — predicted RNA fold-change (from `networkmodel` output)
 
 **Outputs:**
 - CSV file listing accumulator proteins with their coupling ratios
@@ -157,7 +157,7 @@ python scripts/find_protein_accumulators.py \
 3. **Transcriptional Saturation** — digital switching behavior
 4. **Feedback Gain** — revolving-door feedback loops
 
-**When to run:** After `global_model` has produced optimized parameters.
+**When to run:** After `networkmodel` has produced optimized parameters.
 
 **Inputs:**
 - `data/input2.csv` (kinase network)
@@ -190,7 +190,7 @@ python scripts/mechanistic_insights.py \
 **Purpose:** Global sensitivity analysis (GSA) using Sobol' indices and Saltelli sampling
 (via SALib). Identifies the most influential parameters over time in the global model.
 
-**When to run:** After `global_model` optimization has completed; requires result files in
+**When to run:** After `networkmodel` optimization has completed; requires result files in
 `--results-dir`.
 
 **Inputs:**
@@ -215,8 +215,8 @@ High sample counts significantly increase computation time.
 
 ## Notes
 
-- Scripts that import from `global_model` must be run from the project root directory.
+- Scripts that import from `networkmodel` must be run from the project root directory.
 - Scripts that use argparse defaults rely on `config.toml`-based path constants from
-  `global_model/config.py`.
+  `networkmodel/config.py`.
 - The `compare_mechanisms.py` script requires additional dependencies (`gravis`, `networkx`,
   `imageio`) not included in the base `requirements.txt`.

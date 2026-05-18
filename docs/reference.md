@@ -136,45 +136,45 @@
 
 ### Core Data Structures & Topology
 
-::: global_model.network
-::: global_model.buildmat
-::: global_model.params
+::: networkmodel.network
+::: networkmodel.buildmat
+::: networkmodel.params
 
 ### Configuration & Data Loading
 
-::: global_model.config
-::: global_model.io
+::: networkmodel.config
+::: networkmodel.io
 
 ### Physics Kernels (JIT)
 
-::: global_model.models
+::: networkmodel.models
 
 ### Numerical Integration & Solvers
 
-::: global_model.simulate
-::: global_model.solvers
-::: global_model.jacspeedup
-::: global_model.steadystate
-::: global_model.model_ivp
+::: networkmodel.simulate
+::: networkmodel.solvers
+::: networkmodel.jacspeedup
+::: networkmodel.steadystate
+::: networkmodel.model_ivp
 
 ### Optimization & Loss Functions
 
-::: global_model.optproblem
-::: global_model.lossfn
-::: global_model.optuna_solver
-::: global_model.runner
-::: global_model.refine
-::: global_model.scan
+::: networkmodel.optproblem
+::: networkmodel.lossfn
+::: networkmodel.optuna_solver
+::: networkmodel.runner
+::: networkmodel.refine
+::: networkmodel.scan
 
 ### Analysis & Visualization
 
-::: global_model.sensitivity
-::: global_model.analysis
-::: global_model.export
-::: global_model.dashboard_app
-::: global_model.dashboard_bundle
+::: networkmodel.sensitivity
+::: networkmodel.analysis
+::: networkmodel.export
+::: networkmodel.dashboard_app
+::: networkmodel.dashboard_bundle
 
 ### Utilities
 
-::: global_model.utils
-::: global_model.cache
+::: networkmodel.utils
+::: networkmodel.cache

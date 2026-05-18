@@ -10,12 +10,12 @@ PhosKinTime pipeline.
 The configuration file is `config.toml` at the project root. It is loaded by two modules:
 
 - **`config_loader.py`** — the root-level loader. Provides `load(mode, section)` (LRU-cached)
-  and `load_config_toml()`. Used by the local pipeline and as the backbone for `global_model`.
-- **`global_model/config.py`** — loads `config.toml` via `config_loader.load_config_toml()` and
+  and `load_config_toml()`. Used by the local pipeline and as the backbone for `networkmodel`.
+- **`networkmodel/config.py`** — loads `config.toml` via `config_loader.load_config_toml()` and
   exports constants for the global model pipeline.
 
 > **Technical debt:** Both modules load overlapping configuration surfaces from `config.toml`.
-> They should be unified so `global_model/config.py` entirely delegates to `config_loader.py`.
+> They should be unified so `networkmodel/config.py` entirely delegates to `config_loader.py`.
 > See the TODO comment in `config_loader.py`.
 
 ---
@@ -110,9 +110,9 @@ Input file names and output directory.
 
 ---
 
-## Section: `[global_model]`
+## Section: `[networkmodel]`
 
-Controls the global network-scale pipeline (`global_model/`). Consumed by `global_model/config.py`.
+Controls the global network-scale pipeline (`networkmodel/`). Consumed by `networkmodel/config.py`.
 
 ### Core metadata
 
@@ -183,7 +183,7 @@ Controls the global network-scale pipeline (`global_model/`). Consumed by `globa
 | `sensitivity_levels` | int | `40` | Morris grid levels |
 | `sensitivity_metric` | string | `"total_signal"` | Metric: `total_signal`, `mean`, `variance`, `l2_norm` |
 
-### `[global_model.timepoints]`
+### `[networkmodel.timepoints]`
 
 | Key | Description |
 |---|---|
@@ -191,7 +191,7 @@ Controls the global network-scale pipeline (`global_model/`). Consumed by `globa
 | `phospho_protein` | Time grid for phospho data |
 | `rna` | Time grid for RNA data |
 
-### `[global_model.bounds]`
+### `[networkmodel.bounds]`
 
 Kinetic parameter bounds for the global ODE. Each entry is `[min, max]`.
 
@@ -206,14 +206,14 @@ Kinetic parameter bounds for the global ODE. Each entry is `[min, max]`.
 | `E_i` | Transcriptional efficacy |
 | `tf_scale` | TF scaling factor |
 
-### `[global_model.models]`
+### `[networkmodel.models]`
 
 | Key | Values |
 |---|---|
 | `available_models` | `["distributive", "sequential", "combinatorial", "saturation"]` |
 | `default_model` | `"distributive"` |
 
-### `[global_model.solver]`
+### `[networkmodel.solver]`
 
 | Key | Default | Description |
 |---|---|---|
@@ -232,4 +232,4 @@ Kinetic parameter bounds for the global ODE. Each entry is `[min, max]`.
 | `[tfopt]` | `tfopt.local`, `tfopt.evol` |
 | `[kinopt]` | `kinopt.local`, `kinopt.evol` |
 | `[ode]` | `models/`, `paramest/`, `sensitivity/`, `steady/` |
-| `[global_model]` | `global_model/config.py`, `global_model/runner.py` |
+| `[networkmodel]` | `networkmodel/config.py`, `networkmodel/runner.py` |

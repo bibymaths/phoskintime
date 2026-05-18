@@ -64,7 +64,7 @@ PhosKinTime provides two complementary modeling stacks:
    These implement the classic mechanistic hypotheses (distributive, successive, random) and are optimized against
    phosphoproteomics time series. They are intended for detailed fitting of individual proteins or phosphorylation sites. 
 
-2) **Global coupled signaling–GRN model (`global_model`)**  
+2) **Global coupled signaling–GRN model (`networkmodel`)**  
    This is a network-scale ODE system that couples kinase-driven phosphorylation dynamics to TF-mediated transcriptional
    regulation. It is intended for system-level simulations (e.g., global knockouts, functional influence propagation)
    and calibration against multi-omics time series.
@@ -75,13 +75,13 @@ For the full mathematical specification of the coupled global system (all equati
 Package mapping:
 - **`kinopt`**: optimization + post-processing for local phosphorylation models
 - **`tfopt`**: TF→mRNA constrained optimization and reporting
-- **`global_model`**: coupled kinase-signaling + GRN simulation and optimization wrappers
+- **`networkmodel`**: coupled kinase-signaling + GRN simulation and optimization wrappers
 
 Typical workflows:
 - **Local phosphorylation fitting**: `prep → kinopt → model → sensitivity → plotting`
 - **TF regulation fitting**: `prep → tfopt → reports`
-- **Global network simulation**: `prep → global_model → simulate → measure → KO analysis` 
-- **Global network optimization**: `prep → global_model → optimize → measure → KO analysis` 
+- **Global network simulation**: `prep → networkmodel → simulate → measure → KO analysis` 
+- **Global network optimization**: `prep → networkmodel → optimize → measure → KO analysis` 
 
 ---
 
@@ -196,7 +196,7 @@ python phoskintime all
 ```
 
 > **Note:** The `all` command runs `prep → tfopt → kinopt → model` only. It does **not** invoke the
-> global network simulation (`global_model`). To run the global model, use the separate entry point:
+> global network simulation (`networkmodel`). To run the global model, use the separate entry point:
 > ```bash
 > phoskintime-global
 > # or
