@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: >
+  If you use phoskintime in your research, please cite it using the
+  metadata in this file.
+title: "phoskintime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series"
+authors:
+  - family-names: Mishra
+    given-names: Abhinav
+    email: mishraabhinav36@gmail.com
+    orcid: ""
+repository-code: "https://github.com/bibymaths/phoskintime"
+url: "https://bibymaths.github.io/phoskintime"
+license: BSD-3-Clause
+version: "0.4.0"
+keywords:
+  - phosphorylation
+  - kinetics
+  - ODE modeling
+  - parameter estimation
+  - optimization
+  - sensitivity analysis
+  - systems biology
+  - transcriptional dynamics
+  - time-series
+  - Python
+type: software
+abstract: >
+  phoskintime is a research software package for ODE-based modeling of
+  phosphorylation kinetics and transcriptional time-series. It provides
+  tools for parameter estimation, multi-objective optimization, sensitivity
+  analysis, and network-level modeling in a systems biology context.

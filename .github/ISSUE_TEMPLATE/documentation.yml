@@ -1,0 +1,67 @@
+name: Documentation Issue
+description: Report an error, gap, or improvement opportunity in the documentation
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the phoskintime documentation.
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Documentation Issue Type
+      options:
+        - Incorrect or misleading content
+        - Missing content
+        - Broken link or reference
+        - Unclear explanation
+        - Outdated content
+        - Typo or formatting problem
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: page
+    attributes:
+      label: Page or File Affected
+      description: Path or URL of the affected documentation page or file.
+      placeholder: "e.g. docs/kinopt.md or https://bibymaths.github.io/phoskintime/kinopt"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Describe what is wrong or missing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be changed or extended?
+    validations:
+      required: false
+
+  - type: input
+    id: related_code
+    attributes:
+      label: Related Code or Module
+      description: |
+        If the documentation issue is tied to a specific module or function,
+        name it here.
+      placeholder: "e.g. kinopt.local.run_optimization"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other details that may be helpful.
+    validations:
+      required: false

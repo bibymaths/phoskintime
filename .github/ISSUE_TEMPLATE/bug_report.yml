@@ -1,0 +1,117 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in phoskintime
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+        Please fill in as much detail as possible to help reproduce and fix the issue.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: A short, clear description of the bug.
+      placeholder: "e.g. kinopt.local crashes with a NaN in the Jacobian"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module
+      description: Which module or component is affected?
+      options:
+        - kinopt
+        - tfopt
+        - protwise
+        - networkmodel
+        - common
+        - config / config_loader
+        - processing
+        - scripts
+        - docs
+        - CI / workflows
+        - other / unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Provide details about your environment.
+        Run `pixi info` and paste the output, or fill in manually.
+      placeholder: |
+        OS: Ubuntu 22.04
+        Python: 3.12.x
+        Pixi: 0.x.x
+        phoskintime version / commit: main @ abc1234
+    validations:
+      required: true
+
+  - type: input
+    id: pixi_command
+    attributes:
+      label: Pixi Command Used
+      description: The exact `pixi run` command that triggered the bug.
+      placeholder: "pixi run -e dev kinopt-local"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the bug.
+      placeholder: |
+        1. Run `pixi run ...`
+        2. Provide input file ...
+        3. See error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Traceback
+      description: Paste the full traceback or error output here.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: minimal_input
+    attributes:
+      label: Minimal Input Data
+      description: |
+        If the bug depends on specific input data, describe or provide a
+        minimal reproducible example. Do not attach confidential or sensitive data.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that may help diagnose the issue.
+    validations:
+      required: false

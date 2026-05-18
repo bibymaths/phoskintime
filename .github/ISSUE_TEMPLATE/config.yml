@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://bibymaths.github.io/phoskintime
+    about: Browse the phoskintime documentation for usage guides and API reference.
+  - name: Repository
+    url: https://github.com/bibymaths/phoskintime
+    about: Visit the main repository for source code, releases, and the issue tracker.
