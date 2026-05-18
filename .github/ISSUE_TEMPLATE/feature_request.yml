@@ -1,0 +1,84 @@
+name: Feature Request
+description: Propose a new feature or enhancement for phoskintime
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement.
+        Please describe the scientific or workflow motivation clearly.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A short description of the feature or enhancement.
+      placeholder: "e.g. Add Morris method to sensitivity analysis module"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Scientific or Workflow Motivation
+      description: |
+        Why is this feature needed? Describe the scientific problem or
+        workflow bottleneck it addresses.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed implementation or approach.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider, and why were they ruled out?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module(s)
+      description: Which module(s) would this feature affect?
+      multiple: true
+      options:
+        - kinopt
+        - tfopt
+        - protwise
+        - networkmodel
+        - common
+        - config / config_loader
+        - processing
+        - scripts
+        - docs
+        - CI / workflows
+        - new module
+        - other / unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: inputs_outputs
+    attributes:
+      label: Expected Inputs and Outputs
+      description: |
+        Describe what the feature would accept as input and produce as output,
+        including expected data shapes, types, and units where relevant.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: References, related work, or any other relevant information.
+    validations:
+      required: false

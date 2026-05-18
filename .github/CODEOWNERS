@@ -1,0 +1,14 @@
+# Default owner for all files
+* @bibymaths
+
+# Documentation
+docs/ @bibymaths
+mkdocs.yml @bibymaths
+
+# GitHub Actions workflows and configuration
+.github/ @bibymaths
+
+# Pixi and project configuration
+pixi.toml @bibymaths
+pixi.lock @bibymaths
+config.toml @bibymaths
