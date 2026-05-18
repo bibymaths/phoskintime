@@ -83,54 +83,54 @@
 
 ### Core Functions
 
-::: paramest.normest
-::: paramest.toggle
+::: protwise.paramest.normest
+::: protwise.paramest.toggle
 
 ### Weights for Curve Fitting
 
-::: models.weights
+::: protwise.models.weights
 
 ### Parameter Estimation
 
-::: paramest.core
+::: protwise.paramest.core
 
 ### Confidence Intervals using Linearization
 
-::: paramest.identifiability.ci
+::: protwise.paramest.identifiability.ci
 
 ### Knockout Analysis
 
-::: knockout.helper
+::: protwise.knockout.helper
 
 ### Perturbation & Parameter Sensitivity Analysis
 
-::: sensitivity.analysis
+::: protwise.sensitivity.analysis
 
 ### Model Diagram
 
-::: models.diagram.helpers
+::: protwise.models.diagram.helpers
 
 ### Protein Wise Model Types
 
-::: models.distmod
-::: models.randmod
-::: models.succmod
+::: protwise.models.distmod
+::: protwise.models.randmod
+::: protwise.models.succmod
 
 ### Steady-State Calculation
 
-::: steady.initdist
-::: steady.initrand
-::: steady.initsucc
+::: protwise.steady.initdist
+::: protwise.steady.initrand
+::: protwise.steady.initsucc
 
 ### Plotting
 
-::: plotting.plotting
+::: protwise.plotting.plotting
 
 ### Utility Functions
 
-::: utils.display
-::: utils.tables
-::: utils.latexit 
+::: common.utils.display
+::: common.utils.tables
+::: common.utils.latexit 
 
 ## Global ODE Model
 

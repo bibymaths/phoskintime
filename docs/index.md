@@ -3,6 +3,9 @@ hide:
   - toc
 ---
  
+<img class="only-light hero-image" src="assets/images/16_9/light.png" alt="PhosKinTime overview - light mode">
+<img class="only-dark hero-image" src="assets/images/16_9/dark.png" alt="PhosKinTime overview - dark mode">
+
 # PhosKinTime Documentation
 
 Welcome to the official documentation for **PhosKinTime**, an ODE-based modeling toolkit for phosphorylation kinetics

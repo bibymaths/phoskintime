@@ -1,12 +1,25 @@
-:root {
-  --md-primary-fg-color: #673ab7;
-  --md-accent-fg-color: #3f51b5;
+.hero-image {
+  width: 100%;
+  max-width: 1100px;
+  display: block;
+  margin: 2rem auto;
+  border-radius: 0.75rem;
 }
 
-.md-header {
-  background: linear-gradient(to right, #673ab7, #3f51b5);
+/* Default: light image visible */
+.only-dark {
+  display: none;
 }
 
-.md-typeset a {
-  color: #ff4081;
+.only-light {
+  display: block;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] .only-light {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .only-dark {
+  display: block;
 }

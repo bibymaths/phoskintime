@@ -58,12 +58,13 @@ pytest = "*"
 pytest-cov = "*"
 
 [feature.docs.dependencies]
-mkdocs = "*"
-mkdocs-material = "*"
 pymdown-extensions = "*"
 mkdocstrings = "*"
 mkdocstrings-python = "*"
 mkdocs-autorefs = "*"
+
+[feature.docs.pypi-dependencies]
+zensical = ">=0.0.42, <0.0.43"
 
 [feature.viz.dependencies]
 optuna-dashboard = "*"
@@ -93,8 +94,8 @@ tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
 
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
 
-docs-serve = "mkdocs serve"
-docs-build = "mkdocs build"
+docs-serve = "zensical serve"
+docs-build = "zensical build"
 
 tree-clean = "tree -a -I '.git|.pixi|.venv|venv|env|ENV|__pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.tox|dist|build|*.egg-info|results_*|result_*|logs|.ipynb_checkpoints'"
 
