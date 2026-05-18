@@ -1,4 +1,4 @@
-from models.diagram.helpers import create_random_diagram, create_distributive_diagram, create_successive_model
+from protwise.models.diagram.helpers import create_random_diagram, create_distributive_diagram, create_successive_model
 from config.constants import model_type
 
 

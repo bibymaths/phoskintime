@@ -131,14 +131,14 @@ def model(
         ),
 ):
     """
-    Run the model (bin.main).
+    Run the model (runner.main).
 
     Args:
         conf: Path to model config file. Uses defaults if omitted.
     Returns:
         None
     """
-    _run(_python_module("bin.main", conf))
+    _run(_python_module("runner.main", conf))
 
 @app.command()
 def global_model(

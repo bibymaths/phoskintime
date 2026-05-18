@@ -1,0 +1,3 @@
+from protwise.sensitivity.analysis import _sensitivity_analysis
+
+sensitivity_analysis = _sensitivity_analysis

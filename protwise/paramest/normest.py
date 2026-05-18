@@ -1,5 +1,3 @@
-
-import os
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
@@ -11,9 +9,9 @@ from config.config import score_fit
 from config.constants import get_param_names, USE_REGULARIZATION, ODE_MODEL, ALPHA_CI, OUT_DIR, \
     USE_CUSTOM_WEIGHTS
 from config.logconf import setup_logger
-from models import solve_ode
-from models.weights import early_emphasis, get_weight_options, get_protein_weights
-from plotting import Plotter
+from protwise.models import solve_ode
+from protwise.models import early_emphasis, get_weight_options, get_protein_weights
+from protwise.plotting import Plotter
 from .identifiability import confidence_intervals
 
 logger = setup_logger()

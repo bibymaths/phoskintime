@@ -27,7 +27,8 @@ where $\alpha$ and $\beta$ are monotone traversals of the two curves.
 `frechet/distance.py` provides a Numba JIT-compiled function:
 
 ```python
-from frechet import frechet_distance
+from common.frechet import frechet_distance
+
 score = frechet_distance(true_coords, pred_coords)  # returns float
 ```
 

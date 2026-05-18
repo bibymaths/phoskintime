@@ -1,5 +1,5 @@
 from __future__ import annotations
-from bin import main
+from protwise.runner import main
 
 __version__ = "0.4.0"
 __author__ = "Abhinav Mishra"

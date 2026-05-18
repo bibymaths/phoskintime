@@ -2,14 +2,14 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from knockout import apply_knockout, generate_knockout_combinations
+from protwise.knockout import apply_knockout, generate_knockout_combinations
 from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
-from models.diagram import illustrate
-from paramest.toggle import estimate_parameters
-from sensitivity import sensitivity_analysis
-from models import solve_ode
-from steady import initial_condition
-from plotting import Plotter
+from protwise.models import illustrate
+from protwise.paramest.toggle import estimate_parameters
+from protwise.sensitivity import sensitivity_analysis
+from protwise.models import solve_ode
+from protwise.steady import initial_condition
+from protwise.plotting import Plotter
 from config.logconf import setup_logger
 
 logger = setup_logger()

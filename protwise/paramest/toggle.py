@@ -1,4 +1,4 @@
-from paramest.normest import normest
+from protwise.paramest.normest import normest
 
 
 def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):

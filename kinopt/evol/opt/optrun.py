@@ -342,7 +342,7 @@ def run_optimization(
             # algorithm = DE(
             #     pop_size=pop_size,
             #     sampling=FloatRandomSampling(),
-            #     variant="DE/rand/1/bin",
+            #     variant="DE/rand/1/runner",
             #     CR=0.9,  # crossover rate (binomial crossover)
             #     F=0.8,  # differential weight
             #     dither="vector",  # recommended for robustness

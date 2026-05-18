@@ -1,7 +1,6 @@
 import math
 import os
 from concurrent.futures import as_completed, ProcessPoolExecutor
-from tqdm import tqdm
 import numpy as np
 from SALib.sample import morris
 from SALib.analyze.morris import analyze
@@ -10,8 +9,8 @@ from numba import njit
 from config.constants import ODE_MODEL, NUM_TRAJECTORIES, PARAMETER_SPACE, TIME_POINTS_RNA, PERTURBATIONS_VALUE, \
     OUT_DIR, Y_METRIC
 from config.helpers import get_number_of_params_rand, get_param_names_rand
-from models import solve_ode
-from plotting.plotting import Plotter
+from protwise.models import solve_ode
+from protwise.plotting import Plotter
 from config.logconf import setup_logger
 
 logger = setup_logger()

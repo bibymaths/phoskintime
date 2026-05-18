@@ -64,12 +64,12 @@ from global_model.refine import run_iterative_refinement
 from global_model.simulate import simulate_and_measure
 from global_model.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
     get_optimized_sets
-from global_model.export import export_pareto_front_to_excel, plot_gof_from_pareto_excel, plot_goodness_of_fit, \
+from global_model.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
     export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from global_model.analysis import simulate_until_steady, plot_steady_state_all
-from frechet import frechet_distance
+from common.frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger
 

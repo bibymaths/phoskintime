@@ -1256,7 +1256,7 @@ def scan_prior_reg(out_dir):
 def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=True):
     """
     Export phosphorylation drive S for optimized parameters.
-    S is per-site and per time-bin (TIME_POINTS_PROTEIN / sys.kin_grid).
+    S is per-site and per time-runner (TIME_POINTS_PROTEIN / sys.kin_grid).
 
     Args:
         sys: System object containing model information.
