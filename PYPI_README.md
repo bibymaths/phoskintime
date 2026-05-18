@@ -3,7 +3,7 @@
 ### Features
 
 * Mechanistic modeling with ODEs (distributive, successive, random)
-* Parameter estimation (sequential or global)
+* Parameter estimation (normal / bootstrap)
 * Steady-state condition solvers
 * Morris sensitivity analysis
 * Publication-ready plots (fits, PCA, t-SNE, sensitivity indices)

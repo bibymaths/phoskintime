@@ -31,7 +31,7 @@ technical support, enabling seamless experimentation with packages and server se
   and [Pandas](https://pandas.pydata.org/) for numerical computations and data handling.
 - The package also utilizes [Numba](https://numba.pydata.org/) for JIT compilation, enhancing performance for
   computationally intensive tasks.
-- The package is designed to be compatible with [Python 3.8+](https://www.python.org/downloads/) and is tested on
+- The package is designed to be compatible with **Python >=3.10,<3.14** and is tested on
   various platforms, including Windows, macOS, and Linux.
 
 ---
@@ -69,7 +69,8 @@ PhosKinTime provides two complementary modeling stacks:
    regulation. It is intended for system-level simulations (e.g., global knockouts, functional influence propagation)
    and calibration against multi-omics time series.
 
-For the full mathematical specification of the coupled global system (all equations), see:`global_model/README.md`
+For the full mathematical specification of the coupled global system (all equations), see:
+[Global model documentation](Documentation/global/README.md)
 
 Package mapping:
 - **`kinopt`**: optimization + post-processing for local phosphorylation models
@@ -94,9 +95,9 @@ Typical workflows:
 
 - Implements ODE systems for different phosphorylation hypotheses. 
 
-**models**
+**paramest**
 
-- Parameter estimation routines for ODE models.
+- Parameter estimation routines for ODE models (currently using `paramest/normest.py`).
 
 **steady**
 
@@ -193,6 +194,16 @@ Run the entire pipeline with the default (local) solver:
 ```bash
 python phoskintime all
 ```
+
+> **Note:** The `all` command runs `prep → tfopt → kinopt → model` only. It does **not** invoke the
+> global network simulation (`global_model`). To run the global model, use the separate entry point:
+> ```bash
+> phoskintime-global
+> # or
+> python -m global_model.runner
+> ```
+> The global model requires outputs from `kinopt` and `tfopt` as inputs. Run `all` (or the individual
+> optimization stages) before invoking `phoskintime-global`.
 
 ### Run Preprocessing Only
 Execute only the preprocessing stage:

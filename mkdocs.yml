@@ -33,6 +33,8 @@ nav:
   - Reference: reference.md
   - Changelog: Documentation/CHANGELOG.md
   - Documentation:
+      - Architecture & Data Flow: Documentation/architecture.md
+      - Configuration Reference: Documentation/configuration.md
       - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
       - Kinase Optimization: Documentation/kinopt/README.md
@@ -46,6 +48,11 @@ nav:
       - Knockout Analysis: Documentation/knockout/README.md
       - Plotting: Documentation/plotting/README.md
       - Utils: Documentation/utils/README.md
+      - Dashboard: Documentation/dashboard.md
+      - Scripts: Documentation/scripts.md
+      - Docker: Documentation/docker.md
+      - Testing: Documentation/testing.md
+      - Metrics & Distance Measures: Documentation/metrics.md
 
 markdown_extensions:
   - pymdownx.arithmatex:
