@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from networkmodel.config import RESULTS_DIR
-from networkmodel.simulate import simulate_odeint
+from networkmodel.simulate import simulate_diffrax
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
@@ -53,7 +53,7 @@ def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
 
     # Run simulation (Tight tolerances for accuracy)
     # rtol=1e-6, atol=1e-8 ensures high precision for steady-state detection.
-    Y = simulate_odeint(sys, t_eval, rtol=1e-6, atol=1e-8, mxstep=50000)
+    Y = simulate_diffrax(sys, t_eval, rtol=1e-6, atol=1e-8, max_steps=50000)
 
     # Check rate of change at the end to confirm stability.
     # We approximate the derivative magnitude ||dy/dt|| using backward difference.

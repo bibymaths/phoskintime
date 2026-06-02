@@ -2,6 +2,10 @@ __version__ = "0.1.0"
 __author__ = "Abhinav Mishra"
 __email__ = "mishraabhinav36@gmail.com"
 
-from networkmodel.runner import main
+
+def main(*args, **kwargs):
+    from networkmodel.runner import main as _main
+    return _main(*args, **kwargs)
+
 
 app = main

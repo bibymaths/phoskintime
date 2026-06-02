@@ -18,7 +18,7 @@ Variables stored in the bundle:
 - xl, xu: lower and upper bounds for each protein
 
 Note that the bundle does not store the optimization result object (res) or the
-Pymoo algorithm (sys).
+legacy optimizer internals (sys).
 """
 from __future__ import annotations
 
@@ -49,8 +49,9 @@ def save_dashboard_bundle(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    pareto_F = np.asarray(getattr(res, "F", None)) if res is not None else None
-    pareto_X = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None
+    objective_values = np.asarray(getattr(res, "F", None)) if res is not None else None
+    parameter_values = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None
+    data_mode = getattr(getattr(res, "data_mode", None), "data_mode", None)
 
     bundle = {
         "args": vars(args) if hasattr(args, "__dict__") else args,
@@ -62,8 +63,11 @@ def save_dashboard_bundle(
         "slices": slices,
         "xl": xl,
         "xu": xu,
-        "pareto_F": pareto_F,
-        "pareto_X": pareto_X,
+        "objective_values": objective_values,
+        "parameter_values": parameter_values,
+        "data_mode": data_mode,
+        "pareto_F": objective_values,  # backward-compatible alias
+        "pareto_X": parameter_values,  # backward-compatible alias
         "df_prot_obs": df_prot,
         "df_rna_obs": df_rna,
         "df_pho_obs": df_pho,

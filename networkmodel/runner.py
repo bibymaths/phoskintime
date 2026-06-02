@@ -22,7 +22,6 @@ import os
 from pathlib import Path
 
 from networkmodel.dashboard_bundle import save_dashboard_bundle
-from networkmodel.optuna_solver import run_optuna_solver
 from networkmodel.scan import run_hyperparameter_scan
 from networkmodel.sensitivity import run_sensitivity_analysis
 from networkmodel.steadystate import _dump_y0
@@ -38,14 +37,6 @@ import numpy as np
 import multiprocessing as mp
 import pandas as pd
 
-from pymoo.algorithms.moo.unsga3 import UNSGA3
-from pymoo.core.problem import StarmapParallelization
-from pymoo.operators.crossover.sbx import SBX
-from pymoo.operators.mutation.pm import PM
-from pymoo.operators.sampling.lhs import LHS
-from pymoo.termination.default import DefaultMultiObjectiveTermination
-from pymoo.util.ref_dirs import get_reference_directions
-from pymoo.optimize import minimize as pymoo_minimize
 
 from networkmodel.buildmat import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
@@ -54,11 +45,11 @@ from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DI
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
     MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
-    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
+    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
     USE_CUSTOM_SOLVER, CORES
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.optproblem import GlobalODE_MOO, build_weight_functions
+from networkmodel.optproblem import GlobalODEScalarObjective, build_weight_functions
 from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.refine import run_iterative_refinement
 from networkmodel.simulate import simulate_and_measure
@@ -69,6 +60,7 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
+from networkmodel.jax_backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger
@@ -119,7 +111,7 @@ def main():
     parser.add_argument("--use-initial-condition-from-data", action="store_true",
                         default=USE_INITIAL_CONDITION_FROM_DATA)
     parser.add_argument("--refine", action="store_true",
-                        help="Run a second optimization pass with tighter bounds around the Pareto front.",
+                        help="Run a second optimization pass with tighter bounds around the scalar optimum.",
                         default=REFINE)
     parser.add_argument("--scan", action="store_true",
                         help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
@@ -127,8 +119,8 @@ def main():
     parser.add_argument("--sensitivity", action="store_true",
                         help="Run a sensitivity analysis after optimization.",
                         default=SENSITIVITY_ANALYSIS)
-    parser.add_argument("--solver", type=str, choices=["pymoo", "optuna"], default=OPTIMIZER,
-                        help="Choice of optimization solver.")
+    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=OPTIMIZER,
+                        help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -151,7 +143,7 @@ def main():
     if USE_CUSTOM_SOLVER:
         logger.info("[Solver] Using Custom Adaptive Heun Bucketed Solver")
     else:
-        logger.info("[Solver] Using Scipy ODEint Solver")
+        logger.info("[Solver] Using Diffrax Kvaerno Solver")
 
     if MODEL == 0:
         logger.info("[Model] Using Distributive Model")
@@ -576,13 +568,7 @@ def main():
 
         runner = None
         pool = None
-        # 7) Pymoo parallel runner
-        if args.cores > 1:
-            pool = mp.Pool(args.cores)
-            runner = StarmapParallelization(pool.starmap)
-            logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
-        else:
-            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
+        logger.warning("[Deprecated Config] Hyperparameter scan is retained for compatibility but runs without legacy evolutionary parallelization in JAXopt mode.")
 
         # This function will run the loop, save Excel/PNGs, and return the best dict
         best_lambdas = run_hyperparameter_scan(
@@ -612,126 +598,42 @@ def main():
 
     logger.info(f"[Scan] Using lambdas: {lambdas}")
 
-    if args.solver == "optuna":
-
-        total_trials = N_TRIALS
-
-        logger.info(f"[Optuna] Running Optuna solver with {total_trials} total trials "
-                    f"({args.pop} pop x {args.n_gen} generations).")
-
-        res = run_optuna_solver(
-            args=args,
-            sys=sys,
-            loss_data=loss_data,
-            slices=slices,
-            xl=xl,
-            xu=xu,
-            defaults=defaults,
-            lambdas=lambdas,
-            time_grid=solver_times,
-            n_trials=total_trials,
-            df_prot=df_prot,
-            df_rna=df_rna,
-            df_pho=df_pho
-        )
-
-    else:
-
-        runner = None
-        pool = None
-        # 7) Pymoo parallel runner
-        if args.cores > 1:
-            pool = mp.Pool(os.cpu_count())
-            runner = StarmapParallelization(pool.starmap)
-            logger.info(f"[Fit] Parallel evaluation enabled with {os.cpu_count()} workers.")
-        else:
-            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
-
-        # 8) Problem
-        problem = GlobalODE_MOO(
-            sys=sys,
-            slices=slices,
-            loss_data=loss_data,
-            defaults=defaults,
-            lambdas=lambdas,
-            time_grid=solver_times,
-            xl=xl,
-            xu=xu,
-            elementwise_runner=runner
-        )
-
-        # 9) UNSGA3 needs reference directions
-        ref_dirs = get_reference_directions(
-            "das-dennis",
-            problem.n_obj,
-            n_partitions=20,
-            seed=args.seed
-        )
-
-        # logger.info number of reference directions
-        logger.info(f"[Fit] Number of reference directions: {len(ref_dirs)}")
-
-        algorithm = UNSGA3(
-            pop_size=args.pop,
-            ref_dirs=ref_dirs,
-            eliminate_duplicates=True,
-            sampling=LHS(),
-            crossover=SBX(prob=0.9, eta=15),
-            mutation=PM(prob=1 / problem.n_var, eta=10),
-        )
-
-        termination = DefaultMultiObjectiveTermination(
-            xtol=1e-8,
-            cvtol=1e-6,
-            ftol=0.0025,
-            period=30,
-            n_max_gen=args.n_gen,
-            n_max_evals=100000
-        )
-
-        logger.info(
-            f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
-        logger.info(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
-
-        res = pymoo_minimize(
-            problem,
-            algorithm,
-            termination,
-            seed=args.seed,
-            save_history=True,
-            verbose=True
-        )
-
-        if pool is not None:
-            pool.close()
-            pool.join()
-
+    warn_deprecated_backend_options(vars(args), logger_obj=logger)
+    args.solver = "jaxopt"
+    mode = detect_data_mode(loss_data=loss_data, logger_obj=logger)
+    problem = GlobalODEScalarObjective(
+        sys=sys,
+        slices=slices,
+        loss_data=loss_data,
+        defaults=defaults,
+        lambdas=lambdas,
+        time_grid=solver_times,
+        xl=xl,
+        xu=xu,
+        data_mode=mode,
+    )
+    logger.info(
+        f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, "
+        f"{loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points"
+    )
+    best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+    res = JaxoptResult(
+        X=np.asarray([best_x], dtype=float),
+        F=np.asarray([[best_f]], dtype=float),
+        objective_value=float(best_f),
+        params=np.asarray(best_x, dtype=float),
+        state=opt_state,
+        data_mode=mode,
+        loss_breakdown={},
+    )
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
         pickle.dump(res, f)
     logger.info("[Output] Saved full optimization state (pickle).")
 
-    if args.solver != "optuna":
-        # Export convergence history
-        df_hist = process_convergence_history(res, args.output_dir)
-        df_hist.to_csv(Path(args.output_dir) / "convergence_history.csv", index=False)
+    logger.info("[Refinement] Scalar JAXopt mode uses deterministic local optimization; legacy refinement is not run.")
 
-        if args.refine:
-            logger.info("[Refinement] Recursive refinement started.")
-
-            # Pass the result of the first run (res) as the starting point
-            res = run_iterative_refinement(
-                problem,
-                res,
-                args,
-                idx=sys.idx,
-                max_passes=NUM_REFINE,
-                padding=0.25
-            )
-
-            logger.info("[Refinement] Recursive refinement complete.")
-
-    # 10) Save Pareto set
+    # 10) Save scalar optimum with backward-compatible filenames
     X = res.X
     F = res.F
 
@@ -739,9 +641,9 @@ def main():
     np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
 
     # Also write a CSV summary
-    df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+    df_pareto = pd.DataFrame(F, columns=["scalar_objective"])
     df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
-    logger.info(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
+    logger.info(f"[Output] Saved scalar objective table: {len(df_pareto)} solution(s)")
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
 
@@ -755,7 +657,7 @@ def main():
         top_k_trajectories=None,
     )
 
-    logger.info(f"[Output] Saved Pareto front Excel: {excel_path}")
+    logger.info(f"[Output] Saved scalar objective Excel compatibility file: {excel_path}")
 
     # plot_gof_from_pareto_excel(
     #     excel_path=excel_path,
@@ -768,7 +670,7 @@ def main():
     #     score_col="scalar_score",
     # )
 
-    # logger.info(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+    # logger.info(f"[Output] Saved Goodness of Fit plots for scalar solutions.")
 
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance
@@ -884,7 +786,7 @@ def main():
     export_residuals(sys, idx, df_prot, df_rna, df_pho, args.output_dir)
     logger.info("[Output] Saved residual analysis.")
 
-    # 4. Parameter Uncertainty (Check robustness across Pareto front)
+    # 4. Parameter Uncertainty (Check robustness around scalar optimum)
     export_parameter_distributions(res, slices, idx, args.output_dir)
     logger.info("[Output] Saved parameter uncertainty analysis.")
 
@@ -981,7 +883,7 @@ def main():
 
     # 1. 3D Pareto Front
     save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
-    logger.info("[Done] 3D Pareto plot saved.")
+    logger.info("[Done] Scalar objective diagnostic plot saved.")
 
     # 2. Parallel Coordinate Plot
     save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)

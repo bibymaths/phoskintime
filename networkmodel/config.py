@@ -112,8 +112,9 @@ DOCS_URL = getattr(cfg, "docs_url", "")
 HYPERPARAM_SCAN = getattr(cfg, "hyperparam_scan", False)
 
 # --- Optimizer selection ---
-# Supports different backends (e.g., 'pymoo' for genetic algos, 'optuna' for TPE)
-OPTIMIZER = getattr(cfg, "optimizer", "pymoo")  # "optuna" or "pymoo"
+# Legacy optimizer names are still accepted by CLI/config, but the PhosKinTime
+# networkmodel/protwise execution path maps them to JAXopt internally.
+OPTIMIZER = getattr(cfg, "optimizer", "pymoo")
 
 # --- Optuna settings ---
 # Specific settings if OPTIMIZER == 'optuna'

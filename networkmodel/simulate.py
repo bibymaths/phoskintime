@@ -1,83 +1,27 @@
-"""
-Simulation and Measurement Extraction Module.
-
-This module orchestrates the numerical integration of the ODE system and processes
-the raw state trajectories into biologically meaningful observables (Fold Changes).
-
-**Key Responsibilities:**
-1.  **Solver Wrapper:** Abstracting the choice between `scipy.integrate.odeint` (LSODA)
-    and a custom Numba-accelerated RK45 solver.
-2.  **State Aggregation:** Converting raw state vectors $Y$ into:
-    * **Total Protein:** Sum of unphosphorylated and phosphorylated forms.
-    * **Site Phosphorylation:** Sum of specific phospho-states (handling combinatorial logic if needed).
-    * **RNA:** Direct extraction from state vector.
-3.  **Data Alignment:** Interpolating or slicing the simulated timepoints to match experimental grids.
-
-
-"""
+"""Simulation and measurement extraction using Diffrax for PhosKinTime."""
 
 import warnings
 import numpy as np
 import pandas as pd
-from scipy.integrate import odeint, ODEintWarning
 
-# Suppress warnings from odeint that might flood logs during large optimization runs
-warnings.filterwarnings("ignore", category=ODEintWarning)
-warnings.filterwarnings("ignore", message="Excess work done on this call")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from networkmodel.config import MODEL, USE_CUSTOM_SOLVER
-from networkmodel.jacspeedup import fd_jacobian_odeint, rhs_odeint, build_S_cache_into, solve_custom
+from networkmodel.config import MODEL, ODE_ABS_TOL, ODE_REL_TOL, ODE_MAX_STEPS
+from networkmodel.jax_backend import DiffraxSolverConfig, solve_diffrax
 
 
-def simulate_odeint(sys, t_eval, rtol, atol, mxstep):
-    """
-    Runs the ODE solver for the given system and timepoints.
-
-    Dispatches to either a custom Numba RK45 solver (faster for small/stiff systems with JIT)
-    or SciPy's LSODA (robust standard).
-
-    Args:
-        sys (System): The system object containing parameters and topology.
-        t_eval (np.ndarray): Time points to return the solution at.
-        rtol (float): Relative tolerance.
-        atol (float): Absolute tolerance.
-        mxstep (int): Maximum number of internal steps per time interval.
-
-    Returns:
-        np.ndarray: The solution matrix $Y$ of shape (len(t_eval), state_dim).
-    """
-    # Ensure y0 and t_eval are C-contiguous float64 for Numba compatibility
-    y0 = sys.y0().astype(np.float64, copy=False)
-    t_eval = t_eval.astype(np.float64)
-
-    if USE_CUSTOM_SOLVER:
-        # Use the Numba-accelerated Adaptive RK45
-        xs = solve_custom(sys, y0, t_eval, rtol=rtol, atol=atol)
-        return np.ascontiguousarray(xs, dtype=np.float64)
-
-    # Standard SciPy odeint path (LSODA method)
-    if MODEL == 2:
-        # For combinatorial models, pre-compute the S-matrix cache to speed up RHS
-        build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
-        args = sys.odeint_args(sys.S_cache)
-    else:
-        # For standard models, pack arguments directly
-        args = sys.odeint_args()
-
-    xs = odeint(
-        rhs_odeint,
-        y0,
-        t_eval,
-        args=args,
-        Dfun=fd_jacobian_odeint,  # Use finite-difference Jacobian for stiff solver stability
-        col_deriv=False,
-        rtol=rtol,
-        atol=atol,
-        mxstep=mxstep,
+def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):
+    """Run the centralized Diffrax Kvaerno solver and return a NumPy trajectory."""
+    y0 = np.asarray(sys.y0(), dtype=np.float64)
+    cfg = DiffraxSolverConfig(
+        solver_name=solver_name,
+        rtol=float(ODE_REL_TOL if rtol is None else rtol),
+        atol=float(ODE_ABS_TOL if atol is None else atol),
+        max_steps=int(ODE_MAX_STEPS if max_steps is None else max_steps),
+        root_max_steps=20,
     )
-    return np.ascontiguousarray(xs, dtype=np.float64)
+    return np.asarray(solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), config=cfg), dtype=np.float64)
 
 
 def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
@@ -106,7 +50,7 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
     times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
 
     # 2. Run simulation
-    Y = simulate_odeint(sys, times, rtol=1e-5, atol=1e-7, mxstep=5000)
+    Y = simulate_diffrax(sys, times, rtol=1e-5, atol=1e-7, max_steps=5000)
 
     # Helper to find index of a specific time (for normalization baseline)
     def _bidx(t0: float) -> int:

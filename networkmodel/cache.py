@@ -130,10 +130,20 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
             np.asarray(ws, dtype=np.float64),
         )
 
-    # Process all three data types
-    p_prot, t_prot, obs_prot, w_prot = get_indices_basic(df_prot, idx.p2i)
-    p_rna, t_rna, obs_rna, w_rna = get_indices_basic(df_rna, idx.p2i)
-    p_pho, s_pho, t_pho, obs_pho, w_pho = get_indices_phospho(df_pho)
+    def _empty_basic():
+        return (np.asarray([], dtype=np.int32), np.asarray([], dtype=np.int32),
+                np.asarray([], dtype=np.float64), np.asarray([], dtype=np.float64))
+
+    def _empty_phospho():
+        return (np.asarray([], dtype=np.int32), np.asarray([], dtype=np.int32),
+                np.asarray([], dtype=np.int32), np.asarray([], dtype=np.float64),
+                np.asarray([], dtype=np.float64))
+
+    # Process only available data types. Empty/missing layers remain empty arrays
+    # and are skipped by the scalar JAX objective rather than padded with zeros.
+    p_prot, t_prot, obs_prot, w_prot = _empty_basic() if df_prot is None or df_prot.empty else get_indices_basic(df_prot, idx.p2i)
+    p_rna, t_rna, obs_rna, w_rna = _empty_basic() if df_rna is None or df_rna.empty else get_indices_basic(df_rna, idx.p2i)
+    p_pho, s_pho, t_pho, obs_pho, w_pho = _empty_phospho() if df_pho is None or df_pho.empty else get_indices_phospho(df_pho)
 
     # prot_map: A lookup table for the loss function to know where a protein's data starts in Y.
     # Structure: [Start Index in Y, Count (sites or states)]
@@ -149,7 +159,7 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         "p_rna": p_rna, "t_rna": t_rna, "obs_rna": obs_rna, "w_rna": w_rna,
         "p_pho": p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
         "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
-        "n_p": max(1, len(obs_prot)),
-        "n_r": max(1, len(obs_rna)),
-        "n_ph": max(1, len(obs_pho)),
+        "n_p": len(obs_prot),
+        "n_r": len(obs_rna),
+        "n_ph": len(obs_pho),
     }
