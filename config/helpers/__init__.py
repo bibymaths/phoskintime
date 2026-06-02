@@ -2,6 +2,30 @@ from itertools import combinations
 from math import comb
 
 
+def generate_randmod_subsets(num_psites: int) -> tuple[tuple[int, ...], ...]:
+    """Canonical randmod subset order: singletons, then pairs, then triples.
+
+    The order matches randmod labels/parameters, e.g. for three sites:
+    (1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3).
+    """
+    n = int(num_psites)
+    if n < 0:
+        raise ValueError("num_psites must be non-negative")
+    subsets = tuple(
+        tuple(combo)
+        for size in range(1, n + 1)
+        for combo in combinations(range(1, n + 1), size)
+    )
+    if n == 3:
+        assert subsets == ((1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3))
+    return subsets
+
+
+def randmod_subset_masks(num_psites: int) -> tuple[int, ...]:
+    """Return canonical randmod subsets as 1-based-site bitmasks."""
+    return tuple(sum(1 << (site - 1) for site in subset) for subset in generate_randmod_subsets(num_psites))
+
+
 def get_param_names_rand(num_psites: int) -> list:
     """
     Generate parameter names for the random model.
@@ -16,9 +40,7 @@ def get_param_names_rand(num_psites: int) -> list:
     """
     param_names = ['A', 'B', 'C', 'D']
     param_names += [f'S{i}' for i in range(1, num_psites + 1)]
-    for i in range(1, num_psites + 1):
-        for combo in combinations(range(1, num_psites + 1), i):
-            param_names.append(f"D{''.join(map(str, combo))}")
+    param_names += [f"D{''.join(map(str, subset))}" for subset in generate_randmod_subsets(num_psites)]
     return param_names
 
 
@@ -48,10 +70,7 @@ def generate_labels_rand(num_psites: int) -> list:
         list: List of state labels.
     """
     labels = ["R", "P"]
-    subsets = []
-    for k in range(1, num_psites + 1):
-        for comb in combinations(range(1, num_psites + 1), k):
-            subsets.append("P" + "".join(map(str, comb)))
+    subsets = ["P" + "".join(map(str, subset)) for subset in generate_randmod_subsets(num_psites)]
     return labels + subsets
 
 
@@ -119,7 +138,5 @@ def get_bounds_rand(num_psites, ub=0, lower=0):
     """
     bounds = [[lower, ub]] * 4
     bounds += [[lower, ub]] * num_psites
-    for i in range(1, num_psites + 1):
-        for _ in combinations(range(1, num_psites + 1), i):
-            bounds.append([lower, ub])
+    bounds += [[lower, ub]] * len(generate_randmod_subsets(num_psites))
     return bounds

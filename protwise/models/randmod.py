@@ -245,7 +245,10 @@ def ode_system(y, t,
     # Return full derivative vector
     return out
 
-def solve_ode(params, init_cond, num_psites, t):
-    """Solve with the centralized Diffrax Kvaerno backend."""
+def solve_ode(params, init_cond, num_psites, t, **kwargs):
+    """Solve this mechanism with the centralized Diffrax Kvaerno backend."""
     from protwise.models.diffrax_solver import solve_protwise_ode
-    return solve_protwise_ode(params, init_cond, num_psites, t)
+
+    # Pass an explicit model name so direct calls to this module are not affected
+    # by the global config.constants.ODE_MODEL selected for a different mechanism.
+    return solve_protwise_ode(params, init_cond, num_psites, t, model_name="randmod", **kwargs)

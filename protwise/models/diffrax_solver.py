@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from networkmodel.jax_backend import solve_diffrax, DiffraxSolverConfig
 from config.constants import NORMALIZE_MODEL_OUTPUT, get_num_params
+from config.helpers import randmod_subset_masks
 
 
 def _canonical_model_name(model_name: str | None) -> str:
@@ -44,10 +45,10 @@ def _succ_rhs(t, y, params, num_psites: int):
     return jnp.concatenate([jnp.asarray([dR, dP], dtype=y.dtype), jnp.asarray(vals, dtype=y.dtype)])
 
 
-def _rand_rhs(t, y, params, num_psites: int):
+def _rand_rhs(t, y, params, num_psites: int, subset_masks: tuple[int, ...], mask_to_index: dict[int, int]):
     A, B, C, D = params[0], params[1], params[2], params[3]
     n = int(num_psites)
-    m = (1 << n) - 1
+    m = len(subset_masks)
     s = params[4 : 4 + n]
     ddeg = params[4 + n : 4 + n + m]
     R, P = y[0], y[1]
@@ -56,33 +57,33 @@ def _rand_rhs(t, y, params, num_psites: int):
     dP = C * R - D * P
     dX = jnp.zeros((m,), dtype=y.dtype)
 
-    # P -> monophosphorylated states.
+    # Randmod state order is canonical combination order (P1, P2, P3, P12, ...),
+    # not raw bitmask order. All state and Ddeg indexing goes through mask_to_index.
     for j in range(n):
-        idx = (1 << j) - 1
+        idx = mask_to_index[1 << j]
         rate = s[j] * P
         dX = dX.at[idx].add(rate)
         dP = dP - rate
 
-    # Transitions among phosphorylated subsets.  Dephosphorylation follows the
+    # Transitions among phosphorylated subsets. Dephosphorylation follows the
     # legacy numba model: unit-rate return to the lower subset/P, with Ddeg used
     # as state-specific degradation rather than as the dephosphorylation rate.
-    for state in range(1, m + 1):
-        base = state - 1
+    for base, state_mask in enumerate(subset_masks):
         xi = X[base]
         for j in range(n):
             bit = 1 << j
-            if state & bit:
-                lower = state & ~bit
+            if state_mask & bit:
+                lower = state_mask & ~bit
                 rate = xi
                 if lower == 0:
                     dP = dP + rate
                 else:
-                    dX = dX.at[lower - 1].add(rate)
+                    dX = dX.at[mask_to_index[lower]].add(rate)
                 dX = dX.at[base].add(-rate)
             else:
-                target = (state | bit) - 1
+                target = state_mask | bit
                 rate = s[j] * xi
-                dX = dX.at[target].add(rate)
+                dX = dX.at[mask_to_index[target]].add(rate)
                 dX = dX.at[base].add(-rate)
         dX = dX.at[base].add(-ddeg[base] * xi)
 
@@ -98,7 +99,11 @@ def make_local_model_rhs(model_name: str | None, num_psites: int):
     if model == "succmod":
         return partial(_succ_rhs, num_psites=n)
     if model == "randmod":
-        return partial(_rand_rhs, num_psites=n)
+        subset_masks = randmod_subset_masks(n)
+        mask_to_index = {mask: idx for idx, mask in enumerate(subset_masks)}
+        if n == 3:
+            assert subset_masks == (1, 2, 4, 3, 5, 6, 7)
+        return partial(_rand_rhs, num_psites=n, subset_masks=subset_masks, mask_to_index=mask_to_index)
     raise ValueError(f"Unsupported local ODE model: {model_name!r}")
 
 
@@ -106,6 +111,8 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     """Solve the selected local ODE model with the centralized Diffrax backend."""
     from config.constants import ODE_MODEL  # defer to avoid circular imports at module load
 
+    # model_name=None intentionally means "use global ODE_MODEL". Mechanism-specific
+    # wrappers must pass their own name so direct module calls cannot pick the wrong model.
     model = _canonical_model_name(model_name or ODE_MODEL)
     expected_params = get_num_params(model, num_psites)
     params_arr = np.asarray(params, dtype=np.float64).reshape(-1)

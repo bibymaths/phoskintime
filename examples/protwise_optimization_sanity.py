@@ -15,6 +15,7 @@ import argparse
 import numpy as np
 
 import protwise.paramest.normest as normest_mod
+from protwise.paramest.normest import aggregate_randmod_phospho
 from protwise.models.diffrax_solver import make_local_model_rhs
 from networkmodel.jax_backend import solve_diffrax, DiffraxSolverConfig
 from config.constants import get_num_params
@@ -51,10 +52,13 @@ def main() -> None:
     sol = np.asarray(solve_diffrax(y0, t, params=params, rhs=rhs, config=DiffraxSolverConfig(rtol=1e-4, atol=1e-6)))
 
     bounds = {"A": (0.01, 3.0), "B": (0.01, 3.0), "C": (0.01, 3.0), "D": (0.01, 3.0), "S(i)": (0.01, 3.0), "D(i)": (0.01, 3.0)}
+    # randmod contains subset-level states; observations are site-level, so aggregate
+    # each subset into every site it contains before fitting.
+    phospho_obs = np.asarray(aggregate_randmod_phospho(sol, args.num_sites)).T if args.model == "randmod" else sol[:, 2:]
     estimated, fits, errors, reg = normest_mod.normest(
         f"SYN_{args.model.upper()}",
         pr_data=sol[:, 1],
-        p_data=sol[:, 2:],
+        p_data=phospho_obs.T,
         r_data=sol[-min(3, len(t)) :, 0],
         init_cond=y0,
         num_psites=args.num_sites,

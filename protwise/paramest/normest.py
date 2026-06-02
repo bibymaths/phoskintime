@@ -8,6 +8,7 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
 from config.constants import ODE_MODEL, USE_REGULARIZATION, get_num_params, get_param_names
+from config.helpers import randmod_subset_masks
 from networkmodel.jax_backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
 from protwise.models.diffrax_solver import make_local_model_rhs
 
@@ -117,10 +118,33 @@ def _loss_scale(values: np.ndarray) -> float:
     return max(var, 0.25 * dyn * dyn, mag * mag, 1.0, 1e-8)
 
 
-def _split_predictions(sol, num_psites, n_rna_times):
+def aggregate_randmod_phospho(sol, num_psites):
+    """Aggregate randmod subset states into site-level phospho predictions.
+
+    Observations are site-level, while randmod states are subset-level. For example,
+    site 1 signal is P1 + P12 + P13 + P123, so multi-site states must contribute
+    to every site they contain.
+    """
+    m = (1 << int(num_psites)) - 1
+    subset_states = sol[:, 2 : 2 + m]
+    subset_masks = randmod_subset_masks(num_psites)
+    if num_psites == 3:
+        assert subset_masks == (1, 2, 4, 3, 5, 6, 7)
+    membership = jnp.asarray(
+        [[1.0 if mask & (1 << site_idx) else 0.0 for mask in subset_masks] for site_idx in range(num_psites)],
+        dtype=sol.dtype,
+    )
+    return membership @ subset_states.T
+
+
+def _split_predictions(sol, num_psites, n_rna_times, model_name: str | None = None):
     r = sol[:, 0]
     pr = sol[:, 1]
-    ph = sol[:, 2:2 + num_psites].T if num_psites else jnp.zeros((0, sol.shape[0]), dtype=sol.dtype)
+    model = _canonical_model_name(model_name)
+    if num_psites and model == "randmod":
+        ph = aggregate_randmod_phospho(sol, num_psites)
+    else:
+        ph = sol[:, 2:2 + num_psites].T if num_psites else jnp.zeros((0, sol.shape[0]), dtype=sol.dtype)
     r_fit = r[-n_rna_times:] if n_rna_times else jnp.asarray([], dtype=sol.dtype)
     return r_fit, pr, ph
 
@@ -136,7 +160,7 @@ def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_w
         rhs=rhs,
         config=DiffraxSolverConfig(),
     )
-    r_fit, pr_fit, ph_fit = _split_predictions(sol, num_psites, int(mode_weights["n_rna"]))
+    r_fit, pr_fit, ph_fit = _split_predictions(sol, num_psites, int(mode_weights["n_rna"]), model)
     total = jnp.asarray(0.0, dtype=jnp.float64)
     if mode_weights["fit_mrna"]:
         total += jnp.mean((r_fit.reshape(-1) - target["mrna"]) ** 2) / mode_weights["scale_mrna"]
@@ -203,7 +227,7 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64), params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
     r_fit = sol[-mrna.size:, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
     pr_fit = sol[:, 1].reshape(-1)
-    ph_fit = sol[:, 2:2 + num_psites].T.reshape(-1) if num_psites else np.asarray([], dtype=np.float64)
+    ph_fit = np.asarray(aggregate_randmod_phospho(jnp.asarray(sol), num_psites) if model == "randmod" and num_psites else sol[:, 2:2 + num_psites].T, dtype=np.float64).reshape(-1) if num_psites else np.asarray([], dtype=np.float64)
     seq_model_fit = np.concatenate([r_fit if mode["fit_mrna"] else np.asarray([]), pr_fit if mode["fit_protein"] else np.asarray([]), ph_fit if mode["fit_phospho"] else np.asarray([])])
     target_fit = np.concatenate([mrna if mode["fit_mrna"] else np.asarray([]), pr if mode["fit_protein"] else np.asarray([]), ph if mode["fit_phospho"] else np.asarray([])])
     errors = seq_model_fit - target_fit if target_fit.size == seq_model_fit.size else np.asarray([float(value)])

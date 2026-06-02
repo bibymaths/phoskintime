@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from config.constants import get_num_params, get_param_names
-from protwise.paramest.normest import _normalize_bounds, to_opt_space, from_opt_space
+from config.helpers import generate_randmod_subsets, randmod_subset_masks
+from protwise.paramest.normest import _normalize_bounds, aggregate_randmod_phospho, to_opt_space, from_opt_space
 
 
 def test_parameter_names_match_counts_for_all_local_models():
@@ -24,3 +26,38 @@ def test_optimizer_space_is_physical_space_for_projected_gradient():
     theta = to_opt_space(params, "randmod")
     assert theta.tolist() == pytest.approx(params)
     assert list(from_opt_space(theta, "randmod")) == pytest.approx(params)
+
+
+def test_randmod_three_site_canonical_subset_and_parameter_order():
+    assert generate_randmod_subsets(3) == ((1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3))
+    assert randmod_subset_masks(3) == (1, 2, 4, 3, 5, 6, 7)
+    assert get_param_names(3, "randmod")[-7:] == ["D1", "D2", "D3", "D12", "D13", "D23", "D123"]
+    bounds = {"A": (0.1, 1.0), "B": (0.2, 2.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.5, 5.0), "D(i)": (0.6, 6.0)}
+    lower, _ = _normalize_bounds(bounds, "randmod", 3)
+    assert lower[7:].tolist() == pytest.approx([0.6] * 7)
+
+
+def test_randmod_phospho_aggregation_includes_multisite_states():
+    # State order is [R, P, P1, P2, P3, P12, P13, P23, P123].
+    sol = np.asarray([[0.0, 0.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0]])
+    ph = np.asarray(aggregate_randmod_phospho(sol, 3))
+    assert ph.tolist() == pytest.approx([[131.0], [142.0], [153.0]])
+
+
+def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
+    calls = []
+
+    def fake_dispatcher(params, init_cond, num_psites, t, model_name=None, **kwargs):
+        calls.append(model_name)
+        return None, None
+
+    import protwise.models.distmod as distmod
+    import protwise.models.randmod as randmod
+    import protwise.models.succmod as succmod
+    import protwise.models.protwise as protwise
+
+    monkeypatch.setattr("protwise.models.diffrax_solver.solve_protwise_ode", fake_dispatcher)
+    for module in (protwise, distmod, randmod, succmod):
+        module.solve_ode([1.0], [1.0], 0, [0.0, 1.0])
+
+    assert calls == ["protwise", "distmod", "randmod", "succmod"]
