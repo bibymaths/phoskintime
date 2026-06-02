@@ -91,6 +91,19 @@ def _load_outputs(output_dir: Path):
     return bundle, df_objective, df_conv, df_pred_prot, df_pred_rna, df_pred_pho
 
 
+
+def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
+    files = {
+        "best_fit": output_dir / "optimization" / "best_fit.csv",
+        "multistart_summary": output_dir / "optimization" / "multistart_summary.csv",
+        "multistart_parameters": output_dir / "optimization" / "multistart_parameters.csv",
+        "profile_likelihood": output_dir / "profiles" / "profile_likelihood_summary.csv",
+        "posterior_summary": output_dir / "posterior" / "posterior_summary.csv",
+        "posterior_samples": output_dir / "posterior" / "posterior_samples.csv",
+        "posterior_predictive": output_dir / "posterior" / "posterior_predictive.csv",
+    }
+    return {name: (pd.read_csv(path) if path.exists() else None) for name, path in files.items()}
+
 def _fig_scalar_objective(df_objective: pd.DataFrame, picked_index: int | None):
     df = df_objective.copy()
     df["idx"] = np.arange(len(df))
@@ -162,6 +175,7 @@ def main():
     st.set_page_config(page_title="PhosKinTime Global Dashboard", layout="wide")
 
     bundle, df_objective, df_conv, df_pred_prot, df_pred_rna, df_pred_pho = _load_outputs(output_dir)
+    inference_outputs = _load_inference_outputs(output_dir)
 
     picked_index = bundle.get("picked_index", None)
     frechet_scores = bundle.get("frechet_scores", None)
@@ -185,8 +199,8 @@ def main():
         )
 
     # Tabs
-    tab_overview, tab_timeseries, tab_network, tab_params, tab_browser = st.tabs(
-        ["Overview", "Time series", "Network", "Parameters", "Browse results"]
+    tab_overview, tab_timeseries, tab_network, tab_params, tab_inference, tab_browser = st.tabs(
+        ["Overview", "Time series", "Network", "Parameters", "Inference", "Browse results"]
     )
 
     with tab_browser:
@@ -256,6 +270,21 @@ def main():
                     _show_image(folder / choice, caption=f"{sub}/{choice}")
             else:
                 st.info(f"{sub} not found.")
+
+
+    with tab_inference:
+        st.subheader("Inference diagnostics")
+        for name, df in inference_outputs.items():
+            if df is not None:
+                st.markdown(f"**{name.replace('_', ' ').title()}**")
+                st.write(df.head(50))
+        plot_patterns = [
+            "plots/multistart/*.png",
+            "plots/profile_likelihood/*.png",
+            "plots/posterior/*.png",
+        ]
+        for path in _list_files(output_dir, plot_patterns):
+            _show_image(path, caption=str(path.relative_to(output_dir)))
 
     with tab_overview:
         c1, c2 = st.columns([2, 1])

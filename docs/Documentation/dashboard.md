@@ -150,3 +150,17 @@ streamlit run run_dashboard.py --server.port 8502 -- --output-dir ...
 
 This separation ensures the dashboard can be launched independently from the optimization run,
 and makes the bundle serialization independent of UI concerns.
+
+## Inference Outputs
+
+The dashboard includes an **Inference** tab when optional inference files are present. It displays:
+
+- `optimization/best_fit.csv`
+- `optimization/multistart_summary.csv`
+- `optimization/multistart_parameters.csv`
+- `profiles/profile_likelihood_summary.csv`
+- `posterior/posterior_summary.csv`
+- `posterior/posterior_samples.csv`
+- plots from `plots/multistart/`, `plots/profile_likelihood/`, and `plots/posterior/`
+
+These are diagnostic scalar-objective summaries, not true multi-objective optimizer fronts.

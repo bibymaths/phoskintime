@@ -35,6 +35,7 @@ optuna = "*"
 jax = "*"
 jaxopt = "*"
 diffrax = "*"
+numpyro = "*"
 
 # Graph/network tooling
 graphviz = "*"
