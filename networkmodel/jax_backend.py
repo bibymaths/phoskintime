@@ -14,6 +14,7 @@ from typing import Mapping, Sequence
 import numpy as np
 
 import jax
+
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import jaxopt
@@ -22,7 +23,8 @@ import diffrax
 logger = logging.getLogger(__name__)
 
 LAYERS = ("mrna", "protein", "phospho")
-ALIASES = {"rna": "mrna", "mrna": "mrna", "protein": "protein", "prot": "protein", "phospho": "phospho", "pho": "phospho"}
+ALIASES = {"rna": "mrna", "mrna": "mrna", "protein": "protein", "prot": "protein", "phospho": "phospho",
+           "pho": "phospho"}
 
 
 @dataclass(frozen=True)
@@ -47,8 +49,10 @@ def ensure_jax_float64() -> bool:
     return bool(jax.config.jax_enable_x64)
 
 
-def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mapping | None = None, logger_obj=None) -> DataMode:
+def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mapping | None = None,
+                     logger_obj=None) -> DataMode:
     """Detect the non-empty mRNA/protein/phospho mode after loading input data."""
+
     def has_frame(x) -> bool:
         if x is None:
             return False
@@ -58,9 +62,12 @@ def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mappin
         return arr.size > 0
 
     if loss_data is not None:
-        mrna_on = int(loss_data.get("n_r", len(loss_data.get("obs_rna", [])))) > 0 and len(loss_data.get("obs_rna", [])) > 0
-        protein_on = int(loss_data.get("n_p", len(loss_data.get("obs_prot", [])))) > 0 and len(loss_data.get("obs_prot", [])) > 0
-        phospho_on = int(loss_data.get("n_ph", len(loss_data.get("obs_pho", [])))) > 0 and len(loss_data.get("obs_pho", [])) > 0
+        mrna_on = int(loss_data.get("n_r", len(loss_data.get("obs_rna", [])))) > 0 and len(
+            loss_data.get("obs_rna", [])) > 0
+        protein_on = int(loss_data.get("n_p", len(loss_data.get("obs_prot", [])))) > 0 and len(
+            loss_data.get("obs_prot", [])) > 0
+        phospho_on = int(loss_data.get("n_ph", len(loss_data.get("obs_pho", [])))) > 0 and len(
+            loss_data.get("obs_pho", [])) > 0
     else:
         mrna_on = has_frame(mrna)
         protein_on = has_frame(protein)
@@ -68,7 +75,8 @@ def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mappin
 
     active = tuple(layer for layer, on in (("mrna", mrna_on), ("protein", protein_on), ("phospho", phospho_on)) if on)
     if not active:
-        raise ValueError("No PhosKinTime data layers were detected. Provide at least one of mRNA, protein, or phospho data.")
+        raise ValueError(
+            "No PhosKinTime data layers were detected. Provide at least one of mRNA, protein, or phospho data.")
     mode = DataMode(active, "+".join(active), mrna_on, protein_on, phospho_on)
     log = logger_obj or logger
     log.info("[DataMode] Detected data mode: %s", mode.data_mode)
@@ -172,6 +180,7 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
     return ys
 
+
 def _extract_offsets(prot_map):
     pm = jnp.asarray(prot_map, dtype=jnp.int32)
     return pm[:, 0], pm[:, 1]
@@ -268,7 +277,8 @@ def project_beta_blocks(beta, block_ids, lower=-4.0, upper=4.0):
 
 
 def project_bounds(theta, lower, upper, fixed_mask=None, fixed_values=None):
-    clipped = jnp.clip(jnp.asarray(theta, dtype=jnp.float64), jnp.asarray(lower, dtype=jnp.float64), jnp.asarray(upper, dtype=jnp.float64))
+    clipped = jnp.clip(jnp.asarray(theta, dtype=jnp.float64), jnp.asarray(lower, dtype=jnp.float64),
+                       jnp.asarray(upper, dtype=jnp.float64))
     if fixed_mask is not None:
         clipped = jnp.where(jnp.asarray(fixed_mask, dtype=bool), jnp.asarray(fixed_values, dtype=jnp.float64), clipped)
     return clipped
@@ -286,11 +296,13 @@ class JaxoptResult:
     optimizer: str = "jaxopt.ProjectedGradient"
 
 
-def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None, fixed_values=None, logger_obj=None):
+def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None,
+                              fixed_values=None, logger_obj=None):
     ensure_jax_float64()
     log = logger_obj or logger
     log.info("[Optimizer] Selected optimizer backend: jaxopt.ProjectedGradient")
-    log.info("[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
+    log.info(
+        "[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
     lower_j = jnp.asarray(lower, dtype=jnp.float64)
     upper_j = jnp.asarray(upper, dtype=jnp.float64)
     fixed_mask_j = None if fixed_mask is None else jnp.asarray(fixed_mask, dtype=bool)
@@ -300,7 +312,8 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         lo, hi = hyperparams
         return project_bounds(x, lo, hi, fixed_mask_j, fixed_values_j)
 
-    solver = jaxopt.ProjectedGradient(fun=objective_fun, projection=projection, maxiter=int(maxiter), tol=float(tol))
+    solver = jaxopt.ProjectedGradient(fun=objective_fun, projection=projection, maxiter=int(maxiter), tol=float(tol),
+                                      verbose=1)
     init = project_bounds(theta0, lower_j, upper_j, fixed_mask_j, fixed_values_j)
     params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
     val = objective_fun(params)
@@ -321,7 +334,8 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
     return np.asarray(params), state, val_f
 
 
-def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None, prior_weight=0.0):
+def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
+                          prior_weight=0.0):
     validate_loss_data(loss_data, mode)
     t = jnp.asarray(time_grid, dtype=jnp.float64)
     prot_map = np.asarray(loss_data["prot_map"])
@@ -349,8 +363,11 @@ def warn_deprecated_backend_options(options: Mapping | object | None, logger_obj
     get = options.get if isinstance(options, Mapping) else lambda k, d=None: getattr(options, k, d)
     optimizer = get("optimizer", get("solver", None))
     if optimizer and str(optimizer).lower() in {"pymoo", "optuna", "nsga3", "unsga3", "spea2", "de", "ga", "scipy"}:
-        log.warning("[Deprecated Config] optimizer/solver=%r is accepted for compatibility and mapped to jaxopt.ProjectedGradient.", optimizer)
+        log.warning(
+            "[Deprecated Config] optimizer/solver=%r is accepted for compatibility and mapped to jaxopt.ProjectedGradient.",
+            optimizer)
     for key in ("n_gen", "pop", "population_size", "use_custom_solver", "odeint", "solve_ivp"):
         val = get(key, None)
         if val is not None:
-            log.warning("[Deprecated Config] %s=%r is accepted but ignored by the JAXopt/Diffrax PhosKinTime path.", key, val)
+            log.warning("[Deprecated Config] %s=%r is accepted but ignored by the JAXopt/Diffrax PhosKinTime path.",
+                        key, val)

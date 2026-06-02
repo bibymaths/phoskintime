@@ -91,7 +91,6 @@ def _load_outputs(output_dir: Path):
     return bundle, df_objective, df_conv, df_pred_prot, df_pred_rna, df_pred_pho
 
 
-
 def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
     files = {
         "best_fit": output_dir / "optimization" / "best_fit.csv",
@@ -103,6 +102,7 @@ def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
         "posterior_predictive": output_dir / "posterior" / "posterior_predictive.csv",
     }
     return {name: (pd.read_csv(path) if path.exists() else None) for name, path in files.items()}
+
 
 def _fig_scalar_objective(df_objective: pd.DataFrame, picked_index: int | None):
     df = df_objective.copy()
@@ -270,7 +270,6 @@ def main():
                     _show_image(folder / choice, caption=f"{sub}/{choice}")
             else:
                 st.info(f"{sub} not found.")
-
 
     with tab_inference:
         st.subheader("Inference diagnostics")

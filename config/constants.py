@@ -18,7 +18,6 @@ _PATHS = _CFG.get("_paths", {}) or {}
 # Flag to indicate if the code is in development mode.
 DEV_TEST = bool(_CFG.get("dev_test", False))
 
-
 ########################################################################################################################
 # GLOBAL CONSTANTS
 ########################################################################################################################
@@ -82,7 +81,6 @@ GAMMA_WEIGHT = float(_w.get("var", 1.0))
 DELTA_WEIGHT = float(_w.get("mse", 1.0))
 MU_WEIGHT = float(_w.get("l2", 1.0))
 
-
 ########################################################################################################################
 # INTERNAL CONSTANTS
 ########################################################################################################################
@@ -103,7 +101,6 @@ Y_METRIC_DESCRIPTIONS = {
     "l2_norm": "Euclidean norm of the flattened values (captures overall magnitude in L2 sense).",
 }
 Y_METRIC = str(_CFG.get("y_metric", "total_signal"))
-
 
 ########################################################################################################################
 # PATHS, DIRECTORIES, AND FILES (config-driven)
@@ -127,11 +124,13 @@ LOG_DIR = LOGS_DIR / f"{model_type}_logs"
 # Inputs
 _inputs = _CFG.get("inputs", {}) or {}
 
+
 def _req_path(key: str) -> Path:
     v = _inputs.get(key)
     if not v:
         raise KeyError(f"[ode.inputs] is missing required key '{key}' in config.toml")
     return _ROOT / str(v)
+
 
 # These MUST be explicit in [ode.inputs] (no tfopt imports)
 INPUT_EXCEL_PROTEIN = _req_path("protein_excel")
@@ -142,7 +141,6 @@ INPUT_EXCEL_RNA = _req_path("rna_excel")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-
 
 ########################################################################################################################
 # PLOTTING STYLE CONFIGURATION

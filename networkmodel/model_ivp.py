@@ -13,6 +13,7 @@ def make_rhs_fun_saturating(*_args, **_kwargs):
     def rhs(t, y, params):
         p = jnp.resize(jnp.asarray(params, dtype=y.dtype), y.shape)
         return p - (0.05 + jnp.abs(p)) * y
+
     return rhs
 
 

@@ -57,7 +57,8 @@ class InferenceContext:
             "lower": np.asarray(self.lower, dtype=np.float64).copy(),
             "upper": np.asarray(self.upper, dtype=np.float64).copy(),
             "fixed_mask": None if self.fixed_mask is None else np.asarray(self.fixed_mask, dtype=bool).copy(),
-            "fixed_values": None if self.fixed_values is None else np.asarray(self.fixed_values, dtype=np.float64).copy(),
+            "fixed_values": None if self.fixed_values is None else np.asarray(self.fixed_values,
+                                                                              dtype=np.float64).copy(),
             "mode_metadata": {
                 "data_mode": self.mode.data_mode,
                 "available_layers": list(self.mode.available_layers),
@@ -85,7 +86,8 @@ def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -
     return strategy
 
 
-def generate_multistart_initials(theta0, lower, upper, n_starts: int, seed: int, fixed_mask=None, fixed_values=None) -> list[np.ndarray]:
+def generate_multistart_initials(theta0, lower, upper, n_starts: int, seed: int, fixed_mask=None, fixed_values=None) -> \
+list[np.ndarray]:
     rng = np.random.default_rng(int(seed))
     theta0 = np.asarray(theta0, dtype=np.float64)
     lower = np.asarray(lower, dtype=np.float64)
@@ -165,7 +167,8 @@ def run_multistart(ctx: InferenceContext, *, n_starts: int = 4, seed: int = 0, m
     out.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
     strategy = configure_jax_parallelism(max_workers=max_workers, logger_obj=logger)
-    starts = generate_multistart_initials(ctx.theta0, ctx.lower, ctx.upper, n_starts, seed, ctx.fixed_mask, ctx.fixed_values)
+    starts = generate_multistart_initials(ctx.theta0, ctx.lower, ctx.upper, n_starts, seed, ctx.fixed_mask,
+                                          ctx.fixed_values)
     rows: list[dict] = []
     params_by_start: list[np.ndarray] = []
     if strategy["effective_workers"] > 1:
@@ -193,10 +196,12 @@ def run_multistart(ctx: InferenceContext, *, n_starts: int = 4, seed: int = 0, m
     param_rows = []
     for row in rows:
         values = param_map[int(row["start_id"])]
-        record = {"start_id": row["start_id"], "seed": row["seed"], "success": row["success"], "selected_best": row["start_id"] == best_start}
+        record = {"start_id": row["start_id"], "seed": row["seed"], "success": row["success"],
+                  "selected_best": row["start_id"] == best_start}
         record.update({name: values[i] for i, name in enumerate(names)})
         if ctx.alpha_block_ids is not None:
-            alpha = np.asarray(project_alpha_blocks(values[: len(ctx.alpha_block_ids)], ctx.alpha_block_ids), dtype=float)
+            alpha = np.asarray(project_alpha_blocks(values[: len(ctx.alpha_block_ids)], ctx.alpha_block_ids),
+                               dtype=float)
             record.update({f"alpha_{i}": v for i, v in enumerate(alpha)})
         if ctx.beta_block_ids is not None:
             beta = np.asarray(project_beta_blocks(values[: len(ctx.beta_block_ids)], ctx.beta_block_ids), dtype=float)
@@ -217,25 +222,33 @@ def _plot_multistart(summary: pd.DataFrame, params: pd.DataFrame, names: Sequenc
     ax.hist(finite["final_objective"], bins=max(1, min(10, len(finite))))
     ax.set_xlabel("final scalar objective")
     ax.set_ylabel("start count")
-    fig.tight_layout(); fig.savefig(plot_dir / "objective_distribution.png", dpi=120); plt.close(fig)
+    fig.tight_layout();
+    fig.savefig(plot_dir / "objective_distribution.png", dpi=120);
+    plt.close(fig)
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.plot(np.arange(len(finite)), np.sort(finite["final_objective"].to_numpy()), marker="o")
     ax.set_xlabel("rank")
     ax.set_ylabel("final scalar objective")
-    fig.tight_layout(); fig.savefig(plot_dir / "ranked_objective.png", dpi=120); plt.close(fig)
+    fig.tight_layout();
+    fig.savefig(plot_dir / "ranked_objective.png", dpi=120);
+    plt.close(fig)
     if names:
         first = names[0]
         fig, ax = plt.subplots(figsize=(4, 3))
         good = params[params["success"]]
         ax.scatter(good[first], finite.sort_values("start_id")["final_objective"].to_numpy()[: len(good)])
-        ax.set_xlabel(first); ax.set_ylabel("final scalar objective")
-        fig.tight_layout(); fig.savefig(plot_dir / "parameter_objective_tradeoff.png", dpi=120); plt.close(fig)
+        ax.set_xlabel(first);
+        ax.set_ylabel("final scalar objective")
+        fig.tight_layout();
+        fig.savefig(plot_dir / "parameter_objective_tradeoff.png", dpi=120);
+        plt.close(fig)
 
 
 def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence[int], grid_size: int = 5) -> dict:
     out = Path(ctx.output_dir) / "profiles"
     plot_dir = Path(ctx.output_dir) / "plots" / "profile_likelihood"
-    out.mkdir(parents=True, exist_ok=True); plot_dir.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True);
+    plot_dir.mkdir(parents=True, exist_ok=True)
     names = _param_names(len(ctx.theta0), ctx.parameter_names)
     all_rows = []
     for idx in parameter_indices:
@@ -243,15 +256,28 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
         values = np.linspace(ctx.lower[idx], ctx.upper[idx], int(grid_size))
         rows = []
         for gv in values:
-            fixed_mask = np.zeros_like(ctx.theta0, dtype=bool) if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask, dtype=bool).copy()
-            fixed_values = np.asarray(ctx.theta0, dtype=np.float64).copy() if ctx.fixed_values is None else np.asarray(ctx.fixed_values, dtype=np.float64).copy()
-            fixed_mask[idx] = True; fixed_values[idx] = gv
+            fixed_mask = np.zeros_like(ctx.theta0, dtype=bool) if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask,
+                                                                                                         dtype=bool).copy()
+            fixed_values = np.asarray(ctx.theta0, dtype=np.float64).copy() if ctx.fixed_values is None else np.asarray(
+                ctx.fixed_values, dtype=np.float64).copy()
+            fixed_mask[idx] = True;
+            fixed_values[idx] = gv
             try:
-                params, state, value = optimize_scalar_objective(ctx.objective_fun, fixed_values, ctx.lower, ctx.upper, maxiter=ctx.maxiter, tol=ctx.tol, fixed_mask=fixed_mask, fixed_values=fixed_values, logger_obj=logger)
-                row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value, "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "", "optimized_free_parameters": json.dumps(params.tolist()), "data_mode": ctx.mode.data_mode, "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
+                params, state, value = optimize_scalar_objective(ctx.objective_fun, fixed_values, ctx.lower, ctx.upper,
+                                                                 maxiter=ctx.maxiter, tol=ctx.tol,
+                                                                 fixed_mask=fixed_mask, fixed_values=fixed_values,
+                                                                 logger_obj=logger)
+                row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value,
+                       "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "",
+                       "optimized_free_parameters": json.dumps(params.tolist()), "data_mode": ctx.mode.data_mode,
+                       "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
             except Exception as exc:
-                row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": np.inf, "success": False, "optimizer_status": "failed", "failure_reason": str(exc), "optimized_free_parameters": "[]", "data_mode": ctx.mode.data_mode, "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
-            rows.append(row); all_rows.append(row)
+                row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv,
+                       "objective_value": np.inf, "success": False, "optimizer_status": "failed",
+                       "failure_reason": str(exc), "optimized_free_parameters": "[]", "data_mode": ctx.mode.data_mode,
+                       "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
+            rows.append(row);
+            all_rows.append(row)
         df = pd.DataFrame(rows)
         finite_min = df.loc[np.isfinite(df["objective_value"]), "objective_value"].min()
         df["delta_objective"] = df["objective_value"] - finite_min
@@ -259,8 +285,10 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
         _plot_profile(df, plot_dir / f"profile_likelihood_{names[idx]}.png")
     summary = pd.DataFrame(all_rows)
     if not summary.empty:
-        mins = summary[np.isfinite(summary["objective_value"])].groupby("parameter_name")["objective_value"].transform("min")
-        summary.loc[np.isfinite(summary["objective_value"]), "delta_objective"] = summary.loc[np.isfinite(summary["objective_value"]), "objective_value"] - mins
+        mins = summary[np.isfinite(summary["objective_value"])].groupby("parameter_name")["objective_value"].transform(
+            "min")
+        summary.loc[np.isfinite(summary["objective_value"]), "delta_objective"] = summary.loc[np.isfinite(
+            summary["objective_value"]), "objective_value"] - mins
     summary.to_csv(out / "profile_likelihood_summary.csv", index=False)
     return {"summary": summary, "output_dir": out}
 
@@ -273,7 +301,9 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     ax2 = ax.twinx()
     ax2.plot(df["grid_value"], df["delta_objective"], color="tab:orange", marker="x", label="delta")
     ax2.set_ylabel("delta objective")
-    fig.tight_layout(); fig.savefig(path, dpi=120); plt.close(fig)
+    fig.tight_layout();
+    fig.savefig(path, dpi=120);
+    plt.close(fig)
 
 
 def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_samples: int = 30, seed: int = 0) -> dict:
@@ -284,12 +314,15 @@ def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_sa
         import numpyro.distributions as dist
         from numpyro.infer import MCMC, NUTS
     except ImportError as exc:
-        raise RuntimeError("NumPyro posterior inference requires the optional 'numpyro' dependency. Install numpyro to run posterior analysis.") from exc
+        raise RuntimeError(
+            "NumPyro posterior inference requires the optional 'numpyro' dependency. Install numpyro to run posterior analysis.") from exc
     out = Path(ctx.output_dir) / "posterior"
     plot_dir = Path(ctx.output_dir) / "plots" / "posterior"
-    out.mkdir(parents=True, exist_ok=True); plot_dir.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True);
+    plot_dir.mkdir(parents=True, exist_ok=True)
     theta_center = jnp.asarray(ctx.theta0, dtype=jnp.float64)
-    lower = jnp.asarray(ctx.lower, dtype=jnp.float64); upper = jnp.asarray(ctx.upper, dtype=jnp.float64)
+    lower = jnp.asarray(ctx.lower, dtype=jnp.float64);
+    upper = jnp.asarray(ctx.upper, dtype=jnp.float64)
 
     def model():
         theta_raw = numpyro.sample("theta_raw", dist.Normal(theta_center, 1.0).to_event(1))
@@ -314,10 +347,14 @@ def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_sa
     summary_rows = []
     for col in names + ["sigma"]:
         vals = sample_df[col].to_numpy(dtype=float)
-        summary_rows.append({"parameter": col, "mean": vals.mean(), "median": np.median(vals), "sd": vals.std(ddof=0), "ci_05": np.quantile(vals, 0.05), "ci_95": np.quantile(vals, 0.95), "ess": float(len(vals)), "r_hat": np.nan, "data_mode": ctx.mode.data_mode})
+        summary_rows.append({"parameter": col, "mean": vals.mean(), "median": np.median(vals), "sd": vals.std(ddof=0),
+                             "ci_05": np.quantile(vals, 0.05), "ci_95": np.quantile(vals, 0.95),
+                             "ess": float(len(vals)), "r_hat": np.nan, "data_mode": ctx.mode.data_mode})
     summary = pd.DataFrame(summary_rows)
     summary.to_csv(out / "posterior_summary.csv", index=False)
-    predictive = sample_df[["scalar_objective", "data_mode"]].copy() if "scalar_objective" in sample_df else pd.DataFrame({"data_mode": [ctx.mode.data_mode]})
+    predictive = sample_df[
+        ["scalar_objective", "data_mode"]].copy() if "scalar_objective" in sample_df else pd.DataFrame(
+        {"data_mode": [ctx.mode.data_mode]})
     predictive.to_csv(out / "posterior_predictive.csv", index=False)
     _plot_posterior(sample_df, summary, plot_dir)
     return {"samples": sample_df, "summary": summary, "posterior_predictive": predictive, "output_dir": out}
@@ -329,13 +366,20 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         fig, ax = plt.subplots(figsize=(4, 3))
         ax.plot(samples[col].to_numpy())
         ax.set_title(f"trace {col}")
-        fig.tight_layout(); fig.savefig(plot_dir / f"trace_{col}.png", dpi=120); plt.close(fig)
+        fig.tight_layout();
+        fig.savefig(plot_dir / f"trace_{col}.png", dpi=120);
+        plt.close(fig)
         fig, ax = plt.subplots(figsize=(4, 3))
         ax.hist(samples[col].to_numpy(), bins=15)
         ax.set_title(f"posterior {col}")
-        fig.tight_layout(); fig.savefig(plot_dir / f"density_{col}.png", dpi=120); plt.close(fig)
+        fig.tight_layout();
+        fig.savefig(plot_dir / f"density_{col}.png", dpi=120);
+        plt.close(fig)
     fig, ax = plt.subplots(figsize=(5, 3))
-    ax.errorbar(summary["parameter"], summary["median"], yerr=[summary["median"] - summary["ci_05"], summary["ci_95"] - summary["median"]], fmt="o")
+    ax.errorbar(summary["parameter"], summary["median"],
+                yerr=[summary["median"] - summary["ci_05"], summary["ci_95"] - summary["median"]], fmt="o")
     ax.tick_params(axis="x", rotation=45)
     ax.set_ylabel("posterior median and 90% interval")
-    fig.tight_layout(); fig.savefig(plot_dir / "credible_intervals.png", dpi=120); plt.close(fig)
+    fig.tight_layout();
+    fig.savefig(plot_dir / "credible_intervals.png", dpi=120);
+    plt.close(fig)

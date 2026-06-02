@@ -141,9 +141,12 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
 
     # Process only available data types. Empty/missing layers remain empty arrays
     # and are skipped by the scalar JAX objective rather than padded with zeros.
-    p_prot, t_prot, obs_prot, w_prot = _empty_basic() if df_prot is None or df_prot.empty else get_indices_basic(df_prot, idx.p2i)
-    p_rna, t_rna, obs_rna, w_rna = _empty_basic() if df_rna is None or df_rna.empty else get_indices_basic(df_rna, idx.p2i)
-    p_pho, s_pho, t_pho, obs_pho, w_pho = _empty_phospho() if df_pho is None or df_pho.empty else get_indices_phospho(df_pho)
+    p_prot, t_prot, obs_prot, w_prot = _empty_basic() if df_prot is None or df_prot.empty else get_indices_basic(
+        df_prot, idx.p2i)
+    p_rna, t_rna, obs_rna, w_rna = _empty_basic() if df_rna is None or df_rna.empty else get_indices_basic(df_rna,
+                                                                                                           idx.p2i)
+    p_pho, s_pho, t_pho, obs_pho, w_pho = _empty_phospho() if df_pho is None or df_pho.empty else get_indices_phospho(
+        df_pho)
 
     # prot_map: A lookup table for the loss function to know where a protein's data starts in Y.
     # Structure: [Start Index in Y, Count (sites or states)]

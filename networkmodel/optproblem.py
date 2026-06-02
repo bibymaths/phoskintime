@@ -25,7 +25,8 @@ def build_weight_functions(method_protein="uniform", method_rna="uniform", time_
 class GlobalODEScalarObjective:
     """JAX-compatible scalar objective replacing the legacy vector-objective problem."""
 
-    def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12, data_mode: DataMode | None = None, **_):
+    def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12,
+                 data_mode: DataMode | None = None, **_):
         ensure_jax_float64()
         self.sys = sys
         self.slices = slices
@@ -46,7 +47,8 @@ class GlobalODEScalarObjective:
             loss_data,
             self.data_mode,
             self.time_grid,
-            weights={"protein": self.lambdas.get("protein", 1.0), "rna": self.lambdas.get("rna", 1.0), "phospho": self.lambdas.get("phospho", 1.0)},
+            weights={"protein": self.lambdas.get("protein", 1.0), "rna": self.lambdas.get("rna", 1.0),
+                     "phospho": self.lambdas.get("phospho", 1.0)},
             prior_weight=float(self.lambdas.get("prior", 0.0)),
         )
 
@@ -61,7 +63,8 @@ class GlobalODEScalarObjective:
         out["F"] = np.asarray([self.evaluate(x)], dtype=np.float64)
 
     def solve(self, theta0, maxiter=50, tol=1e-6):
-        params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter, tol=tol, logger_obj=logger)
+        params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter,
+                                                         tol=tol, logger_obj=logger)
         return params, state, value
 
 
@@ -69,5 +72,6 @@ class GlobalODE_MOO(GlobalODEScalarObjective):
     """Compatibility alias for old imports; routes to scalar JAX objective."""
 
     def __init__(self, *args, **kwargs):
-        logger.warning("[Deprecated API] GlobalODE_MOO now constructs a single-objective JAXopt problem, not a legacy multi-layer vector-objective problem.")
+        logger.warning(
+            "[Deprecated API] GlobalODE_MOO now constructs a single-objective JAXopt problem, not a legacy multi-layer vector-objective problem.")
         super().__init__(*args, **kwargs)

@@ -65,82 +65,6 @@ def build_site_meta(idx):
     return site_protein, site_psite, site_local
 
 
-def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
-    """
-    Saves a high-quality 3D Scatter plot of the scalar objective table.
-    Highlights the 'selected' balanced solution if provided.
-
-    Args:
-        res: Optimization result object containing scalar objective table data.
-        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
-        output_dir: Directory where plots will be saved.
-    """
-    logger.info("[Output] Generating 3D Scalar Plot...")
-
-    # 1. Setup Plot
-    # Angle (elevation, azimuth) for best viewing
-    plot = Scatter(
-        plot_3d=True,
-        angle=(45, 45),
-        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
-        figsize=(10, 8),
-        title=("scalar objective table", {'pad': 20})
-    )
-
-    # 2. Add Data
-    # All solutions in the front
-    plot.add(res.F, color="grey", alpha=0.6, s=30, label="Scalar Solutions")
-
-    # Highlight the picked solution (Red Star)
-    if selected_solution is not None:
-        plot.add(selected_solution, color="red", s=150, marker="*", label="Selected")
-
-    # 3. Save
-    # Pymoo plots wrap Matplotlib, so we can save easily
-    save_path = os.path.join(output_dir, "pareto_front_3d.png")
-    plot.save(save_path)
-    logger.info(f"[Output] Saved: {save_path}")
-
-
-def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo"):
-    """
-    Saves a Parallel Coordinate Plot (PCP).
-
-    Args:
-        res: Optimization result object containing scalar objective table data.
-        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
-        output_dir: Directory where plots will be saved.
-    """
-    logger.info("[Output] Generating Parallel Coordinate Plot...")
-
-    # 1. Setup Plot
-    # normalize_each_axis=True is CRITICAL because MSE errors and Reg loss
-    # might have vastly different magnitudes (e.g. 1000 vs 0.1).
-    plot = PCP(
-        title=("Objective Trade-offs", {'pad': 20}),
-        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
-        normalize_each_axis=True,
-        figsize=(12, 6),
-        legend=(True, {'loc': "upper left"})
-    )
-
-    # 2. Styling
-    plot.set_axis_style(color="grey", alpha=0.5)
-
-    # 3. Add Data
-    # Background solutions (faint)
-    plot.add(res.F, color="grey", alpha=0.2, linewidth=1)
-
-    # Highlight Selected (Bold Blue)
-    if selected_solution is not None:
-        plot.add(selected_solution, linewidth=4, color="blue", label="Selected")
-
-    # 4. Save
-    save_path = os.path.join(output_dir, "pareto_pcp.png")
-    plot.save(save_path)
-    logger.info(f"[Output] Saved: {save_path}")
-
-
 def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
     """
     Creates an animation of the scalar objective table evolution using standard Matplotlib.
@@ -268,18 +192,25 @@ def export_pareto_front_to_excel(
     w_prot, w_rna, w_phos = map(float, weights)
 
     # ---- Summary + ranking ----
-    df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+    F = np.asarray(F)
+    if F.ndim == 1 or F.shape[1] == 1:
+        # New JAX scalar objective: F contains a single value per solution
+        scalar_vals = F.reshape(-1)
+        df_summary = pd.DataFrame({"scalar_score": scalar_vals})
+    else:
+        # Legacy 3-objective table
+        df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+        # derive scalar_score from weighted sum
+        df_summary["scalar_score"] = (
+                w_prot * df_summary["prot_mse"]
+                + w_rna * df_summary["rna_mse"]
+                + w_phos * df_summary["phospho_mse"]
+        )
+
     df_summary.insert(0, "sol_id", np.arange(len(df_summary), dtype=int))
     df_summary["w_prot"] = w_prot
     df_summary["w_rna"] = w_rna
     df_summary["w_phos"] = w_phos
-
-    # scalar score for ranking / convenience
-    df_summary["scalar_score"] = (
-            w_prot * df_summary["prot_mse"]
-            + w_rna * df_summary["rna_mse"]
-            + w_phos * df_summary["phospho_mse"]
-    )
 
     # rank: 1 = best
     df_summary["rank"] = df_summary["scalar_score"].rank(method="dense").astype(int)

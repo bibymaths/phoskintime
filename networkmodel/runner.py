@@ -19,7 +19,6 @@ import atexit
 import json
 import logging
 import os
-from pathlib import Path
 
 from networkmodel.dashboard_bundle import save_dashboard_bundle
 from networkmodel.scan import run_hyperparameter_scan
@@ -37,13 +36,12 @@ import numpy as np
 import multiprocessing as mp
 import pandas as pd
 
-
 from networkmodel.buildmat import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
-    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
+    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
     DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
     USE_CUSTOM_SOLVER, CORES
@@ -51,13 +49,12 @@ from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.optproblem import GlobalODEScalarObjective, build_weight_functions
 from networkmodel.params import init_raw_params, unpack_params
-from networkmodel.refine import run_iterative_refinement
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
     get_optimized_sets
 from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
-    export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
+    export_results, create_convergence_video, save_gene_timeseries_plots, \
+    scan_prior_reg, export_S_rates, plot_s_rates_report, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.jax_backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
@@ -418,19 +415,19 @@ def main():
     #
     # logger.info(f"[Index] Proteins in model (full-universe): {len(idx.proteins)}")
 
-    # Build weight functions
-    w_prot_pho, w_rna = build_weight_functions(
-        TIME_POINTS_PROTEIN,
-        TIME_POINTS_RNA,
-        scheme_prot_pho=WEIGHTING_METHOD_PROTEIN,
-        scheme_rna=WEIGHTING_METHOD_RNA,
-        early_window_prot_pho=120.0,
-        early_window_rna=30.0,
+    # New: keep the config for logging, but don't treat it as a callable
+    weight_cfg = build_weight_functions(
+        method_protein=WEIGHTING_METHOD_PROTEIN,
+        method_rna=WEIGHTING_METHOD_RNA,
+        time_grid=TIME_POINTS_PROTEIN,
     )
 
-    df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
-    df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
-    df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
+    logger.info("[Weights] Protein weighting scheme: %s", weight_cfg["protein"])
+    logger.info("[Weights] RNA weighting scheme: %s", weight_cfg["rna"])
+
+    # The scalar JAX objective uses global lambdas, so use uniform per-row weights here
+    df_prot["w"] = 1.0
+    df_rna["w"] = 1.0
 
     # 3) Build W + TF 
     # -------------------------------------------------------------------------
@@ -569,7 +566,8 @@ def main():
 
         runner = None
         pool = None
-        logger.warning("[Deprecated Config] Hyperparameter scan is retained for compatibility but runs without legacy evolutionary parallelization in JAXopt mode.")
+        logger.warning(
+            "[Deprecated Config] Hyperparameter scan is retained for compatibility but runs without legacy evolutionary parallelization in JAXopt mode.")
 
         # This function will run the loop, save Excel/PNGs, and return the best dict
         best_lambdas = run_hyperparameter_scan(
@@ -881,14 +879,6 @@ def main():
         export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
 
     logger.info("[Done] Exported results saved.")
-
-    # 1. Scalar objective diagnostic plot
-    save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
-    logger.info("[Done] Scalar objective diagnostic plot saved.")
-
-    # 2. Parallel Coordinate Plot
-    save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
-    logger.info("[Done] Parallel Coordinate plot saved.")
 
     # 3. Convergence Video
     create_convergence_video(res, output_dir=args.output_dir)

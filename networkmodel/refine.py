@@ -18,5 +18,6 @@ def get_refined_bounds(X, current_xl, current_xu, idx=None, padding=0.2):
 
 
 def run_iterative_refinement(problem, res, args, idx=None, max_passes=1, padding=0.25):
-    logger.warning("[Deprecated Config] refine is accepted but scalar JAXopt mode already performs deterministic local optimization; returning current result.")
+    logger.warning(
+        "[Deprecated Config] refine is accepted but scalar JAXopt mode already performs deterministic local optimization; returning current result.")
     return res

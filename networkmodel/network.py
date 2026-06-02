@@ -201,7 +201,7 @@ class System:
     The central Simulation Object.
 
     Holds:
-    1.  Parameters (Arrays $A_i, B_i, \dots$).
+    1.  Parameters (Arrays $A_i, B_i, dots$).
     2.  Network Topology Matrices (Sparse CSR format).
     3.  Initial Conditions logic.
     4.  The `rhs` method (Python-side derivative calculation).
@@ -333,10 +333,10 @@ class System:
 
         Logic Flow:
         1.  **Live-Drive:** Calculate Kinase Activity $Kt = K_{data}(t) \times c_k$.
-        2.  **Signaling:** Calculate Phospho-Drive $S = W \cdot Kt$.
+        2.  **Signaling:** Calculate Phospho-Drive $S = W dot Kt$.
         3.  **Protein Aggregation:** Sum phospho-states to get total protein $P$.
             *Crucially*, if a protein is a Kinase (or Proxy), overwrite its value with $Kt$.
-        4.  **Regulation:** Calculate TF inputs $TF_{in} = TF_{mat} \cdot P$.
+        4.  **Regulation:** Calculate TF inputs $TF_{in} = TF_{mat} dot P$.
         5.  **Dynamics:** Call model-specific `_rhs` kernel.
         """
         dy = np.zeros_like(y)
