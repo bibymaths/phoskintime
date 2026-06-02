@@ -535,6 +535,14 @@ def main():
     loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
     loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
     loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+    logger.info(
+        "[GlobalObjective] Loss data mapped with %s state layout; phospho rows=%d; lambda_phospho=%g",
+        loss_data.get("state_layout", "standard"),
+        int(loss_data.get("n_ph", 0)),
+        float(args.lambda_phospho),
+    )
+    if float(args.lambda_phospho) == 0.0 and int(loss_data.get("n_ph", 0)) > 0:
+        logger.warning("[GlobalObjective] Phospho data are present but --lambda-phospho is zero.")
 
     # 6) Decision vector bounds
 
@@ -623,7 +631,7 @@ def main():
         params=np.asarray(best_x, dtype=float),
         state=opt_state,
         data_mode=mode,
-        loss_breakdown={},
+        loss_breakdown=dict(problem.final_loss_breakdown),
     )
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
@@ -822,15 +830,15 @@ def main():
     with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
         json.dump(p_out, f, indent=2)
 
-    # Write picked objective values
-    picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "phospho_mse": float(F[I, 2]),
-              "scalar_score": float(
-                  args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
+    # Write picked objective values. Global JAXopt now returns a scalar F with
+    # per-modality components captured from the scalar objective breakdown.
+    scalar_score = float(np.asarray(F[I]).reshape(-1)[0])
+    picked = {"scalar_score": scalar_score}
+    picked.update({k: float(v) for k, v in getattr(res, "loss_breakdown", {}).items()})
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
-    logger.info(
-        f"[Loss] Solution: prot_mse={picked['prot_mse']:.6f}, rna_mse={picked['rna_mse']:.6f}, phospho_mse={picked['phospho_mse']:.6f}, scalar_score={picked['scalar_score']:.6f}")
+    logger.info("[Loss] Picked scalar objective breakdown: %s", picked)
 
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
     logger.info("[Done] Goodness of Fit plot saved.")
