@@ -6,6 +6,7 @@ import pytest
 from config.constants import get_num_params, get_param_names
 from config.helpers import generate_randmod_subsets, randmod_subset_masks
 from protwise.paramest.normest import _normalize_bounds, aggregate_randmod_phospho, to_opt_space, from_opt_space
+from protwise.models.diffrax_solver import aggregate_randmod_site_phospho
 
 
 def test_parameter_names_match_counts_for_all_local_models():
@@ -43,6 +44,12 @@ def test_randmod_phospho_aggregation_includes_multisite_states():
     ph = np.asarray(aggregate_randmod_phospho(sol, 3))
     assert ph.tolist() == pytest.approx([[131.0], [142.0], [153.0]])
 
+
+
+def test_randmod_public_solve_helper_matches_objective_aggregation():
+    # Public solve_ode p_fit uses the same site-level aggregation as the objective.
+    sol = np.asarray([[0.0, 0.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0]])
+    assert aggregate_randmod_site_phospho(sol, 3).tolist() == pytest.approx([[131.0], [142.0], [153.0]])
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
     calls = []

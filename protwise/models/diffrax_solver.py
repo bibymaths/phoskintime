@@ -90,6 +90,27 @@ def _rand_rhs(t, y, params, num_psites: int, subset_masks: tuple[int, ...], mask
     return jnp.concatenate([jnp.asarray([dR, dP], dtype=y.dtype), dX])
 
 
+
+def aggregate_randmod_site_phospho(sol, num_psites: int):
+    """Return randmod site-level phospho curves from subset-level states.
+
+    The JAX objective compares site-level phospho observations, so public
+    solve_ode output must also sum every subset state into each site it contains.
+    """
+    arr = np.asarray(sol)
+    n = int(num_psites)
+    if n <= 0:
+        return np.zeros((0, arr.shape[0]), dtype=arr.dtype)
+    subset_masks = randmod_subset_masks(n)
+    m = len(subset_masks)
+    subset_states = arr[:, 2 : 2 + m]
+    ph_site = np.zeros((n, arr.shape[0]), dtype=arr.dtype)
+    for site_idx in range(n):
+        containing = [idx for idx, mask in enumerate(subset_masks) if mask & (1 << site_idx)]
+        if containing:
+            ph_site[site_idx, :] = np.sum(subset_states[:, containing], axis=1)
+    return ph_site
+
 def make_local_model_rhs(model_name: str | None, num_psites: int):
     """Return a Diffrax-compatible RHS matching the selected local ODE model."""
     model = _canonical_model_name(model_name)
@@ -136,5 +157,10 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
         sol = sol / norm_init[np.newaxis, :]
     r_fitted = sol[5:, 0].T if sol.shape[0] > 5 else sol[:, 0].T
     pr_fitted = sol[:, 1].T if sol.shape[1] > 1 else np.asarray([], dtype=sol.dtype)
-    p_fitted = sol[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol.dtype)
+    if model == "randmod" and num_psites:
+        # Randmod exposes subset states internally, but post-fit plots expect the
+        # same site-aggregated phospho signal used by the JAX objective/loss.
+        p_fitted = aggregate_randmod_site_phospho(sol, num_psites)
+    else:
+        p_fitted = sol[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol.dtype)
     return sol, np.concatenate((np.ravel(r_fitted), np.ravel(pr_fitted), np.ravel(p_fitted)))
