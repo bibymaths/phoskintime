@@ -36,6 +36,13 @@ class GlobalODEScalarObjective:
         self.time_grid = np.asarray(time_grid, dtype=np.float64)
         self.xl = np.asarray(xl, dtype=np.float64)
         self.xu = np.asarray(xu, dtype=np.float64)
+        theta_len = sum(int(sl.stop) - int(sl.start) for sl in slices.values())
+        if self.xl.shape != self.xu.shape or self.xl.ndim != 1:
+            raise ValueError(f"xl/xu must be same-length 1D vectors, got {self.xl.shape} and {self.xu.shape}")
+        if theta_len != self.xl.size:
+            raise ValueError(f"Slice layout length {theta_len} does not match bounds length {self.xl.size}")
+        if "alpha" in slices or "beta" in slices:
+            raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
         self.n_var = len(self.xl)
         self.n_obj = 1
         self.fail_value = float(fail_value)
@@ -60,6 +67,8 @@ class GlobalODEScalarObjective:
             prior_weight=float(self.lambdas.get("prior", 0.0)),
             networkmodel_layout=True,
             y0=y0,
+            sys=sys,
+            slices=slices,
         )
         self._objective_raw = make_simple_objective(
             loss_data,
@@ -70,6 +79,8 @@ class GlobalODEScalarObjective:
             networkmodel_layout=True,
             return_breakdown=True,
             y0=y0,
+            sys=sys,
+            slices=slices,
         )
         self.final_loss_breakdown = {}
 
@@ -84,8 +95,15 @@ class GlobalODEScalarObjective:
         out["F"] = np.asarray([self.evaluate(x)], dtype=np.float64)
 
     def solve(self, theta0, maxiter=50, tol=1e-6):
+        theta0 = np.asarray(theta0, dtype=np.float64)
+        logger.info("[GlobalObjective] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, self.xl.shape, self.xu.shape)
+        if theta0.shape != self.xl.shape or theta0.shape != self.xu.shape:
+            raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {self.xl.shape}, {self.xu.shape}")
         params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter,
                                                          tol=tol, logger_obj=logger)
+        for name, sl in self.slices.items():
+            delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
+            logger.info("[Optimizer] Parameter group movement %s: max_abs_delta=%.8g", name, float(delta))
         raw_val, breakdown = self._objective_raw(jnp.asarray(params, dtype=jnp.float64))
         self.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
         logger.info("[GlobalObjective] Final per-modality loss: %s", self.final_loss_breakdown)

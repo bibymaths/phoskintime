@@ -505,12 +505,12 @@ def main():
     defaults = {
         "c_k": c_k_init,
         "A_i": np.ones(idx.N),
-        "B_i": np.full(idx.N, 0.2),
+        "B_i": np.full(idx.N, 0.05),
         "C_i": np.full(idx.N, 0.5),
         "D_i": np.full(idx.N, 0.05),
-        "Dp_i": np.full(idx.total_sites, 0.05),
+        "Dp_i": np.full(idx.total_sites, 0.1),
         "E_i": np.ones(idx.N),
-        "tf_scale": 0.1
+        "tf_scale": 1.0
     }
 
     # Model system of Data IO + ODE + solver + optimization
@@ -549,8 +549,16 @@ def main():
     # Calculate optimal bounds based on network topology and data constraints
     custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
 
-    # Initialize raw params using these custom bounds for optimization
+    # Initialize raw params using these custom bounds for optimization.
+    # The theta layout intentionally excludes network alpha/beta construction weights.
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
+    logger.info("[Optimizer] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, xl.shape, xu.shape)
+    if theta0.shape != xl.shape or theta0.shape != xu.shape:
+        raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {xl.shape}, {xu.shape}")
+    if "alpha" in slices or "beta" in slices:
+        raise ValueError("alpha/beta are fixed network weights and must not be optimized")
+    for _name, _sl in slices.items():
+        logger.info("[Optimizer] theta group %-8s slice=(%d,%d) size=%d", _name, _sl.start, _sl.stop, _sl.stop - _sl.start)
 
     opt_proteins, opt_sites, opt_kinases = get_optimized_sets(idx, slices, xl, xu)
 

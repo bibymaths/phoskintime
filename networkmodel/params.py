@@ -57,9 +57,9 @@ def init_raw_params(defaults, custom_bounds=None):
 
     # 1. Iterate over array-based parameters (Genes/Proteins)
     # These are vectors of length N (number of proteins)
-    for k in ["c_k", "A_i", "B_i", "C_i", "D_i", "Dp_i", "E_i"]:
+    for k in ["A_i", "B_i", "C_i", "D_i", "E_i", "c_k", "tf_scale", "Dp_i"]:
         # Transform Physical -> Raw
-        raw = inv_softplus(defaults[k])
+        raw = inv_softplus(np.atleast_1d(np.asarray(defaults[k], dtype=float)))
         vecs.append(raw)
 
         # Record the slice for this parameter group
@@ -81,24 +81,15 @@ def init_raw_params(defaults, custom_bounds=None):
         # Extend bounds list for every element in this parameter vector
         bounds.extend([(raw_min, raw_max)] * length)
 
-    # 2. Handle scalar tf_scale (Global scaling factor)
-    raw_tf = inv_softplus(np.array([defaults["tf_scale"]]))
-    vecs.append(raw_tf)
-    slices["tf_scale"] = slice(curr, curr + 1)
-
-    if "tf_scale" in custom_bounds:
-        phys_min, phys_max = custom_bounds["tf_scale"]
-    else:
-        phys_min, phys_max = BOUNDS_CONFIG["tf_scale"]
-
-    raw_min = inv_softplus(np.array([phys_min]))[0]
-    raw_max = inv_softplus(np.array([phys_max]))[0]
-    bounds.append((raw_min, raw_max))
-
-    # 3. Assemble final vectors
+    # 2. Assemble final vectors
     theta0 = np.concatenate(vecs)
     xl = np.array([b[0] for b in bounds], dtype=float)
     xu = np.array([b[1] for b in bounds], dtype=float)
+
+    if theta0.shape != xl.shape or theta0.shape != xu.shape:
+        raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {xl.shape}, {xu.shape}")
+    if "alpha" in slices or "beta" in slices:
+        raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
 
     return theta0, slices, xl, xu
 

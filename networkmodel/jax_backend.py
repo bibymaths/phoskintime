@@ -135,6 +135,138 @@ def _default_rhs(t, y, args):
     return base - (0.05 + jnp.abs(base)) * y
 
 
+
+def _unpack_theta_jax(theta, slices):
+    """Unpack raw optimizer theta into physical JAX arrays using params.py slice layout."""
+    return {
+        "A_i": jax.nn.softplus(theta[slices["A_i"]]),
+        "B_i": jax.nn.softplus(theta[slices["B_i"]]),
+        "C_i": jax.nn.softplus(theta[slices["C_i"]]),
+        "D_i": jax.nn.softplus(theta[slices["D_i"]]),
+        "E_i": jax.nn.softplus(theta[slices["E_i"]]),
+        "c_k": jax.nn.softplus(theta[slices["c_k"]]),
+        "tf_scale": jax.nn.softplus(theta[slices["tf_scale"]])[0],
+        "Dp_i": jax.nn.softplus(theta[slices["Dp_i"]]),
+    }
+
+
+def make_networkmodel_rhs(sys, slices=None):
+    """Build a JAX RHS matching the global networkmodel state layout.
+
+    The RHS keeps all state reads anchored on idx.offset_y[i], so every protein
+    reads its own mRNA/protein/phosphosite block instead of accidentally sharing
+    state zero or the first phosphosite block.
+    """
+    from networkmodel.config import MODEL
+
+    idx = sys.idx
+    offsets = jnp.asarray(idx.offset_y, dtype=jnp.int32)
+    site_offsets = jnp.asarray(idx.offset_s, dtype=jnp.int32)
+    n_sites = jnp.asarray(idx.n_sites, dtype=jnp.int32)
+    n_states = jnp.asarray(getattr(idx, "n_states", np.ones(idx.N, dtype=np.int32)), dtype=jnp.int32)
+    W = jnp.asarray(sys.W_global.toarray(), dtype=jnp.float64)
+    TF = jnp.asarray(sys.tf_mat.toarray(), dtype=jnp.float64)
+    tf_deg = jnp.asarray(sys.tf_deg, dtype=jnp.float64)
+    kin_grid = jnp.asarray(sys.kin.grid, dtype=jnp.float64)
+    kin_Kmat = jnp.asarray(sys.kin.Kmat, dtype=jnp.float64)
+    driver_map_np = np.full(idx.N, -1, dtype=np.int32)
+    for k_name in idx.kinases:
+        if k_name in idx.p2i:
+            driver_map_np[idx.p2i[k_name]] = idx.k2i[k_name]
+    if hasattr(idx, "proxy_map"):
+        for orphan, proxy in idx.proxy_map.items():
+            if orphan in idx.p2i and proxy in idx.k2i:
+                driver_map_np[idx.p2i[orphan]] = idx.k2i[proxy]
+    driver_map = jnp.asarray(driver_map_np, dtype=jnp.int32)
+    model_id = int(MODEL)
+    N = int(idx.N)
+    max_sites = int(np.max(idx.n_sites)) if idx.N else 0
+    max_states = int(np.max(getattr(idx, "n_states", np.ones(idx.N, dtype=np.int32)))) if idx.N else 1
+
+    def _params(args):
+        if isinstance(args, dict):
+            return args
+        if slices is not None:
+            return _unpack_theta_jax(jnp.asarray(args, dtype=jnp.float64), slices)
+        c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale = args
+        tf_scale = jnp.ravel(tf_scale)[0]
+        return {"c_k": c_k, "A_i": A_i, "B_i": B_i, "C_i": C_i, "D_i": D_i, "Dp_i": Dp_i, "E_i": E_i, "tf_scale": tf_scale}
+
+    def _synth(Ai, tf_scale, u_raw):
+        u = u_raw / (1.0 + jnp.abs(u_raw))
+        return jnp.where(
+            u >= 0.0,
+            Ai * (1.0 + (tf_scale * u) / (1.0 + u + 1e-6)),
+            Ai / (1.0 + tf_scale * jnp.abs(u)),
+        )
+
+    def rhs(t, y, args):
+        par = _params(args)
+        K_raw = jax.vmap(lambda row: jnp.interp(t, kin_grid, row))(kin_Kmat)
+        Kt = K_raw * par["c_k"]
+        S_all = W @ Kt
+
+        p_vals = []
+        for i in range(N):
+            off = offsets[i]
+            drv = driver_map[i]
+            if model_id == 2:
+                ar = jnp.arange(max_states, dtype=jnp.int32)
+                valid = ar < n_states[i]
+                pos = jnp.minimum(off + 1 + ar, y.shape[0] - 1)
+                vals = jnp.where(valid, y[pos], 0.0)
+                total_p = jnp.sum(vals)
+            else:
+                ar = jnp.arange(max_sites, dtype=jnp.int32)
+                valid = ar < n_sites[i]
+                pos = jnp.minimum(off + 2 + ar, y.shape[0] - 1)
+                vals = jnp.where(valid, y[pos], 0.0)
+                total_p = y[off + 1] + jnp.sum(vals)
+            p_vals.append(jnp.where(drv >= 0, Kt[jnp.maximum(drv, 0)], total_p))
+        P_vec = jnp.stack(p_vals) if p_vals else jnp.asarray([], dtype=jnp.float64)
+        TF_inputs = TF @ P_vec
+        TF_inputs = (TF_inputs / tf_deg) / (1.0 + jnp.abs(TF_inputs / tf_deg))
+
+        dy = jnp.zeros_like(y)
+        for i in range(N):
+            off = offsets[i]
+            s_off = site_offsets[i]
+            ns = n_sites[i]
+            R = y[off]
+            synth = _synth(par["A_i"][i], par["tf_scale"], TF_inputs[i])
+            dy = dy.at[off].set(synth - par["B_i"][i] * R)
+            if model_id == 2:
+                # Conservative combinatorial fallback: apply gene dynamics to state 0 and
+                # site turnover to occupied bit states while preserving per-protein offsets.
+                p0 = off + 1
+                ar_state = jnp.arange(max_states, dtype=jnp.int32)
+                pos_state = jnp.minimum(p0 + ar_state, y.shape[0] - 1)
+                total = jnp.sum(jnp.where(ar_state < n_states[i], y[pos_state], 0.0))
+                dy = dy.at[p0].add(par["C_i"][i] * R - par["D_i"][i] * total)
+            else:
+                P = y[off + 1]
+                ar = jnp.arange(max_sites, dtype=jnp.int32)
+                valid = ar < ns
+                site_pos = jnp.minimum(off + 2 + ar, y.shape[0] - 1)
+                flat_pos = jnp.minimum(s_off + ar, S_all.shape[0] - 1)
+                site_y = jnp.where(valid, y[site_pos], 0.0)
+                s_rates = jnp.where(valid, S_all[flat_pos], 0.0)
+                dp = jnp.where(valid, par["Dp_i"][flat_pos], 0.0)
+                if model_id == 4:
+                    fwd = (s_rates * P) / (1.0 + P)
+                    trans = (par["C_i"][i] * R) / (1.0 + R)
+                else:
+                    fwd = s_rates * P
+                    trans = par["C_i"][i] * R
+                back = par["E_i"][i] * site_y
+                site_dy = fwd - (par["E_i"][i] + dp + par["D_i"][i]) * site_y
+                dy = dy.at[site_pos].add(jnp.where(valid, site_dy, 0.0))
+                dy = dy.at[off + 1].set(trans - par["D_i"][i] * P - jnp.sum(fwd) + jnp.sum(back))
+        return dy
+
+    return rhs
+
+
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
     """Solve an ODE with Diffrax Kvaerno4/Kvaerno5 and return (time, state)."""
     ensure_jax_float64()
@@ -156,7 +288,12 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
     y0_j = jnp.asarray(y0, dtype=jnp.float64)
     if params is None:
         params = jnp.ones(max(1, y0_j.size), dtype=jnp.float64)
-    args = jnp.asarray(params, dtype=jnp.float64)
+    if isinstance(params, (tuple, list)):
+        args = tuple(jnp.asarray(x, dtype=jnp.float64) for x in params)
+    elif isinstance(params, dict):
+        args = {k: jnp.asarray(v, dtype=jnp.float64) for k, v in params.items()}
+    else:
+        args = jnp.asarray(params, dtype=jnp.float64)
 
     term = diffrax.ODETerm(rhs or _default_rhs)
     try:
@@ -416,7 +553,7 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
 
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
                           prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
-                          y0=None):
+                          y0=None, sys=None, slices=None):
     validate_loss_data(loss_data, mode)
     t = jnp.asarray(time_grid, dtype=jnp.float64)
     prot_map = np.asarray(loss_data["prot_map"])
@@ -427,12 +564,20 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
     else:
         state_dim = 2
     y0 = jnp.ones(state_dim, dtype=jnp.float64) if y0 is None else jnp.asarray(y0, dtype=jnp.float64)
+    if y0.shape[0] != state_dim:
+        raise ValueError(f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
+    model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
     defaults_j = None if defaults is None else jnp.asarray(defaults, dtype=jnp.float64)
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
-        rates = jax.nn.softplus(theta)
-        Y = solve_diffrax(y0, t, params=rates)
+        if model_rhs is not None:
+            Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs)
+        else:
+            rates = jax.nn.softplus(theta)
+            Y = solve_diffrax(y0, t, params=rates)
+        if Y.shape[1] != state_dim:
+            raise ValueError(f"Solved trajectory state width {Y.shape[1]} does not match expected {state_dim}.")
         total, breakdown = multimodal_loss_from_trajectory(
             Y, loss_data, mode, weights=weights, networkmodel_layout=networkmodel_layout
         )
