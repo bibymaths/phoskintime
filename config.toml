@@ -280,23 +280,23 @@ seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZER SELECTION
 # ------------------------------------------------------------
-optimizer = "pymoo"          # Legacy value accepted; PhosKinTime global maps to jaxopt
+# removed: optimizer — legacy evolutionary/Optuna selector; networkmodel always uses JAXopt
 
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Optuna)
 # ------------------------------------------------------------
-study_name = "phoskintime_networkmodel_ABL2_jax"  # Optuna study name
-sampler    = "TPESampler"           # Optuna sampler: TPESampler, RandomSampler, CMAESampler
-pruner     = "MedianPruner"         # Optuna pruner: MedianPruner, NopPruner, SuccessiveHalvingPruner
-n_trials  = 1000                      # Number of Optuna trials
+# removed: study_name — legacy Optuna study setting; networkmodel always uses JAXopt
+# removed: sampler — legacy Optuna sampler setting; networkmodel always uses JAXopt
+# removed: pruner — legacy Optuna pruner setting; networkmodel always uses JAXopt
+# removed: n_trials — legacy Optuna trial count; networkmodel always uses JAXopt
 
 # ------------------------------------------------------------
-# OPTIMIZATION PARAMETERS (Pymoo)
+# OPTIMIZATION PARAMETERS (JAXopt)
 # ------------------------------------------------------------
-n_gen      = 20000                       # Generations (runner arg: --n-gen)
-pop        = 300                       # Population size (runner arg: --pop)
-refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 0                       # Number of refinements
+n_gen      = 20000                       # Maximum local optimizer iterations (runner arg: --n-gen)
+# removed: pop — legacy evolutionary population size; JAXopt local optimization does not use populations
+# removed: refine — legacy second-pass refinement; scalar JAXopt mode is already deterministic local optimization
+# removed: num_refinements — legacy refinement iteration count; scalar JAXopt mode does not run refinement passes
 loss = 0
 # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
 # -1 for Charbonnier Loss
@@ -355,6 +355,19 @@ sensitivity_top_curves = 20              # Number of top curves to plot in sensi
 sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "variance", "l2_norm"]
 # ------------------------------------------------------------
 
+# ------------------------------------------------------------
+# INFERENCE / POST-OPTIMIZATION ANALYSES
+# ------------------------------------------------------------
+# --- Inference / Multistart ---
+n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
+# --- Profile Likelihood (post-optimization) ---
+profile_likelihood = false
+profile_indices = ""       # comma-separated parameter indices e.g. "0,1,5"
+profile_grid_size = 10
+# --- Posterior Sampling (post-optimization, requires numpyro) ---
+posterior_sampling = false
+posterior_num_warmup = 20
+posterior_num_samples = 30
 
 # MODEL & BOUNDS CONFIGURATION
 # ------------------------------------------------------------
@@ -403,4 +416,4 @@ default_model = "distributive"
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = false
+# removed: use_custom_solver — legacy custom ODE backend toggle; networkmodel always uses Diffrax Kvaerno
