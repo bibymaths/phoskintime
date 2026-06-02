@@ -308,7 +308,16 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
     if not np.isfinite(val_f):
         log.error("[Optimizer] JAXopt failed: final scalar objective is not finite (%s).", val_f)
         raise RuntimeError("JAXopt optimization failed: final scalar objective is not finite.")
-    log.info("[Optimizer] Convergence status: iterations=%s final scalar objective=%.8g", getattr(state, "iter_num", "unknown"), val_f)
+    try:
+        grad_norm = float(jnp.linalg.norm(jax.grad(objective_fun)(params)))
+    except Exception:  # diagnostic only; keep optimization result usable if grad logging fails
+        grad_norm = float("nan")
+    log.info(
+        "[Optimizer] Convergence status: iterations=%s final scalar objective=%.8g grad_norm=%.8g",
+        getattr(state, "iter_num", "unknown"),
+        val_f,
+        grad_norm,
+    )
     return np.asarray(params), state, val_f
 
 
