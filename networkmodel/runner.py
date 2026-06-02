@@ -629,7 +629,7 @@ def main():
         f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, "
         f"{loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points"
     )
-    configure_jax_parallelism(max_workers=CORES, logger_obj=logger)
+    configure_jax_parallelism(max_workers=args.cores, logger_obj=logger)
     ctx = InferenceContext(
         objective_fun=problem.objective,
         theta0=theta0,
@@ -643,7 +643,7 @@ def main():
     )
     if N_STARTS > 1:
         try:
-            ms = run_multistart(ctx, n_starts=N_STARTS, seed=SEED, max_workers=CORES)
+            ms = run_multistart(ctx, n_starts=N_STARTS, seed=args.seed, max_workers=args.cores)
             best_row = ms["best"].drop(
                 columns=["start_id", "seed", "success", "selected_best"],
                 errors="ignore",
@@ -651,6 +651,13 @@ def main():
             best_x = np.asarray(best_row.values, dtype=np.float64)
             best_f = float(ms["summary"].loc[ms["summary"]["selected_best"], "final_objective"].iloc[0])
             opt_state = None
+            # Repopulate problem.final_loss_breakdown from the winning parameters.
+            try:
+                objective_raw = getattr(problem, "objective_raw", problem._objective_raw)
+                _, breakdown = objective_raw(best_x)
+                problem.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
+            except Exception as e:
+                logger.warning("Could not repopulate loss breakdown after multistart: %s", e)
         except RuntimeError:
             logger.warning("Multistart failed; falling back to single-start solve.")
             best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
@@ -666,6 +673,19 @@ def main():
         data_mode=mode,
         loss_breakdown=dict(problem.final_loss_breakdown),
     )
+    # Replace the original ctx with a post-optimization version.
+    # Only theta0 changes — everything else is identical.
+    ctx = InferenceContext(
+        objective_fun=problem.objective,
+        theta0=best_x,
+        lower=xl,
+        upper=xu,
+        mode=mode,
+        output_dir=args.output_dir,
+        parameter_names=None,
+        maxiter=args.n_gen,
+        tol=1e-6,
+    )
     if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
         profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
         run_profile_likelihood(ctx, parameter_indices=profile_indices,
@@ -674,7 +694,7 @@ def main():
     if POSTERIOR_SAMPLING:
         try:
             run_numpyro_posterior(ctx, num_warmup=POSTERIOR_NUM_WARMUP,
-                                  num_samples=POSTERIOR_NUM_SAMPLES, seed=SEED)
+                                  num_samples=POSTERIOR_NUM_SAMPLES, seed=args.seed)
             logger.info("Posterior sampling complete.")
         except RuntimeError as e:
             logger.warning("Posterior sampling skipped: %s", e)
