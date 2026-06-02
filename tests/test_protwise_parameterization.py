@@ -70,10 +70,12 @@ def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
 
     monkeypatch.setattr(dfs, "NORMALIZE_MODEL_OUTPUT", True)
     monkeypatch.setattr(dfs, "solve_diffrax", lambda *args, **kwargs: raw_sol)
-    _, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0], model_name="randmod")
+    sol_site, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0], model_name="randmod")
     # r has 2 points, protein has 2 points, then 3 site-level phospho curves.
     phospho_flat = flat[4:]
-    assert phospho_flat.reshape(3, 2).tolist() == pytest.approx([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]])
+    expected = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
+    assert phospho_flat.reshape(3, 2).tolist() == pytest.approx(expected)
+    assert sol_site[:, 2:5].T.tolist() == pytest.approx(expected)
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
     calls = []

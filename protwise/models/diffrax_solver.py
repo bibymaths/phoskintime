@@ -152,25 +152,26 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     )
     sol_raw = np.clip(sol, 0, None)
 
+    if NORMALIZE_MODEL_OUTPUT:
+        norm_init = np.asarray(init_cond, dtype=sol_raw.dtype)
+        norm_init = np.where(norm_init == 0, 1.0, norm_init)
+        sol_out = sol_raw / norm_init[np.newaxis, :]
+    else:
+        sol_out = sol_raw.copy()
+
     if model == "randmod" and num_psites:
-        # Aggregate raw subset states first, then normalize per site. Normalizing
-        # each subset before summing would make every site start at the number of
-        # subsets containing it rather than at 1.0, unlike the JAX objective.
+        # Sensitivity/plotting callers read solution[:, 2:2+num_psites] as
+        # site-level phospho. Randmod stores subset states internally, so expose a
+        # site-level view in those columns while keeping the flattened fit matched
+        # to the JAX objective. Normalize after aggregation when requested.
         p_fitted = aggregate_randmod_site_phospho(sol_raw, num_psites)
         if NORMALIZE_MODEL_OUTPUT:
             init_vals = p_fitted[:, 0:1]
             p_fitted = np.where(init_vals != 0, p_fitted / init_vals, p_fitted)
+        sol_out[:, 2:2 + num_psites] = p_fitted.T
     else:
-        p_fitted = sol_raw[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol_raw.dtype)
+        p_fitted = sol_out[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol_out.dtype)
 
-    sol = sol_raw
-    if NORMALIZE_MODEL_OUTPUT:
-        norm_init = np.asarray(init_cond, dtype=sol.dtype)
-        norm_init = np.where(norm_init == 0, 1.0, norm_init)
-        sol = sol / norm_init[np.newaxis, :]
-        if model != "randmod":
-            p_fitted = sol[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol.dtype)
-
-    r_fitted = sol[5:, 0].T if sol.shape[0] > 5 else sol[:, 0].T
-    pr_fitted = sol[:, 1].T if sol.shape[1] > 1 else np.asarray([], dtype=sol.dtype)
-    return sol, np.concatenate((np.ravel(r_fitted), np.ravel(pr_fitted), np.ravel(p_fitted)))
+    r_fitted = sol_out[5:, 0].T if sol_out.shape[0] > 5 else sol_out[:, 0].T
+    pr_fitted = sol_out[:, 1].T if sol_out.shape[1] > 1 else np.asarray([], dtype=sol_out.dtype)
+    return sol_out, np.concatenate((np.ravel(r_fitted), np.ravel(pr_fitted), np.ravel(p_fitted)))
