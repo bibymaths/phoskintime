@@ -1,9 +1,4 @@
-"""Inference utilities for PhosKinTime scalar JAXopt/Diffrax models.
-
-The functions here operate on a caller-provided scalar JAX objective and numeric
-parameter vectors. They are shared by networkmodel and protwise wrappers and keep
-pandas/matplotlib work outside differentiated functions.
-"""
+"""Run multistart optimization, profile-likelihood scans, and optional NumPyro posterior sampling around the scalar JAX objective; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.jax_backend."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,6 +28,7 @@ logger = logging.getLogger()
 
 @dataclass(frozen=True)
 class InferenceContext:
+    """Store inputs shared by post-optimization inference routines"""
     objective_fun: Callable
     theta0: np.ndarray
     lower: np.ndarray
@@ -49,7 +45,16 @@ class InferenceContext:
     tol: float = 1e-6
 
     def build_worker_kwargs(self, start_id: int, seed: int, theta_start: np.ndarray) -> dict:
-        """Create an immutable per-worker copy of numeric residual/loss metadata."""
+        """Build keyword arguments for a multistart worker
+        
+        Args:
+            start_id: Input value used by this routine.
+            seed: Input value used by this routine.
+            theta_start: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        """
         return {
             "start_id": int(start_id),
             "seed": int(seed),
@@ -70,7 +75,15 @@ class InferenceContext:
 
 
 def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -> dict:
-    """Set conservative thread env defaults before JAX work and report strategy."""
+    """Configure JAX host parallelism environment variables
+    
+    Args:
+        max_workers: Input value used by this routine.
+        logger_obj: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     workers = max(1, int(max_workers or 1))
     for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         os.environ.setdefault(key, "1")
@@ -88,6 +101,20 @@ def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -
 
 def generate_multistart_initials(theta0, lower, upper, n_starts: int, seed: int, fixed_mask=None, fixed_values=None) -> \
 list[np.ndarray]:
+    """Generate bounded initial vectors for multistart optimization
+    
+    Args:
+        theta0: Input value used by this routine.
+        lower: Input value used by this routine.
+        upper: Input value used by this routine.
+        n_starts: Input value used by this routine.
+        seed: Input value used by this routine.
+        fixed_mask: Input value used by this routine.
+        fixed_values: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     rng = np.random.default_rng(int(seed))
     theta0 = np.asarray(theta0, dtype=np.float64)
     lower = np.asarray(lower, dtype=np.float64)
@@ -100,6 +127,7 @@ list[np.ndarray]:
 
 
 def _param_names(n: int, names: Sequence[str] | None) -> list[str]:
+    """Handle internal param names"""
     if names is None:
         return [f"param_{i}" for i in range(n)]
     out = list(names)
@@ -109,6 +137,7 @@ def _param_names(n: int, names: Sequence[str] | None) -> list[str]:
 
 
 def _run_one_start(ctx: InferenceContext, start_id: int, seed: int, theta_start: np.ndarray) -> tuple[dict, np.ndarray]:
+    """Handle internal run one start"""
     worker_kwargs = ctx.build_worker_kwargs(start_id, seed, theta_start)
     begin = time.perf_counter()
     try:
@@ -162,6 +191,21 @@ def _run_one_start(ctx: InferenceContext, start_id: int, seed: int, theta_start:
 
 
 def run_multistart(ctx: InferenceContext, *, n_starts: int = 4, seed: int = 0, max_workers: int = 1) -> dict:
+    """Run scalar optimization from multiple starting points
+    
+    Args:
+        ctx: Input value used by this routine.
+        n_starts: Input value used by this routine.
+        seed: Input value used by this routine.
+        max_workers: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+        RuntimeError: When optimization or simulation fails.
+    """
     out = Path(ctx.output_dir) / "optimization"
     plot_dir = Path(ctx.output_dir) / "plots" / "multistart"
     out.mkdir(parents=True, exist_ok=True)
@@ -217,6 +261,7 @@ def run_multistart(ctx: InferenceContext, *, n_starts: int = 4, seed: int = 0, m
 
 
 def _plot_multistart(summary: pd.DataFrame, params: pd.DataFrame, names: Sequence[str], plot_dir: Path) -> None:
+    """Handle internal plot multistart"""
     finite = summary[np.isfinite(summary["final_objective"])]
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.hist(finite["final_objective"], bins=max(1, min(10, len(finite))))
@@ -245,6 +290,16 @@ def _plot_multistart(summary: pd.DataFrame, params: pd.DataFrame, names: Sequenc
 
 
 def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence[int], grid_size: int = 5) -> dict:
+    """Run profile-likelihood sweeps for selected parameters
+    
+    Args:
+        ctx: Input value used by this routine.
+        parameter_indices: Input value used by this routine.
+        grid_size: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = Path(ctx.output_dir) / "profiles"
     plot_dir = Path(ctx.output_dir) / "plots" / "profile_likelihood"
     out.mkdir(parents=True, exist_ok=True);
@@ -294,6 +349,7 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
 
 
 def _plot_profile(df: pd.DataFrame, path: Path) -> None:
+    """Handle internal plot profile"""
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.plot(df["grid_value"], df["objective_value"], marker="o", label="objective")
     ax.set_xlabel("profiled parameter value")
@@ -307,6 +363,21 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
 
 
 def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_samples: int = 30, seed: int = 0) -> dict:
+    """Run optional NumPyro posterior sampling
+    
+    Args:
+        ctx: Input value used by this routine.
+        num_warmup: Input value used by this routine.
+        num_samples: Input value used by this routine.
+        seed: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+        RuntimeError: When optimization or simulation fails.
+    """
     try:
         import jax
         import jax.numpy as jnp
@@ -361,6 +432,7 @@ def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_sa
 
 
 def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
+    """Handle internal plot posterior"""
     numeric = [c for c in samples.columns if pd.api.types.is_numeric_dtype(samples[c])]
     for col in numeric[:3]:
         fig, ax = plt.subplots(figsize=(4, 3))

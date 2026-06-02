@@ -1,21 +1,4 @@
-"""
-Parameter Management and Transformation Module.
-
-This module handles the interface between the biological model (which requires
-positive physical parameters like rate constants) and the numerical optimizer
-(which operates on a flat vector of decision variables).
-
-**Key Concepts:**
-1.  **Positivity Constraint:** Biological rates cannot be negative. To enforce this
-    during optimization without using hard constraints, we use a **Softplus** transformation:
-    $$ P_{physical} = ln(1 + e^{\\theta_{raw}}) $$
-    This maps any real number $\\theta$ to a positive value $P$.
-2.  **Vectorization:** The optimizer expects a single 1D array (`theta`). This module
-    packs all distinct parameter arrays ($A_i, B_i, \dots$) into this vector and
-    maintains a `slices` dictionary to unpack them back.
-
-
-"""
+"""Create raw parameter vectors and unpack optimized vectors into named kinetic parameter arrays; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.utils."""
 
 import numpy as np
 
@@ -24,28 +7,17 @@ from networkmodel.utils import inv_softplus, softplus
 
 
 def init_raw_params(defaults, custom_bounds=None):
-    """
-    Initializes the decision vector and bounds for the optimizer.
-
-    This function performs three main tasks:
-    1.  **Transformation:** Converts default physical values to "raw" optimization space
-        using the inverse softplus function.
-    2.  **Flattening:** Concatenates all parameter arrays into a single 1D vector `theta0`.
-    3.  **Bounds Mapping:** Transforms physical bounds (min, max) into raw space bounds.
-
-
-
+    """Initialize raw optimizer parameters, slices, bounds, and defaults
+    
     Args:
-        defaults (dict): Dictionary of initial physical values (e.g., {'A_i': [0.1, ...], ...}).
-        custom_bounds (dict, optional): Dictionary of (min, max) tuples for specific keys.
-                                        Overrides the global `BOUNDS_CONFIG`.
-
+        defaults: Input value used by this routine.
+        custom_bounds: Input value used by this routine.
+    
     Returns:
-        tuple: A tuple containing:
-            - theta0 (np.ndarray): The initial flattened decision vector.
-            - slices (dict): Mapping of parameter names to slice objects for unpacking.
-            - xl (np.ndarray): Lower bounds vector in raw space.
-            - xu (np.ndarray): Upper bounds vector in raw space.
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     if custom_bounds is None:
         custom_bounds = {}
@@ -95,21 +67,14 @@ def init_raw_params(defaults, custom_bounds=None):
 
 
 def unpack_params(theta, slices):
-    """
-    Converts the raw decision vector back to physical parameters.
-
-    Applies the Softplus transformation:
-    $$ P = \\ln(1 + e^{\\theta}) $$
-    This ensures that all output parameters are strictly positive, regardless of
-    the values chosen by the optimizer.
-
+    """Unpack a raw optimizer vector into physical parameter arrays
+    
     Args:
-        theta (np.ndarray): The flat decision vector from the optimizer.
-        slices (dict): The slicing dictionary created by `init_raw_params`.
-
+        theta: Input value used by this routine.
+        slices: Input value used by this routine.
+    
     Returns:
-        dict: A dictionary of physical parameters keys (e.g., 'A_i', 'c_k') mapped
-              to positive numpy arrays or scalars.
+        Computed result from this routine.
     """
     return {
         "c_k": softplus(theta[slices["c_k"]]),

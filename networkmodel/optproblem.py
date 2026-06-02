@@ -1,4 +1,4 @@
-"""Single-objective JAX optimization wrapper for the PhosKinTime network model."""
+"""Wrap the scalar JAX objective and optimizer used by the runner; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.jax_backend."""
 from __future__ import annotations
 
 import logging
@@ -18,15 +18,42 @@ logger = logging.getLogger()
 
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):
-    """Backward-compatible weight hook; scalar objective uses provided per-row weights."""
+    """Build placeholder weight functions for scalar optimization
+    
+    Args:
+        method_protein: Input value used by this routine.
+        method_rna: Input value used by this routine.
+        time_grid: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     return {"protein": method_protein, "rna": method_rna, "time_grid": time_grid}
 
 
 class GlobalODEScalarObjective:
-    """JAX-compatible scalar objective replacing the legacy vector-objective problem."""
+    """Evaluate and solve the scalar global ODE objective"""
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12,
                  data_mode: DataMode | None = None, **_):
+        """Initialize GlobalODEScalarObjective
+        
+        Args:
+            sys: Input value used by this routine.
+            slices: Input value used by this routine.
+            loss_data: Input value used by this routine.
+            defaults: Input value used by this routine.
+            lambdas: Input value used by this routine.
+            time_grid: Input value used by this routine.
+            xl: Input value used by this routine.
+            xu: Input value used by this routine.
+            fail_value: Input value used by this routine.
+            data_mode: Input value used by this routine.
+            _: Input value used by this routine.
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
+        """
         ensure_jax_float64()
         self.sys = sys
         self.slices = slices
@@ -87,16 +114,46 @@ class GlobalODEScalarObjective:
         self.final_loss_breakdown = {}
 
     def objective(self, x):
+        """Evaluate the scalar objective
+        
+        Args:
+            x: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        """
         return self._objective(jnp.asarray(x, dtype=jnp.float64))
 
     def evaluate(self, x) -> float:
+        """Evaluate the scalar objective for compatibility callers
+        
+        Args:
+            x: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        """
         val = self.objective(x)
         return float(val) if np.isfinite(float(val)) else self.fail_value
 
     def _evaluate(self, x, out, *args, **kwargs):
+        """Handle internal evaluate"""
         out["F"] = np.asarray([self.evaluate(x)], dtype=np.float64)
 
     def solve(self, theta0, maxiter=50, tol=1e-6):
+        """Run scalar ProjectedGradient optimization
+        
+        Args:
+            theta0: Input value used by this routine.
+            maxiter: Input value used by this routine.
+            tol: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
+        """
         theta0 = np.asarray(theta0, dtype=np.float64)
         logger.info("[GlobalObjective] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, self.xl.shape, self.xu.shape)
         if theta0.shape != self.xl.shape or theta0.shape != self.xu.shape:
@@ -118,9 +175,15 @@ class GlobalODEScalarObjective:
 
 
 class GlobalODE_MOO(GlobalODEScalarObjective):
-    """Compatibility alias for old imports; routes to scalar JAX objective."""
+    """Reject removed multi-objective optimization usage"""
 
     def __init__(self, *args, **kwargs):
+        """Initialize GlobalODE_MOO
+        
+        Args:
+            args: Positional arguments forwarded to the runner.
+            kwargs: Keyword arguments forwarded to the runner.
+        """
         logger.warning(
             "[Deprecated API] GlobalODE_MOO now constructs a single-objective JAXopt problem, not a legacy multi-layer vector-objective problem.")
         super().__init__(*args, **kwargs)
