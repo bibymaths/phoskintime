@@ -201,6 +201,31 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
 
 
 @njit(cache=True, fastmath=True, nogil=True)
+def _zero_vec(a):
+    """JIT helper to zero out an array."""
+    for i in range(a.size):
+        a[i] = 0.0
+
+
+@njit(cache=True, fastmath=True, nogil=True)
+def time_bucket(t, grid):
+    """
+    Finds the index `j` such that `grid[j] <= t < grid[j+1]`.
+    Used for piecewise-constant input interpolation.
+    """
+    if t <= grid[0]:
+        return 0
+    if t >= grid[-1]:
+        return grid.size - 1
+    j = np.searchsorted(grid, t, side="right") - 1
+    if j < 0:
+        j = 0
+    if j >= grid.size:
+        j = grid.size - 1
+    return j
+
+
+@njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
     """
     Softplus activation: log(1 + exp(x)).
