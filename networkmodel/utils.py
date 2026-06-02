@@ -201,31 +201,6 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
 
 
 @njit(cache=True, fastmath=True, nogil=True)
-def _zero_vec(a):
-    """JIT helper to zero out an array."""
-    for i in range(a.size):
-        a[i] = 0.0
-
-
-@njit(cache=True, fastmath=True, nogil=True)
-def time_bucket(t, grid):
-    """
-    Finds the index `j` such that `grid[j] <= t < grid[j+1]`.
-    Used for piecewise-constant input interpolation.
-    """
-    if t <= grid[0]:
-        return 0
-    if t >= grid[-1]:
-        return grid.size - 1
-    j = np.searchsorted(grid, t, side="right") - 1
-    if j < 0:
-        j = 0
-    if j >= grid.size:
-        j = grid.size - 1
-    return j
-
-
-@njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
     """
     Softplus activation: log(1 + exp(x)).
@@ -251,53 +226,6 @@ def inv_softplus(y):
             yi = 1e-12
         out[i] = np.log(np.expm1(yi))
     return out
-
-
-@njit(cache=True, fastmath=True, nogil=True)
-def pick_best_lamdas(F, weights):
-    """
-    Selects the best scalar-objective solution from a compatibility solution table.
-    """
-    F = np.asarray(F, dtype=np.float64)
-    weights = np.asarray(weights, dtype=np.float64)
-
-    n = F.shape[0]
-    m = F.shape[1]
-
-    F_min = np.empty(m, dtype=np.float64)
-    F_ptp = np.empty(m, dtype=np.float64)
-
-    # Normalize objectives to [0, 1] range
-    for j in range(m):
-        mn = F[0, j]
-        mx = F[0, j]
-        for i in range(1, n):
-            v = F[i, j]
-            if v < mn:
-                mn = v
-            if v > mx:
-                mx = v
-        F_min[j] = mn
-        F_ptp[j] = (mx - mn) + 1e-12
-
-    best_i = 0
-    best_score = 0.0
-
-    s0 = 0.0
-    for j in range(m):
-        s0 += ((F[0, j] - F_min[j]) / F_ptp[j]) * weights[j]
-    best_score = s0
-
-    for i in range(1, n):
-        s = 0.0
-        for j in range(m):
-            s += ((F[i, j] - F_min[j]) / F_ptp[j]) * weights[j]
-        if s < best_score:
-            best_score = s
-            best_i = i
-
-    return best_i, float(best_score)
-
 
 @dataclass(frozen=True)
 class PhosKinConfig:
@@ -597,43 +525,6 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         available_models=available_models,
     )
-
-
-def get_parameter_labels(idx):
-    """Generates descriptive labels for all parameters in the flattened decision vector."""
-    labels = []
-
-    # 1. Kinase Scaling (c_k)
-    for k in idx.kinases:
-        labels.append(f"c_k (Kinase: {k})")
-
-    # 2. Protein-specific params (A, B, C, D, Dp, E)
-    # The order MUST match params.py -> unpack_params
-    for p_idx, p_name in enumerate(idx.proteins):
-        labels.append(f"A_i (Synthesis) [{p_name}]")
-        labels.append(f"B_i (Degradation) [{p_name}]")
-        labels.append(f"C_i (Phos-Rate) [{p_name}]")
-        labels.append(f"D_i (Dephos-Rate) [{p_name}]")
-
-        # Site-specific dephosphorylation (Dp_i)
-        n_sites = idx.n_sites[p_idx]
-        if n_sites > 0:
-            for s_idx in range(n_sites):
-                site_name = idx.sites[p_idx][s_idx]
-                labels.append(f"Dp_i (Site-Deg: {site_name}) [{p_name}]")
-        else:
-            # Even if 0 sites, params.py usually keeps a reserved entry for some models
-            # Check your unpack_params logic; if it's 1-per-protein, use:
-            # labels.append(f"Dp_i (Dephos-2) [{p_name}]")
-            pass
-
-        labels.append(f"E_i (TF-Effect) [{p_name}]")
-
-    # 3. Global TF Scale
-    labels.append("Global TF Scale")
-
-    return labels
-
 
 def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     """
