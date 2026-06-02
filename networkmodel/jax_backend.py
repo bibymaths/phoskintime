@@ -150,6 +150,32 @@ def _unpack_theta_jax(theta, slices):
     }
 
 
+def _flatten_params_for_slices_jax(params, slices):
+    """Flatten physical parameter arrays into the raw-theta slice order for priors."""
+    total = max((int(sl.stop) for sl in slices.values()), default=0)
+    flat = jnp.zeros(total, dtype=jnp.float64)
+    for name, sl in slices.items():
+        if name not in params:
+            raise ValueError(f"Missing parameter '{name}' for slice-based flattening.")
+        values = jnp.ravel(jnp.asarray(params[name], dtype=jnp.float64))
+        expected = int(sl.stop) - int(sl.start)
+        if values.size != expected:
+            raise ValueError(f"Parameter '{name}' has size {values.size}; expected {expected} from slice layout.")
+        flat = flat.at[sl].set(values)
+    return flat
+
+
+def _defaults_vector_jax(defaults, slices):
+    """Return physical defaults as a flat JAX vector, accepting dict or vector inputs."""
+    if defaults is None:
+        return None
+    if isinstance(defaults, Mapping):
+        if slices is None:
+            raise ValueError("Dictionary defaults require a slice layout.")
+        return _flatten_params_for_slices_jax(defaults, slices)
+    return jnp.asarray(defaults, dtype=jnp.float64)
+
+
 def make_networkmodel_rhs(sys, slices=None):
     """Build a JAX RHS matching the global networkmodel state layout.
 
@@ -609,11 +635,13 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
     if y0.shape[0] != state_dim:
         raise ValueError(f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
     model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
-    defaults_j = None if defaults is None else jnp.asarray(defaults, dtype=jnp.float64)
+    defaults_j = _defaults_vector_jax(defaults, slices)
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
         if model_rhs is not None:
+            physical_params = _unpack_theta_jax(theta, slices)
+            rates = _flatten_params_for_slices_jax(physical_params, slices)
             Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs)
         else:
             rates = jax.nn.softplus(theta)
