@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from networkmodel.config import MODEL, ODE_ABS_TOL, ODE_REL_TOL, ODE_MAX_STEPS
-from networkmodel.jax_backend import DiffraxSolverConfig, solve_diffrax
+from networkmodel.jax_backend import DiffraxSolverConfig, make_networkmodel_rhs, solve_diffrax
 
 
 def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):
@@ -21,7 +21,11 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
         max_steps=int(ODE_MAX_STEPS if max_steps is None else max_steps),
         root_max_steps=20,
     )
-    return np.asarray(solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), config=cfg), dtype=np.float64)
+    params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i, np.asarray([sys.tf_scale], dtype=np.float64))
+    return np.asarray(
+        solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), params=params, rhs=make_networkmodel_rhs(sys), config=cfg),
+        dtype=np.float64,
+    )
 
 
 def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):

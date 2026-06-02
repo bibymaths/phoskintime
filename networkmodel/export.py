@@ -1304,8 +1304,8 @@ def plot_s_rates_report(
         y = g[value_col].to_numpy(dtype=float)
         if t.size < 2:
             return float(y[0]) if y.size else 0.0
-        # trapz assumes t sorted
-        return float(np.trapz(y, t))
+        # trapezoid assumes t sorted
+        return float(np.trapezoid(y, t))
 
     auc_df = (
         df.groupby([protein_col, psite_col], as_index=False)
