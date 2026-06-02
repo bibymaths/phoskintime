@@ -280,7 +280,7 @@ seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZER SELECTION
 # ------------------------------------------------------------
-optimizer = "pymoo"          # Optimization backend: "optuna" or "pymoo"
+optimizer = "pymoo"          # Legacy value accepted; PhosKinTime global maps to jaxopt
 
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Optuna)

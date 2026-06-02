@@ -125,26 +125,32 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
     """Solve an ODE with Diffrax Kvaerno4/Kvaerno5 and return (time, state)."""
     ensure_jax_float64()
     cfg = config or DiffraxSolverConfig()
-    ts = jnp.asarray(t_eval, dtype=jnp.float64)
-    if ts.ndim != 1 or ts.size == 0:
+    ts_np = np.asarray(t_eval, dtype=np.float64)
+    if ts_np.ndim != 1 or ts_np.size == 0:
         raise ValueError("t_eval must be a non-empty one-dimensional time grid.")
+    if ts_np.size > 1 and np.any(np.diff(ts_np) <= 0):
+        raise ValueError("t_eval must be strictly increasing for the Diffrax solver.")
+    ts = jnp.asarray(ts_np, dtype=jnp.float64)
     y0_j = jnp.asarray(y0, dtype=jnp.float64)
     if params is None:
         params = jnp.ones(max(1, y0_j.size), dtype=jnp.float64)
     args = jnp.asarray(params, dtype=jnp.float64)
     term = diffrax.ODETerm(rhs or _default_rhs)
-    sol = diffrax.diffeqsolve(
-        term,
-        cfg.solver(),
-        t0=ts[0],
-        t1=ts[-1],
-        dt0=jnp.maximum((ts[-1] - ts[0]) / jnp.maximum(ts.size - 1, 1), 1e-3),
-        y0=y0_j,
-        args=args,
-        saveat=diffrax.SaveAt(ts=ts),
-        stepsize_controller=diffrax.PIDController(rtol=cfg.rtol, atol=cfg.atol),
-        max_steps=cfg.max_steps,
-    )
+    try:
+        sol = diffrax.diffeqsolve(
+            term,
+            cfg.solver(),
+            t0=ts[0],
+            t1=ts[-1],
+            dt0=jnp.maximum((ts[-1] - ts[0]) / jnp.maximum(ts.size - 1, 1), 1e-3),
+            y0=y0_j,
+            args=args,
+            saveat=diffrax.SaveAt(ts=ts),
+            stepsize_controller=diffrax.PIDController(rtol=cfg.rtol, atol=cfg.atol),
+            max_steps=cfg.max_steps,
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Diffrax solver failed with {cfg.solver_name}: {exc}") from exc
     ys = jnp.asarray(sol.ys, dtype=jnp.float64)
     if ys.shape[0] != ts.shape[0]:
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
@@ -283,8 +289,12 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=50
     init = project_bounds(theta0, lower_j, upper_j, fixed_mask_j, fixed_values_j)
     params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
     val = objective_fun(params)
-    log.info("[Optimizer] Convergence status: iterations=%s final scalar objective=%.8g", getattr(state, "iter_num", "unknown"), float(val))
-    return np.asarray(params), state, float(val)
+    val_f = float(val)
+    if not np.isfinite(val_f):
+        log.error("[Optimizer] JAXopt failed: final scalar objective is not finite (%s).", val_f)
+        raise RuntimeError("JAXopt optimization failed: final scalar objective is not finite.")
+    log.info("[Optimizer] Convergence status: iterations=%s final scalar objective=%.8g", getattr(state, "iter_num", "unknown"), val_f)
+    return np.asarray(params), state, val_f
 
 
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None, prior_weight=0.0):

@@ -51,7 +51,9 @@ def save_dashboard_bundle(
 
     objective_values = np.asarray(getattr(res, "F", None)) if res is not None else None
     parameter_values = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None
-    data_mode = getattr(getattr(res, "data_mode", None), "data_mode", None)
+    mode_obj = getattr(res, "data_mode", None)
+    data_mode = getattr(mode_obj, "data_mode", None)
+    active_layers = list(getattr(mode_obj, "available_layers", []) or [])
 
     bundle = {
         "args": vars(args) if hasattr(args, "__dict__") else args,
@@ -66,6 +68,7 @@ def save_dashboard_bundle(
         "objective_values": objective_values,
         "parameter_values": parameter_values,
         "data_mode": data_mode,
+        "active_layers": active_layers,
         "pareto_F": objective_values,  # backward-compatible alias
         "pareto_X": parameter_values,  # backward-compatible alias
         "df_prot_obs": df_prot,

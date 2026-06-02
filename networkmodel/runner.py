@@ -61,6 +61,7 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.jax_backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
+from networkmodel.mode_outputs import write_scalar_result_tables
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger
@@ -640,9 +641,9 @@ def main():
     np.save(os.path.join(args.output_dir, "pareto_X.npy"), X)
     np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
 
-    # Also write a CSV summary
-    df_pareto = pd.DataFrame(F, columns=["scalar_objective"])
-    df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
+    # Also write CSV/JSON summaries with mode metadata.
+    output_paths = write_scalar_result_tables(args.output_dir, mode, F.reshape(-1))
+    df_pareto = pd.read_csv(output_paths["legacy_objective"])
     logger.info(f"[Output] Saved scalar objective table: {len(df_pareto)} solution(s)")
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
@@ -881,7 +882,7 @@ def main():
 
     logger.info("[Done] Exported results saved.")
 
-    # 1. 3D Pareto Front
+    # 1. Scalar objective diagnostic plot
     save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
     logger.info("[Done] Scalar objective diagnostic plot saved.")
 

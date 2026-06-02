@@ -256,7 +256,7 @@ def inv_softplus(y):
 @njit(cache=True, fastmath=True, nogil=True)
 def pick_best_lamdas(F, weights):
     """
-    Selects the best solution from a Pareto front based on a weighted sum of normalized objectives.
+    Selects the best scalar-objective solution from a compatibility solution table.
     """
     F = np.asarray(F, dtype=np.float64)
     weights = np.asarray(weights, dtype=np.float64)
@@ -622,7 +622,7 @@ def get_parameter_labels(idx):
                 site_name = idx.sites[p_idx][s_idx]
                 labels.append(f"Dp_i (Site-Deg: {site_name}) [{p_name}]")
         else:
-            # Even if 0 sites, params.py usually keeps a placeholder for some models
+            # Even if 0 sites, params.py usually keeps a reserved entry for some models
             # Check your unpack_params logic; if it's 1-per-protein, use:
             # labels.append(f"Dp_i (Dephos-2) [{p_name}]")
             pass

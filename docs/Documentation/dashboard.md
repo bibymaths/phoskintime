@@ -11,7 +11,7 @@ global network model optimization.
 
 The main Streamlit application. It loads result files from a specified output directory and renders:
 
-- **Pareto frontier** (3D scatter: protein MSE × RNA MSE × phospho MSE)
+- **Scalar objective diagnostics** for the JAXopt/Diffrax run
 - **Convergence history** (fitness over generations)
 - **Goodness of fit** (predicted vs. observed for protein, RNA, phospho)
 - **Residuals analysis**
@@ -25,7 +25,7 @@ Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 | Field | Description |
 |---|---|
 | `args` | Command-line arguments from the runner |
-| `picked_index` | Index of the selected Pareto solution |
+| `picked_index` | Index of the selected scalar-objective solution |
 | `frechet_scores` | Fréchet distance scores per protein |
 | `lambdas` | Lambda regularization values |
 | `solver_times` | ODE solver timing per protein |
@@ -33,7 +33,7 @@ Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 | `slices` | Parameter slices |
 | `xl` / `xu` | Lower / upper parameter bounds |
 
-The bundle avoids pickling complex Pymoo objects, making it portable across Python sessions.
+The bundle stores scalar objective arrays and mode metadata, making it portable across Python sessions.
 
 ### `run_dashboard.py`
 
@@ -48,7 +48,8 @@ The dashboard looks for files in the `--output-dir` you specify. Required / opti
 | File | Status | Description |
 |---|---|---|
 | `dashboard_bundle.pkl` | Required | Saved by `networkmodel/runner.py` after optimization |
-| `pareto_F.csv` | Optional (falls back to bundle) | Pareto objective values |
+| `scalar_objective.csv` | Preferred | Scalar objective values with mode metadata |
+| `pareto_F.csv` | Backward-compatible alias | Scalar objective values |
 | `convergence_history.csv` | Optional | Generation-by-generation convergence |
 | `pred_prot_picked.csv` | Optional | Predicted protein time series (picked solution) |
 | `pred_rna_picked.csv` | Optional | Predicted RNA time series (picked solution) |
@@ -89,7 +90,7 @@ phoskintime-global \
   --output-dir results_global \
   --n-gen 500 \
   --pop 200 \
-  --solver pymoo
+  --solver jaxopt
 ```
 
 Key arguments (all optional — defaults come from `config.toml`):
@@ -101,9 +102,9 @@ Key arguments (all optional — defaults come from `config.toml`):
 | `--ms` | Path to MS protein data |
 | `--rna` | Path to RNA data |
 | `--output-dir` | Output directory |
-| `--n-gen` | Number of generations |
-| `--pop` | Population size |
-| `--solver` | `pymoo` or `optuna` |
+| `--n-gen` | Maximum JAXopt iterations |
+| `--pop` | Legacy population option accepted but ignored by JAXopt path |
+| `--solver` | `jaxopt`; legacy values are accepted and mapped with warnings |
 | `--sensitivity` | Enable sensitivity analysis |
 | `--refine` | Enable refinement pass |
 | `--scan` | Run hyperparameter scan |

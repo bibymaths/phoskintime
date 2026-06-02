@@ -7,8 +7,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from config.config import score_fit
-from config.constants import get_param_names, ODE_MODEL, USE_REGULARIZATION
+from config.constants import ODE_MODEL, USE_REGULARIZATION
 from networkmodel.jax_backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
 
 logger = logging.getLogger(__name__)

@@ -20,7 +20,7 @@ $$
 
 where $\mathbf{y} = [R, P, \dots]$ are all species in the system.
 
-This is done using **constrained numerical optimization** (`scipy.optimize.minimize`) to solve a system of
+This is done with positive analytical/JAX-compatible initialization helpers for
 equations $f(\mathbf{y}) = 0$.
 
 ---

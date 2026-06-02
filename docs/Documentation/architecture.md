@@ -20,8 +20,7 @@ Packages involved: `processing`, `kinopt`, `tfopt`, `models`, `paramest`, `sensi
 ### Global (network-scale) workflow
 
 Solves a coupled ODE system spanning all genes, proteins, and kinases simultaneously. Calibrated
-against multi-omics time series (protein, mRNA, phospho). Uses Optuna + Pymoo for hyperparameter
-scanning and multi-objective evolutionary optimization.
+against multi-omics time series (protein, mRNA, phospho). Uses JAX/JAXopt for deterministic scalar optimization and Diffrax Kvaerno solvers for ODE integration. The objective is mode-aware and includes only available mRNA, protein, and phospho observations.
 
 Packages involved: `processing`, `networkmodel`, `frechet`, `knockout`.
 
@@ -46,10 +45,10 @@ flowchart TD
     end
 
     subgraph global_wf ["Global Network Workflow"]
-        H["networkmodel/runner.py\n• Optuna + Pymoo optimization\n• scan.py (hyperparameter scan)\n• refine.py (iterative refinement)"]
-        I["networkmodel/simulate.py\n• coupled ODE integration\n• jacspeedup.py (Numba JIT)"]
+        H["networkmodel/runner.py\n• JAXopt scalar optimization\n• mode-aware loss assembly\n• legacy config mapping"]
+        I["networkmodel/simulate.py\n• Diffrax Kvaerno ODE integration\n• JAX float64 numeric path"]
         J["networkmodel/sensitivity.py\n• trajectory-based perturbation\n• Morris elementary effects"]
-        K["networkmodel/export.py\n• Pareto front, Excel, plots\n• convergence video"]
+        K["networkmodel/export.py\n• scalar objective tables\n• mode-aware plots and metadata"]
         L["dashboard_app.py\n• Streamlit visualization\n(run via run_dashboard.py)"]
     end
 
@@ -148,7 +147,7 @@ phoskintime/
 - **Logging**: Five near-identical `logconf.py` files exist across `config/`, `kinopt/local/config/`,
   `kinopt/evol/config/`, `tfopt/local/config/`, and `tfopt/evol/config/`. They cannot be trivially
   consolidated because each imports `LOG_DIR` and `format_duration` from its own subpackage, and the
-  top-level version adds a `mp_file_logging` parameter. Unification is tracked as a TODO in each file.
+  top-level version adds a `mp_file_logging` parameter. The duplicated loader behavior is documented in each file.
 - **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both load sections of
   `config.toml`. The latter should eventually import from the former to avoid duplication.
 - **`kinopt/` and `tfopt/` mirroring**: Both subpackages expose identical `local/` and `evol/`

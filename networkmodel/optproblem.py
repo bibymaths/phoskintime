@@ -23,7 +23,7 @@ def build_weight_functions(method_protein="uniform", method_rna="uniform", time_
 
 
 class GlobalODEScalarObjective:
-    """JAX-compatible scalar objective replacing the legacy Pareto problem."""
+    """JAX-compatible scalar objective replacing the legacy vector-objective problem."""
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12, data_mode: DataMode | None = None, **_):
         ensure_jax_float64()
@@ -69,5 +69,5 @@ class GlobalODE_MOO(GlobalODEScalarObjective):
     """Compatibility alias for old imports; routes to scalar JAX objective."""
 
     def __init__(self, *args, **kwargs):
-        logger.warning("[Deprecated API] GlobalODE_MOO now constructs a single-objective JAXopt problem, not a legacy multi-layer Pareto problem.")
+        logger.warning("[Deprecated API] GlobalODE_MOO now constructs a single-objective JAXopt problem, not a legacy multi-layer vector-objective problem.")
         super().__init__(*args, **kwargs)

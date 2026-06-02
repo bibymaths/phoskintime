@@ -9,7 +9,7 @@ The `networkmodel` subpackage is the computational core of the PhosKinTime frame
 Key design goals:
 - High-throughput simulation (Numba JIT RHS kernels; sparse topologies).
 - Stable, bounded regulation dynamics (saturating transcription/translation modifiers).
-- Optimization-ready API (parameter packing/unpacking, multi-objective loss aggregation).
+- Optimization-ready API (parameter packing/unpacking, single scalar JAXopt loss aggregation).
 - Explicit handling of missing network coverage (proxy logic for orphan TFs).
 
 ---
@@ -343,8 +343,8 @@ The package is structured to separate data management, topology construction, ph
 | `models.py` | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics. |
 | `solvers.py` | Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts. |
 | `simulate.py` | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points. |
-| `optproblem.py` | Optimization wrapper. `GlobalODE_MOO` class compatible with `pymoo`; handles parameter unpacking, simulation, and loss aggregation. |
-| `optimizer.py` | Strategy layer. Orchestrates global search (evolutionary / GA), iterative refinement (“zooming”), and hyperparameter tuning (e.g., via Optuna). |
+| `optproblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
+| `optproblem.py` | JAXopt scalar objective layer. Orchestrates bounded local optimization and mode-aware loss weighting. |
 | `lossfn.py` | Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points. |
 | `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\). |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.). |
