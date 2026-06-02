@@ -186,19 +186,85 @@ def _extract_offsets(prot_map):
     return pm[:, 0], pm[:, 1]
 
 
-def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weights: Mapping[str, float] | None = None):
+def _safe_fold_change(values, base_values):
+    return jnp.maximum(values, 1e-12) / jnp.maximum(base_values, 1e-12)
+
+
+def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, time_idx, *, layer, site_idx=None,
+                                    base_idx=0, layout="standard", max_count=1):
+    """Map global networkmodel state trajectories to fitted fold-change observables.
+
+    Global state layout assumptions are deliberately kept in this networkmodel-only
+    helper so protwise callers retain the legacy direct-state indexing path:
+      * standard/sequential: [mRNA, unphosphorylated protein, phospho_site_0, ...]
+      * combinatorial:       [mRNA, protein_state_0, ..., protein_state_(2^n-1)]
+    Protein observations are total protein fold changes. Phospho observations are
+    site fold changes: direct site states for standard layouts and bitwise sums of
+    combinatorial protein states for MODEL==2 layouts.
+    """
+    off = offsets[protein_idx]
+    count = counts[protein_idx]
+    t = time_idx
+    b = jnp.asarray(base_idx, dtype=jnp.int32)
+
+    if layer == "mrna":
+        return _safe_fold_change(Y[t, off], Y[b, off])
+
+    if layout == "combinatorial":
+        ar = jnp.arange(max_count, dtype=jnp.int32)
+        valid_state = ar < count
+        state_positions = jnp.minimum(off + 1 + ar, Y.shape[1] - 1)
+        states_t = jnp.where(valid_state, Y[t, state_positions], 0.0)
+        states_b = jnp.where(valid_state, Y[b, state_positions], 0.0)
+        if layer == "protein":
+            return _safe_fold_change(jnp.sum(states_t), jnp.sum(states_b))
+        site = jnp.asarray(0 if site_idx is None else site_idx, dtype=jnp.int32)
+        valid_site = site < n_sites[protein_idx]
+        bit_mask = jnp.where(valid_state, ((ar >> site) & 1).astype(jnp.float64), 0.0)
+        pho_t = jnp.sum(states_t * bit_mask)
+        pho_b = jnp.sum(states_b * bit_mask)
+        return jnp.where(valid_site, _safe_fold_change(pho_t, pho_b), 0.0)
+
+    # Standard/sequential global layout: mRNA at offset, unphosphorylated protein
+    # at offset+1, and local phospho site s at offset+2+s.
+    if layer == "protein":
+        ar = jnp.arange(max_count + 1, dtype=jnp.int32)
+        valid_state = ar < (count + 1)
+        positions = jnp.minimum(off + 1 + ar, Y.shape[1] - 1)
+        total_t = jnp.sum(jnp.where(valid_state, Y[t, positions], 0.0))
+        total_b = jnp.sum(jnp.where(valid_state, Y[b, positions], 0.0))
+        return _safe_fold_change(total_t, total_b)
+
+    site = jnp.asarray(0 if site_idx is None else site_idx, dtype=jnp.int32)
+    pred = Y[t, off + 2 + site]
+    base = Y[b, off + 2 + site]
+    return _safe_fold_change(pred, base)
+
+
+def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weights: Mapping[str, float] | None = None,
+                                    *, networkmodel_layout: bool = False):
     weights = weights or {}
     prot_map = jnp.asarray(loss_data["prot_map"], dtype=jnp.int32)
     offsets, counts = _extract_offsets(prot_map)
     total = jnp.asarray(0.0, dtype=jnp.float64)
     breakdown = {}
+    layout = str(loss_data.get("state_layout", "standard"))
+    n_sites = jnp.asarray(loss_data.get("n_sites", counts), dtype=jnp.int32)
+    max_count = int(np.max(np.asarray(loss_data["prot_map"], dtype=np.int32)[:, 1])) if len(loss_data["prot_map"]) else 1
 
     if mode.fit_protein:
         p = jnp.asarray(loss_data["p_prot"], dtype=jnp.int32)
         t = jnp.asarray(loss_data["t_prot"], dtype=jnp.int32)
         obs = jnp.asarray(loss_data["obs_prot"], dtype=jnp.float64)
         w = jnp.asarray(loss_data["w_prot"], dtype=jnp.float64)
-        pred = Y[t, offsets[p] + 1]
+        if networkmodel_layout:
+            base_idx = int(loss_data.get("prot_base_idx", 0))
+            pred = jax.vmap(lambda pi, ti: _global_networkmodel_observable(
+                Y, offsets, counts, n_sites, pi, ti, layer="protein", base_idx=base_idx, layout=layout,
+                max_count=max_count
+            ))(p, t)
+        else:
+            pred = Y[t, offsets[p] + 1]
         loss = jnp.sum(w * (pred - obs) ** 2) / jnp.maximum(jnp.sum(w), 1.0)
         total = total + float(weights.get("protein", 1.0)) * loss
         breakdown["protein"] = loss
@@ -207,7 +273,14 @@ def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weigh
         t = jnp.asarray(loss_data["t_rna"], dtype=jnp.int32)
         obs = jnp.asarray(loss_data["obs_rna"], dtype=jnp.float64)
         w = jnp.asarray(loss_data["w_rna"], dtype=jnp.float64)
-        pred = Y[t, offsets[p]]
+        if networkmodel_layout:
+            base_idx = int(loss_data.get("rna_base_idx", 0))
+            pred = jax.vmap(lambda pi, ti: _global_networkmodel_observable(
+                Y, offsets, counts, n_sites, pi, ti, layer="mrna", base_idx=base_idx, layout=layout,
+                max_count=max_count
+            ))(p, t)
+        else:
+            pred = Y[t, offsets[p]]
         loss = jnp.sum(w * (pred - obs) ** 2) / jnp.maximum(jnp.sum(w), 1.0)
         total = total + float(weights.get("mrna", weights.get("rna", 1.0))) * loss
         breakdown["mrna"] = loss
@@ -217,7 +290,14 @@ def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weigh
         t = jnp.asarray(loss_data["t_pho"], dtype=jnp.int32)
         obs = jnp.asarray(loss_data["obs_pho"], dtype=jnp.float64)
         w = jnp.asarray(loss_data["w_pho"], dtype=jnp.float64)
-        pred = Y[t, offsets[p] + 2 + s]
+        if networkmodel_layout:
+            base_idx = int(loss_data.get("pho_base_idx", 0))
+            pred = jax.vmap(lambda pi, si, ti: _global_networkmodel_observable(
+                Y, offsets, counts, n_sites, pi, ti, layer="phospho", site_idx=si, base_idx=base_idx, layout=layout,
+                max_count=max_count
+            ))(p, s, t)
+        else:
+            pred = Y[t, offsets[p] + 2 + s]
         loss = jnp.sum(w * (pred - obs) ** 2) / jnp.maximum(jnp.sum(w), 1.0)
         total = total + float(weights.get("phospho", 1.0)) * loss
         breakdown["phospho"] = loss
@@ -335,22 +415,35 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
 
 
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
-                          prior_weight=0.0):
+                          prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
+                          y0=None):
     validate_loss_data(loss_data, mode)
     t = jnp.asarray(time_grid, dtype=jnp.float64)
     prot_map = np.asarray(loss_data["prot_map"])
-    state_dim = int(np.max(prot_map[:, 0] + np.maximum(prot_map[:, 1] + 2, 2))) if len(prot_map) else 2
-    y0 = jnp.ones(state_dim, dtype=jnp.float64)
+    if len(prot_map):
+        layout = str(loss_data.get("state_layout", "standard"))
+        state_width = prot_map[:, 1] + (1 if layout == "combinatorial" else 2)
+        state_dim = int(np.max(prot_map[:, 0] + np.maximum(state_width, 2)))
+    else:
+        state_dim = 2
+    y0 = jnp.ones(state_dim, dtype=jnp.float64) if y0 is None else jnp.asarray(y0, dtype=jnp.float64)
     defaults_j = None if defaults is None else jnp.asarray(defaults, dtype=jnp.float64)
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
         rates = jax.nn.softplus(theta)
         Y = solve_diffrax(y0, t, params=rates)
-        total, _ = multimodal_loss_from_trajectory(Y, loss_data, mode, weights=weights)
+        total, breakdown = multimodal_loss_from_trajectory(
+            Y, loss_data, mode, weights=weights, networkmodel_layout=networkmodel_layout
+        )
         if defaults_j is not None and prior_weight:
             d = rates[: defaults_j.size] - defaults_j
-            total = total + float(prior_weight) * jnp.mean(d * d)
+            prior = float(prior_weight) * jnp.mean(d * d)
+            total = total + prior
+            breakdown["prior"] = prior
+        if return_breakdown:
+            breakdown["scalar_total"] = jnp.asarray(total, dtype=jnp.float64)
+            return jnp.asarray(total, dtype=jnp.float64), breakdown
         return jnp.asarray(total, dtype=jnp.float64)
 
     return objective

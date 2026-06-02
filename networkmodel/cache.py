@@ -148,13 +148,18 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
     p_pho, s_pho, t_pho, obs_pho, w_pho = _empty_phospho() if df_pho is None or df_pho.empty else get_indices_phospho(
         df_pho)
 
-    # prot_map: A lookup table for the loss function to know where a protein's data starts in Y.
-    # Structure: [Start Index in Y, Count (sites or states)]
+    # prot_map: A lookup table for the global JAX loss to know where each
+    # protein's block starts in the flattened ODE state vector. The global
+    # networkmodel state layout is:
+    #   MODEL 0/1: [mRNA, unphosphorylated protein, phospho_site_0, ...]
+    #   MODEL 2:   [mRNA, combinatorial protein_state_0, ... protein_state_(2^n-1)]
+    # The second column is therefore n_sites for MODEL 0/1 and n_states for
+    # MODEL 2. n_sites is also exported separately so MODEL 2 phospho rows can
+    # aggregate states with the requested site bit set.
     prot_map = np.zeros((idx.N, 2), dtype=np.int32)
     for i in range(idx.N):
         sl = idx.block(i)
         prot_map[i, 0] = sl.start
-        # If MODEL==2, the state vector structure might differ, requiring total states vs just site count.
         prot_map[i, 1] = int(idx.n_states[i]) if MODEL == 2 else int(idx.n_sites[i])
 
     return {
@@ -162,6 +167,9 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         "p_rna": p_rna, "t_rna": t_rna, "obs_rna": obs_rna, "w_rna": w_rna,
         "p_pho": p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
         "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
+        "n_sites": np.ascontiguousarray(idx.n_sites, dtype=np.int32),
+        "state_layout": "combinatorial" if MODEL == 2 else "standard",
+        "backend_mode": "networkmodel",
         "n_p": len(obs_prot),
         "n_r": len(obs_rna),
         "n_ph": len(obs_pho),

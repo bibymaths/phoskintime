@@ -193,11 +193,12 @@ def export_pareto_front_to_excel(
 
     # ---- Summary + ranking ----
     F = np.asarray(F)
-    if F.ndim == 1 or F.shape[1] == 1:
-        # New JAX scalar objective: F contains a single value per solution
+    if F.ndim == 1 or (F.ndim == 2 and F.shape[1] == 1):
+        # New global JAX scalar objective: F contains a single scalar score per
+        # solution. Do not create legacy prot_mse/rna_mse/phospho_mse columns.
         scalar_vals = F.reshape(-1)
         df_summary = pd.DataFrame({"scalar_score": scalar_vals})
-    else:
+    elif F.ndim == 2 and F.shape[1] == 3:
         # Legacy 3-objective table
         df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
         # derive scalar_score from weighted sum
@@ -206,6 +207,8 @@ def export_pareto_front_to_excel(
                 + w_rna * df_summary["rna_mse"]
                 + w_phos * df_summary["phospho_mse"]
         )
+    else:
+        raise ValueError(f"Expected scalar F with shape (n,) or (n, 1), or legacy F with shape (n, 3). Got {F.shape}.")
 
     df_summary.insert(0, "sol_id", np.arange(len(df_summary), dtype=int))
     df_summary["w_prot"] = w_prot
