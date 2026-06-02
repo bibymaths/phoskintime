@@ -14,7 +14,7 @@ from networkmodel.jax_backend import (
     validate_loss_data,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):

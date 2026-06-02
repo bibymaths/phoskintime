@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def run_hyperparameter_scan(args, sys, loss_data, defaults, solver_times, runner, slices, xl, xu):

@@ -8,7 +8,7 @@ positive physical parameters like rate constants) and the numerical optimizer
 **Key Concepts:**
 1.  **Positivity Constraint:** Biological rates cannot be negative. To enforce this
     during optimization without using hard constraints, we use a **Softplus** transformation:
-    $$ P_{physical} = \ln(1 + e^{\\theta_{raw}}) $$
+    $$ P_{physical} = ln(1 + e^{\\theta_{raw}}) $$
     This maps any real number $\\theta$ to a positive value $P$.
 2.  **Vectorization:** The optimizer expects a single 1D array (`theta`). This module
     packs all distinct parameter arrays ($A_i, B_i, \dots$) into this vector and

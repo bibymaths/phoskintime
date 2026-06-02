@@ -28,7 +28,7 @@ from networkmodel.jax_backend import (
     project_bounds,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 @dataclass(frozen=True)

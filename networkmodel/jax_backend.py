@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
-from types import SimpleNamespace
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -20,7 +19,7 @@ import jax.numpy as jnp
 import jaxopt
 import diffrax
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 LAYERS = ("mrna", "protein", "phospho")
 ALIASES = {"rna": "mrna", "mrna": "mrna", "protein": "protein", "prot": "protein", "phospho": "phospho",
@@ -145,7 +144,7 @@ def _unpack_theta_jax(theta, slices):
         "D_i": jax.nn.softplus(theta[slices["D_i"]]),
         "E_i": jax.nn.softplus(theta[slices["E_i"]]),
         "c_k": jax.nn.softplus(theta[slices["c_k"]]),
-        "tf_scale": jax.nn.softplus(theta[slices["tf_scale"]])[0],
+        "tf_scale": jnp.squeeze(jax.nn.softplus(theta[slices["tf_scale"]])),
         "Dp_i": jax.nn.softplus(theta[slices["Dp_i"]]),
     }
 
@@ -234,7 +233,13 @@ def make_networkmodel_rhs(sys, slices=None):
 
     def rhs(t, y, args):
         par = _params(args)
-        K_raw = jax.vmap(lambda row: jnp.interp(t, kin_grid, row))(kin_Kmat)
+
+        def _stepwise(row):
+            idx = jnp.searchsorted(kin_grid, t, side="right") - 1
+            idx = jnp.clip(idx, 0, kin_grid.shape[0] - 1)
+            return row[idx]
+
+        K_raw = jax.vmap(_stepwise)(kin_Kmat)
         Kt = K_raw * par["c_k"]
         S_all = W @ Kt
 
@@ -256,8 +261,7 @@ def make_networkmodel_rhs(sys, slices=None):
                 total_p = y[off + 1] + jnp.sum(vals)
             p_vals.append(jnp.where(drv >= 0, Kt[jnp.maximum(drv, 0)], total_p))
         P_vec = jnp.stack(p_vals) if p_vals else jnp.asarray([], dtype=jnp.float64)
-        TF_inputs = TF @ P_vec
-        TF_inputs = (TF_inputs / tf_deg) / (1.0 + jnp.abs(TF_inputs / tf_deg))
+        TF_inputs = (TF @ P_vec) / jnp.maximum(tf_deg, 1e-12)
 
         dy = jnp.zeros_like(y)
         for i in range(N):
@@ -385,11 +389,16 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
     return ys
 
-
 def _extract_offsets(prot_map):
     pm = jnp.asarray(prot_map, dtype=jnp.int32)
+    if pm.ndim == 1:
+        # flat encoding: [offset0, count0, offset1, count1, ...]
+        pm = pm.reshape(-1, 2)
+    if pm.ndim != 2 or pm.shape[1] < 2:
+        raise ValueError(
+            f"prot_map must be shape (N, 2) with columns [offset, count], got shape {pm.shape}."
+        )
     return pm[:, 0], pm[:, 1]
-
 
 def _safe_fold_change(values, base_values):
     return jnp.maximum(values, 1e-12) / jnp.maximum(base_values, 1e-12)
@@ -627,8 +636,15 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
     prot_map = np.asarray(loss_data["prot_map"])
     if len(prot_map):
         layout = str(loss_data.get("state_layout", "standard"))
-        state_width = prot_map[:, 1] + (1 if layout == "combinatorial" else 2)
-        state_dim = int(np.max(prot_map[:, 0] + np.maximum(state_width, 2)))
+        offsets_np = prot_map[:, 0]
+        counts_np = prot_map[:, 1]
+        if layout == "combinatorial":
+            # each protein block: 1 mRNA + 2^n_sites states
+            state_width = 1 + counts_np  # counts_np already holds 2^n for combinatorial
+        else:
+            # standard: 1 mRNA + 1 unphospho protein + n_sites phospho states
+            state_width = 2 + counts_np
+        state_dim = int(np.max(offsets_np + state_width))
     else:
         state_dim = 2
     y0 = jnp.ones(state_dim, dtype=jnp.float64) if y0 is None else jnp.asarray(y0, dtype=jnp.float64)
