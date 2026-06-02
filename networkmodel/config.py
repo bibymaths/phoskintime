@@ -72,8 +72,7 @@ MODEL = 0 if cfg.model == "distributive" else (
     1 if cfg.model == "sequential" else (2 if cfg.model == "combinatorial" else 4)
 )
 
-# Solver precision and custom backend selection
-USE_CUSTOM_SOLVER = _as_bool(cfg.use_custom_solver)
+# Solver precision for the Diffrax Kvaerno backend
 ODE_ABS_TOL = cfg.ode_abs_tol
 ODE_REL_TOL = cfg.ode_rel_tol
 ODE_MAX_STEPS = cfg.ode_max_steps
@@ -81,11 +80,8 @@ ODE_MAX_STEPS = cfg.ode_max_steps
 # --- Optimization Settings ---
 LOSS_MODE = cfg.loss_mode
 MAX_ITERATIONS = cfg.maximum_iterations
-POPULATION_SIZE = cfg.population_size  # Number of particles/individuals in the optimizer
 SEED = cfg.seed
 CORES = cfg.cores  # Multiprocessing core count
-REFINE = _as_bool(cfg.refine)  # Whether to run a local optimization polish after global search
-NUM_REFINE = cfg.num_refine  # Number of iterations for the refinement step
 
 # --- Regularization ---
 # Penalties to enforce biological constraints (e.g., sparsity, smooth trajectories)
@@ -111,17 +107,14 @@ DOCS_URL = getattr(cfg, "docs_url", "")
 # Flag to enable grid/random search over model hyperparameters (e.g., penalties)
 HYPERPARAM_SCAN = getattr(cfg, "hyperparam_scan", False)
 
-# --- Optimizer selection ---
-# Legacy optimizer names are still accepted by CLI/config, but the PhosKinTime
-# networkmodel/protwise execution path maps them to JAXopt internally.
-OPTIMIZER = getattr(cfg, "optimizer", "pymoo")
-
-# --- Optuna settings ---
-# Specific settings if OPTIMIZER == 'optuna'
-STUDY_NAME = getattr(cfg, "study_name", "")
-SAMPLER = getattr(cfg, "sampler", "TPESampler")
-PRUNER = getattr(cfg, "pruner", "MedianPruner")
-N_TRIALS = getattr(cfg, "n_trials", 0)
+# --- Inference / post-optimization analyses ---
+N_STARTS = int(getattr(cfg, "n_starts", 1))
+PROFILE_LIKELIHOOD = _as_bool(getattr(cfg, "profile_likelihood", False))
+PROFILE_INDICES = str(getattr(cfg, "profile_indices", ""))
+PROFILE_GRID_SIZE = int(getattr(cfg, "profile_grid_size", 10))
+POSTERIOR_SAMPLING = _as_bool(getattr(cfg, "posterior_sampling", False))
+POSTERIOR_NUM_WARMUP = int(getattr(cfg, "posterior_num_warmup", 20))
+POSTERIOR_NUM_SAMPLES = int(getattr(cfg, "posterior_num_samples", 30))
 
 # --- Data scaling / weighting ---
 # Methods to balance the influence of different datasets (RNA vs Protein vs Phospho)

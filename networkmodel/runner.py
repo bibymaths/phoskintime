@@ -39,12 +39,13 @@ import pandas as pd
 from networkmodel.buildmat import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
-    POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
+    SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
-    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, \
+    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
-    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
-    USE_CUSTOM_SOLVER, CORES
+    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, HYPERPARAM_SCAN, MODEL, CORES, \
+    N_STARTS, PROFILE_LIKELIHOOD, PROFILE_INDICES, PROFILE_GRID_SIZE, POSTERIOR_SAMPLING, \
+    POSTERIOR_NUM_WARMUP, POSTERIOR_NUM_SAMPLES
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.optproblem import GlobalODEScalarObjective, build_weight_functions
@@ -58,6 +59,11 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.jax_backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
+from networkmodel.inference import (
+    InferenceContext, run_multistart,
+    run_profile_likelihood, run_numpyro_posterior,
+    configure_jax_parallelism,
+)
 from networkmodel.mode_outputs import write_scalar_result_tables
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
@@ -93,9 +99,8 @@ def main():
     parser.add_argument("--output-dir", default=RESULTS_DIR)
     parser.add_argument("--cores", type=int, default=CORES)
 
-    # Pymoo
+    # JAXopt
     parser.add_argument("--n-gen", type=int, default=MAX_ITERATIONS)
-    parser.add_argument("--pop", type=int, default=POPULATION_SIZE)
     parser.add_argument("--seed", type=int, default=SEED)
 
     # Loss weights
@@ -108,16 +113,13 @@ def main():
     parser.add_argument("--normalize-fc-steady", action="store_true", default=NORMALIZE_FC_STEADY)
     parser.add_argument("--use-initial-condition-from-data", action="store_true",
                         default=USE_INITIAL_CONDITION_FROM_DATA)
-    parser.add_argument("--refine", action="store_true",
-                        help="Run a second optimization pass with tighter bounds around the scalar optimum.",
-                        default=REFINE)
     parser.add_argument("--scan", action="store_true",
                         help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
                         default=HYPERPARAM_SCAN)
     parser.add_argument("--sensitivity", action="store_true",
                         help="Run a sensitivity analysis after optimization.",
                         default=SENSITIVITY_ANALYSIS)
-    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=OPTIMIZER,
+    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default="jaxopt",
                         help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
 
     args = parser.parse_args()
@@ -138,10 +140,7 @@ def main():
     logger.info(f"Documentation      : {DOCS_URL}")
     logger.info("============================================================")
 
-    if USE_CUSTOM_SOLVER:
-        logger.info("[Solver] Using Custom Adaptive Heun Bucketed Solver")
-    else:
-        logger.info("[Solver] Using Diffrax Kvaerno Solver")
+    logger.info("[Solver] Using Diffrax Kvaerno Solver")
 
     if MODEL == 0:
         logger.info("[Model] Using Distributive Model")
@@ -157,7 +156,6 @@ def main():
     logger.info(f"[Args] Output directory: {args.output_dir}")
     logger.info(f"[Args] Number of cores: {args.cores}")
     logger.info(f"[Args] Number of generations: {args.n_gen}")
-    logger.info(f"[Args] Population size: {args.pop}")
     logger.info(f"[Args] Seed: {args.seed}")
     logger.info(f"[Args] Lambda prior: {args.lambda_prior}")
     logger.info(f"[Args] Lambda protein: {args.lambda_protein}")
@@ -631,7 +629,34 @@ def main():
         f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, "
         f"{loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points"
     )
-    best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+    configure_jax_parallelism(max_workers=CORES, logger_obj=logger)
+    ctx = InferenceContext(
+        objective_fun=problem.objective,
+        theta0=theta0,
+        lower=xl,
+        upper=xu,
+        mode=mode,
+        output_dir=args.output_dir,
+        parameter_names=None,
+        maxiter=args.n_gen,
+        tol=1e-6,
+    )
+    if N_STARTS > 1:
+        try:
+            ms = run_multistart(ctx, n_starts=N_STARTS, seed=SEED, max_workers=CORES)
+            best_row = ms["best"].drop(
+                columns=["start_id", "seed", "success", "selected_best"],
+                errors="ignore",
+            ).iloc[0]
+            best_x = np.asarray(best_row.values, dtype=np.float64)
+            best_f = float(ms["summary"].loc[ms["summary"]["selected_best"], "final_objective"].iloc[0])
+            opt_state = None
+        except RuntimeError:
+            logger.warning("Multistart failed; falling back to single-start solve.")
+            best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+    else:
+        best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+
     res = JaxoptResult(
         X=np.asarray([best_x], dtype=float),
         F=np.asarray([[best_f]], dtype=float),
@@ -641,6 +666,18 @@ def main():
         data_mode=mode,
         loss_breakdown=dict(problem.final_loss_breakdown),
     )
+    if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
+        profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
+        run_profile_likelihood(ctx, parameter_indices=profile_indices,
+                               grid_size=PROFILE_GRID_SIZE)
+        logger.info("Profile likelihood complete.")
+    if POSTERIOR_SAMPLING:
+        try:
+            run_numpyro_posterior(ctx, num_warmup=POSTERIOR_NUM_WARMUP,
+                                  num_samples=POSTERIOR_NUM_SAMPLES, seed=SEED)
+            logger.info("Posterior sampling complete.")
+        except RuntimeError as e:
+            logger.warning("Posterior sampling skipped: %s", e)
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
         pickle.dump(res, f)
