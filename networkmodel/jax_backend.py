@@ -104,14 +104,20 @@ class DiffraxSolverConfig:
     solver_name: str = "Kvaerno4"
     rtol: float = 1e-5
     atol: float = 1e-7
-    max_steps: int = 4096
+    max_steps: int = 20000
     root_max_steps: int = 20
 
     def solver(self):
         name = str(self.solver_name).lower()
         if name == "kvaerno5":
-            return diffrax.Kvaerno5(root_finder=diffrax.VeryChord(rtol=self.rtol, atol=self.atol, kappa=0.01), root_find_max_steps=self.root_max_steps)
-        return diffrax.Kvaerno4(root_finder=diffrax.VeryChord(rtol=self.rtol, atol=self.atol, kappa=0.01), root_find_max_steps=self.root_max_steps)
+            return diffrax.Kvaerno5(
+                root_finder=diffrax.VeryChord(rtol=self.rtol, atol=self.atol, kappa=0.01),
+                root_find_max_steps=self.root_max_steps,
+            )
+        return diffrax.Kvaerno4(
+            root_finder=diffrax.VeryChord(rtol=self.rtol, atol=self.atol, kappa=0.01),
+            root_find_max_steps=self.root_max_steps,
+        )
 
 
 def _default_rhs(t, y, args):
@@ -125,16 +131,25 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
     """Solve an ODE with Diffrax Kvaerno4/Kvaerno5 and return (time, state)."""
     ensure_jax_float64()
     cfg = config or DiffraxSolverConfig()
-    ts_np = np.asarray(t_eval, dtype=np.float64)
-    if ts_np.ndim != 1 or ts_np.size == 0:
+
+    if not isinstance(t_eval, jax.core.Tracer):
+        ts_np = np.asarray(t_eval, dtype=np.float64)
+        if ts_np.ndim != 1 or ts_np.size == 0:
+            raise ValueError("t_eval must be a non-empty one-dimensional time grid.")
+        if ts_np.size > 1 and np.any(np.diff(ts_np) <= 0.0):
+            raise ValueError("t_eval must be strictly increasing for the Diffrax solver.")
+
+    # Use jax.numpy throughout in the solve path; t_eval may be a tracer.
+    ts = jnp.asarray(t_eval, dtype=jnp.float64)
+
+    if ts.ndim != 1 or ts.size == 0:
         raise ValueError("t_eval must be a non-empty one-dimensional time grid.")
-    if ts_np.size > 1 and np.any(np.diff(ts_np) <= 0):
-        raise ValueError("t_eval must be strictly increasing for the Diffrax solver.")
-    ts = jnp.asarray(ts_np, dtype=jnp.float64)
+
     y0_j = jnp.asarray(y0, dtype=jnp.float64)
     if params is None:
         params = jnp.ones(max(1, y0_j.size), dtype=jnp.float64)
     args = jnp.asarray(params, dtype=jnp.float64)
+
     term = diffrax.ODETerm(rhs or _default_rhs)
     try:
         sol = diffrax.diffeqsolve(
@@ -151,11 +166,11 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
         )
     except Exception as exc:
         raise RuntimeError(f"Diffrax solver failed with {cfg.solver_name}: {exc}") from exc
+
     ys = jnp.asarray(sol.ys, dtype=jnp.float64)
     if ys.shape[0] != ts.shape[0]:
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
     return ys
-
 
 def _extract_offsets(prot_map):
     pm = jnp.asarray(prot_map, dtype=jnp.int32)
@@ -271,7 +286,7 @@ class JaxoptResult:
     optimizer: str = "jaxopt.ProjectedGradient"
 
 
-def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=50, tol=1e-6, fixed_mask=None, fixed_values=None, logger_obj=None):
+def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None, fixed_values=None, logger_obj=None):
     ensure_jax_float64()
     log = logger_obj or logger
     log.info("[Optimizer] Selected optimizer backend: jaxopt.ProjectedGradient")

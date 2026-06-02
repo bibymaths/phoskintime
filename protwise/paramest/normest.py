@@ -7,10 +7,45 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from config.constants import ODE_MODEL, USE_REGULARIZATION
+from config.constants import ODE_MODEL, USE_REGULARIZATION, get_num_params
 from networkmodel.jax_backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _softplus_inverse(x):
+    x = np.asarray(x, dtype=np.float64)
+    x = np.maximum(x, 1e-8)
+    return x + np.log1p(-np.exp(-x))
+
+
+def _resize_bounds(lower, upper, n_params):
+    lower = np.asarray(lower, dtype=np.float64).reshape(-1)
+    upper = np.asarray(upper, dtype=np.float64).reshape(-1)
+    if lower.size != n_params:
+        lower = np.resize(lower, n_params)
+    if upper.size != n_params:
+        upper = np.resize(upper, n_params)
+    if np.any(upper < lower):
+        raise ValueError("Parameter bounds must satisfy upper >= lower.")
+    return lower, upper
+
+
+def _normalize_bounds(bounds, n_params):
+    if bounds is None:
+        return np.zeros(n_params, dtype=np.float64), np.full(n_params, 10.0, dtype=np.float64)
+
+    if isinstance(bounds, dict):
+        lowers = []
+        uppers = []
+        for lo, hi in bounds.values():
+            lowers.append(lo)
+            uppers.append(hi)
+        return _resize_bounds(lowers, uppers, n_params)
+
+    if len(bounds) != 2:
+        raise ValueError("bounds must be None, a dict, or a (lower, upper) pair.")
+    return _resize_bounds(bounds[0], bounds[1], n_params)
 
 
 def _split_predictions(sol, num_psites, n_rna_times):
@@ -55,22 +90,15 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info("[%s] Selected optimizer backend: jaxopt.ProjectedGradient", gene)
     logger.info("[%s] Selected solver backend: diffrax.Kvaerno4", gene)
 
-    n_params = 4 + 2 * int(num_psites)
-    if bounds is None:
-        lower = np.zeros(n_params, dtype=np.float64)
-        upper = np.full(n_params, 10.0, dtype=np.float64)
-    else:
-        lower = np.asarray(bounds[0], dtype=np.float64)
-        upper = np.asarray(bounds[1], dtype=np.float64)
-        if lower.size != n_params:
-            lower = np.resize(lower, n_params)
-        if upper.size != n_params:
-            upper = np.resize(upper, n_params)
-    theta0 = np.clip((lower + upper) / 2.0, lower, upper)
+    n_params = get_num_params(ODE_MODEL, num_psites)
+    lower, upper = _normalize_bounds(bounds, n_params)
+    lower_init = np.where(np.isfinite(lower), lower, 0.0)
+    upper_init = np.where(np.isfinite(upper), upper, lower_init + 10.0)
+    theta0 = np.clip((lower_init + upper_init) / 2.0, lower, upper)
     if ODE_MODEL == "randmod":
-        theta0 = np.log(np.maximum(theta0, 1e-8))
-        lower_opt = np.log(np.maximum(lower, 1e-8))
-        upper_opt = np.log(np.maximum(upper, 1e-8))
+        theta0 = _softplus_inverse(theta0)
+        lower_opt = _softplus_inverse(lower)
+        upper_opt = np.where(np.isfinite(upper), _softplus_inverse(upper), np.inf)
     else:
         lower_opt, upper_opt = lower, upper
 
@@ -80,8 +108,8 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
         return protwise_objective(x, target, init_cond, num_psites, time_points, mode)
 
     best, state, value = optimize_scalar_objective(objective, theta0, lower_opt, upper_opt, maxiter=50, tol=1e-6, logger_obj=logger)
-    final_params = np.exp(best) if ODE_MODEL == "randmod" else np.clip(best, 0.0, None)
-    sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64), params=final_params), dtype=np.float64)
+    final_params = np.asarray(jax.nn.softplus(best), dtype=np.float64) if ODE_MODEL == "randmod" else np.clip(best, 0.0, None)
+    sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64), params=final_params, config=DiffraxSolverConfig()), dtype=np.float64)
     r_fit = sol[-mrna.size:, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
     pr_fit = sol[:, 1].reshape(-1)
     ph_fit = sol[:, 2:2 + num_psites].T.reshape(-1) if num_psites else np.asarray([], dtype=np.float64)

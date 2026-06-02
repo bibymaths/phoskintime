@@ -12,8 +12,8 @@
 
 [paths]
 data_dir      = "data"
-results_dir   = "results_model"
-logs_dir      = "results_model/logs"
+results_dir   = "results_model_jax"
+logs_dir      = "results_model_jax/logs"
 ode_data_dir  = "data"
 
 
@@ -183,7 +183,7 @@ method = "NSGA-II"
 # After setting the results_dir and logs_dir globally above,
 # you can set the model type here to have separate output folders
 # for each model type.
-model = "randmod"
+model = "distmod"
 
 # Upper bounds used in parameter fitting / priors
 [ode.bounds]
@@ -239,8 +239,8 @@ rna_excel     = "data/tfopt_results.xlsx"
 
 # Output naming (optional)
 [ode.output]
-out_dir_name = ""   # if empty, code can use "<ModelType>_results"
-out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"
+out_dir_name = "results_protwise_jax"   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = "results_protwise_jax.xlsx"  # if empty, code can use "<ModelType>_results.xlsx"
 
 # ============================================================
 # GLOBAL MODEL (Integrated ODE Optimization)
@@ -273,7 +273,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_model_global_distributive_knockout"  # Output directory
+output_dir = "results_model_global_distributive_jax"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 
@@ -285,7 +285,7 @@ optimizer = "pymoo"          # Legacy value accepted; PhosKinTime global maps to
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (Optuna)
 # ------------------------------------------------------------
-study_name = "phoskintime_networkmodel_ABL2"  # Optuna study name
+study_name = "phoskintime_networkmodel_ABL2_jax"  # Optuna study name
 sampler    = "TPESampler"           # Optuna sampler: TPESampler, RandomSampler, CMAESampler
 pruner     = "MedianPruner"         # Optuna pruner: MedianPruner, NopPruner, SuccessiveHalvingPruner
 n_trials  = 1000                      # Number of Optuna trials

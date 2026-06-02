@@ -23,7 +23,7 @@ DEV_TEST = bool(_CFG.get("dev_test", False))
 # GLOBAL CONSTANTS
 ########################################################################################################################
 
-# Select the ODE model for phosphorylation kinetics: distmod | succmod | randmod
+# Select the ODE model for phosphorylation kinetics: protwise | distmod | succmod | randmod
 ODE_MODEL = str(_CFG.get("model", "randmod"))
 
 # Upper bounds
@@ -88,6 +88,7 @@ MU_WEIGHT = float(_w.get("l2", 1.0))
 ########################################################################################################################
 
 model_names = {
+    "protwise": "Protein-wise",
     "distmod": "Distributive",
     "succmod": "Successive",
     "randmod": "Random",
@@ -158,12 +159,57 @@ available_markers = [
 
 
 ########################################################################################################################
-# MODEL-SPECIFIC LABEL HELPERS
+# MODEL-SPECIFIC PARAMETER AND LABEL HELPERS
 ########################################################################################################################
 
-if ODE_MODEL == "randmod":
-    get_param_names = get_param_names_rand
-    generate_labels = generate_labels_rand
-else:
-    get_param_names = get_param_names_ds
-    generate_labels = generate_labels_ds
+def _normalize_model_name(model_name: str | None = None) -> str:
+    model = str(model_name or ODE_MODEL).strip().lower()
+    aliases = {
+        "dist": "distmod",
+        "distributive": "distmod",
+        "succ": "succmod",
+        "successive": "succmod",
+        "random": "randmod",
+    }
+    return aliases.get(model, model)
+
+
+def get_num_params(model_name: str | None, num_psites: int) -> int:
+    """Return the number of kinetic parameters for a local ODE model."""
+    n = int(num_psites)
+    if n < 0:
+        raise ValueError("num_psites must be non-negative")
+
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        return 4 + n + (2 ** n - 1)
+    if model in {"protwise", "distmod", "succmod"}:
+        return 4 + 2 * n
+    raise ValueError(f"Unsupported ODE model for parameter count: {model_name!r}")
+
+
+def get_param_names(num_psites: int, model_name: str | None = None) -> list[str]:
+    """Return parameter labels whose length matches get_num_params()."""
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        names = get_param_names_rand(int(num_psites))
+    elif model in {"protwise", "distmod", "succmod"}:
+        names = get_param_names_ds(int(num_psites))
+    else:
+        raise ValueError(f"Unsupported ODE model for parameter names: {model_name!r}")
+
+    expected = get_num_params(model, num_psites)
+    if len(names) != expected:
+        raise ValueError(
+            f"Parameter name/count mismatch for {model}: {len(names)} names for {expected} parameters."
+        )
+    return names
+
+
+def generate_labels(num_psites: int, model_name: str | None = None) -> list[str]:
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        return generate_labels_rand(int(num_psites))
+    if model in {"protwise", "distmod", "succmod"}:
+        return generate_labels_ds(int(num_psites))
+    raise ValueError(f"Unsupported ODE model for state labels: {model_name!r}")

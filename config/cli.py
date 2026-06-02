@@ -138,7 +138,7 @@ def model(
     Returns:
         None
     """
-    _run(_python_module("runner.main", conf))
+    _run(_python_module("protwise.runner.main", conf))
 
 @app.command()
 def networkmodel(

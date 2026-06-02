@@ -4,7 +4,7 @@ version = "0.4.0"
 description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
-platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
 license = "BSD-3-Clause"
 
 [dependencies]
@@ -100,6 +100,15 @@ kinopt-fitanalysis = "PYTHONPATH=. python -m kinopt.fitanalysis"
 
 tfopt-local = "PYTHONPATH=. python -m tfopt.local"
 tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
+
+prep = "PYTHONPATH=. python -m processing.cleanup"
+
+model = "PYTHONPATH=. python -m protwise.runner.main"
+
+networkmodel = "PYTHONPATH=. python -m networkmodel.runner"
+
+phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
+phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
 

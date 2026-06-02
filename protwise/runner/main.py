@@ -15,7 +15,7 @@ from config.constants import (model_type, OUT_DIR, TIME_POINTS, OUT_RESULTS_DIR,
                               SENSITIVITY_ANALYSIS, USE_REGULARIZATION, Y_METRIC, Y_METRIC_DESCRIPTIONS,
                               DELTA_WEIGHT, ALPHA_WEIGHT, BETA_WEIGHT, GAMMA_WEIGHT, MU_WEIGHT)
 from config.logconf import setup_logger
-from protwise.paramest import process_gene_wrapper
+from protwise.paramest.core import process_gene_wrapper
 from protwise.plotting import Plotter
 from common.utils import latexit
 from common.utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
