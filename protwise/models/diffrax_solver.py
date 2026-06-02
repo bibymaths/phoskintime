@@ -150,17 +150,27 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
         ),
         dtype=np.float64,
     )
-    sol = np.clip(sol, 0, None)
+    sol_raw = np.clip(sol, 0, None)
+
+    if model == "randmod" and num_psites:
+        # Aggregate raw subset states first, then normalize per site. Normalizing
+        # each subset before summing would make every site start at the number of
+        # subsets containing it rather than at 1.0, unlike the JAX objective.
+        p_fitted = aggregate_randmod_site_phospho(sol_raw, num_psites)
+        if NORMALIZE_MODEL_OUTPUT:
+            init_vals = p_fitted[:, 0:1]
+            p_fitted = np.where(init_vals != 0, p_fitted / init_vals, p_fitted)
+    else:
+        p_fitted = sol_raw[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol_raw.dtype)
+
+    sol = sol_raw
     if NORMALIZE_MODEL_OUTPUT:
         norm_init = np.asarray(init_cond, dtype=sol.dtype)
         norm_init = np.where(norm_init == 0, 1.0, norm_init)
         sol = sol / norm_init[np.newaxis, :]
+        if model != "randmod":
+            p_fitted = sol[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol.dtype)
+
     r_fitted = sol[5:, 0].T if sol.shape[0] > 5 else sol[:, 0].T
     pr_fitted = sol[:, 1].T if sol.shape[1] > 1 else np.asarray([], dtype=sol.dtype)
-    if model == "randmod" and num_psites:
-        # Randmod exposes subset states internally, but post-fit plots expect the
-        # same site-aggregated phospho signal used by the JAX objective/loss.
-        p_fitted = aggregate_randmod_site_phospho(sol, num_psites)
-    else:
-        p_fitted = sol[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol.dtype)
     return sol, np.concatenate((np.ravel(r_fitted), np.ravel(pr_fitted), np.ravel(p_fitted)))

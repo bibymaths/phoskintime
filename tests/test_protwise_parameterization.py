@@ -22,6 +22,15 @@ def test_dict_bounds_expand_in_parameter_order_without_resize():
     assert upper.tolist() == pytest.approx([1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 6.0, 6.0])
 
 
+
+def test_bounds_preserve_zero_fixed_and_map_infinite_upper():
+    bounds = {"A": (0.0, np.inf), "B": (0.0, 0.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.0, 0.0), "D(i)": (0.6, 6.0)}
+    lower, upper = _normalize_bounds(bounds, "protwise", 1)
+    assert lower[0] == pytest.approx(0.0)
+    assert upper[0] > 1e5
+    assert (lower[1], upper[1]) == pytest.approx((0.0, 0.0))
+    assert (lower[4], upper[4]) == pytest.approx((0.0, 0.0))
+
 def test_optimizer_space_is_physical_space_for_projected_gradient():
     params = [0.2, 0.3, 0.4]
     theta = to_opt_space(params, "randmod")
@@ -45,11 +54,26 @@ def test_randmod_phospho_aggregation_includes_multisite_states():
     assert ph.tolist() == pytest.approx([[131.0], [142.0], [153.0]])
 
 
-
 def test_randmod_public_solve_helper_matches_objective_aggregation():
     # Public solve_ode p_fit uses the same site-level aggregation as the objective.
     sol = np.asarray([[0.0, 0.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0]])
     assert aggregate_randmod_site_phospho(sol, 3).tolist() == pytest.approx([[131.0], [142.0], [153.0]])
+
+
+def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
+    import protwise.models.diffrax_solver as dfs
+
+    raw_sol = np.asarray([
+        [2.0, 3.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0],
+        [4.0, 6.0, 2.0, 4.0, 6.0, 20.0, 40.0, 60.0, 200.0],
+    ])
+
+    monkeypatch.setattr(dfs, "NORMALIZE_MODEL_OUTPUT", True)
+    monkeypatch.setattr(dfs, "solve_diffrax", lambda *args, **kwargs: raw_sol)
+    _, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0], model_name="randmod")
+    # r has 2 points, protein has 2 points, then 3 site-level phospho curves.
+    phospho_flat = flat[4:]
+    assert phospho_flat.reshape(3, 2).tolist() == pytest.approx([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]])
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
     calls = []

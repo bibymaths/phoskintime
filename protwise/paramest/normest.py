@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # this only discourages extreme rates without making small/flat dynamics attractive.
 REGULARIZATION_WEIGHT = 1e-6
 _MIN_PHYS_PARAM = 1e-8
+_UNBOUNDED_UPPER_CAP = 1e6
 
 
 def _canonical_model_name(model_name: str | None) -> str:
@@ -97,9 +98,15 @@ def _normalize_bounds(bounds, model_name: str, num_psites: int):
                 f"Bounds length mismatch for {model_name}: lower={lower.size}, upper={upper.size}, expected {n_params}."
             )
 
-    lower = np.maximum(lower, _MIN_PHYS_PARAM)
-    if np.any(~np.isfinite(upper)):
-        upper = np.where(np.isfinite(upper), upper, 10.0)
+    # Preserve explicit zero-fixed boxes such as (0, 0); only truly negative
+    # lower bounds are lifted into the positive kinetic-parameter domain.
+    lower = np.where(lower < 0.0, _MIN_PHYS_PARAM, lower)
+    if np.any(np.isnan(upper) | (upper == -np.inf)):
+        raise ValueError("Upper bounds must not be NaN or -inf.")
+    if np.any(upper == np.inf):
+        # Treat +inf as intentionally unbounded above, represented by a large
+        # numeric cap for stable finite initialization/projection in JAXopt.
+        upper = np.where(upper == np.inf, _UNBOUNDED_UPPER_CAP, upper)
     if np.any(upper < lower):
         raise ValueError("Parameter bounds must satisfy upper >= lower after normalization.")
     return lower, upper
