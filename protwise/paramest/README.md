@@ -24,3 +24,6 @@ The module is organized into several submodules:
 - **Integration with Plotting:**  
   After estimation, the module calls plotting functions (via the `Plotter` class) to visualize the ODE solution,
   parameter profiles, and goodness-of-fit metrics.
+## JAXopt/Diffrax Inference Extensions
+
+`protwise.paramest.inference` re-exports the shared PhosKinTime inference utilities for local protein-wise models. These wrappers support deterministic multistart optimization, profile likelihood, and optional NumPyro posterior analysis using the same scalar JAX/JAXopt/Diffrax objective style as the global network model. Outputs follow the same `optimization/`, `profiles/`, `posterior/`, and `plots/` directory layout used by `networkmodel.inference`.

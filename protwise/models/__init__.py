@@ -3,7 +3,7 @@ from config.constants import ODE_MODEL
 
 # Import the ODE model module dynamically based on the ODE_MODEL constant
 try:
-    model_module = importlib.import_module(f'models.{ODE_MODEL}')
+    model_module = importlib.import_module(f'protwise.models.{ODE_MODEL}')
 except ModuleNotFoundError as e:
     raise ImportError(f"Cannot import model module 'models.{ODE_MODEL}'") from e
 

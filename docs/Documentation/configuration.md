@@ -16,7 +16,7 @@ The configuration file is `config.toml` at the project root. It is loaded by two
 
 > **Technical debt:** Both modules load overlapping configuration surfaces from `config.toml`.
 > They should be unified so `networkmodel/config.py` entirely delegates to `config_loader.py`.
-> See the TODO comment in `config_loader.py`.
+> See `config_loader.py` for the shared loader behavior.
 
 ---
 
@@ -140,13 +140,13 @@ Controls the global network-scale pipeline (`networkmodel/`). Consumed by `netwo
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `optimizer` | string | `"pymoo"` | `"optuna"` or `"pymoo"` |
-| `n_gen` | int | `1000` | Number of generations (Pymoo) |
-| `pop` | int | `300` | Population size |
-| `n_trials` | int | `1000` | Number of Optuna trials |
-| `refine` | bool | `false` | Enable iterative refinement pass |
+| `optimizer` | string | `"pymoo"` | Accepted for schema compatibility; PhosKinTime global maps legacy values to `jaxopt` with a warning |
+| `n_gen` | int | `1000` | Maximum JAXopt iterations in the PhosKinTime global path |
+| `pop` | int | `300` | Accepted for compatibility and ignored by the JAXopt path |
+| `n_trials` | int | `1000` | Accepted for compatibility; not used by the scalar JAXopt path |
+| `refine` | bool | `false` | Accepted for compatibility; deterministic JAXopt already performs local optimization |
 | `num_refinements` | int | `0` | Number of refinement iterations |
-| `hyperparam_scan` | bool | `false` | Enable Optuna hyperparameter scan |
+| `hyperparam_scan` | bool | `false` | Accepted for compatibility; legacy scan is mapped to existing lambda values with a warning |
 
 ### Loss and regularization
 

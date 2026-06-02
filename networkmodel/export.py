@@ -8,7 +8,7 @@ Export and visualize simulation results from global model optimization.
 This module provides functions for exporting and visualizing simulation results from global model optimization.
 It includes functions for exporting phosphorylation drive S, scanning prior regularization parameters,
 plotting phosphorylation drive S, generating diagnostic correlation plots, plotting residuals,
-and plotting boxplots of parameters across the Pareto front.
+and plotting boxplots of parameters across scalar optimum restarts.
 """
 
 import json
@@ -22,8 +22,6 @@ from matplotlib import pyplot as plt, animation
 import matplotlib.colors as mcolors
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
-from pymoo.visualization.pcp import PCP
-from pymoo.visualization.scatter import Scatter
 
 from scipy.interpolate import interp1d
 from scipy.stats import linregress
@@ -69,15 +67,15 @@ def build_site_meta(idx):
 
 def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
     """
-    Saves a high-quality 3D Scatter plot of the Pareto Front.
+    Saves a high-quality 3D Scatter plot of the scalar objective table.
     Highlights the 'selected' balanced solution if provided.
 
     Args:
-        res: Optimization result object containing Pareto front data.
+        res: Optimization result object containing scalar objective table data.
         selected_solution: Tuple of (fitness, decision variables) for the selected solution.
         output_dir: Directory where plots will be saved.
     """
-    logger.info("[Output] Generating 3D Pareto Plot...")
+    logger.info("[Output] Generating 3D Scalar Plot...")
 
     # 1. Setup Plot
     # Angle (elevation, azimuth) for best viewing
@@ -86,12 +84,12 @@ def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
         angle=(45, 45),
         labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
         figsize=(10, 8),
-        title=("Pareto Front", {'pad': 20})
+        title=("scalar objective table", {'pad': 20})
     )
 
     # 2. Add Data
     # All solutions in the front
-    plot.add(res.F, color="grey", alpha=0.6, s=30, label="Pareto Solutions")
+    plot.add(res.F, color="grey", alpha=0.6, s=30, label="Scalar Solutions")
 
     # Highlight the picked solution (Red Star)
     if selected_solution is not None:
@@ -109,7 +107,7 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
     Saves a Parallel Coordinate Plot (PCP).
 
     Args:
-        res: Optimization result object containing Pareto front data.
+        res: Optimization result object containing scalar objective table data.
         selected_solution: Tuple of (fitness, decision variables) for the selected solution.
         output_dir: Directory where plots will be saved.
     """
@@ -145,10 +143,10 @@ def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo")
 
 def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
     """
-    Creates an animation of the Pareto Front evolution using standard Matplotlib.
+    Creates an animation of the scalar objective table evolution using standard Matplotlib.
 
     Args:
-        res: Optimization result object containing Pareto front data.
+        res: Optimization result object containing scalar objective table data.
         output_dir: Directory where video will be saved.
         filename: Name of the output video file.
     """
@@ -233,7 +231,7 @@ def export_pareto_front_to_excel(
         mxstep=5000,
 ):
     """
-    Export all Pareto solutions into one Excel workbook.
+    Export all Scalar solutions into one Excel workbook.
 
     Writes sheets:
       - summary: objectives + scalar score + rank + weights
@@ -244,11 +242,11 @@ def export_pareto_front_to_excel(
       - traj_phospho: trajectories per sol_id (long format)
 
     Notes:
-      - This can get HUGE if you have many Pareto points. Use top_k_trajectories.
+      - This can get HUGE if you have many Scalar points. Use top_k_trajectories.
       - The function assumes res.X and res.F exist.
 
     Args:
-        res: Optimization result object containing Pareto front data.
+        res: Optimization result object containing scalar objective table data.
         sys: System object containing model-specific information.
         idx: Index object containing protein/kinase metadata.
         slices: Slices for trajectory data (e.g., time points for protein, RNA, and phospho data).
@@ -365,7 +363,7 @@ def export_pareto_front_to_excel(
 
         # ----- trajectories (optional / top-K) -----
         if sol_id in sol_ids_for_traj:
-            # use your existing measurement function (calls simulate_odeint internally)
+            # use your existing measurement function (calls simulate_diffrax internally)
             dfp, dfr, dfph = simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_ph)
 
             if dfp is not None and not dfp.empty:
@@ -410,7 +408,7 @@ def export_pareto_front_to_excel(
         df_traj_r.to_excel(writer, sheet_name="traj_rna", index=False)
         df_traj_ph.to_excel(writer, sheet_name="traj_phospho", index=False)
 
-    logger.info(f"[Output] Pareto export saved: {output_path}")
+    logger.info(f"[Output] Scalar export saved: {output_path}")
     logger.info(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
 
@@ -1173,7 +1171,7 @@ def save_gene_timeseries_plots(
 
 def scan_prior_reg(out_dir):
     """
-    Scan prior regularization parameters and save Pareto front plots.
+    Scan prior regularization parameters and save scalar objective table plots.
 
     Args:
         out_dir: Directory containing output files.
@@ -1692,7 +1690,7 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
 
 def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     """
-    Plots kinase parameter correlation across Pareto front and gene parameter correlation for best solution.
+    Plots kinase parameter correlation across scalar objective table and gene parameter correlation for best solution.
 
     Args:
         res: Result object containing optimization results.
@@ -1703,7 +1701,7 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     """
     X = res.X
 
-    # --- Plot 1: Kinase Parameter Correlation (Pareto Front) ---
+    # --- Plot 1: Kinase Parameter Correlation (scalar objective table) ---
     # This shows if kinases are "fighting" each other or identifiable
     kin_slice = slices["c_k"]
     X_kin = X[:, kin_slice]
@@ -1722,7 +1720,7 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
             yticklabels=True,
             vmin=-1, vmax=1
         )
-        plt.title("Correlation of Kinase Parameters (Pareto Set)", fontsize=16)
+        plt.title("Correlation of Kinase Parameters (Scalar Set)", fontsize=16)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "correlation_kinases_pareto.png"), dpi=300)
         plt.close()
@@ -1834,11 +1832,11 @@ def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
 
 def export_parameter_distributions(res, slices, idx, output_dir):
     """
-    Plots boxplots of parameters across the ENTIRE Pareto front.
+    Plots boxplots of parameters across the ENTIRE scalar objective table.
     Shows which parameters are 'identifiable' (tight box) vs 'sloppy' (wide box).
 
     Args:
-        res: Optimization result object containing Pareto front data.
+        res: Optimization result object containing scalar objective table data.
         slices: Dictionary mapping parameter names to their column indices in res.X.
         idx: Index object containing model-specific information.
         output_dir: Directory where plots will be saved.
@@ -1857,7 +1855,7 @@ def export_parameter_distributions(res, slices, idx, output_dir):
         sorted_idx = df_kin.median().sort_values(ascending=False).index
         sns.boxplot(data=df_kin[sorted_idx], color="lightblue")
         plt.xticks(rotation=90)
-        plt.title("Uncertainty in Kinase Parameters (Pareto Front Distribution)")
+        plt.title("Uncertainty in Kinase Parameters (scalar objective table Distribution)")
         plt.ylabel("Activity Multiplier (c_k)")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"dist_kinases_uncertainty.png"), dpi=300)

@@ -9,7 +9,7 @@ The `networkmodel` subpackage is the computational core of the PhosKinTime frame
 Key design goals:
 - High-throughput simulation (Numba JIT RHS kernels; sparse topologies).
 - Stable, bounded regulation dynamics (saturating transcription/translation modifiers).
-- Optimization-ready API (parameter packing/unpacking, multi-objective loss aggregation).
+- Optimization-ready API (parameter packing/unpacking, single scalar JAXopt loss aggregation).
 - Explicit handling of missing network coverage (proxy logic for orphan TFs).
 
 ---
@@ -343,8 +343,8 @@ The package is structured to separate data management, topology construction, ph
 | `models.py` | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics. |
 | `solvers.py` | Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts. |
 | `simulate.py` | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points. |
-| `optproblem.py` | Optimization wrapper. `GlobalODE_MOO` class compatible with `pymoo`; handles parameter unpacking, simulation, and loss aggregation. |
-| `optimizer.py` | Strategy layer. Orchestrates global search (evolutionary / GA), iterative refinement (“zooming”), and hyperparameter tuning (e.g., via Optuna). |
+| `optproblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
+| `optproblem.py` | JAXopt scalar objective layer. Orchestrates bounded local optimization and mode-aware loss weighting. |
 | `lossfn.py` | Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points. |
 | `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\). |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.). |
@@ -387,3 +387,29 @@ Stability:
 Reproducibility:
 - Keep `config.toml` and interaction maps under version control.
 - Persist fitted parameter sets and seeds for optimization runs; log solver tolerances and objective weights.
+## Scalar Inference Extensions
+
+After deterministic fitting, the PhosKinTime global workflow can run optional scalar-objective inference utilities from `networkmodel.inference` without changing the public config schema:
+
+- **Multistart local inference** runs repeated `jaxopt.ProjectedGradient` solves from deterministic bounded starts. Each worker receives its own copied residual/loss metadata, including observed arrays, active layer terms, bounds, fixed-parameter metadata, solver settings, regularization values, and mode metadata. Failed starts are recorded in `optimization/multistart_summary.csv`; the run raises only when every start fails.
+- **Profile likelihood** fixes one parameter at a time on a bounded grid and re-optimizes the remaining parameters with the same JAX/JAXopt/Diffrax scalar objective. The implementation saves per-parameter profiles and a combined summary in `profiles/`.
+- **Bayesian posterior analysis** uses NumPyro when installed. The posterior model remains JAX-compatible, uses the deterministic scalar objective as the likelihood contribution, includes only active data-layer terms through the objective, and writes samples, summaries, diagnostics, and posterior predictive scalar diagnostics to `posterior/`.
+
+Outputs are organized as:
+
+```text
+results/
+  optimization/best_fit.csv
+  optimization/multistart_summary.csv
+  optimization/multistart_parameters.csv
+  profiles/profile_likelihood_summary.csv
+  profiles/profile_likelihood_<parameter>.csv
+  posterior/posterior_samples.csv
+  posterior/posterior_summary.csv
+  posterior/posterior_predictive.csv
+  plots/multistart/
+  plots/profile_likelihood/
+  plots/posterior/
+```
+
+Parallel multistart execution uses conservative JAX/XLA settings by default (`OMP_NUM_THREADS=1` and `--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1` unless already set) to avoid oversubscription. The selected strategy is logged before starts are launched.

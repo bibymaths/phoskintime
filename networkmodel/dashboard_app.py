@@ -4,7 +4,7 @@ Dashboard application for PhosKinTime.
 
 This module provides a Streamlit-based dashboard for visualizing and analyzing
 results from PhosKinTime simulations. It includes features for visualizing
-pareto frontiers, goodness of fit, residuals analysis, and more.
+scalar objective diagnostics, goodness of fit, residuals analysis, and more.
 
 The dashboard is intended to be run from the command line, e.g.:
 ```
@@ -59,13 +59,21 @@ def _load_outputs(output_dir: Path):
     # Prefer bundle (rich objects). Also load standard artifacts if present.
     bundle = load_dashboard_bundle(output_dir)
 
-    # Pareto
-    pareto_F_csv = output_dir / "pareto_F.csv"
-    if pareto_F_csv.exists():
-        df_pareto = pd.read_csv(pareto_F_csv)
+    # Scalar objective table. Legacy pareto_F.csv is still accepted as a filename
+    # but now stores a scalar_objective column in the JAXopt/Diffrax path.
+    objective_csv = output_dir / "scalar_objective.csv"
+    legacy_objective_csv = output_dir / "pareto_F.csv"
+    if objective_csv.exists():
+        df_objective = pd.read_csv(objective_csv)
+    elif legacy_objective_csv.exists():
+        df_objective = pd.read_csv(legacy_objective_csv)
     else:
-        F = bundle["res"].F
-        df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+        F = bundle.get("objective_values", bundle.get("pareto_F"))
+        arr = np.asarray(F, dtype=float).reshape(-1, 1)
+        df_objective = pd.DataFrame(arr, columns=["scalar_objective"])
+    if "scalar_objective" not in df_objective.columns:
+        numeric = [c for c in df_objective.columns if pd.api.types.is_numeric_dtype(df_objective[c])]
+        df_objective["scalar_objective"] = df_objective[numeric].sum(axis=1) if numeric else np.nan
 
     # Convergence
     conv_csv = output_dir / "convergence_history.csv"
@@ -80,35 +88,39 @@ def _load_outputs(output_dir: Path):
     df_pred_rna = pd.read_csv(pred_rna) if pred_rna.exists() else None
     df_pred_pho = pd.read_csv(pred_pho) if pred_pho.exists() else None
 
-    return bundle, df_pareto, df_conv, df_pred_prot, df_pred_rna, df_pred_pho
+    return bundle, df_objective, df_conv, df_pred_prot, df_pred_rna, df_pred_pho
 
 
-def _fig_pareto_3d(df_pareto: pd.DataFrame, picked_index: int | None):
-    df = df_pareto.copy()
+
+def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
+    files = {
+        "best_fit": output_dir / "optimization" / "best_fit.csv",
+        "multistart_summary": output_dir / "optimization" / "multistart_summary.csv",
+        "multistart_parameters": output_dir / "optimization" / "multistart_parameters.csv",
+        "profile_likelihood": output_dir / "profiles" / "profile_likelihood_summary.csv",
+        "posterior_summary": output_dir / "posterior" / "posterior_summary.csv",
+        "posterior_samples": output_dir / "posterior" / "posterior_samples.csv",
+        "posterior_predictive": output_dir / "posterior" / "posterior_predictive.csv",
+    }
+    return {name: (pd.read_csv(path) if path.exists() else None) for name, path in files.items()}
+
+def _fig_scalar_objective(df_objective: pd.DataFrame, picked_index: int | None):
+    df = df_objective.copy()
     df["idx"] = np.arange(len(df))
-
-    fig = px.scatter_3d(
-        df,
-        x="prot_mse",
-        y="rna_mse",
-        z="phospho_mse",
-        hover_data=["idx"],
-    )
-
+    fig = px.scatter(df, x="idx", y="scalar_objective", hover_data=["idx"])
     if picked_index is not None and 0 <= picked_index < len(df):
         picked = df.iloc[[picked_index]]
         fig.add_trace(
-            go.Scatter3d(
-                x=picked["prot_mse"],
-                y=picked["rna_mse"],
-                z=picked["phospho_mse"],
+            go.Scatter(
+                x=picked["idx"],
+                y=picked["scalar_objective"],
                 mode="markers",
-                marker=dict(size=8),
+                marker=dict(size=12),
                 name="picked",
                 text=[f"picked={picked_index}"],
             )
         )
-    fig.update_layout(height=650, margin=dict(l=0, r=0, b=0, t=30))
+    fig.update_layout(height=450, margin=dict(l=0, r=0, b=0, t=30))
     return fig
 
 
@@ -162,7 +174,8 @@ def main():
     output_dir = Path(args.output_dir)
     st.set_page_config(page_title="PhosKinTime Global Dashboard", layout="wide")
 
-    bundle, df_pareto, df_conv, df_pred_prot, df_pred_rna, df_pred_pho = _load_outputs(output_dir)
+    bundle, df_objective, df_conv, df_pred_prot, df_pred_rna, df_pred_pho = _load_outputs(output_dir)
+    inference_outputs = _load_inference_outputs(output_dir)
 
     picked_index = bundle.get("picked_index", None)
     frechet_scores = bundle.get("frechet_scores", None)
@@ -178,25 +191,24 @@ def main():
         st.markdown("**Run summary**")
         st.write(
             {
-                "solver": args_dict.get("solver", ""),
-                "pop": args_dict.get("pop", ""),
-                "n_gen": args_dict.get("n_gen", ""),
-                "cores": args_dict.get("cores", ""),
+                "solver": args_dict.get("solver", "jaxopt"),
+                "data_mode": bundle.get("data_mode", ""),
+                "active_layers": bundle.get("active_layers", ""),
                 "picked_index": picked_index,
             }
         )
 
     # Tabs
-    tab_overview, tab_timeseries, tab_network, tab_params, tab_browser = st.tabs(
-        ["Overview", "Time series", "Network", "Parameters", "Browse results"]
+    tab_overview, tab_timeseries, tab_network, tab_params, tab_inference, tab_browser = st.tabs(
+        ["Overview", "Time series", "Network", "Parameters", "Inference", "Browse results"]
     )
 
     with tab_browser:
         st.subheader("Quick gallery")
 
         gallery = [
-            "pareto_front_3d.png",
-            "pareto_pcp.png",
+            "scalar_objective.png",
+            "mode_metadata.json",
             "goodness_of_fit.png",
             "residuals_analysis.png",
             "kinase_activities_plot.png",
@@ -259,11 +271,26 @@ def main():
             else:
                 st.info(f"{sub} not found.")
 
+
+    with tab_inference:
+        st.subheader("Inference diagnostics")
+        for name, df in inference_outputs.items():
+            if df is not None:
+                st.markdown(f"**{name.replace('_', ' ').title()}**")
+                st.write(df.head(50))
+        plot_patterns = [
+            "plots/multistart/*.png",
+            "plots/profile_likelihood/*.png",
+            "plots/posterior/*.png",
+        ]
+        for path in _list_files(output_dir, plot_patterns):
+            _show_image(path, caption=str(path.relative_to(output_dir)))
+
     with tab_overview:
         c1, c2 = st.columns([2, 1])
         with c1:
-            st.subheader("Pareto front")
-            st.plotly_chart(_fig_pareto_3d(df_pareto, picked_index), use_container_width=True)
+            st.subheader("Scalar objective")
+            st.plotly_chart(_fig_scalar_objective(df_objective, picked_index), use_container_width=True)
 
         with c2:
             st.subheader("Selection")

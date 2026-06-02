@@ -1840,7 +1840,7 @@ st.caption(
     "or the browser will become heavy."
 )
 
-from networkmodel.simulate import simulate_odeint  # uses odeint under the hood
+from networkmodel.simulate import simulate_diffrax
 
 
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):
@@ -1874,10 +1874,10 @@ def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval:
         # Ensure monotonic and no NaNs/Infs
         t_grid = t_grid[np.isfinite(t_grid)]
         # If you ever end up with repeats, allow them but keep order
-        # (odeint allows repeated values, but must be monotonic)
+        # Diffrax requires strictly increasing values for this comparison grid
         t_grid.sort()
 
-    Y = simulate_odeint(sys, t_grid, rtol=1e-6, atol=1e-8, mxstep=50000)
+    Y = simulate_diffrax(sys, t_grid, rtol=1e-6, atol=1e-8, max_steps=50000)
     y_last = np.asarray(Y[-1], dtype=float)
 
     Kt = sys.kin.eval(t_eval) * sys.c_k

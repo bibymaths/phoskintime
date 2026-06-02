@@ -399,7 +399,7 @@ class System:
         elif MODEL == 2:
 
             if self.S_cache is None:
-                raise ValueError("MODEL==2: System.S_cache is None. simulate_odeint must set it.")
+                raise ValueError("MODEL==2: System.S_cache is None. simulate_diffrax must set it.")
 
             jb = int(np.searchsorted(self.kin_grid, t, side="right") - 1)
             if jb < 0:

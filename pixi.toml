@@ -32,6 +32,10 @@ pymoo = "*"
 cobyqa = "*"
 salib = "*"
 optuna = "*"
+jax = "*"
+jaxopt = "*"
+diffrax = "*"
+numpyro = "*"
 
 # Graph/network tooling
 graphviz = "*"
