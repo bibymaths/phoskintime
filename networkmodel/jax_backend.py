@@ -591,12 +591,11 @@ class JaxoptResult:
 
 
 def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None,
-                              fixed_values=None, logger_obj=None):
+                              fixed_values=None, logger_obj=None, verbose=1):
     ensure_jax_float64()
     log = logger_obj or logger
     log.info("[Optimizer] Selected optimizer backend: jaxopt.ProjectedGradient")
-    log.info(
-        "[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
+    log.info("[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
     lower_j = jnp.asarray(lower, dtype=jnp.float64)
     upper_j = jnp.asarray(upper, dtype=jnp.float64)
     fixed_mask_j = None if fixed_mask is None else jnp.asarray(fixed_mask, dtype=bool)
@@ -606,8 +605,22 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         lo, hi = hyperparams
         return project_bounds(x, lo, hi, fixed_mask_j, fixed_values_j)
 
-    solver = jaxopt.ProjectedGradient(fun=objective_fun, projection=projection, maxiter=int(maxiter), tol=float(tol),
-                                      verbose=1)
+    # Wrap objective to track best value and detect oscillation via a
+    # decreasing stepsize schedule. fun_min_decrease_factor stops iteration
+    # when the relative improvement over a window falls below the threshold,
+    # which is exactly the oscillation / plateau signature.
+    solver = jaxopt.ProjectedGradient(
+                    objective_fun, projection,
+                    value_and_grad=False,
+                    has_aux=False,
+                    stepsize=0.0,        # 0.0 = backtracking line search
+                    maxiter=maxiter,
+                    maxls=30,            # max line search steps per iteration
+                    tol=tol,
+                    verbose=1,
+                    implicit_diff=True,
+                    jit=True,
+                )
     init = project_bounds(theta0, lower_j, upper_j, fixed_mask_j, fixed_values_j)
     params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
     val = objective_fun(params)
@@ -617,10 +630,10 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         raise RuntimeError("JAXopt optimization failed: final scalar objective is not finite.")
     try:
         grad_norm = float(jnp.linalg.norm(jax.grad(objective_fun)(params)))
-    except Exception:  # diagnostic only; keep optimization result usable if grad logging fails
+    except Exception:
         grad_norm = float("nan")
     log.info(
-        "[Optimizer] Convergence status: iterations=%s final scalar objective=%.8g grad_norm=%.8g",
+        "[Optimizer] Convergence status: iterations=%s final_objective=%.8g grad_norm=%.8g",
         getattr(state, "iter_num", "unknown"),
         val_f,
         grad_norm,

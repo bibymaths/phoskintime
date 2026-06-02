@@ -333,7 +333,7 @@ def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_sa
         numpyro.factor("objective_likelihood", -0.5 * objective / (sigma * sigma + 1e-6))
 
     kernel = NUTS(model, init_strategy=numpyro.infer.init_to_value(values={"theta_raw": theta_center}))
-    mcmc = MCMC(kernel, num_warmup=int(num_warmup), num_samples=int(num_samples), num_chains=1, progress_bar=False)
+    mcmc = MCMC(kernel, num_warmup=int(num_warmup), num_samples=int(num_samples), num_chains=1, progress_bar=True)
     mcmc.run(jax.random.PRNGKey(int(seed)))
     samples = mcmc.get_samples()
     names = _param_names(len(ctx.theta0), ctx.parameter_names)

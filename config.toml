@@ -279,7 +279,7 @@ seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (JAXopt)
 # ------------------------------------------------------------
-n_gen      = 20000                       # Maximum local optimizer iterations (runner arg: --n-gen)
+n_gen      = 30                       # Maximum local optimizer iterations (runner arg: --n-gen)
 loss = 0
 # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
 # -1 for Charbonnier Loss
@@ -342,9 +342,9 @@ sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "varian
 # INFERENCE / POST-OPTIMIZATION ANALYSES
 # ------------------------------------------------------------
 # --- Inference / Multistart ---
-n_starts = 5               # int: restarts; 1 = single-start (current behaviour)
+n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
 # --- Profile Likelihood (post-optimization) ---
-profile_likelihood = true
+profile_likelihood = false
 profile_indices = ""       # comma-separated parameter indices e.g. "0,1,5"
 profile_grid_size = 10
 # --- Posterior Sampling (post-optimization, requires numpyro) ---

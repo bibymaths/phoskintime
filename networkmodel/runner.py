@@ -687,12 +687,14 @@ def main():
         tol=1e-6,
     )
     if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
+        logger.info(f"Profile likelihood requested for indices: {PROFILE_INDICES}")
         profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
         run_profile_likelihood(ctx, parameter_indices=profile_indices,
                                grid_size=PROFILE_GRID_SIZE)
         logger.info("Profile likelihood complete.")
     if POSTERIOR_SAMPLING:
         try:
+            logger.info(f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
             run_numpyro_posterior(ctx, num_warmup=POSTERIOR_NUM_WARMUP,
                                   num_samples=POSTERIOR_NUM_SAMPLES, seed=args.seed)
             logger.info("Posterior sampling complete.")
@@ -730,19 +732,6 @@ def main():
     )
 
     logger.info(f"[Output] Saved scalar objective Excel compatibility file: {excel_path}")
-
-    # plot_gof_from_pareto_excel(
-    #     excel_path=excel_path,
-    #     output_dir=os.path.join(args.output_dir, "goodness_of_fits_all_solutions"),
-    #     plot_goodness_of_fit_func=plot_goodness_of_fit,
-    #     df_prot_obs_all=df_prot,
-    #     df_rna_obs_all=df_rna,
-    #     df_phos_obs_all=df_pho,
-    #     top_k=10,
-    #     score_col="scalar_score",
-    # )
-
-    # logger.info(f"[Output] Saved Goodness of Fit plots for scalar solutions.")
 
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance
