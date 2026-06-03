@@ -1,35 +1,13 @@
-# Utils
+# Utilities
 
-The `utils` module provides a set of helper scripts to streamline data processing, table generation, file organization, and report creation for the project. These utilities ensure consistent handling of outputs, formatting, and organization across the pipeline.
+## Current networkmodel utilities
 
-## Scripts Overview
+The public networkmodel utility API includes `normcols`, `find_col`, `slen`, `normalize_fc_to_t0`, `process_and_scale_raw_data`, `time_bucket`, `softplus`, `inv_softplus`, `load_config_toml`, `calculate_bio_bounds`, and `get_optimized_sets`.
 
-### `display.py`
-- **Purpose**: Handles data loading, output directory management, and report generation.
-- **Key Features**:
-  - Ensures output directories exist.
-  - Loads data from Excel files.
-  - Merges observed and estimated data for analysis.
-  - Saves results to Excel with multiple sheets for parameters, errors, PCA, t-SNE, and sensitivity analysis.
-  - Generates a global HTML report summarizing results with plots and tables.
+## Configuration loading
 
-### `tables.py`
-- **Purpose**: Generates hierarchical tables for alpha and beta values and saves them in LaTeX and CSV formats.
-- **Key Features**:
-  - Processes alpha and beta values from Excel files.
-  - Creates hierarchical tables with multi-index columns for easy comparison.
-  - Saves tables as LaTeX and CSV files for further analysis.
-  - Generates a master LaTeX file to include all individual tables.
+`load_config_toml` returns `PhosKinConfig` from a TOML path. The networkmodel configuration page lists the keys exposed by `config.py`.
 
-### `latexit.py`
-- **Purpose**: Converts Excel data and PNG plots into LaTeX tables and figures for documentation.
-- **Key Features**:
-  - Processes Excel sheets and generates LaTeX tables.
-  - Converts PNG plots into LaTeX figure blocks.
-  - Outputs a structured LaTeX file for integration into larger documents.
+## What this module does not do
 
-## Outputs
-- **Excel Files**: Organized results with multiple sheets for parameters, errors, and analysis.
-- **LaTeX Files**: Tables and figures for documentation.
-- **CSV Files**: Processed data tables for further analysis.
-- **HTML Reports**: Interactive summaries of results with plots and tables.
+This page does not document utility functions outside the current networkmodel public API inventory.

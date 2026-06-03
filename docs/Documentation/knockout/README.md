@@ -1,33 +1,28 @@
-# Knockout
+# Perturbation Notes
 
-The `knockout` module provides utilities for simulating in silico knockouts of biological processes and generating all possible knockout combinations. It is designed to work with parameter vectors representing biological systems.
+## Current scope
 
-## Features
+The current networkmodel source contains sensitivity analysis, fitted trajectory export, and dashboard display utilities. It does not expose a public knockout runner in the networkmodel public API inventory.
 
-- **Apply Knockouts:**  
-  Modify parameter vectors to simulate knockouts for transcription, translation, or phosphorylation processes.
+## Current analysis path
 
-- **Generate Knockout Combinations:**  
-  Create all possible combinations of knockouts, including individual phosphorylation site knockouts.
+Sensitivity analysis uses `run_sensitivity_analysis` with perturbation settings from `config.py`.
 
-## Functions
+```toml
+n_starts = 1
+profile_likelihood = false
+profile_grid_size = 10
+posterior_sampling = false
+posterior_num_warmup = 20
+posterior_num_samples = 30
+sensitivity_analysis = false
+sensitivity_perturbation = 0.2
+sensitivity_trajectories = 1000
+sensitivity_levels = 400
+sensitivity_top_curves = 50
+sensitivity_metric = "total_signal"
+```
 
-### `apply_knockout`
-Simulates knockouts by modifying a given parameter vector.
+## What this module does not do
 
-- **Parameters:**
-  - `base_params` (`np.ndarray`): Original parameter vector.
-  - `knockout_targets` (`dict`): Specifies processes to knock out (`transcription`, `translation`, `phosphorylation`).
-  - `num_psites` (`int`): Number of phosphorylation sites.
-
-- **Returns:**  
-  A modified parameter vector with the specified knockouts applied.
-
-### `generate_knockout_combinations`
-Generates all possible combinations of knockouts for transcription, translation, and phosphorylation.
-
-- **Parameters:**
-  - `num_psites` (`int`): Number of phosphorylation sites.
-
-- **Returns:**  
-  A list of dictionaries, each representing a unique knockout combination.
+This page does not document node deletion or knockout simulation as an implemented networkmodel workflow.
