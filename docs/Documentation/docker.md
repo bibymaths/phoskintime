@@ -81,7 +81,7 @@ docker run --rm \
   -v "$PWD/results:/app/results_model_global" \
   -v "$PWD/config.toml:/app/config.toml" \
   --entrypoint poetry \
-  phoskintime run phoskintime-global
+  python -m networkmodel.runner
 ```
 
 ### Pass a custom config file

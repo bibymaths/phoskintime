@@ -40,7 +40,7 @@ python scripts/analyze_tf_kin_counts.py
 > - Output: `results_scripts/`
 >
 > To change input paths, edit the `main()` call at the bottom of the script or import and call
-> `main(tfopt_xlsx=..., kinopt_xlsx=..., out_dir=...)` from your own script.
+> `main(tfopt_xlsx="data/tfopt_results.xlsx", kinopt_xlsx="data/kinopt_results.xlsx", out_dir="results")` from your own script.
 
 ---
 
@@ -102,8 +102,8 @@ TF network (`input4`). Useful for focused network analysis around specific prote
 **When to run:** After preprocessing (input files must exist in `data/`).
 
 **Inputs:**
-- `input2.csv` — kinase-substrate network (columns: `GeneID`, `Psite`, `Kinase`, ...)
-- `input4.csv` — TF-gene edges (columns: `Source`, `Target`, ...)
+- `input2.csv` — kinase-substrate network (columns such as `GeneID`, `Psite`, and `Kinase`)
+- `input4.csv` — TF-gene edges (columns such as `Source` and `Target`)
 
 **Outputs:**
 - `<outdir>/<NODE>/<NODE>_input2.csv` — subnetwork slice for each shared node
