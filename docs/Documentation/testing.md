@@ -36,7 +36,7 @@ Tests for `config/logconf.py`:
 | `logger_respects_custom_formatter` | Logger uses `ColoredFormatter` for all handlers |
 
 > **Known issue:** These test functions are not prefixed with `test_`, so pytest does **not**
-> collect or run them automatically. They must be renamed (e.g. `def test_logger_handles_...`)
+> collect or run them automatically. They must be renamed (e.g. `def test_logger_handles_log_directory`)
 > before they become active tests. This is a pre-existing gap in the test suite.
 
 ---

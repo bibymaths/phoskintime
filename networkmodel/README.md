@@ -1,385 +1,210 @@
-# Global Model Subpackage (`networkmodel`)
-
-The `networkmodel` subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.
-
-Key design goals:
-- High-throughput simulation (Numba JIT RHS kernels; sparse topologies).
-- Stable, bounded regulation dynamics (saturating transcription/translation modifiers).
-- Optimization-ready API (parameter packing/unpacking, single scalar JAXopt loss aggregation).
-- Explicit handling of missing network coverage (proxy logic for orphan TFs).
-
----
-
-## Scope and Outputs
-
-The model simulates three coupled layers per gene/protein entity:
-- mRNA abundance for gene *g*: \(R_g(t)\)
-- total protein abundance for gene *g*: \(P_g(t)\)
-- phosphorylation-state abundances for protein *g*: \(P_{g,\cdot}(t)\) (model-dependent)
-
-The core simulation returns time-indexed tables (typically pandas DataFrames) for:
-- total protein \(P_g(t)\),
-- mRNA \(R_g(t)\),
-- phospho-states or phospho-observables (site-wise or state-wise, depending on topology).
-
----
-
-## Notation and State Vector
-
-We model \(G\) genes/proteins, \(K\) kinases, and (optionally) transcription factors (TFs) as a subset of proteins.
-
-For each gene/protein \(g \in \{1,\dots,G\}\):
-- \(R_g(t)\) is mRNA.
-- \(P_g(t)\) is total protein.
-- \(P_{g,s}(t)\) is a phosphorylation state or site-associated pool (definitions depend on the kinetic topology).
-
-The full state vector is
-$$
-x(t) =
-\begin{bmatrix}
-R_1(t),\dots,R_G(t),\;
-P_1(t),\dots,P_G(t),\;
-\text{phospho states}(t)
-\end{bmatrix}^\top
-$$
-
-We use:
-- $u_k(t)$: observed kinase proxy input for kinase \(k\) (from MS abundance or derived activity proxy).
-- $\beta_k$: learnable kinase gain scaling for kinase \(k\).
-- $A$: sparse kinase-to-substrate-site adjacency (topology) from curated/constructed kinase–substrate links.
-- $W$: TF-to-gene regulatory interaction matrix (GRN weights).
-
-All equations below are written in continuous time; in practice, inputs are provided at discrete time points and integrated using a solver that respects these discrete changes (see [Implementation Notes](#implementation-notes)).
-
----
-
-## Mathematical Framework
-
-### Signaling Layer (Kinase Inputs)
-
-Mass spectrometry typically measures abundance rather than catalytic activity. We therefore treat each kinase input as a scaled, learnable proxy:
-
-For kinase $k$:
-$$
-\tilde{u}_k(t) = \beta_k \, u_k(t)
-$$
-
-For a given substrate protein $g$ and phosphorylation site (or transition) $s$, the total phosphorylation drive (“propensity”) is a sparse weighted sum over upstream kinases:
-$$
-\pi_{g,s}(t) = \sum_{k=1}^{K} A_{k\to(g,s)} \, \tilde{u}_k(t)
-= \sum_{k=1}^{K} A_{k\to(g,s)} \, \beta_k \, u_k(t)
-$$
-
-Here $A_{k\to(g,s)}$ is typically binary (presence/absence) or may encode prior confidence/strength. In code, this is implemented as sparse lookups to avoid dense $K \times \sum_g S_g$ operations.
-
----
-
-### Kinetic Topologies (Phosphorylation Dynamics)
-
-The model supports multiple kinetic topologies to capture different biological mechanisms. Each topology specifies how phosphorylation state variables are defined and how mass flows between them.
-
-Common parameters used across models:
-- $\delta_{g,s}$: dephosphorylation (or reverse transition) rate for site/state $s$ on protein $g$.
-- $\gamma_{g,s}$: degradation/turnover rate for site/state $s$ on protein $g$ (optional, when the state is explicitly tracked).
-- $\rho_g$: basal protein turnover (for total protein).
-- $\kappa_{g,s}$: effective forward phosphorylation rate scaling for site/state $s$ (often absorbed into $\pi_{g,s}$ depending on implementation).
-
-The propensities $\pi_{g,s}(t)$ drive forward fluxes; dephosphorylation provides reverse fluxes.
-
-#### A. Distributive / Independent (Model 0)
-
-Assumption: sites behave independently; each site draws from a shared unphosphorylated pool $P_{g,0}(t)$ and produces a mono-phosphorylated pool $P_{g,s}(t)$.
-
-State variables per protein $g$:
-- $P_{g,0}(t)$: unphosphorylated pool.
-- $P_{g,s}(t)$ for $s=1,\dots,S_g$: mono-phosphorylated pools per site.
-
-Fluxes:
-$$
-F^{\text{phos}}_{g,s}(t) = \pi_{g,s}(t)\, P_{g,0}(t)
-\quad,\quad
-F^{\text{deph}}_{g,s}(t) = \delta_{g,s}\, P_{g,s}(t)
-$$
-
-ODEs:
-$$
-\frac{dP_{g,0}}{dt} =
-\underbrace{\sum_{s=1}^{S_g} \delta_{g,s} P_{g,s}}_{\text{return from dephos}} -
-\underbrace{\sum_{s=1}^{S_g} \pi_{g,s}(t) P_{g,0}}_{\text{forward phos}} -
-\gamma_{g,0} P_{g,0}
-$$
-
-$$
-\frac{dP_{g,s}}{dt} =
-\pi_{g,s}(t) P_{g,0} - \delta_{g,s} P_{g,s}  - \gamma_{g,s} P_{g,s}
-\quad,\quad s=1,\dots,S_g
-$$
-
-Observation mapping (common choice):
-- site signal for $(g,s)$ is proportional to $P_{g,s}(t)$ (optionally normalized to $t=0$) in post-processing).
-
----
-
-#### B. Sequential (Model 1)
-
-Assumption: phosphorylation occurs in a strict order:
-$$
-P_{g,0} \rightarrow P_{g,1} \rightarrow \cdots \rightarrow P_{g,S_g}
-$$
-where $P_{g,i}$ denotes the state with exactly the first $i$ sites phosphorylated (or the $i$-th sequential stage).
-
-Define transition propensities $\pi_{g,i}(t)$ for step $i: P_{g,i-1}\to P_{g,i}$.
-
-Forward and reverse fluxes:
-$$
-F^{+}_{g,i}(t) = \pi_{g,i}(t)\, P_{g,i-1}(t)
-\quad,\quad
-F^{-}_{g,i}(t) = \delta_{g,i}\, P_{g,i}(t)
-$$
-
-ODEs:
-$$
-\frac{dP_{g,0}}{dt} =
-\delta_{g,1} P_{g,1} - \pi_{g,1}(t) P_{g,0} - \gamma_{g,0} P_{g,0}
-$$
-
-For intermediate states $i=1,\dots,S_g-1$:
-$$
-\frac{dP_{g,i}}{dt} = \pi_{g,i}(t) P_{g,i-1} + \delta_{g,i+1} P_{g,i+1} - \delta_{g,i} P_{g,i} - \pi_{g,i+1}(t) P_{g,i} - \gamma_{g,i} P_{g,i}
-$$
-
-For the terminal state $i=S_g$:
-$$
-\frac{dP_{g,S_g}}{dt} =
-\pi_{g,S_g}(t) P_{g,S_g-1} -
-\delta_{g,S_g} P_{g,S_g} -
-\gamma_{g,S_g} P_{g,S_g}
-$$
-
----
-
-#### C. Combinatorial / Hypercube (Model 2)
-
-Assumption: all combinations of site phosphorylation are explicitly tracked, enabling synergistic/conditional effects. For $S_g$ sites, there are $2^{S_g}$ states.
-
-Let $m \in \{0,1\}^{S_g}$ be a bitmask encoding a state (1 indicates phosphorylated). Denote the abundance of state $(m\) as \(P_{g,m}(t)$$.
-
-For each site \(s\), define the neighboring states:
-- \(m\) with bit \(s=0\) transitions to \(m^{(s,+)}\) where bit \(s\) is flipped to 1.
-- \(m\) with bit \(s=1\) transitions back to \(m^{(s,-)}\) where bit \(s\) is flipped to 0.
-
-A generic mass-action flux for a site flip:
-
-$$
-F^{(s,+)}_{g,m}(t) = \pi_{g,s}(t)\, P_{g,m}(t) \quad \text{if } m_s=0
-$$ 
-
-$$
-F^{(s,-)}_{g,m}(t) = \delta_{g,s}\, P_{g,m}(t) \quad \text{if } m_s=1
-$$
-
-The ODE for each state \(m\) sums incoming and outgoing fluxes across all sites:
-
-$$
-\frac{dP_{g,m}}{dt} =
-\sum_{s: m_s=1} \pi_{g,s}(t)\, P_{g,m^{(s,-)}} +
-\sum_{s: m_s=0} \delta_{g,s}\, P_{g,m^{(s,+)}} -
-\sum_{s: m_s=0} \pi_{g,s}(t)\, P_{g,m} -
-\sum_{s: m_s=1} \delta_{g,s}\, P_{g,m} -
-\gamma_{g,m}\, P_{g,m}
-$$
-
-Observation mapping can be site-wise:
-$$
-\text{site signal }(g,s) \propto \sum_{m: m_s=1} P_{g,m}(t)
-$$
-
-This topology is the most expressive but also the most expensive (\(O(2^{S_g})\) state scaling); it is only practical for small \(S_g\).
-
----
-
-#### D. Saturating / Michaelis–Menten (Model 4)
-
-Assumption: phosphorylation is enzyme-saturated at high substrate concentration, preventing “runaway” kinetics.
-
-Let \(S(t)\) denote the relevant substrate pool for a given site/transition (often a state abundance such as \(P_{g,0}\) or \(P_{g,i}\)). The saturated forward flux for site \(s\) is:
-$$
-F^{\text{MM}}_{g,s}(t) =
-V^{\max}_{g,s}(t)\, \frac{S(t)}{K_{M} + S(t)}
-$$
-
-We parameterize the effective maximum velocity as proportional to kinase drive:
-$$
-V^{\max}_{g,s}(t) = \pi_{g,s}(t)
-$$
-
-Using non-dimensionalized units, \(K_M\) is typically normalized to \(1.0\) unless explicitly estimated:
-$$
-F^{\text{MM}}_{g,s}(t) =
-\pi_{g,s}(t)\, \frac{S(t)}{1 + S(t)}
-$$
-
-Example for an independent-site form (illustrative):
-$$
-\frac{dP_{g,s}}{dt} =
-\pi_{g,s}(t)\, \frac{P_{g,0}}{1 + P_{g,0}} -
-\delta_{g,s} P_{g,s} - \gamma_{g,s} P_{g,s}
-$$
-
-The saturating topology can be combined with sequential or distributive state definitions; the defining feature is the replacement of linear mass-action forward flux with the rational saturation term.
-
----
-
-### Gene Expression Layer (GRN Coupling)
-
-Protein levels feed back to gene expression via TF-mediated regulation. Let \(T\) be the set of TF indices, and let \(W \in \mathbb{R}^{G \times |T|}\) be the TF-to-gene interaction matrix, where \(W_{g,t}\) is positive for activation and negative for repression.
-
-#### Transcriptional Regulation Input
-
-Define the raw regulatory signal to gene \(g\):
-$$
-z_g(t) = \sum_{t \in T} W_{g,t}\, P_t(t)
-$$
-
-Optionally, a global scaling factor (`tf_scale`) is applied:
-$$
-\tilde{z}_g(t) = \alpha_{\text{tf}}\, z_g(t)
-$$
-
-#### Rational Hill / Bounded Modulation
-
-We map the unbounded \(\tilde{z}_g(t)\) to a bounded synthesis modifier \(h_g(t)\) using a rational function for numerical stability and saturation.
-
-First, input squashing:
-$$
-q_g(t) = \frac{\tilde{z}_g(t)}{1 + \left|\tilde{z}_g(t)\right|}
-\quad\Rightarrow\quad
-q_g(t)\in(-1,1)
-$$
-
-Then, activation vs repression mapping. A convenient rational form is:
-
-Activation branch (\(q_g \ge 0\)):
-$$
-h_g(t) = 1 + \eta_g\, \frac{q_g(t)}{1 + q_g(t)}
-$$
-
-Repression branch (\(q_g < 0\)):
-$$
-h_g(t) = 1 - \xi_g\, \frac{-q_g(t)}{1 - q_g(t)}
-$$
-
-Here \(\eta_g \ge 0\) controls maximal fold-activation above baseline, and \(\xi_g \ge 0\) controls maximal fold-repression below baseline. This keeps \(h_g(t)\) bounded and avoids overflow for large \(|z_g|\).
-
-#### mRNA and Protein Turnover
-
-mRNA dynamics:
-$$
-\frac{dR_g}{dt} = s_g \, h_g(t) - d_g\, R_g
-$$
-where \(s_g\) is basal transcription and \(d_g\) is mRNA decay.
-
-Protein dynamics (mass-action translation):
-$$
-\frac{dP_g}{dt} = k_g\, R_g - \rho_g\, P_g
-$$
-where \(k_g\) is translation rate and \(\rho_g\) is protein turnover.
-
-For saturating translation (ribosome-limited), a bounded alternative is:
-$$
-\frac{dP_g}{dt} = k_g\, \frac{R_g}{1 + R_g} - \rho_g\, P_g
-$$
-
----
-
-## Biological Interpretations
-
-### Proxy Logic for Orphan TFs
-
-A common issue is missing phosphoproteomics coverage for TFs in the GRN. If a TF \(t\) is absent from observed/proxied inputs, leaving it constant can break feedback loops and reduce realism.
-
-We therefore use a **proxy strategy**: if an orphan TF \(t\) is known (via the GRN or curated links) to regulate a kinase \(k\), we approximate TF activity as proportional to the kinase proxy:
-$$
-P_t(t) \propto \tilde{u}_k(t)
-$$
-
-In practice, this “rewiring” injects dynamics into otherwise disconnected TF nodes while preserving the sign/structure of feedback loops.
-
----
-
-## Parameter Dictionary
-
-The exact set of parameters depends on topology and configuration. Common parameters include:
-
-Gene expression:
-- $s_g$: basal transcription rate of gene $g$.
-- $d_g$: mRNA decay rate $\mathrm{time}^{-1}$.
-- $k_g$: translation rate per mRNA $\mathrm{time}^{-1}$.
-- $\rho_g$: protein turnover $\mathrm{time}^{-1}$.
-- $\alpha_{\text{tf}}$: global TF scaling (`tf_scale`).
-- $\eta_g$, $\xi_g$: activation/repression strength (bounded modifiers).
-
-Kinase signaling:
-- $\beta_k$: kinase gain (global multiplier per kinase).
-- $A_{k\to(g,s)}$: kinase-to-site topology/strength (sparse, usually fixed).
-
-Phosphorylation dynamics:
-- $\delta_{g,s}$: dephosphorylation rate for site/state.
-- $\gamma_{g,\cdot}$: state-specific degradation/turnover (optional; may be shared).
-
----
-
-## Module Architecture
-
-The package is structured to separate data management, topology construction, physics kernels, numerical integration, and optimization.
-
-| Module | Description |
+# `networkmodel`
+
+`networkmodel` is the integrated PhosKinTime package for fitting a coupled phosphorylation, protein, and RNA ODE model with the current JAX, Diffrax, and JAXopt scalar objective path. It loads configured CSV or Excel inputs, builds kinase and transcription-factor topology, prepares numeric loss arrays, solves the ODE with Diffrax, optimizes raw parameters with `jaxopt.ProjectedGradient`, and writes result tables, diagnostic plots, optional inference summaries, optional sensitivity summaries, and dashboard payloads.
+
+## What this module does not do
+
+- It does not run retired optimizer backends or evolutionary multi-objective solvers.
+- It does not document planned configuration keys that are absent from `networkmodel/config.py`.
+- It does not treat the Streamlit dashboard as part of the numerical optimizer.
+- It does not import pandas inside the differentiable JAX objective functions in `jax_backend.py`; tabular inputs are converted before objective evaluation.
+
+## Current architecture
+
+The command-line workflow starts in `runner.py` and follows this import graph for the current implementation:
+
+```text
+runner
+├── optproblem ──> jax_backend
+├── inference ──> jax_backend
+├── sensitivity
+├── export
+├── analysis
+└── dashboard_bundle / dashboard_app
+```
+
+Supporting modules provide the data structures and helpers used by that path:
+
+- `config.py` exposes constants loaded from `config.toml`.
+- `io.py` loads kinase, transcription-factor, protein, RNA, phospho, and prior-result inputs.
+- `network.py` builds the index map, kinase input interpolation, and mutable `System` object.
+- `buildmat.py` constructs kinase-site and transcription-factor matrices.
+- `params.py` initializes and unpacks optimizer vectors.
+- `cache.py` prepares compact numeric arrays for loss evaluation.
+- `models.py`, `simulate.py`, and `jax_backend.py` evaluate and solve ODE trajectories.
+- `lossfn.py` contains NumPy loss kernels used by non-JAX helper paths.
+- `mode_outputs.py`, `export.py`, and `dashboard_bundle.py` write scalar-run outputs.
+
+## Implemented state layouts
+
+The package supports the model names exposed by `config.py` through `AVAILABLE_MODELS` and selected by `MODEL`:
+
+- `distributive`: one mRNA state, one unphosphorylated protein state, and one phosphorylated state per site.
+- `sequential`: one mRNA state and ordered phosphorylation states per protein.
+- `combinatorial`: one mRNA state and one protein state for each phosphorylation bit pattern.
+- `saturation`: a saturating phosphorylation variant selected as internal model code `4`.
+
+For the standard non-combinatorial layout, each protein block contains:
+
+```text
+mRNA, unphosphorylated protein, phosphosite 1, phosphosite 2, ...
+```
+
+For the combinatorial layout, each protein block contains:
+
+```text
+mRNA, phosphorylation state 0, phosphorylation state 1, ..., phosphorylation state 2^S - 1
+```
+
+## Optimization path
+
+The current scalar optimizer is `jaxopt.ProjectedGradient`. Raw parameters are projected into configured lower and upper bounds, fixed values are restored when a fixed mask is supplied, and the scalar objective combines available protein, RNA, and phospho losses with the prior penalty configured by `lambda_prior`.
+
+A minimal Python call pattern is:
+
+```python
+from networkmodel.jax_backend import detect_data_mode, make_simple_objective, optimize_scalar_objective
+
+mode = detect_data_mode(loss_data=loss_data)
+objective = make_simple_objective(
+    loss_data=loss_data,
+    mode=mode,
+    time_grid=time_grid,
+    weights={"protein": 1.0, "mrna": 1.0, "phospho": 1.0},
+    defaults=defaults,
+    prior_weight=0.1,
+    networkmodel_layout=True,
+    y0=y0,
+    sys=sys,
+    slices=slices,
+)
+theta, state, value = optimize_scalar_objective(
+    objective,
+    theta0,
+    lower,
+    upper,
+    maxiter=30,
+    tol=1e-6,
+)
+```
+
+The example uses only arguments present in the function signatures in `jax_backend.py`.
+
+## Command-line interface
+
+`runner.py` currently defines these command-line flags:
+
+| Flag | Purpose |
 | --- | --- |
-| `network.py` | Topology engine. Defines the `Index` class mapping biological entities to state-vector indices. Implements proxy rewiring and builds sparse interaction structures. |
-| `models.py` | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics. |
-| `solvers.py` | Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts. |
-| `simulate.py` | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points. |
-| `optproblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
-| `optproblem.py` | JAXopt scalar objective layer. Orchestrates bounded local optimization and mode-aware loss weighting. |
-| `lossfn.py` | Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points. |
-| `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\). |
-| `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.). |
-| `config.py` | Central configuration loader for `config.toml` (paths, solver tolerances, bounds, time grids). |
+| `--kinase-net` | Kinase-substrate network path. |
+| `--tf-net` | Transcription-factor network path. |
+| `--ms` | Protein mass-spectrometry data path. |
+| `--rna` | RNA data path. |
+| `--kinopt` | Kinase prior-result path. |
+| `--tfopt` | Transcription-factor prior-result path. |
+| `--output-dir` | Output directory. |
+| `--cores` | Worker count passed through the workflow. |
+| `--n-gen` | Maximum scalar optimizer iterations. |
+| `--seed` | Random seed for initialization and inference helpers. |
+| `--lambda-prior` | Prior-adherence loss weight. |
+| `--lambda-protein` | Protein loss weight. |
+| `--lambda-rna` | RNA loss weight. |
+| `--lambda-phospho` | Phospho loss weight. |
+| `--normalize-fc-steady` | Normalize protein and phospho fold change to the baseline time. |
+| `--use-initial-condition-from-data` | Build initial state values from observed baseline data. |
+| `--scan` | Run the compatibility hyperparameter-scan entry point. |
+| `--sensitivity` | Run sensitivity analysis after optimization. |
+| `--solver` | Select the scalar solver option; the documented working value is `jaxopt`. |
 
----
+Example:
 
-## Configuration and Data Expectations
+```bash
+python -m networkmodel.runner \
+  --kinase-net data/input2.csv \
+  --tf-net data/input4.csv \
+  --ms data/input1.csv \
+  --rna data/input3.csv \
+  --kinopt data/kinopt_results.xlsx \
+  --tfopt data/tfopt_results.xlsx \
+  --output-dir results_model_global_distributive_jax \
+  --cores 8 \
+  --n-gen 30 \
+  --seed 42 \
+  --lambda-prior 0.1 \
+  --lambda-protein 1.0 \
+  --lambda-rna 1.0 \
+  --lambda-phospho 1.0 \
+  --solver jaxopt
+```
 
-The typical workflow assumes:
-1. `config.toml` defines dataset file paths, time point vectors per modality (protein / RNA / phospho), and solver tolerances.
-2. Data loaders produce:
-   - kinase proxy input table indexed by time (or aligned to nearest time buckets),
-   - protein and RNA measurements for initialization and loss evaluation,
-   - phospho measurements for site/state losses,
-   - interaction maps (kinase–substrate and TF–target) to construct \(A\) and \(W\).
+## Configuration fields consumed by `networkmodel/config.py`
 
-Practical requirements:
-- Unique identifiers must be consistent across datasets (gene symbols / protein IDs).
-- Time points should be strictly increasing; uneven spacing is supported.
-- Missing values should be filtered or masked before optimization; loss functions typically include NaN guards.
+The active configuration source is the `[networkmodel]` table in `config.toml`, with nested `timepoints`, `bounds`, `models`, and `solver` tables. The following names are consumed by `config.py` through `load_config_toml`:
 
----
+| Field | Controls |
+| --- | --- |
+| `kinase_net` | `KINASE_NET_FILE`, the kinase-substrate input path. |
+| `tf_net` | `TF_NET_FILE`, the transcription-factor input path. |
+| `ms` | `MS_DATA_FILE`, the protein data path. |
+| `rna` | `RNA_DATA_FILE`, the RNA data path. |
+| `phospho` | `PHOSPHO_DATA_FILE`, the phospho data path. |
+| `kinopt` | `KINOPT_RESULTS_FILE`, the kinase prior-result path. |
+| `tfopt` | `TFOPT_RESULTS_FILE`, the transcription-factor prior-result path. |
+| `output_dir` | `RESULTS_DIR`, the output directory. |
+| `cores` | `CORES`, worker-count setting. |
+| `seed` | `SEED`, random seed. |
+| `loss` | `LOSS_MODE`, integer robust-loss selector. |
+| `lambda_prior` | `REGULARIZATION_LAMBDA`, prior-adherence weight. |
+| `lambda_protein` | `REGULARIZATION_PROTEIN`, protein loss weight. |
+| `lambda_rna` | `REGULARIZATION_RNA`, RNA loss weight. |
+| `lambda_phospho` | `REGULARIZATION_PHOSPHO`, phospho loss weight. |
+| `hyperparam_scan` | `HYPERPARAM_SCAN`, compatibility scan toggle. |
+| `normalize_fc_steady` | `NORMALIZE_FC_STEADY`, baseline fold-change normalization toggle. |
+| `use_initial_condition_from_data` | `USE_INITIAL_CONDITION_FROM_DATA`, data-derived initial-state toggle. |
+| `scaling_method` | `SCALING_METHOD`, raw-data scaling method. |
+| `weighting_method_protein` | `WEIGHTING_METHOD_PROTEIN`, protein time-weighting method. |
+| `weighting_method_rna` | `WEIGHTING_METHOD_RNA`, RNA time-weighting method. |
+| `weighting_method_phospho` | `WEIGHTING_METHOD_PHOSPHO`, phospho time-weighting method. |
+| `sensitivity_analysis` | `SENSITIVITY_ANALYSIS`, sensitivity toggle. |
+| `sensitivity_perturbation` | `SENSITIVITY_PERTURBATION`, relative perturbation size. |
+| `sensitivity_trajectories` | `SENSITIVITY_TRAJECTORIES`, perturbation trajectory count. |
+| `sensitivity_levels` | `SENSITIVITY_LEVELS`, perturbation-grid level count. |
+| `sensitivity_top_curves` | `SENSITIVITY_TOP_CURVES`, number of sensitivity curves to plot. |
+| `sensitivity_metric` | `SENSITIVITY_METRIC`, scalar metric for sensitivity scoring. |
+| `n_starts` | `N_STARTS`, multistart count. |
+| `profile_likelihood` | `PROFILE_LIKELIHOOD`, profile-likelihood toggle. |
+| `profile_indices` | `PROFILE_INDICES`, comma-separated parameter indices. |
+| `profile_grid_size` | `PROFILE_GRID_SIZE`, number of grid values per profiled parameter. |
+| `posterior_sampling` | `POSTERIOR_SAMPLING`, optional NumPyro posterior toggle. |
+| `posterior_num_warmup` | `POSTERIOR_NUM_WARMUP`, NumPyro warmup draw count. |
+| `posterior_num_samples` | `POSTERIOR_NUM_SAMPLES`, NumPyro posterior draw count. |
+| `models.default_model` | `MODEL`, internal integer model selector. |
+| `models.available_models` | `AVAILABLE_MODELS`, metadata list of accepted model names. |
+| `timepoints.protein` | `TIME_POINTS_PROTEIN`, protein observation times in minutes. |
+| `timepoints.rna` | `TIME_POINTS_RNA`, RNA observation times in minutes. |
+| `timepoints.phospho_protein` | `TIME_POINTS_PHOSPHO`, phospho observation times in minutes. |
+| `bounds.c_k` | Bounds for kinase activity multipliers. |
+| `bounds.A_i` | Bounds for basal mRNA production parameters. |
+| `bounds.B_i` | Bounds for mRNA degradation parameters. |
+| `bounds.C_i` | Bounds for protein production parameters. |
+| `bounds.D_i` | Bounds for protein deactivation parameters. |
+| `bounds.Dp_i` | Bounds for phosphosite dephosphorylation parameters. |
+| `bounds.E_i` | Bounds for transcriptional efficacy parameters. |
+| `bounds.tf_scale` | Bounds for transcription-factor scaling. |
+| `solver.absolute_tolerance` | `ODE_ABS_TOL`, Diffrax absolute tolerance. |
+| `solver.relative_tolerance` | `ODE_REL_TOL`, Diffrax relative tolerance. |
+| `solver.max_timesteps` | `ODE_MAX_STEPS`, maximum Diffrax steps. |
 
-## Implementation Notes
+## Outputs
 
-Numerical integration:
-- Inputs \(u_k(t)\) are typically available at discrete experimental times. The solver therefore treats kinase inputs as piecewise-constant (or bucketed) in time, which avoids interpolation-induced artifacts when dynamics are fast relative to sampling.
-- Adaptive RK45 controls local error using absolute/relative tolerances (configured in `config.toml`).
+A run writes outputs under `--output-dir`. The exact set depends on enabled analyses and available data layers, but the implemented exporters cover:
 
-Performance:
-- RHS kernels are Numba JIT-compiled; hot loops avoid Python object allocation.
-- Sparse adjacency is stored in index lists / CSR-like structures to avoid dense matrix multiplies.
-- Combinatorial topology is exponential in the number of sites per protein; use only for small \(S_g\).
-
-Stability:
-- Regulation modifiers are bounded by construction; this prevents explosive transcription/translation at large regulatory inputs.
-- Optional normalization (e.g., fold-change to \(t=0\)) is applied in post-processing for comparability to MS logFC conventions.
-
-Reproducibility:
-- Keep `config.toml` and interaction maps under version control.
-- Persist fitted parameter sets and seeds for optimization runs; log solver tolerances and objective weights.
+- optimized parameter summaries,
+- convergence history,
+- fitted protein, RNA, and phospho trajectories,
+- goodness-of-fit plots,
+- residual tables,
+- kinase activity tables,
+- parameter correlation and distribution diagnostics,
+- dashboard bundle files,
+- optional multistart, profile-likelihood, posterior, and sensitivity outputs.

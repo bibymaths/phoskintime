@@ -1,4 +1,4 @@
-"""Simulation and measurement extraction using Diffrax for PhosKinTime."""
+"""Simulate a System with Diffrax and extract protein, RNA, and phospho measurement tables; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.jax_backend."""
 
 import warnings
 import numpy as np
@@ -12,7 +12,19 @@ from networkmodel.jax_backend import DiffraxSolverConfig, make_networkmodel_rhs,
 
 
 def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):
-    """Run the centralized Diffrax Kvaerno solver and return a NumPy trajectory."""
+    """Simulate a System over requested time points with Diffrax
+    
+    Args:
+        sys: Input value used by this routine.
+        t_eval: Input value used by this routine.
+        rtol: Input value used by this routine.
+        atol: Input value used by this routine.
+        max_steps: Input value used by this routine.
+        solver_name: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     y0 = np.asarray(sys.y0(), dtype=np.float64)
     cfg = DiffraxSolverConfig(
         solver_name=solver_name,
@@ -29,26 +41,17 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
 
 
 def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
-    """
-    Simulates the system and extracts 'Fold Change' (FC) predictions aligned with data.
-
-
-
-    Process:
-    1.  **Union Grid:** Creates a master time grid containing all experimental timepoints.
-    2.  **Simulate:** Integrates the system once over this master grid.
-    3.  **Extract & Normalize:**
-        -   Calculates raw observables (e.g., Total Protein = Unphos + Phos).
-        -   Normalizes by the value at the baseline timepoint (t=0 for protein/phospho, t=4 for RNA).
-    4.  **Slice:** Filters the result to match the specific timepoints requested for each modality.
-
+    """Simulate a System and return measured output tables
+    
     Args:
-        sys: System object.
-        idx: Index object (topology map).
-        t_points_*: Arrays of timepoints for Protein, RNA, and Phospho data.
-
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        t_points_p: Input value used by this routine.
+        t_points_r: Input value used by this routine.
+        t_points_pho: Input value used by this routine.
+    
     Returns:
-        tuple: (df_prot, df_rna, df_phos) - Pandas DataFrames with columns [protein, time, pred_fc].
+        Computed result from this routine.
     """
     # 1. Create master time grid
     times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))

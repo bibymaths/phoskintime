@@ -76,20 +76,19 @@ Streamlit will start a local web server. The default URL is:
 http://localhost:8501
 ```
 
-### Option 2: Via the phoskintime-global entry point
+### Option 2: Via the networkmodel runner entry point
 
-`phoskintime-global` runs `networkmodel/runner.py`. All settings default to `config.toml` values
+`python -m networkmodel.runner` runs `networkmodel/runner.py`. All settings default to `config.toml` values
 and can be overridden via CLI arguments:
 
 ```bash
 # Run with defaults from config.toml
-phoskintime-global
+python -m networkmodel.runner
 
 # Override specific settings
-phoskintime-global \
+python -m networkmodel.runner \
   --output-dir results_global \
   --n-gen 500 \
-  --pop 200 \
   --solver jaxopt
 ```
 
@@ -103,10 +102,8 @@ Key arguments (all optional — defaults come from `config.toml`):
 | `--rna` | Path to RNA data |
 | `--output-dir` | Output directory |
 | `--n-gen` | Maximum JAXopt iterations |
-| `--pop` | Legacy population option accepted but ignored by JAXopt path |
 | `--solver` | `jaxopt`; legacy values are accepted and mapped with warnings |
 | `--sensitivity` | Enable sensitivity analysis |
-| `--refine` | Enable refinement pass |
 | `--scan` | Run hyperparameter scan |
 
 This runs the full optimization pipeline via `networkmodel/runner.py` and saves the bundle.
@@ -124,7 +121,7 @@ python run_dashboard.py --output-dir results_model_global_distributive_knockout
 
 | Symptom | Likely cause |
 |---|---|
-| `FileNotFoundError: dashboard_bundle.pkl` | Run `phoskintime-global` first to generate results |
+| `FileNotFoundError: dashboard_bundle.pkl` | Run `python -m networkmodel.runner` first to generate results |
 | `KeyError` on bundle fields | Bundle was saved by an older version; re-run the optimizer |
 | Streamlit not found | Install streamlit: `pip install streamlit` |
 | Empty plots | Result CSVs are missing; check `--output-dir` path |
@@ -136,7 +133,7 @@ python run_dashboard.py --output-dir results_model_global_distributive_knockout
 Streamlit defaults to port **8501**. To use a different port:
 
 ```bash
-streamlit run run_dashboard.py --server.port 8502 -- --output-dir ...
+streamlit run run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
 ```
 
 ---

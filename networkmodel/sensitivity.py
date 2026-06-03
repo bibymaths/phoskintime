@@ -1,21 +1,4 @@
-"""
-Global Sensitivity Analysis Module (Morris Method).
-
-This module performs a comprehensive sensitivity analysis to determine which model
-parameters have the most significant impact on the system's output.
-
-**Methodology:**
-It uses the **Morris Method** (Elementary Effects), which is computationally efficient
-for high-dimensional models. It works by:
-1.  **Sampling:** Generating $N$ trajectories through the parameter space, where each step changes one parameter.
-2.  **Simulation:** Running the ODE model for every sampled parameter set in parallel.
-3.  **Analysis:** Computing the mean absolute effect ($\mu^*$) and interaction/non-linearity ($\sigma$) for each parameter.
-
-**Outputs:**
-* **Sensitivity Indices:** CSV ranking parameters by influence.
-* **Perturbation Clouds:** Visualizations showing how parameter uncertainty propagates to trajectory spread.
-
-"""
+"""Run perturbation-based sensitivity analysis and write sensitivity diagnostics; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.simulate."""
 
 import os
 import math
@@ -39,17 +22,14 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
-    """
-    Generates [lower, upper] bounds for each parameter based on a local perturbation.
-
-    For SALib, we define a hypercube around the optimal parameters found during calibration.
-
+    """Compute perturbation bounds for sensitivity analysis
+    
     Args:
-        params_dict (dict): The best-fit parameters.
-        perturbation (float): Fraction to vary parameters (e.g., 0.2 = +/- 20%).
-
+        params_dict: Input value used by this routine.
+        perturbation: Input value used by this routine.
+    
     Returns:
-        dict: Problem definition for SALib containing 'num_vars', 'names', and 'bounds'.
+        Computed result from this routine.
     """
     bounds = []
     names = []
@@ -80,12 +60,7 @@ def compute_bounds(params_dict, perturbation=SENSITIVITY_PERTURBATION):
 
 
 def _reconstruct_params(param_vector, names_map, original_shapes):
-    """
-    Reconstructs the structured parameter dictionary from the flat Morris decision vector.
-
-    The Morris sampler returns a flat list of floats. We must map these back to
-    arrays (e.g., `A_i` shape (N,)) to update the System object.
-    """
+    """Handle internal reconstruct params"""
     p_out = {}
     curr = 0
 
@@ -104,19 +79,7 @@ def _reconstruct_params(param_vector, names_map, original_shapes):
 
 
 def _compute_scalar_metric(df_prot, df_rna, df_phos, metric="total_signal"):
-    """
-    Compresses the complex time-series output into a single scalar Y for SALib analysis.
-
-    Sensitivity analysis requires a scalar output to measure "effect". We support various
-    aggregation metrics to capture different aspects of the system's response.
-
-    Args:
-        df_*: DataFrames of simulated trajectories.
-        metric (str): 'total_signal', 'mean', 'variance', or 'l2_norm'.
-
-    Returns:
-        float: The aggregated scalar metric.
-    """
+    """Handle internal compute scalar metric"""
     # 1. Concatenate all signal columns
     # We prioritize Protein > Phospho > RNA for signal magnitude usually
     v_p = df_prot["pred_fc"].values if df_prot is not None else np.array([])
@@ -141,12 +104,7 @@ def _compute_scalar_metric(df_prot, df_rna, df_phos, metric="total_signal"):
 
 
 def _worker_simulation(task_args):
-    """
-    Worker function for parallel execution.
-
-    This function runs inside a separate process. It receives a parameter set,
-    runs the ODE simulation, and returns the scalar metric and trajectories.
-    """
+    """Handle internal worker simulation"""
     (idx, param_vector, names_map, original_shapes, sys, idx_sys, times_p, times_r, times_ph, metric) = task_args
 
     # 1. Rebuild params from the flat vector
@@ -169,30 +127,17 @@ def _worker_simulation(task_args):
 
 
 def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_signal"):
-    """
-    Main driver for Morris Sensitivity Analysis.
-
-    Workflow:
-    1.  **Define Problem:** Create bounds around `fitted_params`.
-    2.  **Sample:** Generate Morris trajectories using SALib.
-    3.  **Simulate:** Run parallel simulations for all samples.
-    4.  **Analyze:** Compute Morris indices ($\mu^*$, $\sigma$).
-    5.  **Visualize:** Plot influence bars and trajectory perturbation clouds.
-
-
-
-[Image of parallel processing flow chart]
-
-
+    """Run perturbation sensitivity analysis
+    
     Args:
-        sys: The System object.
-        idx: Index object.
-        fitted_params: Dictionary of optimal parameters.
-        output_dir: Path to save results.
-        metric: Scalar metric for sensitivity target.
-
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        fitted_params: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        metric: Input value used by this routine.
+    
     Returns:
-        pd.DataFrame: The computed sensitivity indices.
+        Computed result from this routine.
     """
     logger.info(f"[Sensitivity] Starting Morris Analysis (N={SENSITIVITY_TRAJECTORIES}, p={SENSITIVITY_LEVELS})...")
     logger.info(f"[Sensitivity] Metric: {metric}")
@@ -298,9 +243,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="total_
 
 
 def _plot_sensitivity_indices(df, out_dir):
-    """
-    Plots a bar chart of the top sensitive parameters ($\mu^*$).
-    """
+    """Handle internal plot sensitivity indices"""
     plt.figure(figsize=(10, 8))
     sns.barplot(data=df, x="mu_star", y="Parameter", palette="viridis", legend=False, hue="Parameter")
     plt.title("Morris Sensitivity Analysis (Top Parameters)")
@@ -319,20 +262,7 @@ def _plot_perturbation_cloud(
         draw_spaghetti=True,
         spaghetti_alpha=0.03,
 ):
-    """
-    Generates "Cloud" plots showing the variance in model predictions due to parameter uncertainty.
-
-
-
-    For each selected protein, generates a 3-panel plot:
-      1. Protein FC Cloud
-      2. RNA FC Cloud
-      3. Phospho FC Cloud (Total + Top Sites)
-
-    Visualizes uncertainty using:
-    - **Spaghetti:** Individual simulation lines (faint).
-    - **Bands:** Quantile areas (5th-95th percentile).
-    """
+    """Handle internal plot perturbation cloud"""
     sim_dir = os.path.join(out_dir, "sensitivity_perturbations")
     os.makedirs(sim_dir, exist_ok=True)
 

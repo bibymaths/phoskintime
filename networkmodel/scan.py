@@ -1,4 +1,4 @@
-"""Compatibility hyperparameter scan entry point for the scalar JAXopt path."""
+"""Expose a compatibility hyperparameter-scan entry point for the scalar JAXopt path; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on no other networkmodel modules."""
 from __future__ import annotations
 
 import logging
@@ -7,7 +7,22 @@ logger = logging.getLogger()
 
 
 def run_hyperparameter_scan(args, sys, loss_data, defaults, solver_times, runner, slices, xl, xu):
-    """Return existing lambda settings; legacy evolutionary scans are mapped safely."""
+    """Run the scalar compatibility hyperparameter scan
+    
+    Args:
+        args: Positional arguments forwarded to the runner.
+        sys: Input value used by this routine.
+        loss_data: Input value used by this routine.
+        defaults: Input value used by this routine.
+        solver_times: Input value used by this routine.
+        runner: Input value used by this routine.
+        slices: Input value used by this routine.
+        xl: Input value used by this routine.
+        xu: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     logger.warning(
         "[Deprecated Config] hyperparameter_scan is accepted but legacy evolutionary scans are disabled in the JAXopt/Diffrax path.")
     return {

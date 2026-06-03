@@ -152,18 +152,16 @@
 ### Numerical Integration & Solvers
 
 ::: networkmodel.simulate
-::: networkmodel.solvers
+::: networkmodel.jax_backend
 ::: networkmodel.jacspeedup
 ::: networkmodel.steadystate
-::: networkmodel.model_ivp
 
 ### Optimization & Loss Functions
 
 ::: networkmodel.optproblem
 ::: networkmodel.lossfn
-::: networkmodel.optuna_solver
+::: networkmodel.inference
 ::: networkmodel.runner
-::: networkmodel.refine
 ::: networkmodel.scan
 
 ### Analysis & Visualization
@@ -173,6 +171,7 @@
 ::: networkmodel.export
 ::: networkmodel.dashboard_app
 ::: networkmodel.dashboard_bundle
+::: networkmodel.mode_outputs
 
 ### Utilities
 

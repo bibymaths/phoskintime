@@ -1,4 +1,4 @@
-"""Mode-aware result table and plot helpers for PhosKinTime scalar runs."""
+"""Write mode-aware metadata, result tables, and simple scalar-run plots; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.jax_backend."""
 from __future__ import annotations
 
 import json
@@ -13,6 +13,16 @@ from networkmodel.jax_backend import DataMode
 
 
 def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_value: float | None = None) -> Path:
+    """Write scalar-run mode metadata
+    
+    Args:
+        output_dir: Input value used by this routine.
+        mode: Input value used by this routine.
+        objective_value: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -31,6 +41,16 @@ def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_val
 
 
 def write_scalar_result_tables(output_dir: str | Path, mode: DataMode, objective_values) -> dict[str, Path]:
+    """Write scalar objective result tables
+    
+    Args:
+        output_dir: Input value used by this routine.
+        mode: Input value used by this routine.
+        objective_values: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     values = np.asarray(objective_values, dtype=float).reshape(-1)
@@ -48,6 +68,16 @@ def write_scalar_result_tables(output_dir: str | Path, mode: DataMode, objective
 
 
 def save_mode_plots(output_dir: str | Path, mode: DataMode, predictions: Mapping[str, pd.DataFrame]) -> dict[str, Path]:
+    """Save scalar-run mode plots
+    
+    Args:
+        output_dir: Input value used by this routine.
+        mode: Input value used by this routine.
+        predictions: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     paths: dict[str, Path] = {}
