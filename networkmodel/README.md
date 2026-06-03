@@ -100,7 +100,6 @@ The example uses only arguments present in the function signatures in `jax_backe
 | `--tf-net` | Transcription-factor network path. |
 | `--ms` | Protein mass-spectrometry data path. |
 | `--rna` | RNA data path. |
-| `--phospho` | Phospho data path. |
 | `--kinopt` | Kinase prior-result path. |
 | `--tfopt` | Transcription-factor prior-result path. |
 | `--output-dir` | Output directory. |
@@ -125,7 +124,6 @@ python -m networkmodel.runner \
   --tf-net data/input4.csv \
   --ms data/input1.csv \
   --rna data/input3.csv \
-  --phospho data/input1.csv \
   --kinopt data/kinopt_results.xlsx \
   --tfopt data/tfopt_results.xlsx \
   --output-dir results_model_global_distributive_jax \
