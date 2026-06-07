@@ -1,16 +1,5 @@
 #!/usr/bin/env python
-"""
-Dashboard application for PhosKinTime.
-
-This module provides a Streamlit-based dashboard for visualizing and analyzing
-results from PhosKinTime simulations. It includes features for visualizing
-scalar objective diagnostics, goodness of fit, residuals analysis, and more.
-
-The dashboard is intended to be run from the command line, e.g.:
-```
-streamlit run run_dashboard.py -- --output_dir=/path/to/output
-```
-"""
+"""Render saved networkmodel outputs in a Streamlit dashboard; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.dashboard_bundle."""
 
 from __future__ import annotations
 
@@ -30,6 +19,7 @@ import json
 
 
 def _list_files(output_dir: Path, patterns: list[str]):
+    """Handle internal list files"""
     files = []
     for pat in patterns:
         files.extend(output_dir.glob(pat))
@@ -37,14 +27,17 @@ def _list_files(output_dir: Path, patterns: list[str]):
 
 
 def _show_image(path: Path, caption: str | None = None):
+    """Handle internal show image"""
     st.image(str(path), caption=caption, use_container_width=True)
 
 
 def _show_video(path: Path):
+    """Handle internal show video"""
     st.video(str(path))
 
 
 def _show_pdf(path: Path, height: int = 700):
+    """Handle internal show pdf"""
     pdf_bytes = path.read_bytes()
     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
     html = f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="{height}px"></iframe>'
@@ -52,10 +45,12 @@ def _show_pdf(path: Path, height: int = 700):
 
 
 def _read_json(path: Path):
+    """Handle internal read json"""
     return json.loads(path.read_text())
 
 
 def _load_outputs(output_dir: Path):
+    """Handle internal load outputs"""
     # Prefer bundle (rich objects). Also load standard artifacts if present.
     bundle = load_dashboard_bundle(output_dir)
 
@@ -92,6 +87,7 @@ def _load_outputs(output_dir: Path):
 
 
 def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
+    """Handle internal load inference outputs"""
     files = {
         "best_fit": output_dir / "optimization" / "best_fit.csv",
         "multistart_summary": output_dir / "optimization" / "multistart_summary.csv",
@@ -105,6 +101,7 @@ def _load_inference_outputs(output_dir: Path) -> dict[str, pd.DataFrame | None]:
 
 
 def _fig_scalar_objective(df_objective: pd.DataFrame, picked_index: int | None):
+    """Handle internal fig scalar objective"""
     df = df_objective.copy()
     df["idx"] = np.arange(len(df))
     fig = px.scatter(df, x="idx", y="scalar_objective", hover_data=["idx"])
@@ -125,6 +122,7 @@ def _fig_scalar_objective(df_objective: pd.DataFrame, picked_index: int | None):
 
 
 def _fig_convergence(df_conv: pd.DataFrame):
+    """Handle internal fig convergence"""
     # Expect columns from your process_convergence_history export; adapt if needed.
     # Try common patterns.
     cols = df_conv.columns.tolist()
@@ -150,6 +148,7 @@ def _plot_timeseries_obs_pred(
         title: str,
         entity: str,
 ):
+    """Handle internal plot timeseries obs pred"""
     obs = df_obs[df_obs[entity_col] == entity].copy()
     obs = obs.sort_values(x_col)
 
@@ -167,6 +166,7 @@ def _plot_timeseries_obs_pred(
 
 
 def main():
+    """Run the networkmodel entry point"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--output-dir", required=True)
     args = ap.parse_args()

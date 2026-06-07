@@ -52,27 +52,27 @@ kinopt/
 
 **kinopt** provides an end-to-end solution for:
 
-- **Data Preparation:**  
+- **Data Preparation:**
   Preprocess and scale input CSV files containing time-series data and kinase interactions.
 
-- **Global Optimization (evol):**  
+- **Global Optimization (evol):**
   Uses evolutionary algorithms (via pymoo) to search the global parameter space for optimal α (mixing) and β (scaling)
   values.
 
-- **Local Optimization (local):**  
+- **Local Optimization (local):**
   Implements local constrained optimization using SciPy's solvers (SLSQP or TRUST-CONSTR) with efficient objective
   evaluation via Numba.
 
-- **Optimality Analysis (optimality):**  
+- **Optimality Analysis (optimality):**
   Post-processes optimization results to check constraint feasibility, perform sensitivity analysis, generate LaTeX
   summary tables, and produce diagnostic plots.
 
-- **Fit Analysis (fitanalysis):**  
+- **Fit Analysis (fitanalysis):**
   Provides additional tools to evaluate the fit and performance of the optimized model.
 
 ---
- 
-## Model Equation 
+
+## Model Equation
 
 $$
 P_i(t) = \sum_{j} Q_{i,j} \, \alpha_{i,j} \left( \sum_{k} \beta_{k,j} \cdot P^k_j(t) \right)
@@ -90,31 +90,31 @@ $$
 
 **Where:**
 
-- $P_i(t)$: predicted phosphorylation level of protein $i$ at time $t$  
-- $Q_{i,j}$: binary indicator (1 if kinase $j$ targets protein $i$, 0 otherwise)  
-- $\alpha_{i,j}$: effect of kinase $j$ on protein $i$ (non-negative, normalized per protein)  
-- $\beta_{k,j}$: effect of phosphorylation site $k$ on kinase $j$ (can be positive or negative, normalized per kinase)  
+- $P_i(t)$: predicted phosphorylation level of protein $i$ at time $t$
+- $Q_{i,j}$: binary indicator (1 if kinase $j$ targets protein $i$, 0 otherwise)
+- $\alpha_{i,j}$: effect of kinase $j$ on protein $i$ (non-negative, normalized per protein)
+- $\beta_{k,j}$: effect of phosphorylation site $k$ on kinase $j$ (can be positive or negative, normalized per kinase)
 - $P^k_j(t)$: observed phosphorylation level of site $k$ on kinase $j$ at time $t$
 
 ---
 ## Features
 
-- **Modular Architecture:**  
+- **Modular Architecture:**
   Each submodule (evol, local, optimality, fitanalysis) is designed to operate independently while integrating
   seamlessly into the overall workflow.
 
-- **Flexible Optimization Strategies:**  
+- **Flexible Optimization Strategies:**
   Choose between global evolutionary algorithms, local constrained solvers depending on your specific needs.
 
-- **Robust Post-Processing:**  
+- **Robust Post-Processing:**
   Comprehensive post-optimization analysis includes constraint validation, sensitivity analysis, detailed reporting (
   both in LaTeX and Excel), and extensive plotting of diagnostic metrics.
 
-- **Automated Reporting:**  
+- **Automated Reporting:**
   After running optimization routines, the framework organizes outputs into structured directories and generates a
   global HTML report summarizing key results and diagnostic plots.
 
-- **User-Friendly Logging:**  
+- **User-Friendly Logging:**
   Custom logging configurations provide real-time feedback during execution, ensuring transparency in the optimization
   process.
 

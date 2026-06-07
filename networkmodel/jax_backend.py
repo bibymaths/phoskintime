@@ -1,9 +1,4 @@
-"""JAX/JAXopt/Diffrax backend for PhosKinTime networkmodel and protwise fitting.
-
-This module is intentionally independent from pandas and string identifiers inside
-its differentiable functions. Data frames are converted to typed arrays before the
-objective is called; JAX computations receive numeric arrays only.
-"""
+"""Provide JAX, Diffrax, and JAXopt utilities for scalar networkmodel simulation, multimodal loss evaluation, parameter projection, and ProjectedGradient optimization; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,6 +23,7 @@ ALIASES = {"rna": "mrna", "mrna": "mrna", "protein": "protein", "prot": "protein
 
 @dataclass(frozen=True)
 class DataMode:
+    """Describe which data layers contribute to the scalar loss"""
     available_layers: tuple[str, ...]
     data_mode: str
     fit_mrna: bool
@@ -36,21 +32,50 @@ class DataMode:
 
     @property
     def active_loss_terms(self) -> tuple[str, ...]:
+        """Return names of active loss terms
+        
+        Returns:
+            Computed result from this routine.
+        """
         return tuple(f"{layer}_loss" for layer in self.available_layers)
 
     @property
     def skipped_loss_terms(self) -> tuple[str, ...]:
+        """Return names of skipped loss terms
+        
+        Returns:
+            Computed result from this routine.
+        """
         return tuple(f"{layer}_loss" for layer in LAYERS if layer not in self.available_layers)
 
 
 def ensure_jax_float64() -> bool:
+    """Enable JAX float64 mode
+    
+    Returns:
+        Computed result from this routine.
+    """
     jax.config.update("jax_enable_x64", True)
     return bool(jax.config.jax_enable_x64)
 
 
 def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mapping | None = None,
                      logger_obj=None) -> DataMode:
-    """Detect the non-empty mRNA/protein/phospho mode after loading input data."""
+    """Detect which observed data layers are available
+    
+    Args:
+        mrna: Input value used by this routine.
+        protein: Input value used by this routine.
+        phospho: Input value used by this routine.
+        loss_data: Input value used by this routine.
+        logger_obj: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+    """
 
     def has_frame(x) -> bool:
         if x is None:
@@ -86,6 +111,15 @@ def detect_data_mode(*, mrna=None, protein=None, phospho=None, loss_data: Mappin
 
 
 def validate_loss_data(loss_data: Mapping, mode: DataMode) -> None:
+    """Validate loss-array presence, shape, and finiteness
+    
+    Args:
+        loss_data: Input value used by this routine.
+        mode: Input value used by this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+    """
     required = {
         "protein": ("p_prot", "t_prot", "obs_prot", "w_prot"),
         "mrna": ("p_rna", "t_rna", "obs_rna", "w_rna"),
@@ -108,6 +142,7 @@ def validate_loss_data(loss_data: Mapping, mode: DataMode) -> None:
 
 @dataclass(frozen=True)
 class DiffraxSolverConfig:
+    """Store Diffrax implicit-solver configuration values"""
     solver_name: str = "Kvaerno4"
     rtol: float = 1e-5
     atol: float = 1e-7
@@ -115,6 +150,11 @@ class DiffraxSolverConfig:
     root_max_steps: int = 20
 
     def solver(self):
+        """Create the configured Diffrax implicit solver
+        
+        Returns:
+            Computed result from this routine.
+        """
         name = str(self.solver_name).lower()
         if name == "kvaerno5":
             return diffrax.Kvaerno5(
@@ -128,6 +168,7 @@ class DiffraxSolverConfig:
 
 
 def _default_rhs(t, y, args):
+    """Handle internal default rhs"""
     rates = args
     n = y.shape[0]
     base = jnp.resize(rates, (n,))
@@ -135,7 +176,7 @@ def _default_rhs(t, y, args):
 
 
 def _unpack_theta_jax(theta, slices):
-    """Unpack raw optimizer theta into physical JAX arrays using params.py slice layout."""
+    """Handle internal unpack theta jax"""
     return {
         "A_i": jax.nn.softplus(theta[slices["A_i"]]),
         "B_i": jax.nn.softplus(theta[slices["B_i"]]),
@@ -149,7 +190,7 @@ def _unpack_theta_jax(theta, slices):
 
 
 def _flatten_params_for_slices_jax(params, slices):
-    """Flatten physical parameter arrays into the raw-theta slice order for priors."""
+    """Handle internal flatten params for slices jax"""
     total = max((int(sl.stop) for sl in slices.values()), default=0)
     flat = jnp.zeros(total, dtype=jnp.float64)
     for name, sl in slices.items():
@@ -164,7 +205,7 @@ def _flatten_params_for_slices_jax(params, slices):
 
 
 def _defaults_vector_jax(defaults, slices):
-    """Return physical defaults as a flat JAX vector, accepting dict or vector inputs."""
+    """Handle internal defaults vector jax"""
     if defaults is None:
         return None
     if isinstance(defaults, Mapping):
@@ -175,11 +216,14 @@ def _defaults_vector_jax(defaults, slices):
 
 
 def make_networkmodel_rhs(sys, slices=None):
-    """Build a JAX RHS matching the global networkmodel state layout.
-
-    The RHS keeps all state reads anchored on idx.offset_y[i], so every protein
-    reads its own mRNA/protein/phosphosite block instead of accidentally sharing
-    state zero or the first phosphosite block.
+    """Build a JAX right-hand side for the current System topology
+    
+    Args:
+        sys: Input value used by this routine.
+        slices: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     from networkmodel.config import MODEL
 
@@ -340,7 +384,22 @@ def make_networkmodel_rhs(sys, slices=None):
 
 
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
-    """Solve an ODE with Diffrax Kvaerno4/Kvaerno5 and return (time, state)."""
+    """Solve an ODE trajectory with Diffrax
+    
+    Args:
+        y0: Input value used by this routine.
+        t_eval: Input value used by this routine.
+        params: Input value used by this routine.
+        rhs: Input value used by this routine.
+        config: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+        RuntimeError: When optimization or simulation fails.
+    """
     ensure_jax_float64()
     cfg = config or DiffraxSolverConfig()
 
@@ -391,6 +450,7 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
 
 
 def _extract_offsets(prot_map):
+    """Handle internal extract offsets"""
     pm = jnp.asarray(prot_map, dtype=jnp.int32)
     if pm.ndim == 1:
         # flat encoding: [offset0, count0, offset1, count1, ...]
@@ -403,21 +463,13 @@ def _extract_offsets(prot_map):
 
 
 def _safe_fold_change(values, base_values):
+    """Handle internal safe fold change"""
     return jnp.maximum(values, 1e-12) / jnp.maximum(base_values, 1e-12)
 
 
 def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, time_idx, *, layer, site_idx=None,
                                     base_idx=0, layout="standard", max_count=1):
-    """Map global networkmodel state trajectories to fitted fold-change observables.
-
-    Global state layout assumptions are deliberately kept in this networkmodel-only
-    helper so protwise callers retain the legacy direct-state indexing path:
-      * standard/sequential: [mRNA, unphosphorylated protein, phospho_site_0, ...]
-      * combinatorial:       [mRNA, protein_state_0, ..., protein_state_(2^n-1)]
-    Protein observations are total protein fold changes. Phospho observations are
-    site fold changes: direct site states for standard layouts and bitwise sums of
-    combinatorial protein states for MODEL==2 layouts.
-    """
+    """Handle internal global networkmodel observable"""
     off = offsets[protein_idx]
     count = counts[protein_idx]
     t = time_idx
@@ -459,6 +511,18 @@ def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, ti
 
 def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weights: Mapping[str, float] | None = None,
                                     *, networkmodel_layout: bool = False):
+    """Compute weighted multimodal loss from a trajectory
+    
+    Args:
+        Y: Input value used by this routine.
+        loss_data: Input value used by this routine.
+        mode: Input value used by this routine.
+        weights: Input value used by this routine.
+        networkmodel_layout: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     weights = weights or {}
     prot_map = jnp.asarray(loss_data["prot_map"], dtype=jnp.int32)
     offsets, counts = _extract_offsets(prot_map)
@@ -522,6 +586,14 @@ def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weigh
 
 
 def project_simplex(x):
+    """Project a vector onto the probability simplex
+    
+    Args:
+        x: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     x = jnp.asarray(x, dtype=jnp.float64)
     u = jnp.sort(x)[::-1]
     cssv = jnp.cumsum(u) - 1.0
@@ -533,7 +605,15 @@ def project_simplex(x):
 
 
 def project_alpha_blocks(alpha, block_ids):
-    """Project alpha values onto one [0, 1] sum-to-one simplex per block."""
+    """Project alpha blocks onto per-block simplexes
+    
+    Args:
+        alpha: Input value used by this routine.
+        block_ids: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     a = jnp.asarray(alpha, dtype=jnp.float64)
     bids = np.asarray(block_ids)
     out = []
@@ -547,12 +627,16 @@ def project_alpha_blocks(alpha, block_ids):
 
 
 def project_beta_blocks(beta, block_ids, lower=-4.0, upper=4.0):
-    """Project beta blocks to bounded affine sum-to-one sets without forcing non-negativity.
-
-    Beta weights are allowed to be negative, so a standard non-negative simplex is
-    biologically wrong. We first shift each block to satisfy the affine sum exactly,
-    then clip to [-4, 4] and redistribute any residual sum error over entries that
-    still have room. This keeps negative beta values when the optimum requires them.
+    """Project beta blocks onto bounded per-block simplexes
+    
+    Args:
+        beta: Input value used by this routine.
+        block_ids: Input value used by this routine.
+        lower: Input value used by this routine.
+        upper: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     b = jnp.asarray(beta, dtype=jnp.float64)
     bids = np.asarray(block_ids)
@@ -574,6 +658,18 @@ def project_beta_blocks(beta, block_ids, lower=-4.0, upper=4.0):
 
 
 def project_bounds(theta, lower, upper, fixed_mask=None, fixed_values=None):
+    """Project parameters onto bounds and fixed values
+    
+    Args:
+        theta: Input value used by this routine.
+        lower: Input value used by this routine.
+        upper: Input value used by this routine.
+        fixed_mask: Input value used by this routine.
+        fixed_values: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     clipped = jnp.clip(jnp.asarray(theta, dtype=jnp.float64), jnp.asarray(lower, dtype=jnp.float64),
                        jnp.asarray(upper, dtype=jnp.float64))
     if fixed_mask is not None:
@@ -583,6 +679,7 @@ def project_bounds(theta, lower, upper, fixed_mask=None, fixed_values=None):
 
 @dataclass
 class JaxoptResult:
+    """Store scalar JAXopt optimization outputs"""
     X: np.ndarray
     F: np.ndarray
     objective_value: float
@@ -595,6 +692,27 @@ class JaxoptResult:
 
 def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None,
                               fixed_values=None, logger_obj=None, verbose=1):
+    """Optimize a scalar objective with jaxopt.ProjectedGradient
+    
+    Args:
+        objective_fun: Input value used by this routine.
+        theta0: Input value used by this routine.
+        lower: Input value used by this routine.
+        upper: Input value used by this routine.
+        maxiter: Input value used by this routine.
+        tol: Input value used by this routine.
+        fixed_mask: Input value used by this routine.
+        fixed_values: Input value used by this routine.
+        logger_obj: Input value used by this routine.
+        verbose: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+        RuntimeError: When optimization or simulation fails.
+    """
     ensure_jax_float64()
     log = logger_obj or logger
     log.info("[Optimizer] Selected optimizer backend: jaxopt.ProjectedGradient")
@@ -648,6 +766,27 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
                           prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
                           y0=None, sys=None, slices=None):
+    """Create the scalar trajectory objective
+    
+    Args:
+        loss_data: Input value used by this routine.
+        mode: Input value used by this routine.
+        time_grid: Input value used by this routine.
+        weights: Input value used by this routine.
+        defaults: Input value used by this routine.
+        prior_weight: Input value used by this routine.
+        networkmodel_layout: Input value used by this routine.
+        return_breakdown: Input value used by this routine.
+        y0: Input value used by this routine.
+        sys: Input value used by this routine.
+        slices: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+    """
     validate_loss_data(loss_data, mode)
     t = jnp.asarray(time_grid, dtype=jnp.float64)
     prot_map = np.asarray(loss_data["prot_map"])
@@ -699,6 +838,12 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
 
 
 def warn_deprecated_backend_options(options: Mapping | object | None, logger_obj=None):
+    """Warn about accepted-but-ignored backend options
+    
+    Args:
+        options: Input value used by this routine.
+        logger_obj: Input value used by this routine.
+    """
     if options is None:
         return
     log = logger_obj or logger

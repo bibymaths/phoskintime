@@ -1,18 +1,4 @@
-"""
-Utilities and Configuration Management Module.
-
-This module provides essential helper functions and classes for:
-1.  **Data Normalization:** Functions to clean column names (`_normcols`), calculate fold-changes
-    relative to a baseline (`normalize_fc_to_t0`), and scale data for consistent modeling.
-2.  **Configuration Loading:** The `load_config_toml` function parses the `config.toml` file
-    into a structured `PhosKinConfig` dataclass, centralizing all run settings.
-3.  **Dynamic Bound Calculation:** `calculate_bio_bounds` intelligently sets parameter limits
-    based on the input data range and network topology, ensuring biological plausibility.
-4.  **Math Helpers:** JIT-compiled kernels for common operations like `softplus` (for positive parameters)
-    and `time_bucket` (for discrete input grids).
-
-
-"""
+"""Normalize input data, transform positive parameters, load TOML configuration, and compute optimization bounds; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 
 from __future__ import annotations
 
@@ -30,19 +16,19 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def _normcols(df):
-    """Normalize DataFrame column names (lowercase, strip, replace spaces)."""
+    """Handle internal normcols"""
     df = df.copy()
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     return df
 
 
 def _base_idx(times, t0):
-    """Find the index of the timepoint closest to t0."""
+    """Handle internal base idx"""
     return np.int32(int(np.argmin(np.abs(times - float(t0)))))
 
 
 def _find_col(df, cands):
-    """Return the first column name from `cands` that exists in `df`."""
+    """Handle internal find col"""
     for c in cands:
         if c in df.columns:
             return c
@@ -50,24 +36,50 @@ def _find_col(df, cands):
 
 
 def normcols(df):
+    """Normalize column labels
+    
+    Args:
+        df: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     return _normcols(df)
 
 
 def find_col(df, cands):
+    """Find the first matching column name
+    
+    Args:
+        df: Input value used by this routine.
+        cands: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     return _find_col(df, cands)
 
 
 def slen(s: slice) -> int:
+    """Return the length of a sequence-like value
+    
+    Args:
+        s: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     return int(s.stop) - int(s.start)
 
 
 def normalize_fc_to_t0(df):
-    """
-    Normalizes a Fold-Change (FC) DataFrame relative to the value at time t=0.
-
-    Logic:
-    For each (protein, psite) group, find the FC at t=0.
-    New_FC(t) = Raw_FC(t) / Raw_FC(0).
+    """Normalize fold-change values to the baseline time
+    
+    Args:
+        df: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     df = df.copy()
 
@@ -105,22 +117,17 @@ def normalize_fc_to_t0(df):
 
 
 def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start', epsilon=1e-3):
-    """
-    Scales time-series data ensuring ALL outputs remain non-negative (>= 0).
-
-
-
-    This function handles the conversion from "Wide" format (columns x1, x2, ...) to "Long" format
-    and applies the selected scaling transformation.
-
+    """Convert wide raw data into scaled tidy time-series data
+    
     Args:
-        scale_method (str):
-            - 'raw' / 'none': No scaling. Returns raw intensities/counts.
-            - 'fc_start': Standard Fold-Change (x_t / x_0).
-            - 'robust_fc': Fold-Change with noise floor (x_t / (x_0 + eps)).
-            - 'max_scale': Normalizes to [0, 1] range (x_t / x_max).
-            - 'mean_scale': Centers data around 1.0 (x_t / x_mean).
-            - 'l2_norm': Unit vector scaling (x_t / ||x||).
+        df: Input value used by this routine.
+        time_points: Input value used by this routine.
+        id_cols: Input value used by this routine.
+        scale_method: Input value used by this routine.
+        epsilon: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     if df is None or df.empty:
         return pd.DataFrame(columns=id_cols + ['time', 'fc'])
@@ -202,16 +209,21 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
 
 @njit(cache=True, fastmath=True, nogil=True)
 def _zero_vec(a):
-    """JIT helper to zero out an array."""
+    """Handle internal zero vec"""
     for i in range(a.size):
         a[i] = 0.0
 
 
 @njit(cache=True, fastmath=True, nogil=True)
 def time_bucket(t, grid):
-    """
-    Finds the index `j` such that `grid[j] <= t < grid[j+1]`.
-    Used for piecewise-constant input interpolation.
+    """Map a time value to the nearest grid index
+    
+    Args:
+        t: Input value used by this routine.
+        grid: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     if t <= grid[0]:
         return 0
@@ -227,9 +239,13 @@ def time_bucket(t, grid):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def softplus(x):
-    """
-    Softplus activation: log(1 + exp(x)).
-    Maps real numbers to positive numbers. Used for parameter transformation.
+    """Apply a numerically stable softplus transform
+    
+    Args:
+        x: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     out = np.empty_like(x)
     for i in range(x.size):
@@ -243,7 +259,14 @@ def softplus(x):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def inv_softplus(y):
-    """Inverse Softplus: log(exp(y) - 1). Maps positive numbers to real numbers."""
+    """Apply the inverse softplus transform
+    
+    Args:
+        y: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = np.empty_like(y)
     for i in range(y.size):
         yi = y[i]
@@ -255,10 +278,7 @@ def inv_softplus(y):
 
 @dataclass(frozen=True)
 class PhosKinConfig:
-    """
-    Immutable configuration object holding all settings for the simulation run.
-    Loaded from `config.toml`.
-    """
+    """Store networkmodel TOML configuration values"""
     kinase_net: str | Path
     tf_net: str | Path
     ms_data: str | Path
@@ -334,9 +354,16 @@ class PhosKinConfig:
 
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
-    """
-    Parses `config.toml` and returns a validated `PhosKinConfig` object.
-    Includes fallbacks and default values for missing keys.
+    """Load networkmodel configuration from TOML
+    
+    Args:
+        path: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     path = Path(path)
 
@@ -554,16 +581,17 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
 
 def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
-    """
-    Dynamically calculates optimization bounds by analyzing network topology,
-    data dynamic ranges, and kinetic equilibrium requirements.
-
-    This ensures that the optimizer doesn't waste time searching parameter space
-    regions that are mathematically impossible to yield the observed data
-    (e.g., degradation rates that are too slow to match the observed decay).
-
+    """Calculate biologically constrained optimizer bounds
+    
+    Args:
+        idx: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        tf_mat: Input value used by this routine.
+        kin_in: Input value used by this routine.
+    
     Returns:
-        dict: Custom bounds for each parameter group.
+        Computed result from this routine.
     """
     logger.info("=" * 60)
     logger.info("[Bounds] CALCULATION: Performing Topological & Kinetic Analysis")
@@ -679,18 +707,25 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
 
 
 def _nondegenerate(mask_xl, mask_xu, eps=1e-14):
+    """Handle internal nondegenerate"""
     return (mask_xu - mask_xl) > eps
 
 
 def get_optimized_sets(idx, slices, xl, xu, eps=1e-14):
-    """
-    Identifies which entities (Proteins, Sites, Kinases) actually have
-    free parameters being optimized (i.e., bounds are not collapsed).
-
+    """Report which parameter groups are optimized
+    
+    Args:
+        idx: Input value used by this routine.
+        slices: Input value used by this routine.
+        xl: Input value used by this routine.
+        xu: Input value used by this routine.
+        eps: Input value used by this routine.
+    
     Returns:
-      opt_proteins: set[str]  proteins with any free variable among A/B/C/D/E
-      opt_sites: set[str]     site labels like 'EGFR_Y1173' where Dp_i is free
-      opt_kinases: set[str]   kinases with free c_k
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     xl = np.asarray(xl, dtype=float)
     xu = np.asarray(xu, dtype=float)

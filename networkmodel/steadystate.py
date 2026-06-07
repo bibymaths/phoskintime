@@ -1,17 +1,4 @@
-"""
-Initial Condition and Steady-State Logic Module.
-
-This module is responsible for defining the starting state ($y_0$) of the ODE system.
-It supports two primary modes:
-1.  **Data-Driven Initialization (`build_y0_from_data`):** Uses experimental data (Protein/RNA abundance
-    at t=0) to set the initial conditions directly. This is crucial for matching the
-    absolute scale of the measurements.
-2.  **Analytical Steady-State (`steady_state_*`):** Solves the algebraic equilibrium equations
-    ($dy/dt = 0$) for a system where all kinetic parameters are set to 1.0. This is useful for
-    testing structural consistency or initializing systems without data.
-
-
-"""
+"""Build initial state vectors from optional observed baseline data; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 
 import os
 
@@ -25,10 +12,7 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def _dump_y0(sys, out_dir, max_sites=200):
-    """
-    Exports the computed initial condition vector $y_0$ to a CSV file for inspection.
-    Useful for debugging which biological entity corresponds to which numerical value.
-    """
+    """Handle internal dump y0"""
     idx = sys.idx
     y0 = sys.y0()  # uses custom_y0 if set
     rows = []
@@ -101,10 +85,7 @@ def _dump_y0(sys, out_dir, max_sites=200):
 
 
 def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
-    """
-    Helper to extract a dictionary of {Entity -> Value} at a specific time t0.
-    Handles floating point tolerance for time matching.
-    """
+    """Handle internal dict at time"""
     if df is None or df.empty:
         return {}
 
@@ -140,26 +121,21 @@ def build_y0_from_data(
         time_tol=1e-8,
         max_pho_frac=0.3,  # at most 30% of protein initially phosphorylated
 ):
-    """
-    Constructs the initial state vector $y_0$ strictly from experimental data.
-
-    **Physics-Compliant Mass Balance:**
-    1.  **Protein Total ($P_{tot}$):** Taken from `df_prot` at `t_init`.
-    2.  **Phospho Mass:** Taken from `df_pho` at `t0_pho`. Because phospho signals are often
-        relative intensities, we scale them such that the total phosphorylated mass does not
-        exceed `max_pho_frac` (e.g., 30%) of $P_{tot}$.
-    3.  **Unphosphorylated Mass ($P_0$):** Calculated by conservation: $P_0 = P_{tot} - \sum P_{phos}$.
-
-
-
+    """Build an initial state vector from observed baseline data
+    
     Args:
-        idx: System index object.
-        df_prot, df_rna, df_pho: Tidy dataframes of observations.
-        t_init (float): The simulation start time (usually 0.0).
-        max_pho_frac (float): Cap on the initial fraction of phosphorylated protein.
-
+        idx: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        df_pho: Input value used by this routine.
+        t_init: Input value used by this routine.
+        t0_pho: Input value used by this routine.
+        eps: Input value used by this routine.
+        time_tol: Input value used by this routine.
+        max_pho_frac: Input value used by this routine.
+    
     Returns:
-        np.ndarray: The assembled initial condition vector.
+        Computed result from this routine.
     """
 
     # ------------------------------------------------------------------

@@ -1,18 +1,4 @@
-"""
-Steady-State Simulation and Analysis Module.
-
-This script manages the simulation of the biological system to its steady state
-and performs a comprehensive post-simulation analysis. It includes two main functions:
-
-1.  `simulate_until_steady`: Integrates the ODEs over a long time horizon using
-    log-spaced time steps to capture both fast initial kinetics and slow equilibration.
-2.  `plot_steady_state_all`: A massive visualization and reporting pipeline that
-    generates per-protein dynamic plots, convergence diagnostics, kinase dominance
-    analysis, and global phosphorylation statistics.
-
-This module is essential for establishing the baseline behavior of the cell model
-before perturbations (e.g., drug treatments) are applied.
-"""
+"""Simulate a system to a long time horizon and write steady-state diagnostic plots; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.simulate."""
 
 import os
 import numpy as np
@@ -27,22 +13,15 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
-    """
-    Simulates the system from t=0 to t_max (default 24h) to observe convergence.
-
-
-
-    Uses log-spacing for the time grid. This is crucial for biological systems where
-    phosphorylation reactions happen in seconds/minutes, while transcriptional/translational
-    changes happen over hours.
-
+    """Simulate the system toward steady state
+    
     Args:
-        sys (System): The system object containing ODE definitions and parameters.
-        t_max (float): Maximum simulation time in minutes (default 1440m = 24h).
-        n_points (int): Number of time points in the evaluation grid.
-
+        sys: Input value used by this routine.
+        t_max: Input value used by this routine.
+        n_points: Input value used by this routine.
+    
     Returns:
-        tuple: (t_eval, Y) where t_eval is the time vector and Y is the state matrix.
+        Computed result from this routine.
     """
     # Log-space time grid (0, 0.001 ... t_max)
     # Start small (1e-3) to capture fast transients, end at t_max.
@@ -68,25 +47,14 @@ def simulate_until_steady(sys, t_max=1440.0, n_points=1000):
 
 
 def plot_steady_state_all(t, Y, sys, idx, output_dir):
-    """
-    Performs comprehensive analysis and plotting of the steady-state results.
-
-    This function generates:
-    1. **Dynamic Plots**: Time-series plots for RNA, Protein, and Phospho-sites for *every* protein.
-    2. **Convergence Diagnostics**: Histograms of derivatives at the final time point.
-    3. **Phospho-fraction Summary**: Table and plots of the % phosphorylated for all proteins.
-    4. **Kinase Drive Analysis**: Quantification of how much "signal" each kinase pushes into the network.
-    5. **Dominance Analysis**: Identifies which kinase is the primary driver for every single phosphorylation site.
-    6. **Activity vs. Drive Scatter**: Visualizes kinase efficiency (Active Conc vs. Network Output).
-
-
-
+    """Write steady-state diagnostic plots and tables
+    
     Args:
-        t (np.ndarray): Time vector.
-        Y (np.ndarray): State matrix (time x variables).
-        sys (System): The system object (used for RHS evaluation and W matrix access).
-        idx (IndexMap): Object mapping names to state indices.
-        output_dir (str): Directory where results will be saved.
+        t: Input value used by this routine.
+        Y: Input value used by this routine.
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        output_dir: Input value used by this routine.
     """
     save_dir = os.path.join(output_dir, "steady_state_plots")
     os.makedirs(save_dir, exist_ok=True)

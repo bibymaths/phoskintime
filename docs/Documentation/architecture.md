@@ -45,15 +45,16 @@ flowchart TD
     end
 
     subgraph global_wf ["Global Network Workflow"]
-        H["networkmodel/runner.py\n• JAXopt scalar optimization\n• mode-aware loss assembly\n• legacy config mapping"]
-        I["networkmodel/simulate.py\n• Diffrax Kvaerno ODE integration\n• JAX float64 numeric path"]
-        J["networkmodel/sensitivity.py\n• trajectory-based perturbation\n• Morris elementary effects"]
-        K["networkmodel/export.py\n• scalar objective tables\n• mode-aware plots and metadata"]
-        L["dashboard_app.py\n• Streamlit visualization\n(run via run_dashboard.py)"]
+        H["networkmodel/runner.py\n• data loading\n• topology assembly\n• orchestration"]
+        I["networkmodel/optproblem.py\n• scalar objective wrapper"]
+        J["networkmodel/jax_backend.py\n• Diffrax Kvaerno ODE integration\n• jaxopt.ProjectedGradient\n• JAX float64 numeric path"]
+        K["networkmodel/inference.py\n• ThreadPoolExecutor multistart\n• profiles and posterior helpers"]
+        L["networkmodel/sensitivity.py\n• trajectory-based perturbation"]
+        N["networkmodel/export.py / analysis.py / dashboard_app.py\n• tables\n• plots\n• Streamlit visualization"]
     end
 
     subgraph scripts_box ["Post-Processing Scripts (scripts/)"]
-        M["analyze_tf_kin_counts\ncurve_similarity\nexport_subnetworks\nmechanistic_insights\ntemporal_sensitivity\n..."]
+        M["analyze_tf_kin_counts\ncurve_similarity\nexport_subnetworks\nmechanistic_insights\ntemporal_sensitivity"]
     end
 
     A --> prep
@@ -67,14 +68,16 @@ flowchart TD
     D --> H
     H --> I
     I --> J
-    I --> K
-    K --> L
-    K --> M
+    H --> K
+    K --> J
+    H --> L
+    H --> N
+    N --> M
     G --> M
 ```
 
 > **Note:** The `all` CLI command runs `prep → tfopt → kinopt → model` only. It does **not** invoke
-> `networkmodel`. Run `phoskintime-global` (or `python -m networkmodel.runner`) separately after
+> `networkmodel`. Run `python -m networkmodel.runner` separately after
 > the local pipeline completes.
 
 ---

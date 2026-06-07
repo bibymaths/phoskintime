@@ -1,14 +1,4 @@
-"""
-Fast Loss Data Preparation Module.
-
-This script handles the crucial pre-processing step for the optimization loop.
-Instead of performing slow dictionary lookups and string comparisons inside the
-loss function (which runs thousands of times), this module maps all experimental
-data (RNA, Protein, Phospho) onto integer-based grid indices *once*.
-
-The output is a dictionary of contiguous NumPy arrays (indices, observations, weights)
-that can be passed directly to a fast JIT-compiled or Cython loss function.
-"""
+"""Convert observation data frames into compact numeric arrays for fast loss evaluation; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 
 import numpy as np
 import pandas as pd
@@ -17,26 +7,20 @@ from networkmodel.config import MODEL
 
 
 def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
-    """
-    Converts pandas DataFrames of experimental data into integer-based arrays
-    aligned with the simulation state vector and time grid.
-
-    This function performs "pre-indexing":
-    1.  Maps float timepoints to integer indices in `time_grid`.
-    2.  Maps string protein names to integer state indices (`p2i`).
-    3.  Maps specific phosphosites (e.g., "S473") to relative state offsets.
-    4.  Constructs a `prot_map` for fast state slicing.
-
+    """Prepare numeric loss arrays from observation data frames
+    
     Args:
-        idx (IndexMap): Object containing mappings (p2i, sites, n_sites, etc.).
-        df_prot (pd.DataFrame): Protein data columns [protein, time, fc, w].
-        df_rna (pd.DataFrame): RNA data columns [protein, time, fc, w].
-        df_pho (pd.DataFrame): Phospho data columns [protein, psite, time, fc, w].
-        time_grid (array-like): The fixed time points of the simulation solver.
-
+        idx: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        df_pho: Input value used by this routine.
+        time_grid: Input value used by this routine.
+    
     Returns:
-        dict: A dictionary containing keyed NumPy arrays (e.g., 'p_prot', 'obs_prot')
-              ready for the fast loss function.
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
 
     # Pre-compute time index map: Time Value (float) -> Grid Index (int)

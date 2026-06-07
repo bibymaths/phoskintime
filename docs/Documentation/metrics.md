@@ -108,20 +108,15 @@ Used by `tfopt` and `kinopt` via SciPy least-squares or evolutionary optimizer:
 | 5 | Elastic Net | Sparsity + smoothness (default `tfopt`) |
 | 6 | Tikhonov | L2 regularization |
 
-### Global model loss codes (`[networkmodel]` → `loss`)
+### Global model loss terms (`networkmodel/jax_backend.py`)
 
-Used by `networkmodel/lossfn.py`:
+The current scalar JAX path reports weighted MSE terms from `multimodal_loss_from_trajectory`:
 
-| Code | Name | Description |
-|---|---|---|
-| 0 | Squared Error (MSE) | Standard squared error |
-| 1 | Huber | Smooth L1/L2 transition |
-| 2 | Pseudo-Huber | Differentiable Huber approximation |
-| 3 | Log-Cosh | Smooth approximation of MAE; grad-friendly near 0 |
-| 4 | Cauchy | Heavy-tail robust loss |
-| 5 | Poisson-scaled MSE | MSE scaled by predicted value |
-| 6 | Geman-McClure | Soft-saturating robust loss |
-| -1 | Charbonnier | Differentiable L1 (`√(x² + ε²)`) |
+| Term | Description |
+|---|---|
+| `mrna_loss` | Weighted MSE on mRNA fold changes |
+| `protein_loss` | Weighted MSE on protein fold changes |
+| `phospho_loss` | Weighted MSE on phosphosite fold changes |
 
 ---
 

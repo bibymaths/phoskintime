@@ -1,13 +1,4 @@
-"""
-Data Loading and Pre-processing Module.
-
-This script is responsible for ingesting raw CSV/Excel files containing biological
-network definitions (Kinases, TFs) and experimental data (MS Proteomics, RNA-seq).
-It harmonizes identifiers, merges prior knowledge (Alpha/Beta weights), and reshapes
-time-series data into a standardized 'tidy' format for the modeling pipeline.
-
-
-"""
+"""Load network, protein, RNA, and phospho input tables from configured paths; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.utils."""
 
 import os
 import pandas as pd
@@ -20,29 +11,13 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def load_data(args):
-    """
-    Loads, cleans, and merges all required data files for the model.
-
-    Process:
-    1.  **Networks:** Loads Kinase-Substrate and TF-Gene interactions.
-        -   Expands set-based notations (e.g., "{K1, K2}").
-        -   Merges 'Alpha' (edge strength) and 'Beta' (node activity prior) values from optimization results.
-    2.  **Experimental Data:** Loads MS and RNA-seq data.
-        -   Scales data (e.g., log-transformation, normalization).
-        -   Reshapes from "wide" (time points as columns) to "long" (time as a variable).
-
+    """Load configured networkmodel input tables
+    
     Args:
-        args (Namespace): Configuration namespace containing file paths (kinase_net, tf_net, ms, rna, kinopt, tfopt).
-
+        args: Positional arguments forwarded to the runner.
+    
     Returns:
-        tuple: A tuple containing:
-            - df_kin_clean (pd.DataFrame): Kinase network with columns [protein, psite, kinase, alpha].
-            - df_tf_clean (pd.DataFrame): TF network with columns [tf, target, alpha].
-            - df_prot (pd.DataFrame): Protein abundance data [protein, time, fc].
-            - df_pho (pd.DataFrame): Phosphorylation data [protein, psite, time, fc].
-            - df_rna (pd.DataFrame): RNA abundance data [protein, time, fc].
-            - kin_beta_map (dict): Prior activity assumptions for kinases {kinase: beta}.
-            - tf_beta_map (dict): Prior activity assumptions for TFs {tf: beta}.
+        Computed result from this routine.
     """
     # =========================================================================
     # 1. Load Kinase Network & Merge Alphas

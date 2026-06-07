@@ -1,23 +1,4 @@
-"""
-Numerical Solver Wrappers and JIT Kernels.
-
-This module acts as the high-performance computational core for the simulation.
-It bridges the gap between the high-level `System` definitions and the low-level
-numerical integrators (Runge-Kutta methods).
-
-Key responsibilities:
-1.  **Solver Interface**: Provides `solve_custom` to dispatch the correct integration
-    routine based on the selected kinetic model (Distributive, Sequential, etc.).
-2.  **JIT Compilation**: Uses Numba to compile time-critical functions (RHS evaluations,
-    matrix-vector multiplications) into machine code for speed.
-3.  **Sparse Matrix Operations**: Implements fast custom kernels for calculating signaling
-    inputs ($S = W \cdot K$) and transcriptional regulation ($TF_{in} = A_{tf} \cdot P$).
-4.  **Jacobian Approximation**: Provides finite-difference routines for estimating
-    the Jacobian matrix, which is essential for stiff solvers (though mostly used here for
-    diagnostics or implicit stepping if enabled).
-
-
-"""
+"""Provide small NumPy-compatible helper kernels for phosphorylation-rate cache evaluation; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on no other networkmodel modules."""
 
 import numpy as np
 from numba import njit, prange
@@ -25,20 +6,15 @@ from numba import njit, prange
 
 @njit(cache=True, fastmath=True, nogil=True, parallel=True)
 def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
-    """
-    Pre-computes the signaling drive 'S' for every site at every time bucket.
-
-    For Model 2, calculating $S = W \cdot (K(t) \cdot c_k)$ at every micro-step
-    is too slow. Instead, since $K(t)$ is discretized into buckets, we can
-    pre-calculate the resulting S for each bucket.
-
-    Parallelized using `prange` for performance.
-
+    """Fill a phosphorylation-rate cache array
+    
     Args:
-        S_out (np.ndarray): Output cache (n_sites, n_time_buckets).
-        W_*: CSR arrays for the kinase-substrate interaction matrix.
-        kin_Kmat (np.ndarray): Kinase activity profiles (n_kinases, n_buckets).
-        c_k (np.ndarray): Optimized kinase activity multipliers.
+        S_out: Input value used by this routine.
+        W_indptr: Input value used by this routine.
+        W_indices: Input value used by this routine.
+        W_data: Input value used by this routine.
+        kin_Kmat: Input value used by this routine.
+        c_k: Input value used by this routine.
     """
     n_rows = S_out.shape[0]
     n_bins = S_out.shape[1]
@@ -57,16 +33,15 @@ def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
 
 @njit(cache=True, fastmath=True, nogil=True)
 def kin_eval_step(t, grid, Kmat):
-    """
-    Evaluates kinase activity at time t using step interpolation (Nearest Neighbor / Bucket).
-
+    """Evaluate kinase inputs at a time point
+    
     Args:
-        t (float): Current simulation time.
-        grid (np.ndarray): Time grid boundaries.
-        Kmat (np.ndarray): Kinase data matrix.
-
+        t: Input value used by this routine.
+        grid: Input value used by this routine.
+        Kmat: Input value used by this routine.
+    
     Returns:
-        np.ndarray: Vector of kinase activities at time t.
+        Computed result from this routine.
     """
     if t <= grid[0]:
         return Kmat[:, 0].copy()
