@@ -1,7 +1,6 @@
 """Wrap the scalar JAX objective and optimizer used by the runner; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.jax_backend."""
 from __future__ import annotations
 
-
 import numpy as np
 import jax.numpy as jnp
 

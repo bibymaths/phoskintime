@@ -1030,6 +1030,7 @@ def save_gene_timeseries_plots(
     plt.close(fig)
     return out_path
 
+
 def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=True):
     """Export phosphorylation-rate trajectories
     

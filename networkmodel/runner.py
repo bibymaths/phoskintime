@@ -62,10 +62,11 @@ from networkmodel.BayesianInference import (
     InferenceContext,
     run_multistart,
     run_profile_likelihood,
-    run_numpyro_posterior,
-    run_numpyro_posterior_multiprocess,
+    run_numpyro_posterior_standalone_processes,
     configure_jax_parallelism,
 )
+
+from networkmodel.PosteriorObjective import write_posterior_payload
 from networkmodel.mode_outputs import write_scalar_result_tables
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
@@ -73,6 +74,7 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 global problem
+
 
 @atexit.register
 def _close_log_handlers():
@@ -727,17 +729,36 @@ def main():
     if POSTERIOR_SAMPLING:
         try:
             logger.info(
-                f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
-            run_numpyro_posterior_multiprocess(
-                ctx,
+                "[Posterior] Requested standalone posterior sampling "
+                "with warmup=%s, samples=%s.",
+                POSTERIOR_NUM_WARMUP,
+                POSTERIOR_NUM_SAMPLES,
+            )
+
+            run_config_path = write_posterior_payload(
+                ctx=ctx,
+                runner_args=args,
+                lambdas=lambdas,
+                output_dir=args.output_dir,
+            )
+
+            posterior_result = run_numpyro_posterior_standalone_processes(
+                run_config_path=run_config_path,
+                output_dir=args.output_dir,
                 num_warmup=POSTERIOR_NUM_WARMUP,
                 num_samples=POSTERIOR_NUM_SAMPLES,
                 seed=args.seed,
-                num_processes=min(8, int(args.cores)),
+                num_processes=8,
             )
-            logger.info("Posterior sampling complete.")
-        except RuntimeError as e:
-            logger.warning("Posterior sampling skipped: %s", e)
+
+            logger.info(
+                "[Posterior] Complete | samples=%d | output_dir=%s",
+                len(posterior_result["samples"]),
+                posterior_result["output_dir"],
+            )
+
+        except Exception:
+            logger.exception("[Posterior] Posterior sampling failed.")
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
         pickle.dump(res, f)

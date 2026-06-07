@@ -19,7 +19,7 @@ from typing import Callable, Mapping, Sequence
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-
+import subprocess
 from networkmodel.backend import (
     DataMode,
     ensure_jax_float64,
@@ -74,10 +74,10 @@ class InferenceContext:
 
 
 def configure_numpyro_parallel_chains(
-    num_chains: int,
-    *,
-    cpu_threads_per_chain: int = 1,
-    logger_obj=None,
+        num_chains: int,
+        *,
+        cpu_threads_per_chain: int = 1,
+        logger_obj=None,
 ) -> dict:
     """Configure JAX CPU devices for parallel NumPyro NUTS chains.
 
@@ -114,6 +114,7 @@ def configure_numpyro_parallel_chains(
     }
     log.info("[Posterior] NumPyro parallel-chain strategy: %s", strategy)
     return strategy
+
 
 def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -> dict:
     """Set conservative thread env defaults before JAX work and report strategy."""
@@ -153,12 +154,13 @@ def _param_names(n: int, names: Sequence[str] | None) -> list[str]:
         out.extend(f"param_{i}" for i in range(len(out), n))
     return out[:n]
 
+
 def _posterior_profile_bounds(
-    lower,
-    upper,
-    names: Sequence[str] | None,
-    nonnegative_prefixes: tuple[str, ...] = ("A_i", "B_i", "C_i", "D_i", "Dp_i", "E_i", "tf_scale"),
-    eps: float = 1e-12,
+        lower,
+        upper,
+        names: Sequence[str] | None,
+        nonnegative_prefixes: tuple[str, ...] = ("A_i", "B_i", "C_i", "D_i", "Dp_i", "E_i", "tf_scale"),
+        eps: float = 1e-12,
 ) -> tuple[np.ndarray, np.ndarray]:
     lower_eff = np.asarray(lower, dtype=np.float64).copy()
     upper_eff = np.asarray(upper, dtype=np.float64).copy()
@@ -174,6 +176,7 @@ def _posterior_profile_bounds(
         upper_eff[bad] = lower_eff[bad] + eps
 
     return lower_eff, upper_eff
+
 
 def _run_one_start(ctx: InferenceContext, start_id: int, seed: int, theta_start: np.ndarray) -> tuple[dict, np.ndarray]:
     worker_kwargs = ctx.build_worker_kwargs(start_id, seed, theta_start)
@@ -380,15 +383,14 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
 
 
 def run_numpyro_posterior(
-    ctx: InferenceContext,
-    *,
-    num_warmup: int = 20,
-    num_samples: int = 30,
-    seed: int = 0,
-    num_chains: int = 1,
-    chain_method: str = "sequential",
+        ctx: InferenceContext,
+        *,
+        num_warmup: int = 20,
+        num_samples: int = 30,
+        seed: int = 0,
+        num_chains: int = 1,
+        chain_method: str = "sequential",
 ) -> dict:
-
     # configure_numpyro_parallel_chains(
     #     num_chains=num_chains,
     #     cpu_threads_per_chain=1,
@@ -460,7 +462,6 @@ def run_numpyro_posterior(
         )
     )
 
-
     mcmc = MCMC(
         kernel,
         num_warmup=int(num_warmup),
@@ -510,14 +511,15 @@ def run_numpyro_posterior(
     _plot_posterior(sample_df, summary, plot_dir)
     return {"samples": sample_df, "summary": summary, "posterior_predictive": predictive, "output_dir": out}
 
+
 def _run_single_numpyro_chain_process(
-    ctx: InferenceContext,
-    *,
-    chain_id: int,
-    seed: int,
-    num_warmup: int,
-    num_samples: int,
-    base_output_dir: str | Path,
+        ctx: InferenceContext,
+        *,
+        chain_id: int,
+        seed: int,
+        num_warmup: int,
+        num_samples: int,
+        base_output_dir: str | Path,
 ) -> None:
     """Run one independent NumPyro NUTS chain in one OS process.
 
@@ -562,89 +564,135 @@ def _run_single_numpyro_chain_process(
         json.dump(status, f, indent=2)
 
 
-def run_numpyro_posterior_multiprocess(
-    ctx: InferenceContext,
-    *,
-    num_warmup: int = 20,
-    num_samples: int = 30,
-    seed: int = 0,
-    num_processes: int = 4,
+def run_numpyro_posterior_standalone_processes(
+        *,
+        run_config_path: str | Path,
+        output_dir: str | Path,
+        num_warmup: int = 20,
+        num_samples: int = 30,
+        seed: int = 0,
+        num_processes: int = 4,
+        timeout_seconds: int | None = None,
 ) -> dict:
-    """Run multiple independent single-chain NumPyro NUTS jobs in parallel.
+    """Run independent posterior chains as clean Python subprocesses.
 
-    This is the safe speedup path for Diffrax-backed objectives.
-    It avoids NumPyro's internal parallel chains and instead parallelizes at the
-    OS-process level.
+    This avoids passing a live JAX/Diffrax objective through multiprocessing.
+    Each subprocess rebuilds the objective from disk and runs one sequential NUTS chain.
     """
-    base_out = Path(ctx.output_dir)
-    chains_root = base_out / "posterior_chains"
-    out = base_out / "posterior"
-    plot_dir = base_out / "plots" / "posterior"
+    run_config_path = Path(run_config_path)
+    output_dir = Path(output_dir)
+
+    chains_root = output_dir / "posterior_chains"
+    out = output_dir / "posterior"
+    plot_dir = output_dir / "plots" / "posterior"
 
     chains_root.mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     n_proc = max(1, int(num_processes))
-
-    for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-        os.environ.setdefault(key, "1")
+    timeout_seconds = timeout_seconds or int(os.environ.get("POSTERIOR_CHAIN_TIMEOUT_SECONDS", "0") or 0)
 
     logger.info(
-        "[Posterior] Running %d independent single-chain NumPyro processes "
-        "with warmup=%d, samples=%d.",
+        "[Posterior] Launching %d standalone posterior worker subprocesses.",
         n_proc,
-        int(num_warmup),
-        int(num_samples),
     )
 
-    mp_ctx = mp.get_context("fork")
-
-    processes: list[mp.Process] = []
+    procs = []
 
     for chain_id in range(n_proc):
-        p = mp_ctx.Process(
-            target=_run_single_numpyro_chain_process,
-            kwargs={
-                "ctx": ctx,
-                "chain_id": chain_id,
-                "seed": int(seed),
-                "num_warmup": int(num_warmup),
-                "num_samples": int(num_samples),
-                "base_output_dir": base_out,
-            },
-        )
-        p.start()
-        processes.append(p)
+        chain_log = chains_root / f"chain_{chain_id:03d}" / "worker_stdout_stderr.log"
+        chain_log.parent.mkdir(parents=True, exist_ok=True)
 
-    for p in processes:
-        p.join()
+        cmd = [
+            sys.executable,
+            "-m",
+            "networkmodel.PosteriorWorker",
+            "--run-config",
+            str(run_config_path),
+            "--chain-id",
+            str(chain_id),
+            "--seed",
+            str(int(seed) + chain_id),
+            "--num-warmup",
+            str(int(num_warmup)),
+            "--num-samples",
+            str(int(num_samples)),
+        ]
+
+        env = os.environ.copy()
+        env.setdefault("OMP_NUM_THREADS", "1")
+        env.setdefault("OPENBLAS_NUM_THREADS", "1")
+        env.setdefault("MKL_NUM_THREADS", "1")
+        env.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+        env.setdefault("NUMEXPR_NUM_THREADS", "1")
+        env["XLA_FLAGS"] = "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+
+        fh = open(chain_log, "w")
+
+        logger.info("[Posterior] Starting chain %d: %s", chain_id, " ".join(cmd))
+
+        p = subprocess.Popen(
+            cmd,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            cwd=os.getcwd(),
+            env=env,
+        )
+
+        procs.append((chain_id, p, fh, chain_log))
 
     statuses = []
-    for chain_id in range(n_proc):
+
+    for chain_id, p, fh, chain_log in procs:
+        try:
+            if timeout_seconds > 0:
+                return_code = p.wait(timeout=timeout_seconds)
+            else:
+                return_code = p.wait()
+
+        except subprocess.TimeoutExpired:
+            logger.error("[Posterior] Chain %d exceeded timeout; terminating.", chain_id)
+            p.terminate()
+            try:
+                p.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                p.kill()
+                p.wait()
+            return_code = p.returncode if p.returncode is not None else -9
+
+        finally:
+            fh.close()
+
         status_path = chains_root / f"chain_{chain_id:03d}" / "chain_status.json"
+
         if status_path.exists():
             with open(status_path) as f:
-                statuses.append(json.load(f))
+                status = json.load(f)
         else:
-            statuses.append(
-                {
-                    "chain_id": chain_id,
-                    "seed": int(seed) + chain_id,
-                    "success": False,
-                    "failure_reason": "Missing chain_status.json",
-                    "posterior_samples": "",
-                    "posterior_summary": "",
-                }
-            )
+            status = {
+                "chain_id": chain_id,
+                "pid": p.pid,
+                "seed": int(seed) + chain_id,
+                "success": False,
+                "state": "missing_status",
+                "failure_reason": "chain_status.json was not written",
+                "posterior_samples": "",
+                "posterior_summary": "",
+            }
+
+        status["return_code"] = int(return_code)
+        status["worker_log"] = str(chain_log)
+        statuses.append(status)
 
     status_df = pd.DataFrame(statuses)
     status_df.to_csv(out / "posterior_chain_status.csv", index=False)
 
-    failed = status_df[~status_df["success"]]
+    failed = status_df[(status_df["success"] != True) | (status_df["return_code"] != 0)]
     if len(failed) > 0:
         logger.warning(
-            "[Posterior] %d/%d posterior chains failed. See posterior/posterior_chain_status.csv.",
+            "[Posterior] %d/%d standalone posterior chains failed. "
+            "See posterior/posterior_chain_status.csv.",
             len(failed),
             n_proc,
         )
@@ -652,7 +700,7 @@ def run_numpyro_posterior_multiprocess(
     sample_dfs = []
 
     for status in statuses:
-        if not status.get("success"):
+        if not bool(status.get("success", False)):
             continue
 
         sample_path = status.get("posterior_samples", "")
@@ -665,17 +713,21 @@ def run_numpyro_posterior_multiprocess(
 
     if not sample_dfs:
         raise RuntimeError(
-            "All multiprocessing posterior chains failed. "
-            "See posterior/posterior_chain_status.csv."
+            "All standalone posterior chains failed. "
+            "See posterior/posterior_chain_status.csv and posterior_chains/*/worker_stdout_stderr.log."
         )
 
     sample_df = pd.concat(sample_dfs, ignore_index=True)
     sample_df.to_csv(out / "posterior_samples.csv", index=False)
 
-    names = _param_names(len(ctx.theta0), ctx.parameter_names)
+    parameter_cols = [
+        c for c in sample_df.columns
+        if c not in {"chain", "sigma", "scalar_objective", "data_mode"}
+           and pd.api.types.is_numeric_dtype(sample_df[c])
+    ]
 
     summary_rows = []
-    for col in names + ["sigma"]:
+    for col in parameter_cols + ["sigma"]:
         if col not in sample_df.columns:
             continue
 
@@ -691,7 +743,7 @@ def run_numpyro_posterior_multiprocess(
                 "ci_95": np.quantile(vals, 0.95),
                 "ess": float(len(vals)),
                 "r_hat": np.nan,
-                "data_mode": ctx.mode.data_mode,
+                "data_mode": sample_df["data_mode"].iloc[0] if "data_mode" in sample_df else "",
             }
         )
 
@@ -701,15 +753,14 @@ def run_numpyro_posterior_multiprocess(
     if "scalar_objective" in sample_df.columns:
         predictive = sample_df[["chain", "scalar_objective", "data_mode"]].copy()
     else:
-        predictive = pd.DataFrame({"data_mode": [ctx.mode.data_mode]})
+        predictive = pd.DataFrame({"data_mode": [sample_df["data_mode"].iloc[0]] if "data_mode" in sample_df else [""]})
 
     predictive.to_csv(out / "posterior_predictive.csv", index=False)
 
     _plot_posterior(sample_df, summary, plot_dir)
 
     logger.info(
-        "[Posterior] Multiprocess posterior complete. Successful chains: %d/%d. "
-        "Combined samples: %d.",
+        "[Posterior] Standalone posterior complete. Successful chains: %d/%d. Combined samples: %d.",
         len(sample_dfs),
         n_proc,
         len(sample_df),
@@ -722,6 +773,7 @@ def run_numpyro_posterior_multiprocess(
         "chain_status": status_df,
         "output_dir": out,
     }
+
 
 def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
     numeric = [
@@ -750,7 +802,7 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         ax.set_xlabel(col)
         ax.set_ylabel("frequency")
         fig.tight_layout()
-        fig.savefig(density_dir/ f"density_{col}.png", dpi=150)
+        fig.savefig(density_dir / f"density_{col}.png", dpi=150)
         plt.close(fig)
 
     n_params = len(summary)

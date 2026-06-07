@@ -51,13 +51,13 @@ def _is_nonnegative_parameter(name: str) -> bool:
     c_k is intentionally not included because kinase multipliers/effects may be signed.
     """
     return (
-        name.startswith("A_i_")
-        or name.startswith("B_i_")
-        or name.startswith("C_i_")
-        or name.startswith("D_i_")
-        or name.startswith("Dp_i_")
-        or name.startswith("E_i_")
-        or name == "tf_scale"
+            name.startswith("A_i_")
+            or name.startswith("B_i_")
+            or name.startswith("C_i_")
+            or name.startswith("D_i_")
+            or name.startswith("Dp_i_")
+            or name.startswith("E_i_")
+            or name == "tf_scale"
     )
 
 
@@ -312,13 +312,13 @@ def _select_top_trajectories(trajectory_storage, max_items):
 
 
 def _make_task(
-    sample_id,
-    param_vector,
-    original_shapes,
-    sys_obj,
-    idx_obj,
-    metric,
-    keep_trajectory=True,
+        sample_id,
+        param_vector,
+        original_shapes,
+        sys_obj,
+        idx_obj,
+        metric,
+        keep_trajectory=True,
 ):
     return (
         int(sample_id),
@@ -560,13 +560,13 @@ def _plot_sensitivity_indices(df, out_dir):
 
 
 def _plot_perturbation_cloud(
-    trajectories,
-    out_dir,
-    idx,
-    top_n_proteins=40,
-    top_k_sites=6,
-    draw_spaghetti=True,
-    spaghetti_alpha=0.03,
+        trajectories,
+        out_dir,
+        idx,
+        top_n_proteins=40,
+        top_k_sites=6,
+        draw_spaghetti=True,
+        spaghetti_alpha=0.03,
 ):
     """Plot perturbation trajectory clouds for selected proteins."""
     sim_dir = os.path.join(out_dir, "sensitivity_perturbations")
