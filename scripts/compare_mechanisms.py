@@ -17,7 +17,7 @@ import imageio.v2 as imageio
 from networkmodel import config
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.simulate import simulate_and_measure
-from networkmodel.analysis import simulate_until_steady
+from networkmodel.SteadyStateAnalysis import simulate_until_steady
 from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.io import load_data
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix

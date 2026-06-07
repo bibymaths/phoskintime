@@ -34,7 +34,7 @@ import pandas as pd
 from networkmodel.dashboard_bundle import save_dashboard_bundle
 from networkmodel.scan import run_hyperparameter_scan
 from networkmodel.sensitivity import run_sensitivity_analysis
-from networkmodel.SteadyState import _dump_y0
+from networkmodel.InitialConditions import _dump_y0
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
@@ -56,11 +56,14 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     export_results, save_gene_timeseries_plots, \
     export_S_rates, plot_s_rates_report, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
-from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
+from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
 from networkmodel.BayesianInference import (
-    InferenceContext, run_multistart,
-    run_profile_likelihood, run_numpyro_posterior,
+    InferenceContext,
+    run_multistart,
+    run_profile_likelihood,
+    run_numpyro_posterior,
+    run_numpyro_posterior_multiprocess,
     configure_jax_parallelism,
 )
 from networkmodel.mode_outputs import write_scalar_result_tables
@@ -725,13 +728,12 @@ def main():
         try:
             logger.info(
                 f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
-            run_numpyro_posterior(
+            run_numpyro_posterior_multiprocess(
                 ctx,
                 num_warmup=POSTERIOR_NUM_WARMUP,
                 num_samples=POSTERIOR_NUM_SAMPLES,
                 seed=args.seed,
-                num_chains=min(8, int(args.cores)),
-                chain_method="parallel",
+                num_processes=min(8, int(args.cores)),
             )
             logger.info("Posterior sampling complete.")
         except RuntimeError as e:

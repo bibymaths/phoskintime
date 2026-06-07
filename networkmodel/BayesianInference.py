@@ -7,9 +7,9 @@ pandas/matplotlib work outside differentiated functions.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
-
+import multiprocessing as mp
 import os
 import sys
 from pathlib import Path
@@ -326,7 +326,7 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
     all_rows = []
     for idx in parameter_indices:
         idx = int(idx)
-        values = np.linspace(ctx.lower[idx], ctx.upper[idx], int(grid_size))
+        values = np.linspace(lower_eff[idx], upper_eff[idx], int(grid_size))
         rows = []
         for gv in values:
             fixed_mask = np.zeros_like(ctx.theta0, dtype=bool) if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask,
@@ -336,8 +336,8 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
             fixed_mask[idx] = True
             fixed_values[idx] = gv
             try:
-                params, state, value = optimize_scalar_objective(ctx.objective_fun, fixed_values, lower_eff, upper_eff,
-                                                                 maxiter=ctx.maxiter, tol=ctx.tol,
+                params, state, value = optimize_scalar_objective(ctx.objective_fun, fixed_values, lower_eff[idx],
+                                                                 upper_eff[idx], maxiter=ctx.maxiter, tol=ctx.tol,
                                                                  fixed_mask=fixed_mask, fixed_values=fixed_values,
                                                                  logger_obj=logger)
                 row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value,
@@ -385,15 +385,15 @@ def run_numpyro_posterior(
     num_warmup: int = 20,
     num_samples: int = 30,
     seed: int = 0,
-    num_chains: int = 4,
-    chain_method: str = "parallel",
+    num_chains: int = 1,
+    chain_method: str = "sequential",
 ) -> dict:
 
-    configure_numpyro_parallel_chains(
-        num_chains=num_chains,
-        cpu_threads_per_chain=1,
-        logger_obj=logger,
-    )
+    # configure_numpyro_parallel_chains(
+    #     num_chains=num_chains,
+    #     cpu_threads_per_chain=1,
+    #     logger_obj=logger,
+    # )
 
     try:
         import jax
@@ -510,6 +510,219 @@ def run_numpyro_posterior(
     _plot_posterior(sample_df, summary, plot_dir)
     return {"samples": sample_df, "summary": summary, "posterior_predictive": predictive, "output_dir": out}
 
+def _run_single_numpyro_chain_process(
+    ctx: InferenceContext,
+    *,
+    chain_id: int,
+    seed: int,
+    num_warmup: int,
+    num_samples: int,
+    base_output_dir: str | Path,
+) -> None:
+    """Run one independent NumPyro NUTS chain in one OS process.
+
+    Uses single-chain sequential NumPyro to avoid Diffrax closure-conversion issues
+    from NumPyro's internal parallel chain mode.
+    """
+    chain_out = Path(base_output_dir) / "posterior_chains" / f"chain_{chain_id:03d}"
+    chain_out.mkdir(parents=True, exist_ok=True)
+
+    child_ctx = replace(ctx, output_dir=chain_out)
+
+    try:
+        run_numpyro_posterior(
+            child_ctx,
+            num_warmup=int(num_warmup),
+            num_samples=int(num_samples),
+            seed=int(seed) + int(chain_id),
+            num_chains=1,
+            chain_method="sequential",
+            make_plots=False,
+        )
+
+        status = {
+            "chain_id": int(chain_id),
+            "seed": int(seed) + int(chain_id),
+            "success": True,
+            "failure_reason": "",
+            "posterior_samples": str(chain_out / "posterior" / "posterior_samples.csv"),
+            "posterior_summary": str(chain_out / "posterior" / "posterior_summary.csv"),
+        }
+
+    except Exception as exc:
+        status = {
+            "chain_id": int(chain_id),
+            "seed": int(seed) + int(chain_id),
+            "success": False,
+            "failure_reason": str(exc),
+            "posterior_samples": "",
+            "posterior_summary": "",
+        }
+
+    with open(chain_out / "chain_status.json", "w") as f:
+        json.dump(status, f, indent=2)
+
+
+def run_numpyro_posterior_multiprocess(
+    ctx: InferenceContext,
+    *,
+    num_warmup: int = 20,
+    num_samples: int = 30,
+    seed: int = 0,
+    num_processes: int = 4,
+) -> dict:
+    """Run multiple independent single-chain NumPyro NUTS jobs in parallel.
+
+    This is the safe speedup path for Diffrax-backed objectives.
+    It avoids NumPyro's internal parallel chains and instead parallelizes at the
+    OS-process level.
+    """
+    base_out = Path(ctx.output_dir)
+    chains_root = base_out / "posterior_chains"
+    out = base_out / "posterior"
+    plot_dir = base_out / "plots" / "posterior"
+
+    chains_root.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
+    n_proc = max(1, int(num_processes))
+
+    for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(key, "1")
+
+    logger.info(
+        "[Posterior] Running %d independent single-chain NumPyro processes "
+        "with warmup=%d, samples=%d.",
+        n_proc,
+        int(num_warmup),
+        int(num_samples),
+    )
+
+    mp_ctx = mp.get_context("fork")
+
+    processes: list[mp.Process] = []
+
+    for chain_id in range(n_proc):
+        p = mp_ctx.Process(
+            target=_run_single_numpyro_chain_process,
+            kwargs={
+                "ctx": ctx,
+                "chain_id": chain_id,
+                "seed": int(seed),
+                "num_warmup": int(num_warmup),
+                "num_samples": int(num_samples),
+                "base_output_dir": base_out,
+            },
+        )
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
+
+    statuses = []
+    for chain_id in range(n_proc):
+        status_path = chains_root / f"chain_{chain_id:03d}" / "chain_status.json"
+        if status_path.exists():
+            with open(status_path) as f:
+                statuses.append(json.load(f))
+        else:
+            statuses.append(
+                {
+                    "chain_id": chain_id,
+                    "seed": int(seed) + chain_id,
+                    "success": False,
+                    "failure_reason": "Missing chain_status.json",
+                    "posterior_samples": "",
+                    "posterior_summary": "",
+                }
+            )
+
+    status_df = pd.DataFrame(statuses)
+    status_df.to_csv(out / "posterior_chain_status.csv", index=False)
+
+    failed = status_df[~status_df["success"]]
+    if len(failed) > 0:
+        logger.warning(
+            "[Posterior] %d/%d posterior chains failed. See posterior/posterior_chain_status.csv.",
+            len(failed),
+            n_proc,
+        )
+
+    sample_dfs = []
+
+    for status in statuses:
+        if not status.get("success"):
+            continue
+
+        sample_path = status.get("posterior_samples", "")
+        if not sample_path or not Path(sample_path).exists():
+            continue
+
+        df = pd.read_csv(sample_path)
+        df.insert(0, "chain", int(status["chain_id"]))
+        sample_dfs.append(df)
+
+    if not sample_dfs:
+        raise RuntimeError(
+            "All multiprocessing posterior chains failed. "
+            "See posterior/posterior_chain_status.csv."
+        )
+
+    sample_df = pd.concat(sample_dfs, ignore_index=True)
+    sample_df.to_csv(out / "posterior_samples.csv", index=False)
+
+    names = _param_names(len(ctx.theta0), ctx.parameter_names)
+
+    summary_rows = []
+    for col in names + ["sigma"]:
+        if col not in sample_df.columns:
+            continue
+
+        vals = sample_df[col].to_numpy(dtype=np.float64)
+
+        summary_rows.append(
+            {
+                "parameter": col,
+                "mean": vals.mean(),
+                "median": np.median(vals),
+                "sd": vals.std(ddof=0),
+                "ci_05": np.quantile(vals, 0.05),
+                "ci_95": np.quantile(vals, 0.95),
+                "ess": float(len(vals)),
+                "r_hat": np.nan,
+                "data_mode": ctx.mode.data_mode,
+            }
+        )
+
+    summary = pd.DataFrame(summary_rows)
+    summary.to_csv(out / "posterior_summary.csv", index=False)
+
+    if "scalar_objective" in sample_df.columns:
+        predictive = sample_df[["chain", "scalar_objective", "data_mode"]].copy()
+    else:
+        predictive = pd.DataFrame({"data_mode": [ctx.mode.data_mode]})
+
+    predictive.to_csv(out / "posterior_predictive.csv", index=False)
+
+    _plot_posterior(sample_df, summary, plot_dir)
+
+    logger.info(
+        "[Posterior] Multiprocess posterior complete. Successful chains: %d/%d. "
+        "Combined samples: %d.",
+        len(sample_dfs),
+        n_proc,
+        len(sample_df),
+    )
+
+    return {
+        "samples": sample_df,
+        "summary": summary,
+        "posterior_predictive": predictive,
+        "chain_status": status_df,
+        "output_dir": out,
+    }
 
 def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
     numeric = [

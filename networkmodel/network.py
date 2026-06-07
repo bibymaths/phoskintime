@@ -6,7 +6,7 @@ import pandas as pd
 from networkmodel.BuildMatrix import site_key
 from networkmodel.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
 from networkmodel.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
-from networkmodel.SteadyState import build_y0_from_data
+from networkmodel.InitialConditions import build_y0_from_data
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
