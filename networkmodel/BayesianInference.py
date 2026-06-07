@@ -537,7 +537,6 @@ def _run_single_numpyro_chain_process(
             seed=int(seed) + int(chain_id),
             num_chains=1,
             chain_method="sequential",
-            make_plots=False,
         )
 
         status = {

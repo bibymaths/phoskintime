@@ -954,14 +954,26 @@ def main():
 
     logger.info("[Simulate] Running post-optimization dynamics check...")
 
-    # 1. Simulate for 7 days (10080 min) to see long-term behavior
-    logger.info("[Simulate] Simulating system for 7 days to assess steady-state behavior.")
-    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 7 * 60)
+    # 1. Simulate to see long-term behavior
+    logger.info("[Simulate] Simulating system for 14 days to assess steady-state behavior.")
+    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 14 * 60)
 
-    # Log for each protein whether it reached steady state
+    # Log for each protein whether it approximately reached steady state
+    window = min(10, Y_check.shape[1])
+
     for i, protein in enumerate(idx.proteins):
-        reached_steady_state = Y_check[i, -1] > 0.99 * Y_check[i, 0]
-        logger.info(f"Protein {protein}: Steady state reached? {reached_steady_state}")
+        y_tail = Y_check[i, -window:]
+
+        tail_range = np.max(y_tail) - np.min(y_tail)
+        final_scale = abs(Y_check[i, -1]) + 1e-12
+        rel_tail_change = tail_range / final_scale
+
+        reached_steady_state = rel_tail_change < 1e-4
+
+        logger.info(
+            f"Protein {protein}: Steady state reached? {reached_steady_state} "
+            f"| final={Y_check[i, -1]:.6g}, rel_tail_change={rel_tail_change:.3e}"
+        )
 
     # 2. Plot every single protein
     plot_steady_state_all(
