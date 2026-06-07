@@ -1,7 +1,7 @@
 """Protwise wrappers around shared JAXopt/Diffrax inference utilities."""
 from __future__ import annotations
 
-from networkmodel.bayesianinference import (
+from networkmodel.BayesianInference import (
     InferenceContext,
     configure_jax_parallelism,
     generate_multistart_initials,

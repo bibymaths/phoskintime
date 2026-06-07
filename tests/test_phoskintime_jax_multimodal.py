@@ -29,7 +29,7 @@ from networkmodel.backend import (
     warn_deprecated_backend_options,
 )
 from networkmodel.mode_outputs import save_mode_plots, write_scalar_result_tables
-from networkmodel.optproblem import GlobalODEScalarObjective
+from networkmodel.OptimizationProblem import GlobalODEScalarObjective
 
 
 class DummyIndex:
@@ -217,7 +217,7 @@ def test_forbidden_stack_not_in_active_networkmodel_protwise_paths():
     root = pathlib.Path(__file__).resolve().parents[1]
     active_paths = [
         root / "networkmodel" / "backend.py",
-        root / "networkmodel" / "optproblem.py",
+        root / "networkmodel" / "OptimizationProblem.py",
         root / "networkmodel" / "runner.py",
         root / "networkmodel" / "simulate.py",
         root / "networkmodel" / "mode_outputs.py",

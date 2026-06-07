@@ -29,7 +29,7 @@ from networkmodel.config import (
     RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, CORES
 )
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.io import load_data
 from networkmodel.params import unpack_params

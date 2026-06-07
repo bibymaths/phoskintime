@@ -34,8 +34,8 @@ import pandas as pd
 from networkmodel.dashboard_bundle import save_dashboard_bundle
 from networkmodel.scan import run_hyperparameter_scan
 from networkmodel.sensitivity import run_sensitivity_analysis
-from networkmodel.steadystate import _dump_y0
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.SteadyState import _dump_y0
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
     SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
@@ -47,7 +47,7 @@ from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DI
     POSTERIOR_NUM_WARMUP, POSTERIOR_NUM_SAMPLES
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.optproblem import GlobalODEScalarObjective, build_weight_functions
+from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
 from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
@@ -58,7 +58,7 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
-from networkmodel.bayesianinference import (
+from networkmodel.BayesianInference import (
     InferenceContext, run_multistart,
     run_profile_likelihood, run_numpyro_posterior,
     configure_jax_parallelism,

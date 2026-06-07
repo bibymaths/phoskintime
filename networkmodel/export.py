@@ -20,7 +20,7 @@ from scipy.stats import linregress
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
 from networkmodel.params import unpack_params
 from networkmodel.simulate import simulate_and_measure
-from networkmodel.timebucket import build_S_cache_into
+from networkmodel.TimeBucket import build_S_cache_into
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)

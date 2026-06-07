@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from networkmodel.bayesianinference import (
+from networkmodel.BayesianInference import (
     InferenceContext,
     configure_jax_parallelism,
     run_multistart,
@@ -139,7 +139,7 @@ def test_dashboard_imports_inference_outputs(tmp_path, monkeypatch):
 
 def test_forbidden_stack_not_in_inference_active_paths():
     root = pathlib.Path(__file__).resolve().parents[1]
-    paths = [root / "networkmodel" / "bayesianinference.py", root / "protwise" / "paramest" / "bayesianinference.py"]
+    paths = [root / "networkmodel" / "BayesianInference.py", root / "protwise" / "paramest" / "BayesianInference.py"]
     text = "\n".join(p.read_text() for p in paths)
     for term in ["from pymoo", "import pymoo", "scipy.optimize", "from scipy.integrate", "solve_ivp(", "odeint("]:
         assert term not in text

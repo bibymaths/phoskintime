@@ -20,7 +20,7 @@ from networkmodel.simulate import simulate_and_measure
 from networkmodel.analysis import simulate_until_steady
 from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.io import load_data
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.utils import normalize_fc_to_t0
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
