@@ -1,9 +1,12 @@
 """Expose a compatibility hyperparameter-scan entry point for the scalar JAXopt path; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on no other networkmodel modules."""
 from __future__ import annotations
 
-import logging
 
-logger = logging.getLogger()
+
+from config.config import setup_logger
+from networkmodel.config import RESULTS_DIR
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def run_hyperparameter_scan(args, sys, loss_data, defaults, solver_times, runner, slices, xl, xu):

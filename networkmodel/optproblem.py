@@ -1,7 +1,7 @@
 """Wrap the scalar JAX objective and optimizer used by the runner; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.jax_backend."""
 from __future__ import annotations
 
-import logging
+
 import numpy as np
 import jax.numpy as jnp
 
@@ -14,7 +14,10 @@ from networkmodel.backend import (
     validate_loss_data,
 )
 
-logger = logging.getLogger()
+from config.config import setup_logger
+from networkmodel.config import RESULTS_DIR
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):

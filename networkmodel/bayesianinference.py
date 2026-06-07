@@ -9,8 +9,9 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import json
-import logging
+
 import os
+import sys
 from pathlib import Path
 import time
 from typing import Callable, Mapping, Sequence
@@ -28,7 +29,10 @@ from networkmodel.backend import (
     project_bounds,
 )
 
-logger = logging.getLogger()
+from config.config import setup_logger
+from networkmodel.config import RESULTS_DIR
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,48 @@ class InferenceContext:
             "loss_kwargs": dict(self.loss_kwargs or {}),
         }
 
+
+def configure_numpyro_parallel_chains(
+    num_chains: int,
+    *,
+    cpu_threads_per_chain: int = 1,
+    logger_obj=None,
+) -> dict:
+    """Configure JAX CPU devices for parallel NumPyro NUTS chains.
+
+    Must run before JAX is imported for XLA device-count changes to fully apply.
+    """
+    log = logger_obj or logger
+    chains = max(1, int(num_chains))
+    threads = max(1, int(cpu_threads_per_chain))
+
+    for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(key, str(threads))
+
+    xla_flags = os.environ.get("XLA_FLAGS", "")
+
+    needed = f"--xla_force_host_platform_device_count={chains}"
+    if needed not in xla_flags:
+        os.environ["XLA_FLAGS"] = f"{xla_flags} {needed}".strip()
+
+    # Keep Eigen intra-op threading controlled. Parallelism should come from chains.
+    if "--xla_cpu_multi_thread_eigen" not in os.environ["XLA_FLAGS"]:
+        os.environ["XLA_FLAGS"] += " --xla_cpu_multi_thread_eigen=false"
+
+    if "jax" in sys.modules:
+        log.warning(
+            "[Posterior] JAX was already imported before setting XLA_FLAGS. "
+            "Parallel CPU device count may not change in this run. "
+            "Set XLA_FLAGS before importing networkmodel for full parallel-chain speedup."
+        )
+
+    strategy = {
+        "num_chains": chains,
+        "cpu_threads_per_chain": threads,
+        "xla_flags": os.environ.get("XLA_FLAGS", ""),
+    }
+    log.info("[Posterior] NumPyro parallel-chain strategy: %s", strategy)
+    return strategy
 
 def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -> dict:
     """Set conservative thread env defaults before JAX work and report strategy."""
@@ -333,7 +379,22 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_samples: int = 30, seed: int = 0) -> dict:
+def run_numpyro_posterior(
+    ctx: InferenceContext,
+    *,
+    num_warmup: int = 20,
+    num_samples: int = 30,
+    seed: int = 0,
+    num_chains: int = 4,
+    chain_method: str = "parallel",
+) -> dict:
+
+    configure_numpyro_parallel_chains(
+        num_chains=num_chains,
+        cpu_threads_per_chain=1,
+        logger_obj=logger,
+    )
+
     try:
         import jax
         import jax.numpy as jnp
@@ -389,24 +450,57 @@ def run_numpyro_posterior(ctx: InferenceContext, *, num_warmup: int = 20, num_sa
         numpyro.deterministic("scalar_objective", objective)
         numpyro.factor("objective_likelihood", -0.5 * objective / (sigma * sigma + 1e-6))
 
-    kernel = NUTS(model, init_strategy=numpyro.infer.init_to_value(values={"theta": theta_center}))
-    mcmc = MCMC(kernel, num_warmup=int(num_warmup), num_samples=int(num_samples), num_chains=1, progress_bar=True)
+    kernel = NUTS(
+        model,
+        init_strategy=numpyro.infer.init_to_value(
+            values=
+            {
+                "theta": theta_center
+            }
+        )
+    )
+
+
+    mcmc = MCMC(
+        kernel,
+        num_warmup=int(num_warmup),
+        num_samples=int(num_samples),
+        num_chains=int(num_chains),
+        chain_method=chain_method,
+        progress_bar=True,
+    )
+
     mcmc.run(jax.random.PRNGKey(int(seed)))
-    samples = mcmc.get_samples()
+
+    extra_fields = mcmc.get_extra_fields(group_by_chain=False)
+    if extra_fields:
+        diagnostics = {}
+        for key, value in extra_fields.items():
+            arr = np.asarray(value)
+            if arr.ndim <= 1:
+                diagnostics[key] = arr.tolist()
+        with open(out / "posterior_extra_fields.json", "w") as f:
+            json.dump(diagnostics, f, indent=2)
+
+    samples = mcmc.get_samples(group_by_chain=False)
+
     names = _param_names(len(ctx.theta0), ctx.parameter_names)
     theta_samples = np.asarray(samples["theta"])
     sample_df = pd.DataFrame(theta_samples, columns=names)
     sample_df["sigma"] = np.asarray(samples["sigma"])
+
     if "scalar_objective" in samples:
         sample_df["scalar_objective"] = np.asarray(samples["scalar_objective"])
     sample_df["data_mode"] = ctx.mode.data_mode
     sample_df.to_csv(out / "posterior_samples.csv", index=False)
     summary_rows = []
+
     for col in names + ["sigma"]:
         vals = sample_df[col].to_numpy(dtype=np.float64)
         summary_rows.append({"parameter": col, "mean": vals.mean(), "median": np.median(vals), "sd": vals.std(ddof=0),
                              "ci_05": np.quantile(vals, 0.05), "ci_95": np.quantile(vals, 0.95),
                              "ess": float(len(vals)), "r_hat": np.nan, "data_mode": ctx.mode.data_mode})
+
     summary = pd.DataFrame(summary_rows)
     summary.to_csv(out / "posterior_summary.csv", index=False)
     predictive = sample_df[

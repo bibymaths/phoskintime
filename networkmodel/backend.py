@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import logging
+
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -14,7 +14,10 @@ import jax.numpy as jnp
 import jaxopt
 import diffrax
 
-logger = logging.getLogger()
+from config.config import setup_logger
+from networkmodel.config import RESULTS_DIR
+
+logger = setup_logger(log_dir=RESULTS_DIR)
 
 LAYERS = ("mrna", "protein", "phospho")
 ALIASES = {"rna": "mrna", "mrna": "mrna", "protein": "protein", "prot": "protein", "phospho": "phospho",

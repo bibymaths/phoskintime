@@ -1,16 +1,8 @@
 #! usr/bin/python
 
 """Run the command-line networkmodel workflow that loads data, builds topology, optimizes parameters, and writes outputs; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.analysis, networkmodel.buildmat, networkmodel.cache, networkmodel.config, networkmodel.dashboard_bundle, networkmodel.export, networkmodel.inference, networkmodel.io, networkmodel.jax_backend, networkmodel.mode_outputs, networkmodel.network, networkmodel.optproblem, networkmodel.params, networkmodel.scan, networkmodel.sensitivity, networkmodel.simulate, networkmodel.steadystate, networkmodel.utils."""
-import argparse
-import atexit
-import json
-import logging
-import os
 
-from networkmodel.dashboard_bundle import save_dashboard_bundle
-from networkmodel.scan import run_hyperparameter_scan
-from networkmodel.sensitivity import run_sensitivity_analysis
-from networkmodel.steadystate import _dump_y0
+import os
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -18,11 +10,31 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
+POSTERIOR_NUM_CHAINS_ENV = os.environ.get("POSTERIOR_NUM_CHAINS", "8")
+
+os.environ.setdefault(
+    "XLA_FLAGS",
+    (
+        f"--xla_force_host_platform_device_count={POSTERIOR_NUM_CHAINS_ENV} "
+        "--xla_cpu_multi_thread_eigen=false "
+        "intra_op_parallelism_threads=1"
+    ),
+)
+
+import argparse
+import atexit
+import json
+import logging
 import pickle
-import numpy as np
 import multiprocessing as mp
+
+import numpy as np
 import pandas as pd
 
+from networkmodel.dashboard_bundle import save_dashboard_bundle
+from networkmodel.scan import run_hyperparameter_scan
+from networkmodel.sensitivity import run_sensitivity_analysis
+from networkmodel.steadystate import _dump_y0
 from networkmodel.buildmat import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
@@ -713,8 +725,14 @@ def main():
         try:
             logger.info(
                 f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
-            run_numpyro_posterior(ctx, num_warmup=POSTERIOR_NUM_WARMUP,
-                                  num_samples=POSTERIOR_NUM_SAMPLES, seed=args.seed)
+            run_numpyro_posterior(
+                ctx,
+                num_warmup=POSTERIOR_NUM_WARMUP,
+                num_samples=POSTERIOR_NUM_SAMPLES,
+                seed=args.seed,
+                num_chains=min(8, int(args.cores)),
+                chain_method="parallel",
+            )
             logger.info("Posterior sampling complete.")
         except RuntimeError as e:
             logger.warning("Posterior sampling skipped: %s", e)
