@@ -57,7 +57,7 @@ from config_loader import load_config_toml
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
-
+global problem
 
 @atexit.register
 def _close_log_handlers():
@@ -80,7 +80,6 @@ def main():
     Raises:
         ValueError: When inputs are inconsistent or unsupported.
     """
-    global problem
     parser = argparse.ArgumentParser()
     parser.add_argument("--kinase-net", default=KINASE_NET_FILE)
     parser.add_argument("--tf-net", default=TF_NET_FILE)
@@ -220,8 +219,8 @@ def main():
         if missing:
             raise ValueError(f"TF net missing columns: {missing}. Found columns: {list(df_tf.columns)}")
 
-        proteins_with_sites = set(df_kin["protein"].unique())  # signaling layer “state-capable” proteins
-        kinase_set = set(df_kin["kinase"].unique())  # kinases (drivers / feedback proxies)
+        # proteins_with_sites = set(df_kin["protein"].unique())  # signaling layer “state-capable” proteins
+        # kinase_set = set(df_kin["kinase"].unique())  # kinases (drivers / feedback proxies)
 
         proteins_with_sites = set(df_kin["protein"].unique())  # state-capable signaling proteins
         kinase_set = set(df_kin["kinase"].unique())
@@ -546,6 +545,27 @@ def main():
     # Initialize raw params using these custom bounds for optimization.
     # The theta layout intentionally excludes network alpha/beta construction weights.
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
+
+    parameter_names = np.empty(theta0.shape[0], dtype=object)
+
+    for name, sl in slices.items():
+        if name == "c_k":
+            labels = [f"c_k[{k}]" for k in idx.kinases]
+        elif name == "Dp_i":
+            labels = [
+                f"Dp_i[{p}_{s}]"
+                for p, sites in zip(idx.proteins, idx.sites)
+                for s in sites
+            ]
+        elif name == "tf_scale":
+            labels = ["tf_scale"]
+        else:
+            labels = [f"{name}[{p}]" for p in idx.proteins]
+
+        parameter_names[sl] = labels
+
+    parameter_names = parameter_names.tolist()
+
     logger.info("[Optimizer] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, xl.shape, xu.shape)
     if theta0.shape != xl.shape or theta0.shape != xu.shape:
         raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {xl.shape}, {xu.shape}")
@@ -634,7 +654,7 @@ def main():
         upper=xu,
         mode=mode,
         output_dir=args.output_dir,
-        parameter_names=None,
+        parameter_names=parameter_names,
         maxiter=args.n_gen,
         tol=1e-6,
     )
@@ -679,7 +699,7 @@ def main():
         upper=xu,
         mode=mode,
         output_dir=args.output_dir,
-        parameter_names=None,
+        parameter_names=parameter_names,
         maxiter=args.n_gen,
         tol=1e-6,
     )
@@ -820,7 +840,6 @@ def main():
     logger.info("=" * 60)
 
     theta_best = X[I].astype(float)
-    F_best = F[I]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
