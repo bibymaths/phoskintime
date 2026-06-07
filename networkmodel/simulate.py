@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 from networkmodel.config import MODEL, ODE_ABS_TOL, ODE_REL_TOL, ODE_MAX_STEPS
-from networkmodel.jax_backend import DiffraxSolverConfig, make_networkmodel_rhs, solve_diffrax
+from networkmodel.backend import DiffraxSolverConfig, make_networkmodel_rhs, solve_diffrax
 
 
 def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):

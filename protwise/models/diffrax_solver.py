@@ -5,7 +5,7 @@ from functools import partial
 import numpy as np
 import jax.numpy as jnp
 
-from networkmodel.jax_backend import solve_diffrax, DiffraxSolverConfig
+from networkmodel.backend import solve_diffrax, DiffraxSolverConfig
 from config.constants import NORMALIZE_MODEL_OUTPUT, get_num_params
 from config.helpers import randmod_subset_masks
 

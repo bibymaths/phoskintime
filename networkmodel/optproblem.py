@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import jax.numpy as jnp
 
-from networkmodel.jax_backend import (
+from networkmodel.backend import (
     DataMode,
     detect_data_mode,
     ensure_jax_float64,

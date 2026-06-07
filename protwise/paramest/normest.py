@@ -9,7 +9,7 @@ import jax.numpy as jnp
 
 from config.constants import ODE_MODEL, USE_REGULARIZATION, get_num_params, get_param_names
 from config.helpers import randmod_subset_masks
-from networkmodel.jax_backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
+from networkmodel.backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
 from protwise.models.diffrax_solver import make_local_model_rhs
 
 logger = logging.getLogger(__name__)

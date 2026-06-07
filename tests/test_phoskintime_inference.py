@@ -11,14 +11,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from networkmodel.inference import (
+from networkmodel.bayesianinference import (
     InferenceContext,
     configure_jax_parallelism,
     run_multistart,
     run_numpyro_posterior,
     run_profile_likelihood,
 )
-from networkmodel.jax_backend import DataMode, project_alpha_blocks, project_beta_blocks
+from networkmodel.backend import DataMode, project_alpha_blocks, project_beta_blocks
 
 
 def _ctx(tmp_path, objective=None):
@@ -139,7 +139,7 @@ def test_dashboard_imports_inference_outputs(tmp_path, monkeypatch):
 
 def test_forbidden_stack_not_in_inference_active_paths():
     root = pathlib.Path(__file__).resolve().parents[1]
-    paths = [root / "networkmodel" / "inference.py", root / "protwise" / "paramest" / "inference.py"]
+    paths = [root / "networkmodel" / "bayesianinference.py", root / "protwise" / "paramest" / "bayesianinference.py"]
     text = "\n".join(p.read_text() for p in paths)
     for term in ["from pymoo", "import pymoo", "scipy.optimize", "from scipy.integrate", "solve_ivp(", "odeint("]:
         assert term not in text

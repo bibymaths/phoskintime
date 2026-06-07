@@ -14,7 +14,7 @@ import jax.numpy as jnp
 
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.dashboard_bundle import save_dashboard_bundle
-from networkmodel.jax_backend import (
+from networkmodel.backend import (
     DataMode,
     DiffraxSolverConfig,
     JaxoptResult,
@@ -216,7 +216,7 @@ def test_old_config_options_warn(caplog):
 def test_forbidden_stack_not_in_active_networkmodel_protwise_paths():
     root = pathlib.Path(__file__).resolve().parents[1]
     active_paths = [
-        root / "networkmodel" / "jax_backend.py",
+        root / "networkmodel" / "backend.py",
         root / "networkmodel" / "optproblem.py",
         root / "networkmodel" / "runner.py",
         root / "networkmodel" / "simulate.py",

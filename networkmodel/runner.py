@@ -45,8 +45,8 @@ from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_f
     scan_prior_reg, export_S_rates, plot_s_rates_report, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
-from networkmodel.jax_backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
-from networkmodel.inference import (
+from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
+from networkmodel.bayesianinference import (
     InferenceContext, run_multistart,
     run_profile_likelihood, run_numpyro_posterior,
     configure_jax_parallelism,

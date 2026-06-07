@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from networkmodel.jax_backend import DataMode
+from networkmodel.backend import DataMode
 
 
 def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_value: float | None = None) -> Path:

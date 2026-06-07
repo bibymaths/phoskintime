@@ -17,7 +17,7 @@ import numpy as np
 import protwise.paramest.normest as normest_mod
 from protwise.paramest.normest import aggregate_randmod_phospho
 from protwise.models.diffrax_solver import make_local_model_rhs
-from networkmodel.jax_backend import solve_diffrax, DiffraxSolverConfig
+from networkmodel.backend import solve_diffrax, DiffraxSolverConfig
 from config.constants import get_num_params
 
 
