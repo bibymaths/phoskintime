@@ -54,7 +54,7 @@ from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_boun
     get_optimized_sets
 from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
     export_results, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates, plot_s_rates_report, export_kinase_activities, \
+    export_S_rates, plot_s_rates_report, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
 from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
 from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
@@ -976,10 +976,6 @@ def main():
         export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
 
     logger.info("[Done] Exported results saved.")
-
-    # 4. Prior Regularization Scan
-    scan_prior_reg(out_dir=args.output_dir)
-    logger.info("[Done] Prior regularization scan saved.")
 
     # Display all parameters from the configuration class
     global_config = load_config_toml("config.toml")
