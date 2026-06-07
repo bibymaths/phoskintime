@@ -556,7 +556,8 @@ def main():
     if "alpha" in slices or "beta" in slices:
         raise ValueError("alpha/beta are fixed network weights and must not be optimized")
     for _name, _sl in slices.items():
-        logger.info("[Optimizer] theta group %-8s slice=(%d,%d) size=%d", _name, _sl.start, _sl.stop, _sl.stop - _sl.start)
+        logger.info("[Optimizer] theta group %-8s slice=(%d,%d) size=%d", _name, _sl.start, _sl.stop,
+                    _sl.stop - _sl.start)
 
     opt_proteins, opt_sites, opt_kinases = get_optimized_sets(idx, slices, xl, xu)
 
@@ -694,7 +695,8 @@ def main():
         logger.info("Profile likelihood complete.")
     if POSTERIOR_SAMPLING:
         try:
-            logger.info(f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
+            logger.info(
+                f"Posterior sampling requested with warmup={POSTERIOR_NUM_WARMUP}, samples={POSTERIOR_NUM_SAMPLES}")
             run_numpyro_posterior(ctx, num_warmup=POSTERIOR_NUM_WARMUP,
                                   num_samples=POSTERIOR_NUM_SAMPLES, seed=args.seed)
             logger.info("Posterior sampling complete.")

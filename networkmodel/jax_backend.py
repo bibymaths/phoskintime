@@ -134,7 +134,6 @@ def _default_rhs(t, y, args):
     return base - (0.05 + jnp.abs(base)) * y
 
 
-
 def _unpack_theta_jax(theta, slices):
     """Unpack raw optimizer theta into physical JAX arrays using params.py slice layout."""
     return {
@@ -221,7 +220,8 @@ def make_networkmodel_rhs(sys, slices=None):
             return _unpack_theta_jax(jnp.asarray(args, dtype=jnp.float64), slices)
         c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale = args
         tf_scale = jnp.ravel(tf_scale)[0]
-        return {"c_k": c_k, "A_i": A_i, "B_i": B_i, "C_i": C_i, "D_i": D_i, "Dp_i": Dp_i, "E_i": E_i, "tf_scale": tf_scale}
+        return {"c_k": c_k, "A_i": A_i, "B_i": B_i, "C_i": C_i, "D_i": D_i, "Dp_i": Dp_i, "E_i": E_i,
+                "tf_scale": tf_scale}
 
     def _synth(Ai, tf_scale, u_raw):
         u = u_raw / (1.0 + jnp.abs(u_raw))
@@ -389,6 +389,7 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
     return ys
 
+
 def _extract_offsets(prot_map):
     pm = jnp.asarray(prot_map, dtype=jnp.int32)
     if pm.ndim == 1:
@@ -399,6 +400,7 @@ def _extract_offsets(prot_map):
             f"prot_map must be shape (N, 2) with columns [offset, count], got shape {pm.shape}."
         )
     return pm[:, 0], pm[:, 1]
+
 
 def _safe_fold_change(values, base_values):
     return jnp.maximum(values, 1e-12) / jnp.maximum(base_values, 1e-12)
@@ -464,7 +466,8 @@ def multimodal_loss_from_trajectory(Y, loss_data: Mapping, mode: DataMode, weigh
     breakdown = {}
     layout = str(loss_data.get("state_layout", "standard"))
     n_sites = jnp.asarray(loss_data.get("n_sites", counts), dtype=jnp.int32)
-    max_count = int(np.max(np.asarray(loss_data["prot_map"], dtype=np.int32)[:, 1])) if len(loss_data["prot_map"]) else 1
+    max_count = int(np.max(np.asarray(loss_data["prot_map"], dtype=np.int32)[:, 1])) if len(
+        loss_data["prot_map"]) else 1
 
     if mode.fit_protein:
         p = jnp.asarray(loss_data["p_prot"], dtype=jnp.int32)
@@ -595,7 +598,8 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
     ensure_jax_float64()
     log = logger_obj or logger
     log.info("[Optimizer] Selected optimizer backend: jaxopt.ProjectedGradient")
-    log.info("[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
+    log.info(
+        "[Constraints] Kinetic parameters use bound projection; fixed parameters are restored after each projection.")
     lower_j = jnp.asarray(lower, dtype=jnp.float64)
     upper_j = jnp.asarray(upper, dtype=jnp.float64)
     fixed_mask_j = None if fixed_mask is None else jnp.asarray(fixed_mask, dtype=bool)
@@ -610,17 +614,17 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
     # when the relative improvement over a window falls below the threshold,
     # which is exactly the oscillation / plateau signature.
     solver = jaxopt.ProjectedGradient(
-                    objective_fun, projection,
-                    value_and_grad=False,
-                    has_aux=False,
-                    stepsize=0.0,        # 0.0 = backtracking line search
-                    maxiter=maxiter,
-                    maxls=30,            # max line search steps per iteration
-                    tol=tol,
-                    verbose=1,
-                    implicit_diff=True,
-                    jit=True,
-                )
+        objective_fun, projection,
+        value_and_grad=False,
+        has_aux=False,
+        stepsize=0.0,  # 0.0 = backtracking line search
+        maxiter=maxiter,
+        maxls=30,  # max line search steps per iteration
+        tol=tol,
+        verbose=1,
+        implicit_diff=True,
+        jit=True,
+    )
     init = project_bounds(theta0, lower_j, upper_j, fixed_mask_j, fixed_values_j)
     params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
     val = objective_fun(params)
@@ -662,7 +666,8 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
         state_dim = 2
     y0 = jnp.ones(state_dim, dtype=jnp.float64) if y0 is None else jnp.asarray(y0, dtype=jnp.float64)
     if y0.shape[0] != state_dim:
-        raise ValueError(f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
+        raise ValueError(
+            f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
     model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
     defaults_j = _defaults_vector_jax(defaults, slices)
 

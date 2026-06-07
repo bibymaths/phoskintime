@@ -64,6 +64,7 @@ def build_site_meta(idx):
 
     return site_protein, site_psite, site_local
 
+
 def export_pareto_front_to_excel(
         res,
         sys,

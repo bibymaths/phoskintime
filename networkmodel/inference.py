@@ -87,7 +87,7 @@ def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -
 
 
 def generate_multistart_initials(theta0, lower, upper, n_starts: int, seed: int, fixed_mask=None, fixed_values=None) -> \
-list[np.ndarray]:
+        list[np.ndarray]:
     rng = np.random.default_rng(int(seed))
     theta0 = np.asarray(theta0, dtype=np.float64)
     lower = np.asarray(lower, dtype=np.float64)

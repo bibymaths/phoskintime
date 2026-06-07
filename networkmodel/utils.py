@@ -252,6 +252,7 @@ def inv_softplus(y):
         out[i] = np.log(np.expm1(yi))
     return out
 
+
 @dataclass(frozen=True)
 class PhosKinConfig:
     """
@@ -550,6 +551,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         available_models=available_models,
     )
+
 
 def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     """

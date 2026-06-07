@@ -22,6 +22,7 @@ Key responsibilities:
 import numpy as np
 from numba import njit, prange
 
+
 @njit(cache=True, fastmath=True, nogil=True, parallel=True)
 def build_S_cache_into(S_out, W_indptr, W_indices, W_data, kin_Kmat, c_k):
     """

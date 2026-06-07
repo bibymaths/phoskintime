@@ -98,7 +98,8 @@ class GlobalODEScalarObjective:
 
     def solve(self, theta0, maxiter=50, tol=1e-6):
         theta0 = np.asarray(theta0, dtype=np.float64)
-        logger.info("[GlobalObjective] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, self.xl.shape, self.xu.shape)
+        logger.info("[GlobalObjective] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, self.xl.shape,
+                    self.xu.shape)
         if theta0.shape != self.xl.shape or theta0.shape != self.xu.shape:
             raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {self.xl.shape}, {self.xu.shape}")
         params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter,

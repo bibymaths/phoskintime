@@ -127,6 +127,7 @@ def _dict_at_time(df, key_cols, t0, value_col="fc", time_col="time", tol=1e-8):
     else:
         return {tuple(row[key_cols].astype(str)): float(row[value_col]) for _, row in g.iterrows()}
 
+
 def build_y0_from_data(
         idx,
         df_prot,

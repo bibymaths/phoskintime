@@ -21,9 +21,11 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
         max_steps=int(ODE_MAX_STEPS if max_steps is None else max_steps),
         root_max_steps=20,
     )
-    params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i, np.asarray([sys.tf_scale], dtype=np.float64))
+    params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i,
+              np.asarray([sys.tf_scale], dtype=np.float64))
     return np.asarray(
-        solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), params=params, rhs=make_networkmodel_rhs(sys), config=cfg),
+        solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), params=params, rhs=make_networkmodel_rhs(sys),
+                      config=cfg),
         dtype=np.float64,
     )
 
