@@ -104,3 +104,14 @@ This package is distributed under the BSD 3-Clause License.
 See the [LICENSE](./LICENSE) file for full details.
 
 ---
+
+## Testing
+
+Run the lightweight unit and notebook-readiness test suite from the repository root:
+
+```bash
+pytest
+pytest --cov=. --cov-report=term-missing
+```
+
+The coverage report is configured to focus on active notebook-facing KinOpt, TFOpt, protwise, and networkmodel modules while omitting environment and third-party package files. The current gate starts at 60% because the repository still contains large historical/deprecated workflows that are intentionally outside this notebook-readiness pass.

@@ -98,7 +98,7 @@ GITHUB_URL = getattr(cfg, "github_url", "")
 DOCS_URL = getattr(cfg, "docs_url", "")
 
 # HYPERPARAM_SCAN: bool; default False; controls compatibility hyperparameter scan execution.
-HYPERPARAM_SCAN = getattr(cfg, "hyperparam_scan", False)
+HYPERPARAM_SCAN = _as_bool(getattr(cfg, "hyperparam_scan", False))
 
 # N_STARTS: int; default 1; controls multistart optimization count.
 N_STARTS = int(getattr(cfg, "n_starts", 1))

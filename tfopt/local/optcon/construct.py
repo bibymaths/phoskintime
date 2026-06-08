@@ -1,5 +1,13 @@
 import numpy as np
-from scipy.optimize import LinearConstraint
+
+class LinearConstraint:
+    """Small local linear-constraint container used by notebook-safe optimizers."""
+
+    def __init__(self, A, lb, ub):
+        self.A = np.asarray(A, dtype=np.float64)
+        self.lb = np.asarray(lb, dtype=np.float64)
+        self.ub = np.asarray(ub, dtype=np.float64)
+
 
 
 def build_fixed_arrays(gene_ids, expression_matrix, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map):

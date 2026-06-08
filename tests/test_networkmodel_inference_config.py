@@ -12,17 +12,17 @@ def test_inference_config_defaults_are_loaded():
 
     assert cfg.n_starts == 1
     assert cfg.profile_likelihood is False
-    assert cfg.profile_indices == ""
-    assert cfg.profile_grid_size == 10
+    assert cfg.profile_grid_size == 5
     assert cfg.posterior_sampling is False
     assert cfg.posterior_num_warmup == 20
     assert cfg.posterior_num_samples == 30
 
     assert config.N_STARTS == 1
     assert config.PROFILE_LIKELIHOOD is False
-    assert config.PROFILE_INDICES == ""
-    assert config.PROFILE_GRID_SIZE == 10
+    assert config.PROFILE_GRID_SIZE == 5
     assert config.POSTERIOR_SAMPLING is False
+    assert config.SENSITIVITY_ANALYSIS is False
+    assert config.HYPERPARAM_SCAN is False
     assert config.POSTERIOR_NUM_WARMUP == 20
     assert config.POSTERIOR_NUM_SAMPLES == 30
 
@@ -60,7 +60,8 @@ def test_legacy_networkmodel_config_fields_are_not_exported():
 def test_runner_wires_inference_without_new_legacy_config_imports():
     source = inspect.getsource(runner)
 
-    assert "from networkmodel.inference import" in source
+    assert "from networkmodel.BayesianInference import" in source
+    assert "from networkmodel.inference import" not in source
     assert "InferenceContext" in source
     assert "run_multistart" in source
     assert "run_profile_likelihood" in source

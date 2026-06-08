@@ -9,7 +9,7 @@ data, TF protein dynamics, and phosphorylation site signals.
 The package contains two main submodules:
 
 - **`tfopt/evol`** — global optimization via multi-objective evolutionary algorithms
-- **`tfopt/local`** — constrained optimization using SciPy solvers (e.g., SLSQP)
+- **`tfopt/local`** — constrained optimization using the local projected finite-difference optimizer
 
 Both modules share a consistent data preparation pipeline and model formulation.
 
@@ -91,13 +91,13 @@ data-driven manner.
 
 ### `evol/` — Global Evolutionary Optimization
 
-- Implements multi-objective optimization using `pymoo` (NSGA2, AGEMOEA, SMSEMOA)
+- Keeps deprecated multi-objective workflows isolated outside the notebook-ready local path
 - Evaluates tradeoffs between fit error, α-constraint violation, and β-constraint violation
 - Outputs Excel summaries, static and interactive plots, and HTML reports
 
 ### `local/` — Constrained Local Optimization
 
-- Implements deterministic solvers (e.g. SLSQP)
+- Implements deterministic projected finite-difference local optimization
 - Faster and more interpretable for small- to medium-scale systems
 - Shares the same objective and constraint framework as `evol`
 - Generates the same reports and plots as the global module

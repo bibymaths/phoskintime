@@ -1,0 +1,30 @@
+[run]
+omit =
+    .pixi/*
+    */site-packages/*
+
+[report]
+fail_under = 60
+include =
+    kinopt/local/objfn/minfn.py
+    kinopt/local/opt/optrun.py
+    kinopt/local/optcon/construct.py
+    kinopt/local/exporter/plotout.py
+    tfopt/local/objfn/minfn.py
+    tfopt/local/opt/optrun.py
+    tfopt/local/optcon/construct.py
+    tfopt/local/exporter/plotout.py
+    tfopt/local/exporter/sheetutils.py
+    protwise/paramest/normest.py
+    protwise/models/diffrax_solver.py
+    protwise/models/distmod.py
+    protwise/models/protwise.py
+    protwise/models/randmod.py
+    protwise/models/succmod.py
+    networkmodel/BayesianInference.py
+    networkmodel/OptimizationProblem.py
+    networkmodel/backend.py
+    networkmodel/cache.py
+    networkmodel/config.py
+    networkmodel/dashboard_bundle.py
+    networkmodel/mode_outputs.py

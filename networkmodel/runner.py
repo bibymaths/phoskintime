@@ -1,6 +1,6 @@
 #! usr/bin/python
 
-"""Run the command-line networkmodel workflow that loads data, builds topology, optimizes parameters, and writes outputs; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.analysis, networkmodel.buildmat, networkmodel.cache, networkmodel.config, networkmodel.dashboard_bundle, networkmodel.export, networkmodel.inference, networkmodel.io, networkmodel.jax_backend, networkmodel.mode_outputs, networkmodel.network, networkmodel.optproblem, networkmodel.params, networkmodel.scan, networkmodel.sensitivity, networkmodel.simulate, networkmodel.steadystate, networkmodel.utils."""
+"""Run the command-line networkmodel workflow that loads data, builds topology, optimizes parameters, and writes outputs; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.analysis, networkmodel.buildmat, networkmodel.cache, networkmodel.config, networkmodel.dashboard_bundle, networkmodel.export, networkmodel.BayesianInference, networkmodel.io, networkmodel.jax_backend, networkmodel.mode_outputs, networkmodel.network, networkmodel.optproblem, networkmodel.params, networkmodel.scan, networkmodel.sensitivity, networkmodel.simulate, networkmodel.steadystate, networkmodel.utils."""
 
 import os
 

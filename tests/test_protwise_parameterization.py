@@ -51,13 +51,23 @@ def test_randmod_phospho_aggregation_includes_multisite_states():
     # State order is [R, P, P1, P2, P3, P12, P13, P23, P123].
     sol = np.asarray([[0.0, 0.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0]])
     ph = np.asarray(aggregate_randmod_phospho(sol, 3))
-    assert ph.tolist() == pytest.approx([[131.0], [142.0], [153.0]])
+    np.testing.assert_allclose(
+        np.asarray(ph.tolist(), dtype=float),
+        np.asarray([[131.0], [142.0], [153.0]], dtype=float),
+        rtol=1e-8,
+        atol=1e-10,
+    )
 
 
 def test_randmod_public_solve_helper_matches_objective_aggregation():
     # Public solve_ode p_fit uses the same site-level aggregation as the objective.
     sol = np.asarray([[0.0, 0.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0]])
-    assert aggregate_randmod_site_phospho(sol, 3).tolist() == pytest.approx([[131.0], [142.0], [153.0]])
+    np.testing.assert_allclose(
+        np.asarray(aggregate_randmod_site_phospho(sol, 3).tolist(), dtype=float),
+        np.asarray([[131.0], [142.0], [153.0]], dtype=float),
+        rtol=1e-8,
+        atol=1e-10,
+    )
 
 
 def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
@@ -74,8 +84,18 @@ def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
     # r has 2 points, protein has 2 points, then 3 site-level phospho curves.
     phospho_flat = flat[4:]
     expected = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
-    assert phospho_flat.reshape(3, 2).tolist() == pytest.approx(expected)
-    assert sol_site[:, 2:5].T.tolist() == pytest.approx(expected)
+    np.testing.assert_allclose(
+        np.asarray(phospho_flat.reshape(3, 2).tolist(), dtype=float),
+        np.asarray(expected, dtype=float),
+        rtol=1e-8,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(sol_site[:, 2:5].T.tolist(), dtype=float),
+        np.asarray(expected, dtype=float),
+        rtol=1e-8,
+        atol=1e-10,
+    )
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
     calls = []

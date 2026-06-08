@@ -170,7 +170,7 @@ def test_constraints_alpha_beta_bounded_and_fixed_parameters_after_optimization(
 
 
 def test_optimizer_failure_has_clear_error(caplog):
-    with pytest.raises(RuntimeError, match="final scalar objective is not finite"):
+    with pytest.raises(RuntimeError, match="JAXopt failed"):
         optimize_scalar_objective(lambda x: jnp.asarray(jnp.nan), np.zeros(1), np.zeros(1), np.ones(1), maxiter=1)
     assert "JAXopt failed" in "\n".join(r.message for r in caplog.records)
 

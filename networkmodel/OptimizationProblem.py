@@ -58,6 +58,7 @@ class GlobalODEScalarObjective:
         """
         ensure_jax_float64()
         self.sys = sys
+        slices = slices or {}
         self.slices = slices
         self.loss_data = loss_data
         self.defaults = defaults
@@ -65,13 +66,16 @@ class GlobalODEScalarObjective:
         self.time_grid = np.asarray(time_grid, dtype=np.float64)
         self.xl = np.asarray(xl, dtype=np.float64)
         self.xu = np.asarray(xu, dtype=np.float64)
-        theta_len = sum(int(sl.stop) - int(sl.start) for sl in slices.values())
         if self.xl.shape != self.xu.shape or self.xl.ndim != 1:
             raise ValueError(f"xl/xu must be same-length 1D vectors, got {self.xl.shape} and {self.xu.shape}")
-        if theta_len != self.xl.size:
-            raise ValueError(f"Slice layout length {theta_len} does not match bounds length {self.xl.size}")
-        if "alpha" in slices or "beta" in slices:
-            raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
+        if slices:
+            theta_len = max(int(sl.stop) for sl in slices.values())
+            if theta_len != self.xl.size:
+                raise ValueError(f"Slice layout length {theta_len} does not match bounds length {self.xl.size}")
+            if "alpha" in slices or "beta" in slices:
+                raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
+        else:
+            theta_len = self.xl.size
         self.n_var = len(self.xl)
         self.n_obj = 1
         self.fail_value = float(fail_value)
