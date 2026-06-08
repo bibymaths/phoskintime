@@ -1,6 +1,7 @@
 """Provide JAX, Diffrax, and JAXopt utilities for scalar networkmodel simulation, multimodal loss evaluation, parameter projection, and ProjectedGradient optimization; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from typing import Mapping, Sequence
@@ -747,12 +748,20 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         jit=True,
     )
     init = project_bounds(theta0, lower_j, upper_j, fixed_mask_j, fixed_values_j)
-    params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
+    try:
+        params, state = solver.run(init, hyperparams_proj=(lower_j, upper_j))
+    except Exception as exc:
+        msg = f"JAXopt failed: {exc}"
+        log.error(msg)
+        logging.getLogger().error(msg)
+        raise RuntimeError(msg) from exc
     val = objective_fun(params)
     val_f = float(val)
     if not np.isfinite(val_f):
-        log.error("[Optimizer] JAXopt failed: final scalar objective is not finite (%s).", val_f)
-        raise RuntimeError("JAXopt optimization failed: final scalar objective is not finite.")
+        msg = f"JAXopt failed: non-finite final objective {val_f}"
+        log.error(msg)
+        logging.getLogger().error(msg)
+        raise RuntimeError(msg)
     try:
         grad_norm = float(jnp.linalg.norm(jax.grad(objective_fun)(params)))
     except Exception:
@@ -853,11 +862,12 @@ def warn_deprecated_backend_options(options: Mapping | object | None, logger_obj
     get = options.get if isinstance(options, Mapping) else lambda k, d=None: getattr(options, k, d)
     optimizer = get("optimizer", get("solver", None))
     if optimizer and str(optimizer).lower() in {"pymoo", "optuna", "nsga3", "unsga3", "spea2", "de", "ga", "scipy"}:
-        log.warning(
-            "[Deprecated Config] optimizer/solver=%r is accepted for compatibility and mapped to jaxopt.ProjectedGradient.",
-            optimizer)
+        msg = f"[Solver] Deprecated solver option '{optimizer}' mapped to jaxopt.ProjectedGradient."
+        log.warning(msg)
+        logging.getLogger().warning(msg)
     for key in ("n_gen", "pop", "population_size", "use_custom_solver", "odeint", "solve_ivp"):
         val = get(key, None)
         if val is not None:
-            log.warning("[Deprecated Config] %s=%r is accepted but ignored by the JAXopt/Diffrax PhosKinTime path.",
-                        key, val)
+            msg = f"[Deprecated Config] {key}={val!r} is accepted but ignored by the JAXopt/Diffrax PhosKinTime path."
+            log.warning(msg)
+            logging.getLogger().warning(msg)

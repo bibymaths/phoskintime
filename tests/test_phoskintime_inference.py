@@ -80,7 +80,7 @@ def test_multistart_failed_starts_are_saved_without_success(tmp_path):
     df = pd.read_csv(tmp_path / "optimization" / "multistart_summary.csv")
     assert len(df) == 2
     assert not df["success"].any()
-    assert df["failure_reason"].str.contains("final scalar objective is not finite").all()
+    assert df["failure_reason"].str.contains("JAXopt failed").all()
 
 
 def test_profile_likelihood_fixes_profiled_parameter_reoptimizes_and_saves(tmp_path):

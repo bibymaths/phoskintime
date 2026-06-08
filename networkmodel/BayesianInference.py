@@ -165,11 +165,10 @@ def _posterior_profile_bounds(
     lower_eff = np.asarray(lower, dtype=np.float64).copy()
     upper_eff = np.asarray(upper, dtype=np.float64).copy()
 
-    param_names = _param_names(len(lower_eff), names)
-
-    for i, name in enumerate(param_names):
-        if name == "tf_scale" or name.startswith(nonnegative_prefixes):
-            lower_eff[i] = max(lower_eff[i], 0.0)
+    # Preserve raw theta-space bounds exactly except for invalid intervals. Physical
+    # non-negativity constraints are already encoded by callers that construct theta
+    # bounds and must not be imposed here because signed parameters can be profiled.
+    _param_names(len(lower_eff), names)
 
     bad = upper_eff <= lower_eff
     if np.any(bad):
@@ -535,10 +534,17 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
             fixed_mask[idx] = True
             fixed_values[idx] = gv
             try:
-                params, state, value = optimize_scalar_objective(ctx.objective_fun, fixed_values, lower_eff[idx],
-                                                                 upper_eff[idx], maxiter=ctx.maxiter, tol=ctx.tol,
-                                                                 fixed_mask=fixed_mask, fixed_values=fixed_values,
-                                                                 logger_obj=logger)
+                params, state, value = optimize_scalar_objective(
+                    ctx.objective_fun,
+                    fixed_values,
+                    lower_eff,
+                    upper_eff,
+                    maxiter=ctx.maxiter,
+                    tol=ctx.tol,
+                    fixed_mask=fixed_mask,
+                    fixed_values=fixed_values,
+                    logger_obj=logger,
+                )
                 row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value,
                        "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "",
                        "optimized_free_parameters": json.dumps(params.tolist()), "data_mode": ctx.mode.data_mode,

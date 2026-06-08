@@ -26,4 +26,4 @@ The module is organized into several submodules:
   parameter profiles, and goodness-of-fit metrics.
 ## JAXopt/Diffrax Inference Extensions
 
-`protwise.paramest.inference` re-exports the shared PhosKinTime inference utilities for local protein-wise models. These wrappers support deterministic multistart optimization, profile likelihood, and optional NumPyro posterior analysis using the same scalar JAX/JAXopt/Diffrax objective style as the global network model. Outputs follow the same `optimization/`, `profiles/`, `posterior/`, and `plots/` directory layout used by `networkmodel.inference`.
+`protwise.paramest.inference` re-exports the shared PhosKinTime inference utilities for local protein-wise models. These wrappers support deterministic multistart optimization, profile likelihood, and optional NumPyro posterior analysis using the same scalar JAX/JAXopt/Diffrax objective style as the global network model. Outputs follow the same `optimization/`, `profiles/`, `posterior/`, and `plots/` directory layout used by `networkmodel.BayesianInference`.

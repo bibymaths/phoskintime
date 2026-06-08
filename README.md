@@ -104,3 +104,14 @@ This package is distributed under the BSD 3-Clause License.
 See the [LICENSE](./LICENSE) file for full details.
 
 ---
+
+## Testing
+
+Run the lightweight unit and notebook-readiness test suite from the repository root:
+
+```bash
+pytest
+pytest --cov=. --cov-report=term-missing
+```
+
+The coverage report is configured to focus on active tested modules while omitting environment and third-party package files.
