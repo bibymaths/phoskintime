@@ -21,7 +21,7 @@ kinopt/
 │   ├── __init__.py
 │   ├── __main__.py            # Entry point for global optimization using evolutionary algorithms.
 │   ├── objfn                  # Objective function implementations (single- and multi-objective).
-│   ├── opt                    # Optimization routines; deprecated evolutionary workflows are isolated under evol/.
+│   ├── opt                    # Optimization routines (integration with pymoo).
 │   ├── optcon                 # Functions to construct input data, constraints, and precomputed mappings.
 │   ├── README.md              # Detailed readme for the evol module.
 │   └── utils                  # Utility functions for data I/O and parameter extraction.
@@ -33,7 +33,7 @@ kinopt/
 │   ├── config                 # Configuration files specific to local optimization.
 │   ├── exporter               # Functions for exporting local optimization results and diagnostic plots.
 │   ├── __init__.py
-│   ├── __main__.py            # Entry point for local projected finite-difference optimization.
+│   ├── __main__.py            # Entry point for local optimization (SLSQP/TRUST-CONSTR based).
 │   ├── objfn                  # Local objective function implementations with Numba acceleration.
 │   ├── opt                    # Local optimization routines using SciPy.
 │   ├── optcon                 # Construction of local constraints and precomputation of mappings.
@@ -56,11 +56,11 @@ kinopt/
   Preprocess and scale input CSV files containing time-series data and kinase interactions.
 
 - **Global Optimization (evol):**  
-  Contains deprecated evolutionary algorithms for historical workflows; notebook tests use the local projected optimizer
+  Uses evolutionary algorithms (via pymoo) to search the global parameter space for optimal α (mixing) and β (scaling)
   values.
 
 - **Local Optimization (local):**  
-  Implements local constrained optimization using a projected finite-difference optimizer with efficient objective
+  Implements local constrained optimization using SciPy's solvers (SLSQP or TRUST-CONSTR) with efficient objective
   evaluation via Numba.
 
 - **Optimality Analysis (optimality):**  

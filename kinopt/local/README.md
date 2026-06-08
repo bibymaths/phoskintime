@@ -2,7 +2,7 @@
 
 local is a submodule of the **kinopt** framework that implements a local optimization strategy for gene–phosphorylation
 time-series data. It is tailored for preparing optimized parameter estimates prior to subsequent ODE modelling. The
-module leverages a deterministic projected finite-difference optimizer combined with Numba-accelerated objective
+module leverages SciPy’s optimization algorithms (SLSQP or TRUST-CONSTR) combined with Numba-accelerated objective
 evaluations for efficient computation.
 
 ---
@@ -26,7 +26,7 @@ local/
 │   ├── minfn.py             # Numba-accelerated objective and estimated series functions. citeturn1file4
 ├── opt/
 │   ├── __init__.py
-│   ├── optrun.py            # Runs the optimization using the local projected finite-difference optimizer. citeturn1file5
+│   ├── optrun.py            # Runs the optimization using SciPy’s minimize (SLSQP/TRUST-CONSTR). citeturn1file5
 ├── optcon/
 │   ├── construct.py         # Constructs input matrices, sparse data structures, constraints, and precomputes mappings. citeturn1file6
 ├── utils/
@@ -41,7 +41,7 @@ local/
 ## Features
 
 - **Local Optimization Framework:**  
-  Implements the PhosKinTime optimization problem using the local projected finite-difference optimizer to estimate alpha (mixing)
+  Implements the PhosKinTime optimization problem using local solvers (SLSQP or TRUST-CONSTR) to estimate alpha (mixing)
   and beta (scaling) parameters.
 
 - **Numba-Accelerated Objectives:**  
@@ -99,7 +99,7 @@ local/
 ## Advanced Options
 
 - **Optimization Method:**  
-  The local optimizer accepts legacy method names for compatibility but uses the notebook-safe projected finite-difference path.
+  Choose between "slsqp" and "trust-constr" via the `--method` argument to select the appropriate SciPy optimizer.
   citeturn1file0
 
 - **Scaling and Preprocessing:**  

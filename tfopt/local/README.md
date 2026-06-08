@@ -1,7 +1,7 @@
 # local — Local Constrained Optimization Framework
 
 The `local` subpackage provides a constrained optimization backend for fitting transcriptional regulatory models to gene
-expression time-series data using the local projected finite-difference optimizer. It is designed for precision optimization when global
+expression time-series data using local solvers like `SLSQP`. It is designed for precision optimization when global
 heuristics (e.g., genetic algorithms) are not necessary or for refinement after global search.
 
 ---
@@ -25,7 +25,7 @@ local/
 
 ### Constrained Local Optimization
 
-- Uses a deterministic projected finite-difference optimizer to fit transcriptional model parameters
+- Uses **SLSQP** to fit transcriptional model parameters
 - Minimizes a multi-part objective:
     - Fit error (MSE, MAE, etc.)
     - α parameter constraints (sum to 1 across TFs)
@@ -92,7 +92,7 @@ python -m phoskintime tfopt --mode local
 
 ### `opt/`
 
-- `optrun.py`: Runs the local projected finite-difference optimizer
+- `optrun.py`: Runs `scipy.optimize.minimize` with method SLSQP
 
 ### `optcon/`
 

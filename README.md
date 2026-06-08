@@ -114,4 +114,4 @@ pytest
 pytest --cov=. --cov-report=term-missing
 ```
 
-The coverage report is configured to focus on active notebook-facing KinOpt, TFOpt, protwise, and networkmodel modules while omitting environment and third-party package files. The current gate starts at 60% because the repository still contains large historical/deprecated workflows that are intentionally outside this notebook-readiness pass.
+The coverage report is configured to focus on active tested modules while omitting environment and third-party package files.

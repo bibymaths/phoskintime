@@ -1,68 +1,13 @@
 from __future__ import annotations
+from scipy.optimize import minimize
 from tfopt.local.objfn.minfn import objective_wrapper
 from dataclasses import dataclass
-from types import SimpleNamespace
 from typing import Any, List, Optional, Sequence, Tuple
 import numpy as np
 from joblib import Parallel, delayed
 from tfopt.local.config.logconf import setup_logger
 
 logger = setup_logger()
-
-
-def _bounds_arrays(bounds, n):
-    if bounds is None:
-        return np.full(n, -np.inf), np.full(n, np.inf)
-    return np.asarray([b[0] for b in bounds], dtype=float), np.asarray([b[1] for b in bounds], dtype=float)
-
-
-def _project_to_feasible(x, bounds, lin_cons):
-    x = np.asarray(x, dtype=float).copy()
-    lb, ub = _bounds_arrays(bounds, x.size)
-    x = np.clip(x, lb, ub)
-    for cons in lin_cons or []:
-        if not hasattr(cons, "A"):
-            continue
-        A = np.asarray(cons.A, dtype=float)
-        lows = np.asarray(cons.lb, dtype=float).reshape(-1)
-        ups = np.asarray(cons.ub, dtype=float).reshape(-1)
-        if lows.size == 1:
-            lows = np.full(A.shape[0], float(lows[0]))
-        if ups.size == 1:
-            ups = np.full(A.shape[0], float(ups[0]))
-        for row, lo, hi in zip(A, lows, ups):
-            nz = np.flatnonzero(np.abs(row) > 1e-12)
-            if nz.size and np.isclose(lo, hi):
-                current = float(row @ x)
-                x[nz] += (float(lo) - current) / float(row[nz].sum())
-    return np.clip(x, lb, ub)
-
-
-def _finite_difference_grad(obj, x):
-    grad = np.zeros_like(x, dtype=float)
-    fx = float(obj(x))
-    eps = 1e-6 * np.maximum(1.0, np.abs(x))
-    for i in range(x.size):
-        xp = x.copy(); xp[i] += eps[i]
-        xm = x.copy(); xm[i] -= eps[i]
-        grad[i] = (float(obj(xp)) - float(obj(xm))) / (2.0 * eps[i])
-    return fx, grad
-
-
-def _linear_constraint_violation(x, lin_cons):
-    maxcv = 0.0
-    for cons in lin_cons or []:
-        if not hasattr(cons, "A"):
-            continue
-        vals = np.asarray(cons.A, dtype=float) @ x
-        lows = np.asarray(cons.lb, dtype=float).reshape(-1)
-        ups = np.asarray(cons.ub, dtype=float).reshape(-1)
-        if lows.size == 1:
-            lows = np.full(vals.shape, float(lows[0]))
-        if ups.size == 1:
-            ups = np.full(vals.shape, float(ups[0]))
-        maxcv = max(maxcv, float(np.max(np.maximum(lows - vals, vals - ups))))
-    return max(0.0, maxcv)
 
 def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use,
                   n_genes, beta_start_indices, num_psites, loss_type):
@@ -86,52 +31,18 @@ def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protei
     Returns:
         result             : Result of the optimization process, including the optimized parameters and objective value.
     """
-    def obj(v):
-        return float(objective_wrapper(
-            v,
-            expression_matrix,
-            regulators,
-            tf_protein_matrix,
-            psite_tensor,
-            n_reg,
-            T_use,
-            n_genes,
-            beta_start_indices,
-            num_psites,
-            loss_type,
-        ))
-
-    x = _project_to_feasible(np.asarray(x0, dtype=float), bounds, lin_cons)
-    best_x = x.copy()
-    best_fun = obj(best_x)
-    step = 0.2
-    nfev = 1
-    for nit in range(1, 81):
-        _, grad = _finite_difference_grad(obj, x)
-        nfev += 2 * x.size
-        cand = _project_to_feasible(x - step * grad, bounds, lin_cons)
-        cand_fun = obj(cand)
-        nfev += 1
-        if np.isfinite(cand_fun) and cand_fun <= best_fun:
-            x = cand
-            best_x = cand.copy()
-            best_fun = cand_fun
-            step = min(step * 1.2, 1.0)
-        else:
-            step *= 0.5
-        if step < 1e-8 or float(np.linalg.norm(grad)) < 1e-8:
-            break
-    cv = _linear_constraint_violation(best_x, lin_cons)
-    return SimpleNamespace(
-        x=best_x,
-        fun=best_fun,
-        success=bool(np.isfinite(best_fun) and cv <= 1e-6),
-        message="projected finite-difference optimizer completed",
-        nit=nit,
-        nfev=nfev,
-        constr_violation=cv,
-        maxcv=cv,
+    m = "SLSQP"  # or trust-constr or SLSQP
+    result = minimize(
+        fun=objective_wrapper,
+        x0=x0,
+        args=(expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes, beta_start_indices,
+              num_psites, loss_type),
+        method=m,
+        bounds=bounds,
+        constraints=lin_cons,
+        options={"disp": True, "maxiter": 10000} if m == "SLSQP" else {"disp": True, "maxiter": 10000, "verbose": 3}
     )
+    return result
 
 
 def _get_constraint_violation(res: Any) -> float:

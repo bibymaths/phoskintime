@@ -2,6 +2,7 @@ import csv
 from collections import defaultdict
 
 import numpy as np
+from scipy.optimize import LinearConstraint
 from scipy.sparse import csr_matrix
 from typing import Tuple
 from numpy.typing import NDArray
@@ -11,15 +12,6 @@ from kinopt.local.config.constants import INPUT2, INPUT1
 from kinopt.local.config.logconf import setup_logger
 
 logger = setup_logger()
-
-class LinearConstraint:
-    """Small local linear-constraint container used by notebook-safe optimizers."""
-
-    def __init__(self, A, lb, ub):
-        self.A = np.asarray(A, dtype=np.float64)
-        self.lb = np.asarray(lb, dtype=np.float64)
-        self.ub = np.asarray(ub, dtype=np.float64)
-
 
 
 def _build_P_initial(full_df, interact_df):

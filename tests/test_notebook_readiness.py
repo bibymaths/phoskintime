@@ -12,22 +12,13 @@ import pandas as pd
 import pytest
 
 from tests.dummy_fixtures import (
-    TFOPT_TIME_POINTS,
-    kinopt_dummy_frames,
     networkmodel_dummy_frames,
     protwise_dummy_series,
-    tfopt_dummy_data,
 )
 
 
 def test_clean_imports_for_notebook_modules():
     for name in [
-        "kinopt.local.optcon.construct",
-        "kinopt.local.objfn.minfn",
-        "kinopt.local.opt.optrun",
-        "tfopt.local.optcon.construct",
-        "tfopt.local.objfn.minfn",
-        "tfopt.local.opt.optrun",
         "protwise.paramest.normest",
         "protwise.models.diffrax_solver",
         "networkmodel.backend",
@@ -35,166 +26,6 @@ def test_clean_imports_for_notebook_modules():
         "networkmodel.mode_outputs",
     ]:
         assert importlib.import_module(name)
-
-
-def test_kinopt_dummy_preprocess_objective_multistart_and_export(tmp_path):
-    from kinopt.local.exporter.plotout import export_outcomes_to_csv, format_timepoints
-    from kinopt.local.objfn.minfn import _estimated_series, _objective
-    from kinopt.local.opt.optrun import multistart_run_optimization
-    from kinopt.local.optcon.construct import (
-        _build_K_data,
-        _build_P_initial,
-        _build_constraints,
-        _compute_time_weights,
-        _convert_to_sparse,
-        _init_parameters,
-        _precompute_mappings,
-    )
-
-    full_df, interact_df = kinopt_dummy_frames()
-    P_initial, P_array = _build_P_initial(full_df, interact_df)
-    K_index, K_array, beta_counts = _build_K_data(full_df, interact_df, estimate_missing=False)
-    K_sparse, K_data, K_indices, K_indptr = _convert_to_sparse(K_array)
-    mappings = _precompute_mappings(P_initial, K_index)
-    unique_kinases, gene_counts, gene_starts, gene_kinase_idx, total_alpha, beta_counts_arr, beta_starts = mappings
-    t_max, P_dense, weights = _compute_time_weights(P_array, loss_type="weighted")
-
-    assert P_dense.shape == (2, 14)
-    assert K_sparse.shape == (2, 14)
-    assert unique_kinases == ["K1", "K2"]
-    assert format_timepoints([0, 0.5, 1.0]) == ["0", "0.5", "1"]
-
-    np.random.seed(0)
-    params_initial, bounds = _init_parameters(total_alpha, 0.0, 1.0, beta_counts_arr)
-    assert len(params_initial) == total_alpha + int(beta_counts_arr.sum())
-
-    params = np.asarray([0.55, 0.45, 1.0, 1.0, 1.0], dtype=np.float64)
-    loss = _objective(
-        params,
-        P_dense,
-        t_max,
-        P_dense.shape[0],
-        gene_starts,
-        gene_counts,
-        gene_kinase_idx,
-        total_alpha,
-        beta_starts,
-        beta_counts_arr,
-        K_data,
-        K_indices,
-        K_indptr,
-        weights,
-        0,
-    )
-    estimated = _estimated_series(
-        params, t_max, P_dense.shape[0], gene_starts, gene_counts, gene_kinase_idx,
-        total_alpha, beta_starts, beta_counts_arr, K_data, K_indices, K_indptr,
-    )
-    assert np.isfinite(loss)
-    assert estimated.shape == P_dense.shape
-
-    constraints = _build_constraints("SLSQP", gene_counts, unique_kinases, total_alpha, beta_counts_arr, len(params))
-    assert all(abs(c["fun"](params)) < 1e-12 for c in constraints)
-
-    def quadratic(x):
-        return float(np.sum((np.asarray(x) - 0.25) ** 2))
-
-    best_result, best_params, outcomes = multistart_run_optimization(
-        quadratic,
-        np.asarray([0.8, 0.2]),
-        "SLSQP",
-        [(0.0, 1.0), (0.0, 1.0)],
-        [],
-        n_starts=2,
-        n_jobs=1,
-        base_seed=3,
-        init_strategy="uniform",
-    )
-    assert len(outcomes) == 2
-    assert outcomes[0].fun <= outcomes[1].fun
-    assert np.allclose(best_result.x, best_params)
-    csv_path = tmp_path / "kinopt_multistart.csv"
-    export_outcomes_to_csv(outcomes, csv_path)
-    assert pd.read_csv(csv_path)["rank"].tolist() == [1, 2]
-
-
-def test_kinopt_wrong_columns_fail_fast():
-    from kinopt.local.optcon.construct import _build_P_initial
-
-    full_df, interact_df = kinopt_dummy_frames()
-    with pytest.raises(KeyError):
-        _build_P_initial(full_df.drop(columns=["x1"]), interact_df)
-
-
-def test_tfopt_dummy_preprocess_objective_optimization_visualization_and_export(tmp_path):
-    from tfopt.local.exporter.plotout import plot_estimated_vs_observed
-    from tfopt.local.exporter.sheetutils import export_multistart_results, save_multistart_solutions_npz
-    from tfopt.local.objfn.minfn import compute_predictions, objective_wrapper
-    from tfopt.local.opt.optrun import MultiStartConfig, run_optimizer, run_optimizer_multistart
-    from tfopt.local.optcon.construct import (
-        build_fixed_arrays,
-        build_linear_constraints,
-        constraint_alpha_func,
-        constraint_beta_func,
-    )
-
-    gene_ids, expression, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map = tfopt_dummy_data()
-    arrays = build_fixed_arrays(gene_ids, expression, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map)
-    expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, _, _, num_psites = arrays
-    n_genes, n_tf = len(gene_ids), len(tf_ids)
-    n_alpha = n_genes * n_reg
-    beta_start_indices = np.asarray([0, 1 + num_psites[0]], dtype=np.int32)
-    no_psite_tf = np.asarray([False, False])
-    beta_len = int(sum(1 + n for n in num_psites))
-    x0 = np.r_[np.full(n_alpha, 1.0 / n_reg), np.full(beta_len, 0.5)]
-    bounds = [(0.0, 1.0)] * x0.size
-    constraints = build_linear_constraints(n_genes, n_tf, n_reg, n_alpha, beta_start_indices, num_psites, no_psite_tf)
-
-    assert regulators.shape == (2, 2)
-    assert psite_tensor.shape == (2, 1, 9)
-    assert np.allclose(constraint_alpha_func(x0, n_genes, n_reg), 0.0)
-    assert np.allclose(constraint_beta_func(x0, n_alpha, n_tf, beta_start_indices, num_psites, no_psite_tf), 0.0)
-
-    loss = objective_wrapper(
-        x0, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
-        n_reg, expression_matrix.shape[1], n_genes, beta_start_indices, num_psites, 0,
-    )
-    preds = compute_predictions(x0, regulators, tf_protein_matrix, psite_tensor, n_reg, 9, n_genes, beta_start_indices, num_psites)
-    assert np.isfinite(loss)
-    assert preds.shape == expression_matrix.shape
-
-    result = run_optimizer(
-        x0, bounds, constraints, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
-        n_reg, 9, n_genes, beta_start_indices, num_psites, 0,
-    )
-    assert np.isfinite(result.fun)
-
-    best, ranked = run_optimizer_multistart(
-        x0, bounds, constraints, expression_matrix, regulators, tf_protein_matrix, psite_tensor,
-        n_reg, 9, n_genes, beta_start_indices, num_psites, 0, run_optimizer,
-        cfg=MultiStartConfig(n_starts=2, n_jobs=1, seed=5, backend="threading", prefer="threads"),
-        polish=False,
-    )
-    assert ranked[0].fun <= ranked[-1].fun
-    assert np.isfinite(best.fun)
-
-    plot_estimated_vs_observed(preds, expression_matrix, gene_ids, TFOPT_TIME_POINTS, regulators, tf_protein_matrix, tf_ids, 1, save_path=tmp_path)
-    assert (tmp_path / "G1_model_fit_.png").exists()
-    summary = export_multistart_results(ranked)
-    assert {"start_id", "fun", "success"}.issubset(summary.columns)
-    npz_path = tmp_path / "tfopt_solutions.npz"
-    save_multistart_solutions_npz(ranked, npz_path)
-    assert npz_path.exists()
-
-
-def test_tfopt_shape_mismatch_fails_fast():
-    from tfopt.local.optcon.construct import build_fixed_arrays
-
-    gene_ids, expression, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, reg_map = tfopt_dummy_data()
-    bad_tf_protein = dict(tf_protein)
-    bad_tf_protein["TF1"] = np.asarray([1.0, 2.0])
-    with pytest.raises(ValueError):
-        build_fixed_arrays(gene_ids, expression, tf_ids, bad_tf_protein, tf_psite_data, tf_psite_labels, reg_map)
 
 
 def test_protwise_dummy_solve_objective_gradient_optimization_and_plot(tmp_path):
@@ -301,12 +132,6 @@ def test_networkmodel_missing_modality_and_validation_errors():
 def test_dependency_boundaries_for_active_notebook_paths():
     root = pathlib.Path(__file__).resolve().parents[1]
     active_paths = [
-        root / "kinopt" / "local" / "objfn" / "minfn.py",
-        root / "kinopt" / "local" / "opt" / "optrun.py",
-        root / "kinopt" / "local" / "optcon" / "construct.py",
-        root / "tfopt" / "local" / "objfn" / "minfn.py",
-        root / "tfopt" / "local" / "opt" / "optrun.py",
-        root / "tfopt" / "local" / "optcon" / "construct.py",
         root / "protwise" / "paramest" / "normest.py",
         root / "protwise" / "models" / "diffrax_solver.py",
         root / "networkmodel" / "backend.py",
