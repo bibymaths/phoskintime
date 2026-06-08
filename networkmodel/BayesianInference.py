@@ -979,7 +979,7 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         ax.set_xlabel("sample")
         ax.set_ylabel(col)
         fig.tight_layout()
-        fig.savefig(density_dir / f"trace_{col}.png", dpi=150)
+        fig.savefig(density_dir / f"trace_{col}.png", dpi=300)
         plt.close(fig)
 
         fig, ax = plt.subplots(figsize=(6, 4))
@@ -988,7 +988,7 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         ax.set_xlabel(col)
         ax.set_ylabel("frequency")
         fig.tight_layout()
-        fig.savefig(density_dir / f"density_{col}.png", dpi=150)
+        fig.savefig(density_dir / f"density_{col}.png", dpi=300)
         plt.close(fig)
 
     n_params = len(summary)
@@ -1031,5 +1031,5 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         top=0.92,
     )
 
-    fig.savefig(plot_dir / "credible_intervals.png", dpi=150)
+    fig.savefig(plot_dir / "credible_intervals.png", dpi=300)
     plt.close(fig)

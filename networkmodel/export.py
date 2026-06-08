@@ -1118,7 +1118,7 @@ def plot_s_rates_report(
         heatmap_per_protein: bool = True,
         heatmap_cap_sites: int = 80,  # cap number of rows in a heatmap (rank by AUC)
         agg_duplicates: str = "mean",  # if repeated (protein,psite,time)
-        dpi: int = 150,
+        dpi: int = 300,
 ) -> Path:
     """Plot phosphorylation-rate reports from CSV data
     

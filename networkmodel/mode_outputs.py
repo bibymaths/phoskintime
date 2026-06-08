@@ -94,7 +94,7 @@ def save_mode_plots(output_dir: str | Path, mode: DataMode, predictions: Mapping
         ax.set_ylabel(y_col)
         path = out / f"{layer}_prediction.png"
         fig.tight_layout()
-        fig.savefig(path, dpi=120)
+        fig.savefig(path, dpi=300)
         plt.close(fig)
         paths[layer] = path
     return paths
