@@ -20,37 +20,72 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 
 def _validate_slice_layout_covers_bounds(slices, bounds_size: int) -> int:
     """Validate that non-empty theta slices cover [0, bounds_size) exactly once."""
-    coverage = np.zeros(int(bounds_size), dtype=np.int8)
+    bounds_size = int(bounds_size)
+    coverage = np.zeros(bounds_size, dtype=np.int8)
+
     for name, sl in slices.items():
         if not isinstance(sl, slice):
-            raise ValueError(f"Slice layout entry {name!r} must be a slice, got {type(sl).__name__}.")
+            raise ValueError(
+                f"Slice layout entry {name!r} must be a slice, got {type(sl).__name__}."
+            )
+
         if sl.step not in (None, 1):
-            raise ValueError(f"Slice layout entry {name!r} must have step None or 1, got {sl.step!r}.")
+            raise ValueError(
+                f"Slice layout entry {name!r} must have step None or 1, got {sl.step!r}."
+            )
+
         if sl.start is None or sl.stop is None:
-            raise ValueError(f"Slice layout entry {name!r} must have explicit start and stop.")
+            raise ValueError(
+                f"Slice layout entry {name!r} must have explicit start and stop."
+            )
+
         start = int(sl.start)
         stop = int(sl.stop)
-        if start < 0 or stop < 0 or stop <= start:
-            raise ValueError(f"Slice layout entry {name!r} has invalid bounds [{start}, {stop}).")
+
+        if start < 0 or stop < 0:
+            raise ValueError(
+                f"Slice layout entry {name!r} has negative bounds [{start}, {stop})."
+            )
+
+        if stop < start:
+            raise ValueError(
+                f"Slice layout entry {name!r} has invalid bounds [{start}, {stop})."
+            )
+
         if stop > bounds_size:
             raise ValueError(
                 f"Slice layout entry {name!r} [{start}, {stop}) exceeds bounds length {bounds_size}."
             )
+
+        # Empty parameter groups are valid. They consume no theta entries.
+        # Example: c_k: slice(n, n) when there are no kinases.
+        if start == stop:
+            continue
+
         if np.any(coverage[start:stop]):
-            raise ValueError(f"Slice layout entry {name!r} overlaps another parameter slice.")
+            raise ValueError(
+                f"Slice layout entry {name!r} overlaps another parameter slice."
+            )
+
         coverage[start:stop] = 1
 
     missing = np.flatnonzero(coverage == 0)
     if missing.size:
         first = int(missing[0])
+
         if first == 0:
-            raise ValueError(f"Slice layout does not cover bounds index {first}; slices must start at 0.")
-        if first == bounds_size - 1 or np.all(missing == np.arange(first, bounds_size)):
-            raise ValueError(f"Slice layout missing tail coverage starting at bounds index {first}.")
+            raise ValueError(
+                f"Slice layout does not cover bounds index {first}; non-empty slices must start at 0."
+            )
+
+        if np.all(missing == np.arange(first, bounds_size)):
+            raise ValueError(
+                f"Slice layout missing tail coverage starting at bounds index {first}."
+            )
+
         raise ValueError(f"Slice layout has a gap at bounds index {first}.")
 
-    return int(bounds_size)
-
+    return bounds_size
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):
     """Build placeholder weight functions for scalar optimization

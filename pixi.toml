@@ -62,6 +62,10 @@ py2cytoscape = "*"
 [feature.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
+setuptools = "<82"
+
+[feature.dev.pypi-dependencies]
+coverage-badge = ">=1.1.2, <2"
 
 [feature.docs.dependencies]
 pymdown-extensions = "*"
@@ -91,7 +95,12 @@ changelog-unreleased = "git cliff --unreleased"
 changelog-latest = "git cliff --latest -o CHANGELOG.md"
 
 test = "PYTHONPATH=. pytest"
-test-cov = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing"
+
+test-cov = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing --cov-report=xml"
+
+coverage-badge = "mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
+
+coverage-all = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
 check-import = "PYTHONPATH=. python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
 

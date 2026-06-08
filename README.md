@@ -4,6 +4,7 @@
   [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15351017.svg)](https://doi.org/10.5281/zenodo.15351017) 
   ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
   ![JAX](https://img.shields.io/badge/JAX-accelerated-orange.svg)
+  ![Coverage](docs/assets/coverage.svg)
 
 </div> 
 
