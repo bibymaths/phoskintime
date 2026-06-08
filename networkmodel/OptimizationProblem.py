@@ -18,6 +18,39 @@ from networkmodel.config import RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+def _validate_slice_layout_covers_bounds(slices, bounds_size: int) -> int:
+    """Validate that non-empty theta slices cover [0, bounds_size) exactly once."""
+    coverage = np.zeros(int(bounds_size), dtype=np.int8)
+    for name, sl in slices.items():
+        if not isinstance(sl, slice):
+            raise ValueError(f"Slice layout entry {name!r} must be a slice, got {type(sl).__name__}.")
+        if sl.step not in (None, 1):
+            raise ValueError(f"Slice layout entry {name!r} must have step None or 1, got {sl.step!r}.")
+        if sl.start is None or sl.stop is None:
+            raise ValueError(f"Slice layout entry {name!r} must have explicit start and stop.")
+        start = int(sl.start)
+        stop = int(sl.stop)
+        if start < 0 or stop < 0 or stop <= start:
+            raise ValueError(f"Slice layout entry {name!r} has invalid bounds [{start}, {stop}).")
+        if stop > bounds_size:
+            raise ValueError(
+                f"Slice layout entry {name!r} [{start}, {stop}) exceeds bounds length {bounds_size}."
+            )
+        if np.any(coverage[start:stop]):
+            raise ValueError(f"Slice layout entry {name!r} overlaps another parameter slice.")
+        coverage[start:stop] = 1
+
+    missing = np.flatnonzero(coverage == 0)
+    if missing.size:
+        first = int(missing[0])
+        if first == 0:
+            raise ValueError(f"Slice layout does not cover bounds index {first}; slices must start at 0.")
+        if first == bounds_size - 1 or np.all(missing == np.arange(first, bounds_size)):
+            raise ValueError(f"Slice layout missing tail coverage starting at bounds index {first}.")
+        raise ValueError(f"Slice layout has a gap at bounds index {first}.")
+
+    return int(bounds_size)
+
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):
     """Build placeholder weight functions for scalar optimization
@@ -69,11 +102,9 @@ class GlobalODEScalarObjective:
         if self.xl.shape != self.xu.shape or self.xl.ndim != 1:
             raise ValueError(f"xl/xu must be same-length 1D vectors, got {self.xl.shape} and {self.xu.shape}")
         if slices:
-            theta_len = max(int(sl.stop) for sl in slices.values())
-            if theta_len != self.xl.size:
-                raise ValueError(f"Slice layout length {theta_len} does not match bounds length {self.xl.size}")
             if "alpha" in slices or "beta" in slices:
                 raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
+            theta_len = _validate_slice_layout_covers_bounds(slices, self.xl.size)
         else:
             theta_len = self.xl.size
         self.n_var = len(self.xl)

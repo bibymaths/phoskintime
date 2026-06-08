@@ -126,6 +126,54 @@ def test_networkmodel_result_is_single_scalar_objective():
     assert np.isfinite(out["F"][0])
 
 
+
+
+def _assert_slice_layout_constructs_or_raises(slices, match=None):
+    loss_data = _loss_data(("mrna", "protein", "phospho"))
+    kwargs = dict(
+        sys=None,
+        slices=slices,
+        loss_data=loss_data,
+        defaults={name: np.ones(int(sl.stop) - int(sl.start)) for name, sl in slices.items()},
+        lambdas={"protein": 1.0, "rna": 1.0, "phospho": 1.0, "prior": 0.0},
+        time_grid=np.asarray([0.0, 1.0]),
+        xl=np.zeros(3),
+        xu=np.ones(3) * 3,
+    )
+    if match is None:
+        return GlobalODEScalarObjective(**kwargs)
+    with pytest.raises(ValueError, match=match):
+        GlobalODEScalarObjective(**kwargs)
+
+
+def test_global_objective_validates_valid_contiguous_slice_layout():
+    problem = _assert_slice_layout_constructs_or_raises({"A_i": slice(0, 1), "B_i": slice(1, 2), "C_i": slice(2, 3)})
+    assert problem.n_var == 3
+    assert problem.slices == {"A_i": slice(0, 1), "B_i": slice(1, 2), "C_i": slice(2, 3)}
+
+
+def test_global_objective_allows_empty_slice_layout_special_case():
+    problem = _assert_slice_layout_constructs_or_raises({})
+    assert problem.n_var == 3
+    assert problem.slices == {}
+
+
+def test_global_objective_rejects_gap_between_slices():
+    _assert_slice_layout_constructs_or_raises({"A_i": slice(0, 1), "B_i": slice(2, 3)}, match="gap at bounds index 1")
+
+
+def test_global_objective_rejects_overlapping_slices():
+    _assert_slice_layout_constructs_or_raises({"A_i": slice(0, 2), "B_i": slice(1, 3)}, match="overlaps")
+
+
+def test_global_objective_rejects_slice_exceeding_bounds():
+    _assert_slice_layout_constructs_or_raises({"A_i": slice(0, 1), "B_i": slice(1, 4)}, match="exceeds bounds length 3")
+
+
+def test_global_objective_rejects_missing_tail_coverage():
+    _assert_slice_layout_constructs_or_raises({"A_i": slice(0, 1), "B_i": slice(1, 2)}, match="missing tail coverage")
+
+
 def test_diffrax_kvaerno_solver_shape_dtype_and_failure_message():
     ys = solve_diffrax(jnp.ones(3), jnp.asarray([0.0, 0.5, 1.0]), params=jnp.ones(3), config=DiffraxSolverConfig("Kvaerno4"))
     assert ys.shape == (3, 3)
