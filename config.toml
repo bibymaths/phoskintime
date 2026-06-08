@@ -330,7 +330,7 @@ weighting_method_phospho = "uniform"   # Weighting for phospho data
 # ------------------------------------------------------------
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
-sensitivity_analysis = true          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
+sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
 sensitivity_perturbation = 0.05        # Perturbation for sensitivity analysis
 sensitivity_trajectories = 100       # Number of trajectories for Morris method
 sensitivity_levels = 40              # Number of levels for Morris method
@@ -344,11 +344,11 @@ sensitivity_metric = "l2_norm"          #  ["total_signal", "mean", "variance", 
 # --- Inference / Multistart ---
 n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
 # --- Profile Likelihood (post-optimization) ---
-profile_likelihood = true
+profile_likelihood = false
 profile_indices = "88" # , 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
 profile_grid_size = 5
 # --- Posterior Sampling (post-optimization, requires numpyro) ---
-posterior_sampling = true
+posterior_sampling = false
 posterior_num_warmup = 20
 posterior_num_samples = 30
 
