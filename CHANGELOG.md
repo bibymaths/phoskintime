@@ -6,10 +6,37 @@ All notable changes to this project are documented here.
 
 
 
+### Documentation
+
+
+- Add multimodal input audit
+
+- Add jaxopt diffrax migration audit
+
+- Restore documentation context with current networkmodel details
+
+- Fix reviewed documentation issues
+
+
+
 ### Fixed
 
 
 - Remove empty orcid field from CITATION.cff
+
+- Fixes in protwise models
+
+- Fixes in protwise models & debugging network model for inflated FC values
+
+- Fixed the dead code error
+
+- Fixed sensitivity analysis, problems in posterior, testing phase, need to pickle objective
+
+- Pickled objective for each posterior chain sampling
+
+- Standalone process for profile likelihood
+
+- Workers in sensitivity simulations
 
 
 
@@ -361,6 +388,222 @@ chore: add community, governance, citation, and repository-maintenance files
 - Add CODEOWNERS entry [https://github.com/Normann-BPh] for `tfopt/local/objfn/minfn.py`.
 
 - Add `git-cliff` as a dependency and configure changelog tasks in `pixi.toml`.
+
+- Update `CHANGELOG.md`: Reformat structure and document notable project changes.
+
+- Merge pull request #55 from bibymaths/codex/create-phoskintime-multi-modal-input-audit
+
+docs: add PhosKinTime multimodal input audit
+
+- Refactor PhosKinTime JAXopt Diffrax multimodal fitting
+
+- Strengthen PhosKinTime JAX Diffrax refactor checks
+
+- Add JAX inference diagnostics for PhosKinTime
+
+- Merge pull request #56 from bibymaths/codex/implement-a-to-z-refactor-as-per-audits
+
+Refactor PhosKinTime networkmodel/protwise to JAX/JAXopt + Diffrax with multimodal support
+
+- Fix local ODE parameter optimization setup
+
+- Fix local ODE parameter optimization setup
+
+### Motivation
+- Prevent optimizer collapse to near-zero / flat trajectories by removing mixed transformed/physical parameter semantics and silent bound resizing which misaligned params and bounds.
+- Ensure a single source of truth for parameter counts/names so the optimizer, ODE RHS, and I/O agree on vector length and ordering.
+- Stabilize loss scaling and regularization so the data fit (not the regularizer or unit mismatches) drives the solution.
+- Add diagnostics and a minimal reproducible example to detect and debug lower‑bound parking and flat fits early.
+
+### Description
+- Replaced ad-hoc mixed transforms with an explicit physical-space optimizer mapping and helpers in `protwise/paramest/normest.py` by adding `to_opt_space` / `from_opt_space`, removing the special-case softplus/log branching, and using the same coordinates the ODE receives (addresses parameter transformations and optimizer-space mismatch). (protwise/paramest/normest.py)
+- Removed all uses of silent `np.resize` bound expansion and now expand dict bounds deterministically in parameter-name order using `get_param_names()` and `get_num_params()` so bounds length and param ordering always match the ODE parameterization; added validation to raise on mismatches. (protwise/paramest/normest.py, config/constants.py)
+- Reworked local-model solving to use model-specific Diffrax RHS functions via `protwise/models/diffrax_solver.py` (implemented `_dist_rhs`, `_succ_rhs`, `_rand_rhs`, and `make_local_model_rhs`) and made `solve_protwise_ode()` validate expected parameter count before calling Diffrax; `protwise.models.__init__` now normalizes model aliases when importing modules. This ensures the ODE uses the same parameter layout as `get_num_params`. (protwise/models/diffrax_solver.py, protwise/models/__init__.py)
+- Normalized layer losses by a data-scale heuristic `_loss_scale(...)` so each observed layer (mRNA/protein/phospho) contributes proportionally to the objective, and reduced regularization weight to `1e-6` to discourage extreme rates without making low-magnitude/flat dynamics attractive. (protwise/paramest/normest.py)
+- Added optimizer diagnostics: initial objective, objective at a scaled initial guess, final objective, optimizer iteration count, and fraction of parameters at their lower bounds to make collapse-to-lower-bound behavior visible in logs. Also added gradient-norm logging in `networkmodel/jax_backend.py` so convergence diagnostics include gradient magnitude. (protwise/paramest/normest.py, networkmodel/jax_backend.py)
+- Added a small reproducible example `examples/protwise_optimization_sanity.py` which simulates data from known positive parameters and runs `normest` to validate final loss < initial loss, parameters not collapsed to zero, and non-zero trajectory variance. (examples/protwise_optimization_sanity.py)
+- Added focused tests `tests/test_protwise_parameterization.py` asserting parameter name/count synchronization, dict-bound expansion order, and that optimizer-space mapping preserves physical-space values. (tests/test_protwise_parameterization.py)
+- Minor README update documenting single-source parameter metadata and that JAXopt now optimizes in physical space. (protwise/paramest/README.md)
+
+Files changed (high-level):
+- protwise/paramest/normest.py — unify opt/physical spaces, deterministic bounds expansion, loss scaling, logging, reduced regularization.
+- protwise/models/diffrax_solver.py — implement model-specific Diffrax RHSs and parameter-count validation.
+- protwise/models/__init__.py — normalize model aliases when importing.
+- networkmodel/jax_backend.py — log gradient norm at optimizer exit for diagnostics.
+- examples/protwise_optimization_sanity.py — synthetic single-gene sanity script.
+- tests/test_protwise_parameterization.py — new unit tests for parameterization and bounds expansion.
+- protwise/paramest/README.md — short doc update.
+
+### Testing
+- Compiled the modified modules successfully: `python -m py_compile config/constants.py networkmodel/jax_backend.py protwise/paramest/normest.py protwise/models/diffrax_solver.py protwise/models/__init__.py examples/protwise_optimization_sanity.py tests/test_protwise_parameterization.py` (succeeded in this environment).
+- Ran unit test collection locally for the new focused tests: `PYTHONPATH=. pytest -q tests/test_protwise_parameterization.py` (test collection/execution failed in this environment because required runtime deps such as `numpy` are not installed here; the tests themselves assert parameter-count/name consistency and bounds expansion order and should pass in a fully provisioned environment).
+- Performed local smoke checks during development (import/compile and basic function calls) and added explicit runtime logs for initial objective, scaled initial objective, final value, iteration count, and gradient norm to help reproduce and debug remaining cases.
+
+Notes on reproducing the sanity check (after installing dependencies):
+- Run the synthetic example for protwise:
+  - `PYTHONPATH=. python examples/protwise_optimization_sanity.py --model protwise`
+  - Expected qualitative outputs: `not_collapsed=True`, `trajectory_variance` > 0, final residual smaller than initial, estimated parameters positive and not all at lower bounds.
+- Run the same for randmod to validate the random-model parameterization:
+  - `PYTHONPATH=. python examples/protwise_optimization_sanity.py --model randmod`
+
+These changes synchronize parameter counts/names, ensure bounds map to parameters in the correct order (no silent resizing), run the optimizer in physical space (avoiding half-transformed semantics that compressed midpoints toward zero), normalize losses by data scale, and reduce the regularizer — collectively preventing the optimizer from being rewarded for trivially small/flat trajectories.
+
+- Centralize Diffrax protwise solver, canonicalize randmod subsets, and refactor optimization/bounds
+
+### Motivation
+- Centralize and modernize the local-protwise ODE solver interface to share a single Diffrax backend across all local mechanisms and avoid inconsistent behavior when modules are called directly.
+- Canonicalize randmod subset ordering and provide bitmask utilities so parameter/ state ordering is consistent with labels and legacy behavior.
+- Simplify and harden parameter bounds and optimizer space handling so projected-gradient (`jaxopt.ProjectedGradient`) operates directly in physical parameter space with robust bound normalization.
+- Improve diagnostics and add tests/examples to validate parameterization, aggregation, and wrapper dispatch.
+
+### Description
+- Added `config.helpers.generate_randmod_subsets` and `randmod_subset_masks` and updated randmod-related naming/label/bounds generation to use these canonical subsets.
+- Introduced a centralized Diffrax local-model solver in `protwise/models/diffrax_solver.py` with per-mechanism RHS implementations (`_dist_rhs`, `_succ_rhs`, `_rand_rhs`) and `make_local_model_rhs`/`solve_protwise_ode` dispatching by canonical model name.
+- Converted mechanism modules to lightweight wrappers (`protwise/models/protwise.py`, and updated `distmod.py`, `randmod.py`, `succmod.py`) that call the centralized solver with an explicit model name.
+- Refactored `protwise.paramest.normest` to: normalize bounds by parameter names, map optimizer space to physical space (`to_opt_space`/`from_opt_space`), aggregate randmod subset states into site-level observations, scale loss terms by data magnitude, and apply a small regularization weight; added defensive checks and richer logging.
+- Minor improvements in `networkmodel.jax_backend` logging to include gradient norm diagnostics and a small example script `examples/protwise_optimization_sanity.py` plus unit tests `tests/test_protwise_parameterization.py` validating naming, bounds expansion, aggregation, opt-space identity, subset masks, and wrapper dispatch.
+
+### Testing
+- Ran unit tests in `tests/test_protwise_parameterization.py` with `pytest` and all tests passed.
+- Executed the new example scenario for local fitting (`examples/protwise_optimization_sanity.py`) locally as a sanity check (simulates and fits synthetic trajectories) and observed expected diagnostics.
+
+- Refactor protwise local models: randmod subset helpers, Diffrax integration, bounds/optimization overhaul, and tests
+
+### Motivation
+- Centralize and canonicalize randmod subset ordering and masks so parameter/state naming, bounds, and aggregation are consistent across code paths.
+- Unify local ODE RHS implementations and expose a single Diffrax-backed solver entrypoint that validates parameter counts and supports multiple mechanism names.
+- Simplify the optimizer parameterization to operate in physical space with projected box constraints and make bounds handling explicit and safe.
+- Improve diagnostics and add an integration-style example plus unit tests to lock down the new behavior.
+
+### Description
+- Introduced `generate_randmod_subsets` and `randmod_subset_masks` in `config.helpers` and updated `get_param_names_rand`, `generate_labels_rand`, and `get_bounds_rand` to use the canonical subset ordering.
+- Reworked `protwise.models.diffrax_solver` to provide mechanism-specific RHS implementations (`_dist_rhs`, `_succ_rhs`, `_rand_rhs`), `make_local_model_rhs`, `aggregate_randmod_site_phospho`, and a validated `solve_protwise_ode` that enforces expected parameter counts and returns site-aggregated phospho for `randmod`.
+- Added per-mechanism wrappers (`protwise`, `distmod`, `succmod`, `randmod`) to pass an explicit `model_name` into the centralized solver so direct module calls are unambiguous.
+- Overhauled `protwise.paramest.normest` to normalize model names, replace the previous softplus/log mix with identity optimizer space via `to_opt_space`/`from_opt_space`, implement robust `_normalize_bounds` that expands dict bounds in parameter order, add loss scaling (`_loss_scale`), and small regularization via `REGULARIZATION_WEIGHT`.
+- Improved optimizer diagnostics in `networkmodel.jax_backend.optimize_scalar_objective` by logging a gradient norm (best-effort) alongside iterations and final objective.
+- Updated randmod steady-state initializer to use canonical subsets and added an example script `examples/protwise_optimization_sanity.py` exercising local-model fitting.
+- Added comprehensive unit tests in `tests/test_protwise_parameterization.py` covering naming/counts, bounds expansion, optimizer-space identity, randmod subset/mask canonical order, aggregation consistency, and wrapper dispatch behavior.
+
+### Testing
+- Ran the new unit tests with `pytest tests/test_protwise_parameterization.py` and they passed.
+- Ran the full test suite with `pytest -q` after the changes and all tests, including the new protwise parameterization tests, succeeded.
+- Executed the example sanity script `python examples/protwise_optimization_sanity.py --model randmod` locally to validate end-to-end fit behavior and observed expected regression-style checks (used as a manual integration check).
+
+- Refactor local protwise solvers, randmod subset ordering, bounds/optimization mapping, and add unit tests
+
+### Motivation
+
+- Provide a single, centralized Diffrax-backed solver for local protein-wise mechanisms and ensure each mechanism uses the correct RHS and naming conventions.
+- Make randmod subset ordering explicit and reproducible so parameter/label ordering and bitmask mappings match the JAX objective and legacy expectations.
+- Simplify and harden parameter bounds handling and optimizer coordinate mapping by running projected optimization directly in physical parameter space with stronger validation.
+- Improve diagnostics (optimizer gradient norm logging) and add tests/examples to validate the new behavior.
+
+### Description
+
+- Add canonical randmod helpers `generate_randmod_subsets` and `randmod_subset_masks` and use them in parameter name/label generation and bounds expansion (`config/helpers/__init__.py`).
+- Implement a unified local solver in `protwise/models/diffrax_solver.py` with `_dist_rhs`, `_succ_rhs`, `_rand_rhs`, `make_local_model_rhs`, `solve_protwise_ode`, and aggregation helpers `aggregate_randmod_site_phospho`, plus canonical model name normalisation.
+- Update per-mechanism modules and imports so direct calls pass an explicit `model_name` to the centralized solver and dynamic imports use a normalized model name (`protwise/models/*`, `protwise/models/__init__.py`, `protwise/steady/__init__.py`).
+- Refactor parameter estimation in `protwise/paramest/normest.py` to: use a canonical model name, operate optimizer in physical parameter space with `to_opt_space`/`from_opt_space`, provide `_normalize_bounds` that expands dict bounds in parameter-name order and validates infinities, add loss scaling and a small regularization weight, and wire the local RHS into the JAX objective.
+- Add JAXopt diagnostic logging of gradient norm in `networkmodel/jax_backend.py`.
+- Add an example sanity script `examples/protwise_optimization_sanity.py` and comprehensive unit tests `tests/test_protwise_parameterization.py` validating param-name/count parity, bounds expansion, randmod aggregation/masking, normalization behavior, and wrapper dispatch.
+- Minor docs update in `protwise/paramest/README.md` to reflect the changed optimizer/bounds behavior.
+
+### Testing
+
+- Ran the new unit tests with `pytest tests/test_protwise_parameterization.py`, and all tests passed.
+- Exercised the randmod aggregation and normalization behavior via the tests that simulate raw solver output and verify site-level aggregation and normalization succeeded.
+
+- Merge pull request #57 from bibymaths/codex/fix-optimization-issues-causing-parameter-collapse
+
+Fix local ODE parameter optimization setup
+
+- Fix global networkmodel phospho objective mapping
+
+- Merge pull request #58 from bibymaths/codex/fix-global-model-phospho-mapping-and-loss
+
+Fix global networkmodel phospho objective mapping
+
+- Fix networkmodel state offsets and parameter packing
+
+- Restore JAX combinatorial phosphorylation transitions
+
+- Fix networkmodel prior for raw theta objective
+
+- Merge pull request #59 from bibymaths/codex/fix-multiple-bugs-in-networkmodel-path
+
+Fix per-protein state indexing and optimizer parameter packing in networkmodel
+
+- Network model optimization fixed. correctly working.
+
+- Remove deadcode - scipy/pymoo custom and odeint functions
+
+- Restore few functions to not break anything in network model from jacspeedup.py and steadystate.py and utils.py
+
+- Wire networkmodel inference config
+
+- Wire networkmodel inference config
+
+### Motivation
+- Remove dead evolutionary/protwise/legacy ODE backend configuration and expose inference/post-optimization controls so the JAXopt+Diffrax networkmodel path can use `inference.py` features via `config.toml` and the existing config loader.
+- Integrate multistart/profile-likelihood/posterior-sampling flows into `runner.py` while keeping `jax_backend.py` and `inference.py` unchanged and without adding new CLI arguments.
+
+### Description
+- Removed legacy solver/evolutionary/protwise config keys from `config.toml` and added a clearly labelled `# INFERENCE / POST-OPTIMIZATION ANALYSES` section with `n_starts`, `profile_likelihood`, `profile_indices`, `profile_grid_size`, `posterior_sampling`, `posterior_num_warmup`, and `posterior_num_samples`.
+- Updated the config loader (`config_loader.py`)/`PhosKinConfig` to stop exporting legacy fields (e.g. `population_size`, `use_custom_solver`, `optimizer`, Optuna/Pymoo knobs and refinement fields) and to parse the new inference/profile/posterior fields using the existing `getattr`/conversion patterns.
+- Modified `networkmodel/config.py` to remove constants tied only to legacy backends and to export the new constants `N_STARTS`, `PROFILE_LIKELIHOOD`, `PROFILE_INDICES`, `PROFILE_GRID_SIZE`, `POSTERIOR_SAMPLING`, `POSTERIOR_NUM_WARMUP`, and `POSTERIOR_NUM_SAMPLES`.
+- Wired `networkmodel/runner.py` to import `InferenceContext`, `run_multistart`, `run_profile_likelihood`, `run_numpyro_posterior`, and `configure_jax_parallelism` from `networkmodel.inference`; replaced the single-call `problem.solve(...)` with an `InferenceContext`-driven multistart branch (when `N_STARTS>1`) and added optional post-optimization blocks that call profile-likelihood and NumPyro posterior sampling; removed legacy CLI knobs `--pop` and `--refine` and set the solver default to `"jaxopt"` so default behavior remains the same when the new fields are at defaults.
+
+### Testing
+- Compiled modified modules with `python -m py_compile config_loader.py networkmodel/config.py networkmodel/runner.py` and the compilation succeeded.
+- Verified `load_config_toml('config.toml')` returns the new inference defaults and that the removed legacy fields are not present, and asserted the new constants import from `networkmodel.config` (smoke tests succeeded).
+- Performed a smoke import of `networkmodel.runner` to ensure there are no import-time errors (succeeded).
+- Added and ran `PYTHONPATH=. pytest -q tests/test_networkmodel_inference_config.py` which passed (tests confirming defaults, removed legacy exports, and runner wiring).
+- Ran a subset of the existing integration tests (`tests/test_phoskintime_jax_multimodal.py` and `tests/test_protwise_parameterization.py`) with `PYTHONPATH=.`, which executed but reported 4 existing test failures unrelated to the config wiring (one `GlobalODEScalarObjective` slice/bounds mismatch and three `pytest.approx` nested-list compatibility issues) while many other tests passed; these failures pre-existed and were not introduced by the inference wiring.
+
+- Merge pull request #60 from bibymaths/codex/wire-inference.py-into-runner.py-with-config-audit
+
+Wire networkmodel inference config
+
+- Remove dead configurations
+
+- Formatting the code
+
+- Merge branch 'missing-data-scenarios' into codex/audit-and-rewrite-documentation-in-networkmodel-jz2t7v
+
+- Merge pull request #62 from bibymaths/codex/audit-and-rewrite-documentation-in-networkmodel-jz2t7v
+
+Migrate networkmodel scalar path to JAX/Diffrax/JAXopt and update docs/CLI
+
+- Merge remote-tracking branch 'origin/missing-data-scenarios' into missing-data-scenarios
+
+# Conflicts:
+#	networkmodel/README.md
+#	networkmodel/inference.py
+
+- Formatting the code
+
+- Modules names changed in networkmodel
+
+- Added param names to posterior inference, increased image quality, fixed non negative parameters
+
+- Added speedup for posterior via numpyro - testing TBD
+
+- Renamed module names
+
+- Renamed module names
+
+- Figures dpi set to 300
+
+
+
+### Tests
+
+
+- Testing network model - distributive - fixing errors, and bounds args passing issue
+
+- Testing network model with posterior sampling, added logger and progress bar to MCMC NUTS
+
+- Testing network model with posterior sampling, removed history video
 
 
 ## [0.4.0] - 2025-05-06

@@ -137,7 +137,7 @@
 ### Core Data Structures & Topology
 
 ::: networkmodel.network
-::: networkmodel.buildmat
+::: networkmodel.BuildMatrix
 ::: networkmodel.params
 
 ### Configuration & Data Loading
@@ -148,26 +148,29 @@
 ### Physics Kernels (JIT)
 
 ::: networkmodel.models
+::: networkmodel.TimeBucket
 
 ### Numerical Integration & Solvers
 
 ::: networkmodel.simulate
-::: networkmodel.jax_backend
-::: networkmodel.jacspeedup
-::: networkmodel.steadystate
+::: networkmodel.backend
+::: networkmodel.SteadyStateAnalysis
+::: networkmodel.InitialConditions
 
 ### Optimization & Loss Functions
 
-::: networkmodel.optproblem
-::: networkmodel.lossfn
-::: networkmodel.inference
+::: networkmodel.OptimizationProblem
+::: networkmodel.LossFunction
+::: networkmodel.BayesianInference
+::: networkmodel.PosteriorObjective
+::: networkmodel.PosteriorWorker
+::: networkmodel.ProfileWorker
 ::: networkmodel.runner
 ::: networkmodel.scan
 
 ### Analysis & Visualization
 
 ::: networkmodel.sensitivity
-::: networkmodel.analysis
 ::: networkmodel.export
 ::: networkmodel.dashboard_app
 ::: networkmodel.dashboard_bundle
