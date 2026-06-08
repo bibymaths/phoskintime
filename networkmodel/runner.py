@@ -61,7 +61,7 @@ from networkmodel.backend import warn_deprecated_backend_options, detect_data_mo
 from networkmodel.BayesianInference import (
     InferenceContext,
     run_multistart,
-    run_profile_likelihood,
+    run_profile_likelihood_standalone_processes,
     run_numpyro_posterior_standalone_processes,
     configure_jax_parallelism,
 )
@@ -720,12 +720,37 @@ def main():
         maxiter=args.n_gen,
         tol=1e-6,
     )
+
     if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
-        logger.info(f"Profile likelihood requested for indices: {PROFILE_INDICES}")
-        profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
-        run_profile_likelihood(ctx, parameter_indices=profile_indices,
-                               grid_size=PROFILE_GRID_SIZE)
-        logger.info("Profile likelihood complete.")
+        try:
+            logger.info("[Profile] Profile likelihood requested for indices: %s", PROFILE_INDICES)
+
+            profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
+
+            profile_run_config_path = write_posterior_payload(
+                ctx=ctx,
+                runner_args=args,
+                lambdas=lambdas,
+                output_dir=args.output_dir,
+            )
+
+            profile_result = run_profile_likelihood_standalone_processes(
+                run_config_path=profile_run_config_path,
+                output_dir=args.output_dir,
+                parameter_indices=profile_indices,
+                grid_size=PROFILE_GRID_SIZE,
+                max_workers=1,
+            )
+
+            logger.info(
+                "[Profile] Profile likelihood complete | rows=%d | output_dir=%s",
+                len(profile_result["summary"]),
+                profile_result["output_dir"],
+            )
+
+        except Exception:
+            logger.exception("[Profile] Profile likelihood failed.")
+
     if POSTERIOR_SAMPLING:
         try:
             logger.info(
@@ -748,7 +773,7 @@ def main():
                 num_warmup=POSTERIOR_NUM_WARMUP,
                 num_samples=POSTERIOR_NUM_SAMPLES,
                 seed=args.seed,
-                num_processes=8,
+                num_processes=4,
             )
 
             logger.info(
@@ -759,6 +784,7 @@ def main():
 
         except Exception:
             logger.exception("[Posterior] Posterior sampling failed.")
+
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
         pickle.dump(res, f)

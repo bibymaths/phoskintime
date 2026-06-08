@@ -313,6 +313,199 @@ def _plot_multistart(summary: pd.DataFrame, params: pd.DataFrame, names: Sequenc
         fig.savefig(plot_dir / "parameter_objective_tradeoff.png", dpi=300)
         plt.close(fig)
 
+def run_profile_likelihood_standalone_processes(
+    *,
+    run_config_path: str | Path,
+    output_dir: str | Path,
+    parameter_indices: Sequence[int],
+    grid_size: int = 5,
+    max_workers: int = 1,
+    timeout_seconds: int | None = None,
+) -> dict:
+    """Run profile likelihood in standalone subprocesses.
+
+    Each subprocess profiles one parameter over the requested grid and then exits,
+    releasing JAX/XLA/LLVM memory back to the OS.
+    """
+    run_config_path = Path(run_config_path)
+    output_dir = Path(output_dir)
+
+    worker_root = output_dir / "profile_workers"
+    out = output_dir / "profiles"
+    plot_dir = output_dir / "plots" / "profile_likelihood"
+
+    worker_root.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
+    plot_dir.mkdir(parents=True, exist_ok=True)
+
+    indices = [int(i) for i in parameter_indices]
+    n_workers = max(1, int(max_workers))
+    timeout_seconds = timeout_seconds or int(os.environ.get("PROFILE_WORKER_TIMEOUT_SECONDS", "0") or 0)
+
+    logger.info(
+        "[Profile] Launching standalone profile workers for %d parameters with max_workers=%d.",
+        len(indices),
+        n_workers,
+    )
+
+    pending = list(indices)
+    running: list[tuple[int, subprocess.Popen, object, Path]] = []
+    statuses = []
+
+    def _start_worker(param_idx: int):
+        worker_dir = worker_root / f"param_{param_idx:04d}"
+        worker_dir.mkdir(parents=True, exist_ok=True)
+
+        worker_log = worker_dir / "worker_stdout_stderr.log"
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "networkmodel.ProfileWorker",
+            "--run-config",
+            str(run_config_path),
+            "--parameter-index",
+            str(param_idx),
+            "--grid-size",
+            str(int(grid_size)),
+        ]
+
+        env = os.environ.copy()
+        env.setdefault("OMP_NUM_THREADS", "1")
+        env.setdefault("OPENBLAS_NUM_THREADS", "1")
+        env.setdefault("MKL_NUM_THREADS", "1")
+        env.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+        env.setdefault("NUMEXPR_NUM_THREADS", "1")
+        env["XLA_FLAGS"] = "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+
+        fh = open(worker_log, "w")
+
+        logger.info("[Profile] Starting parameter %d: %s", param_idx, " ".join(cmd))
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            cwd=os.getcwd(),
+            env=env,
+        )
+
+        return param_idx, proc, fh, worker_log
+
+    # Keep only max_workers active at once.
+    while pending or running:
+        while pending and len(running) < n_workers:
+            running.append(_start_worker(pending.pop(0)))
+
+        still_running = []
+
+        for param_idx, proc, fh, worker_log in running:
+            return_code = proc.poll()
+
+            if return_code is None:
+                still_running.append((param_idx, proc, fh, worker_log))
+                continue
+
+            fh.close()
+
+            status_path = worker_root / f"param_{param_idx:04d}" / "profile_status.json"
+
+            if status_path.exists():
+                with open(status_path) as f:
+                    status = json.load(f)
+            else:
+                status = {
+                    "parameter_index": param_idx,
+                    "success": False,
+                    "state": "missing_status",
+                    "failure_reason": "profile_status.json was not written",
+                    "result_csv": "",
+                }
+
+            status["return_code"] = int(return_code)
+            status["worker_log"] = str(worker_log)
+            statuses.append(status)
+
+        running = still_running
+
+        if running:
+            time.sleep(2.0)
+
+    status_df = pd.DataFrame(statuses)
+    status_df.to_csv(out / "profile_worker_status.csv", index=False)
+
+    result_dfs = []
+
+    for status in statuses:
+        if not bool(status.get("success", False)):
+            continue
+
+        result_csv = status.get("result_csv", "")
+        if not result_csv or not Path(result_csv).exists():
+            continue
+
+        df = pd.read_csv(result_csv)
+        result_dfs.append(df)
+
+        # Copy per-parameter CSV into canonical profiles directory.
+        target = out / Path(result_csv).name
+        df.to_csv(target, index=False)
+
+        try:
+            _plot_profile(
+                df,
+                plot_dir / Path(result_csv).name.replace(".csv", ".png"),
+            )
+        except Exception as exc:
+            logger.warning(
+                "[Profile] Could not plot profile %s: %s",
+                result_csv,
+                exc,
+            )
+
+    if not result_dfs:
+        raise RuntimeError(
+            "All standalone profile workers failed. "
+            "See profiles/profile_worker_status.csv and profile_workers/*/worker_stdout_stderr.log."
+        )
+
+    summary = pd.concat(result_dfs, ignore_index=True)
+
+    summary["delta_objective"] = np.inf
+    finite_mask = np.isfinite(summary["objective_value"])
+
+    if finite_mask.any():
+        mins = (
+            summary.loc[finite_mask]
+            .groupby("parameter_name")["objective_value"]
+            .transform("min")
+        )
+        summary.loc[finite_mask, "delta_objective"] = (
+            summary.loc[finite_mask, "objective_value"].to_numpy() - mins.to_numpy()
+        )
+
+    summary.to_csv(out / "profile_likelihood_summary.csv", index=False)
+
+    failed = status_df[(status_df["success"] != True) | (status_df["return_code"] != 0)]
+    if len(failed) > 0:
+        logger.warning(
+            "[Profile] %d/%d standalone profile workers failed. "
+            "See profiles/profile_worker_status.csv.",
+            len(failed),
+            len(status_df),
+        )
+
+    logger.info(
+        "[Profile] Standalone profile likelihood complete. Successful profiles: %d/%d.",
+        len(result_dfs),
+        len(indices),
+    )
+
+    return {
+        "summary": summary,
+        "worker_status": status_df,
+        "output_dir": out,
+    }
 
 def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence[int], grid_size: int = 5) -> dict:
     out = Path(ctx.output_dir) / "profiles"
@@ -320,18 +513,21 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
     out.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
     names = _param_names(len(ctx.theta0), ctx.parameter_names)
-    lower_eff, upper_eff = _posterior_profile_bounds(
-        ctx.lower,
-        ctx.upper,
-        ctx.parameter_names,
-    )
+    lower_eff = np.asarray(ctx.lower, dtype=np.float64).copy()
+    upper_eff = np.asarray(ctx.upper, dtype=np.float64).copy()
+
+    bad = upper_eff <= lower_eff
+    if np.any(bad):
+        upper_eff[bad] = lower_eff[bad] + 1e-12
 
     all_rows = []
     for idx in parameter_indices:
+        logger.info(f"Processing parameter {idx} of {len(parameter_indices)}")
         idx = int(idx)
         values = np.linspace(lower_eff[idx], upper_eff[idx], int(grid_size))
         rows = []
         for gv in values:
+            logger.info(f"Processing value {gv} of {len(values)} for parameter {idx}")
             fixed_mask = np.zeros_like(ctx.theta0, dtype=bool) if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask,
                                                                                                          dtype=bool).copy()
             fixed_values = np.asarray(ctx.theta0, dtype=np.float64).copy() if ctx.fixed_values is None else np.asarray(
@@ -391,12 +587,6 @@ def run_numpyro_posterior(
         num_chains: int = 1,
         chain_method: str = "sequential",
 ) -> dict:
-    # configure_numpyro_parallel_chains(
-    #     num_chains=num_chains,
-    #     cpu_threads_per_chain=1,
-    #     logger_obj=logger,
-    # )
-
     try:
         import jax
         import jax.numpy as jnp
@@ -410,16 +600,17 @@ def run_numpyro_posterior(
     plot_dir = Path(ctx.output_dir) / "plots" / "posterior"
     out.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
-    lower_np, upper_np = _posterior_profile_bounds(
-        ctx.lower,
-        ctx.upper,
-        ctx.parameter_names,
-    )
+    lower_np = np.asarray(ctx.lower, dtype=np.float64).copy()
+    upper_np = np.asarray(ctx.upper, dtype=np.float64).copy()
+
+    bad = upper_np <= lower_np
+    if np.any(bad):
+        upper_np[bad] = lower_np[bad] + 1e-12
 
     theta_center_np = np.clip(
         np.asarray(ctx.theta0, dtype=np.float64),
-        lower_np,
-        upper_np,
+        lower_np + 1e-8,
+        upper_np - 1e-8,
     )
 
     theta_center = jnp.asarray(theta_center_np, dtype=jnp.float64)
@@ -429,12 +620,7 @@ def run_numpyro_posterior(
     def model():
         theta = numpyro.sample(
             "theta",
-            dist.TruncatedNormal(
-                loc=theta_center,
-                scale=jnp.ones_like(theta_center),
-                low=lower,
-                high=upper,
-            ).to_event(1),
+            dist.Uniform(lower, upper).to_event(1),
         )
 
         if ctx.fixed_mask is not None and ctx.fixed_values is not None:

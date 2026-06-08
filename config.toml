@@ -280,7 +280,7 @@ seed       = 42
 # OPTIMIZATION PARAMETERS (JAXopt)
 # ------------------------------------------------------------
 n_gen      = 30                       # Maximum local optimizer iterations (runner arg: --n-gen)
-loss = 0
+loss = 2
 # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
 # -1 for Charbonnier Loss
 
@@ -301,7 +301,7 @@ hyperparam_scan = false              # Enable hyperparameter scan
 # DATA INFERENCE FLAGS
 # ------------------------------------------------------------
 normalize_fc_steady = false             # Normalize data to t=0 (runner arg: --normalize-fc-steady)
-use_initial_condition_from_data = false  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
+use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
 
 # ------------------------------------------------------------
 # DATA SCALING OPTIONS
@@ -330,12 +330,12 @@ weighting_method_phospho = "uniform"   # Weighting for phospho data
 # ------------------------------------------------------------
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
-sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
+sensitivity_analysis = true          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
 sensitivity_perturbation = 0.05        # Perturbation for sensitivity analysis
 sensitivity_trajectories = 100       # Number of trajectories for Morris method
 sensitivity_levels = 40              # Number of levels for Morris method
 sensitivity_top_curves = 20              # Number of top curves to plot in sensitivity analysis
-sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "variance", "l2_norm"]
+sensitivity_metric = "l2_norm"          #  ["total_signal", "mean", "variance", "l2_norm"]
 # ------------------------------------------------------------
 
 # ------------------------------------------------------------
@@ -344,9 +344,9 @@ sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "varian
 # --- Inference / Multistart ---
 n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
 # --- Profile Likelihood (post-optimization) ---
-profile_likelihood = false
-profile_indices = ""       # comma-separated parameter indices e.g. "0,1,5"
-profile_grid_size = 10
+profile_likelihood = true
+profile_indices = "88" # , 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
+profile_grid_size = 5
 # --- Posterior Sampling (post-optimization, requires numpyro) ---
 posterior_sampling = true
 posterior_num_warmup = 20
