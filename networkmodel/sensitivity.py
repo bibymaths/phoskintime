@@ -396,7 +396,11 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
     failed_rows = []
 
     cpu_count = os.cpu_count() or 1
-    n_workers = max(1, min(8, int(cpu_count)))
+
+    if cpu_count <= 8:
+        n_workers = max(1, int(cpu_count * 0.75))  # 8 -> 6
+    else:
+        n_workers = max(1, int(cpu_count * 0.85))  # 96 -> 81
 
     logger.info(
         "[Sensitivity] Simulating with %d worker processes "
