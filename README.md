@@ -116,3 +116,44 @@ pytest --cov=. --cov-report=term-missing
 ```
 
 The coverage report is configured to focus on active tested modules while omitting environment and third-party package files.
+
+## Educational notebooks
+
+The repository includes executable educational Jupyter notebooks that demonstrate the core modeling workflows with tiny deterministic dummy data. They are designed for learning, CI execution, and quick smoke-testing of the current JAX/JAXopt/Diffrax implementation.
+
+| Notebook | Module | What it demonstrates |
+| -------- | ------ | -------------------- |
+| `notebooks/01_kinopt_educational_workflow.ipynb` | `kinopt` | Kinase/phosphosite-style input tables, KinOpt preprocessing arrays, alpha/beta constraints, local optimization, a ranked multistart solution ensemble, parameter export, and fit plots. |
+| `notebooks/02_tfopt_educational_workflow.ipynb` | `tfopt` | TF-target regulatory networks, TF protein/phosphosite effect matrices, constrained local optimization, ranked multistart outputs, regulatory-effect visualization, and saved tables. |
+| `notebooks/03_protwise_educational_workflow.ipynb` | `phoskintime.protwise` | Protein-wise ODE modeling with mRNA/protein/phosphosite modalities, mode-aware fitting logic, Diffrax-based ODE solving, JAXopt parameter estimation, multistart ranking, residual plots, and CSV/JSON exports. |
+| `notebooks/04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal data handling, adjacency construction, alpha/beta projection utilities, missing-modality cases, Diffrax/JAX-based solving, local constrained optimization, ranked multistart outputs, mode exports, and network/parameter plots. |
+
+Install the development and notebook dependencies before opening or executing the notebooks:
+
+```bash
+pip install -e ".[dev]"
+# If using the Pixi environment, the dev feature includes nbmake, ipykernel, jupyter, nbformat, and nbclient.
+```
+
+Run the notebooks interactively:
+
+```bash
+jupyter lab notebooks/
+```
+
+Execute the notebooks as tests:
+
+```bash
+pytest --nbmake notebooks/*.ipynb
+```
+
+For a full local validation run, execute the notebooks and then run the regular test suite:
+
+```bash
+jupyter nbconvert --to notebook --execute notebooks/01_kinopt_educational_workflow.ipynb --inplace
+jupyter nbconvert --to notebook --execute notebooks/02_tfopt_educational_workflow.ipynb --inplace
+jupyter nbconvert --to notebook --execute notebooks/03_protwise_educational_workflow.ipynb --inplace
+jupyter nbconvert --to notebook --execute notebooks/04_networkmodel_educational_workflow.ipynb --inplace
+pytest --nbmake notebooks/*.ipynb
+pytest
+```
