@@ -97,25 +97,7 @@ The package is designed with modularity in mind. It consists of several key comp
 - **Visualization:** A comprehensive plotting module generates static and interactive plots to visualize model fits,
   parameter profiles, PCA, t-SNE, and sensitivity indices.
 
----
-
-## License
-
-This package is distributed under the BSD 3-Clause License.  
-See the [LICENSE](./LICENSE) file for full details.
-
----
-
-## Testing
-
-Run the lightweight unit and notebook-readiness test suite from the repository root:
-
-```bash
-pytest
-pytest --cov=. --cov-report=term-missing
-```
-
-The coverage report is configured to focus on active tested modules while omitting environment and third-party package files.
+--- 
 
 ## Educational notebooks
 
@@ -128,32 +110,17 @@ The repository includes executable educational Jupyter notebooks that demonstrat
 | `notebooks/03_protwise_educational_workflow.ipynb` | `phoskintime.protwise` | Protein-wise ODE modeling with mRNA/protein/phosphosite modalities, mode-aware fitting logic, Diffrax-based ODE solving, JAXopt parameter estimation, multistart ranking, residual plots, and CSV/JSON exports. |
 | `notebooks/04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal data handling, adjacency construction, alpha/beta projection utilities, missing-modality cases, Diffrax/JAX-based solving, local constrained optimization, ranked multistart outputs, mode exports, and network/parameter plots. |
 
-Install the development and notebook dependencies before opening or executing the notebooks:
-
-```bash
-pip install -e ".[dev]"
-# If using the Pixi environment, the dev feature includes nbmake, ipykernel, jupyter, nbformat, and nbclient.
-```
-
 Run the notebooks interactively:
 
 ```bash
 jupyter lab notebooks/
 ```
 
-Execute the notebooks as tests:
+---
 
-```bash
-pytest --nbmake notebooks/*.ipynb
-```
+## License
 
-For a full local validation run, execute the notebooks and then run the regular test suite:
+This package is distributed under the BSD 3-Clause License.  
+See the [LICENSE](./LICENSE) file for full details.
 
-```bash
-jupyter nbconvert --to notebook --execute notebooks/01_kinopt_educational_workflow.ipynb --inplace
-jupyter nbconvert --to notebook --execute notebooks/02_tfopt_educational_workflow.ipynb --inplace
-jupyter nbconvert --to notebook --execute notebooks/03_protwise_educational_workflow.ipynb --inplace
-jupyter nbconvert --to notebook --execute notebooks/04_networkmodel_educational_workflow.ipynb --inplace
-pytest --nbmake notebooks/*.ipynb
-pytest
-```
+---

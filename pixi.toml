@@ -28,6 +28,7 @@ xlsxwriter = "*"
 adjusttext = "*"
 
 # Optimization, sensitivity analysis, and modeling utilities
+pymoo = "*"
 cobyqa = "*"
 salib = "*"
 optuna = "*"
