@@ -19,16 +19,20 @@ LOG_COLORS = {
     "ENDC": "\033[0m",  # Reset
 }
 
+
 class TqdmToLogger:
     def __init__(self, logger, level=logging.INFO):
         self.logger = logger
         self.level = level
+
     def write(self, message):
         message = message.strip()
         if message:
             self.logger.log(self.level, message)
+
     def flush(self):
         pass
+
 
 class ColoredFormatter(logging.Formatter):
     """
@@ -90,7 +94,7 @@ def setup_logger(
         rotate=True,
         max_bytes=2 * 1024 * 1024,
         backup_count=5,
-        mp_file_logging="main_only", # off | main_only | per_process
+        mp_file_logging="main_only",  # off | main_only | per_process
 ):
     """
     Setup a logger with colored output and file logging.

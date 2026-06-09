@@ -9,7 +9,7 @@ from config.constants import (
     ALPHA_WEIGHT,
     BETA_WEIGHT,
     GAMMA_WEIGHT,
-    DELTA_WEIGHT, 
+    DELTA_WEIGHT,
     INPUT_EXCEL_PROTEIN,
     INPUT_EXCEL_PSITE, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
     UB_Protein_prod, UB_Protein_deg, UB_Phospho_prod
@@ -108,7 +108,7 @@ def parse_args():
     parser.add_argument("--D-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=f"0, {UB_Phospho_prod}")
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
-    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS) 
+    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS)
     parser.add_argument("--input-excel-protein", type=str,
                         default=INPUT_EXCEL_PROTEIN,
                         help="Path to the original protein data file")
@@ -165,13 +165,14 @@ def extract_config(args):
     }
     config = {
         'bounds': bounds,
-        'bootstraps': args.bootstraps, 
+        'bootstraps': args.bootstraps,
         'input_excel_protein': args.input_excel_protein,
         'input_excel_psite': args.input_excel_psite,
         'input_excel_rna': args.input_excel_rna,
         'max_workers': 1 if DEV_TEST else os.cpu_count(),
     }
     return config
+
 
 @njit(cache=True)
 def score_fit(params, target, prediction,
@@ -224,6 +225,7 @@ def score_fit(params, target, prediction,
     score = delta * mse + alpha * rmse + beta * mae + gamma * variance + mu * l2_norm
 
     return score
+
 
 def future_times(n_new: int, ratio: Optional[float] = None, tp: np.ndarray = TIME_POINTS) -> np.ndarray:
     """

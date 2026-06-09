@@ -4,12 +4,12 @@ version = "0.4.0"
 description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
-platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
 license = "BSD-3-Clause"
 
 [dependencies]
 python = "3.12.*"
-pip = "*"
+pip = ">=26.1.2,<27"
 
 # Core numerical/scientific stack
 numpy = "*"
@@ -32,6 +32,10 @@ pymoo = "*"
 cobyqa = "*"
 salib = "*"
 optuna = "*"
+jax = "*"
+jaxopt = "*"
+diffrax = "*"
+numpyro = "*"
 
 # Graph/network tooling
 graphviz = "*"
@@ -49,6 +53,8 @@ typer = "*"
 jinja2 = "*"
 tomli = "*"
 git-cliff = ">=2.13.1,<3"
+vulture = ">=2.16,<3"
+ipykernel = ">=7.2.0,<8"
 
 [pypi-dependencies]
 # Not reliably available as a current conda package across all target platforms.
@@ -57,6 +63,15 @@ py2cytoscape = "*"
 [feature.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
+nbmake = "*"
+ipykernel = "*"
+jupyter = "*"
+nbformat = "*"
+nbclient = "*"
+setuptools = "<82"
+
+[feature.dev.pypi-dependencies]
+coverage-badge = ">=1.1.2, <2"
 
 [feature.docs.dependencies]
 pymdown-extensions = "*"
@@ -85,8 +100,14 @@ changelog = "git cliff -o CHANGELOG.md"
 changelog-unreleased = "git cliff --unreleased"
 changelog-latest = "git cliff --latest -o CHANGELOG.md"
 
-test = "PYTHONPATH=. pytest"
-test-cov = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing"
+test = "PYTHONPATH=.:.. pytest"
+test-notebooks = "PYTHONPATH=.:.. pytest --nbmake notebooks/*.ipynb"
+
+test-cov = "PYTHONPATH=.:.. pytest --cov=. --cov-report=term-missing --cov-report=xml"
+
+coverage-badge = "mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
+
+coverage-all = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
 check-import = "PYTHONPATH=. python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
 
@@ -96,6 +117,15 @@ kinopt-fitanalysis = "PYTHONPATH=. python -m kinopt.fitanalysis"
 
 tfopt-local = "PYTHONPATH=. python -m tfopt.local"
 tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
+
+prep = "PYTHONPATH=. python -m processing.cleanup"
+
+model = "PYTHONPATH=. python -m protwise.runner.main"
+
+networkmodel = "PYTHONPATH=. python -m networkmodel.runner"
+
+phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
+phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
 

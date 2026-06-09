@@ -24,3 +24,6 @@ The module is organized into several submodules:
 - **Integration with Plotting:**  
   After estimation, the module calls plotting functions (via the `Plotter` class) to visualize the ODE solution,
   parameter profiles, and goodness-of-fit metrics.
+
+- **Networkmodel scalar path:**  
+  The current `networkmodel` parameter-estimation path uses `GlobalODEScalarObjective` and `jaxopt.ProjectedGradient` with `projection=project_bounds`. The stopping criteria are JAXopt parameter-distance convergence, `‖x_k - x_{k-1}‖ < tol`, or the hard iteration ceiling `iter_num >= maxiter`.

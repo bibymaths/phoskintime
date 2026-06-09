@@ -1,7 +1,6 @@
 
 import numpy as np
 from numba import njit
-from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
 from functools import lru_cache
 
@@ -246,60 +245,10 @@ def ode_system(y, t,
     # Return full derivative vector
     return out
 
-def solve_ode(popt, y0, num_sites, t):
-    """
-    Integrate the ODE system for phosphorylation dynamics in random phosphorylation model.
+def solve_ode(params, init_cond, num_psites, t, **kwargs):
+    """Solve this mechanism with the centralized Diffrax Kvaerno backend."""
+    from protwise.models.diffrax_solver import solve_protwise_ode
 
-    Args:
-        popt (np.array): Optimized parameter vector [A, B, C, D, S_1.S_n, Ddeg_1.Ddeg_m].
-        y0 (np.array): Initial condition vector [R0, P0, X1_0, ..., Xm_0].
-        num_sites (int): Number of phosphorylation sites.
-        t (np.array): Time points to integrate over.
-
-    Returns:
-        sol (ndarray): Full ODE solution of shape (len(t), len(y0)).
-        mono (ndarray): 1D array of fitted values for R (after OFFSET) and P states.
-    """
-    # Unpack kinetic parameters and rate arrays
-    A, B, C, D, S, Ddeg = unpack_params(popt, num_sites)
-
-    # Load precomputed transition indices for the given number of sites
-    mono_idx, forward, drop, fcounts, dcounts = _precompute_indices(num_sites)
-
-    # Solve the ODE system using scipy's odeint
-    sol = np.clip(np.asarray(
-        odeint(
-            ode_system,                # ODE system function
-            y0,                        # Initial state
-            t,                         # Time points
-            args=(                     # Extra arguments to the ODE function
-                A, B, C, D, num_sites,
-                S, Ddeg,
-                mono_idx, forward, drop, fcounts, dcounts
-            )
-        )
-    ), 0, None)  # Ensure non-negative concentrations
-
-    # If normalization is enabled, divide solution by initial condition
-    if NORMALIZE_MODEL_OUTPUT:
-        ic = np.array(y0, dtype=sol.dtype)   # convert initial state to same dtype
-        sol *= (1.0 / ic)[None, :]           # element-wise normalization
-
-    # Offset for removing early time points for R fitting
-    OFFSET = 5
-
-    # Extract mRNA trajectory after OFFSET
-    R_fitted = sol[OFFSET:, 0].copy()
-
-    # Extract protein trajectory (first column)
-    Pr_fitted = sol[:, 1].copy()
-
-    # Extract phosphorylated protein states (transpose to shape: num_sites x time)
-    if num_sites > 1:
-        P_fitted = sol[:, 2:2 + num_sites].T
-    else:
-        # Special case when only one site is present
-        P_fitted = sol[:, 2].reshape(1, -1)
-
-    # Return full ODE solution and concatenated fit vector (R followed by P states)
-    return sol, np.concatenate((R_fitted, Pr_fitted, P_fitted.flatten()))
+    # Pass an explicit model name so direct calls to this module are not affected
+    # by the global config.constants.ODE_MODEL selected for a different mechanism.
+    return solve_protwise_ode(params, init_cond, num_psites, t, model_name="randmod", **kwargs)

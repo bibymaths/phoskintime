@@ -1,57 +1,32 @@
-"""
-System State and Topology Management Module.
-
-This module defines the core data structures that represent the biological system:
-1.  **Index:** Manages the mapping between biological names (Proteins, Sites) and
-    numerical indices in the state vector. It handles the complex logic of
-    "Proxy Redirection" for orphan Transcription Factors.
-2.  **KinaseInput:** Interpolates experimental kinase data onto the simulation time grid.
-3.  **System:** The central container holding all parameters, sparse matrices (CSR),
-    and logic required to evaluate the differential equations. It acts as the bridge
-    between high-level Python objects and the low-level Numba JIT kernels.
-
-
-"""
+"""Build index maps, kinase inputs, and mutable system objects for networkmodel ODE evaluation; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.buildmat, networkmodel.config, networkmodel.models, networkmodel.steadystate."""
 
 import numpy as np
 import pandas as pd
 
-from networkmodel.buildmat import site_key
+from networkmodel.BuildMatrix import site_key
 from networkmodel.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
 from networkmodel.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
-from networkmodel.steadystate import build_y0_from_data
+from networkmodel.InitialConditions import build_y0_from_data
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 class Index:
-    """
-    Manages the indexing of the state vector Y and network topology.
-
-    The state vector Y is a flattened array containing all species.
-    For $N$ proteins, the layout depends on the MODEL type:
-
-
-
-    - **Distributive/Sequential:** [mRNA_i, Prot_i, Site_i_1, Site_i_2, ...]
-    - **Combinatorial:** [mRNA_i, Prot_state_0, Prot_state_1, ..., Prot_state_2^n]
-    """
+    """Map proteins, sites, kinases, and state-vector offsets"""
 
     def __init__(self,
                  interactions: pd.DataFrame,
                  tf_interactions: pd.DataFrame = None,
                  kin_beta_map: dict = None,
                  tf_beta_map: dict = None):
-        """
-        Index manager for the PhoskinTime ODE system.
-        Handles protein/kinase mapping and redirects Orphan TFs to Kinase Proxies.
-
+        """Initialize Index
+        
         Args:
-            interactions: Cleaned Kinase-Substrate network (columns: protein, psite, kinase).
-            tf_interactions: Cleaned TF-Target network (columns: tf, target).
-            kin_beta_map: Optional dictionary of optimized kinase priors {name: beta_val}.
-            tf_beta_map: Optional dictionary of optimized TF priors {name: beta_val}.
+            interactions: Input value used by this routine.
+            tf_interactions: Input value used by this routine.
+            kin_beta_map: Input value used by this routine.
+            tf_beta_map: Input value used by this routine.
         """
         # --- 1. Basic Protein/Target Discovery ---
         prots = set(interactions["protein"].unique())
@@ -158,7 +133,14 @@ class Index:
                     f"{len(self.kinases)} kinases, {self.state_dim} state variables.")
 
     def block(self, i: int) -> slice:
-        """Helper to get the range in the state vector for protein i."""
+        """Return the state-vector block for a protein index
+        
+        Args:
+            i: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        """
         start = self.offset_y[i]
         if MODEL == 2:
             end = start + 1 + self.n_states[i]
@@ -168,12 +150,15 @@ class Index:
 
 
 class KinaseInput:
-    """
-    Manages the external Kinase signal inputs $K(t)$.
-    Interpolates sparse experimental observations onto the solver's dense time grid.
-    """
+    """Interpolate kinase fold-change inputs over time"""
 
     def __init__(self, kinases, df_fc):
+        """Initialize KinaseInput
+        
+        Args:
+            kinases: Input value used by this routine.
+            df_fc: Input value used by this routine.
+        """
         self.grid = TIME_POINTS_PROTEIN
         self.Kmat = np.ones((len(kinases), len(self.grid)), float)
         if not df_fc.empty:
@@ -187,7 +172,14 @@ class KinaseInput:
                             self.Kmat[i, j] = max(mp_fc[t], 1e-6)
 
     def eval(self, t):
-        """Returns the kinase activity vector at time t (using step interpolation)."""
+        """Evaluate kinase inputs at a requested time
+        
+        Args:
+            t: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        """
         if t <= self.grid[0]:
             return self.Kmat[:, 0]
         if t >= self.grid[-1]:
@@ -197,18 +189,19 @@ class KinaseInput:
 
 
 class System:
-    """
-    The central Simulation Object.
-
-    Holds:
-    1.  Parameters (Arrays $A_i, B_i, \dots$).
-    2.  Network Topology Matrices (Sparse CSR format).
-    3.  Initial Conditions logic.
-    4.  The `rhs` method (Python-side derivative calculation).
-    5.  Argument packing logic for Numba JIT kernels.
-    """
+    """Store topology, parameters, and state for networkmodel ODE evaluation"""
 
     def __init__(self, idx, W_global, tf_mat, kin_input, defaults, tf_deg):
+        """Initialize System
+        
+        Args:
+            idx: Input value used by this routine.
+            W_global: Input value used by this routine.
+            tf_mat: Input value used by this routine.
+            kin_input: Input value used by this routine.
+            defaults: Input value used by this routine.
+            tf_deg: Input value used by this routine.
+        """
         self._ic_data = None
         self.idx = idx
         self.W_global = W_global
@@ -291,7 +284,18 @@ class System:
             ) = build_random_transitions(idx)
 
     def update(self, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale):
-        """Updates the system parameters from the optimizer."""
+        """Update fitted system parameters
+        
+        Args:
+            c_k: Input value used by this routine.
+            A_i: Input value used by this routine.
+            B_i: Input value used by this routine.
+            C_i: Input value used by this routine.
+            D_i: Input value used by this routine.
+            Dp_i: Input value used by this routine.
+            E_i: Input value used by this routine.
+            tf_scale: Input value used by this routine.
+        """
         self.c_k[:] = c_k
         self.A_i[:] = A_i
         self.B_i[:] = B_i
@@ -302,7 +306,17 @@ class System:
         self.tf_scale = float(tf_scale)
 
     def attach_initial_condition_data(self, df_prot, df_rna, df_pho):
-        """Attaches experimental data used to calculate t=0 state."""
+        """Attach optional initial-condition data frames
+        
+        Args:
+            df_prot: Input value used by this routine.
+            df_rna: Input value used by this routine.
+            df_pho: Input value used by this routine.
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
+            RuntimeError: When optimization or simulation fails.
+        """
         if self._ic_data is not None:
             raise RuntimeError("Initial-condition data already attached to System")
         self._ic_data = dict(
@@ -313,7 +327,12 @@ class System:
         logger.info("[Model] Initial condition data attached successfully.")
 
     def set_initial_conditions(self):
-        """Derives the y0 vector from attached experimental data."""
+        """Set the system initial state vector
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
+            RuntimeError: When optimization or simulation fails.
+        """
         if self._ic_data is None:
             raise RuntimeError(
                 "Initial-condition data not attached. Call sys.attach_initial_condition_data(df_prot, df_rna, df_pho) before optimize."
@@ -327,17 +346,17 @@ class System:
         )
 
     def rhs(self, t, y):
-        """
-        Python-side Right-Hand Side evaluation.
-        Used primarily for testing or when live interactivity/debugging is needed.
-
-        Logic Flow:
-        1.  **Live-Drive:** Calculate Kinase Activity $Kt = K_{data}(t) \times c_k$.
-        2.  **Signaling:** Calculate Phospho-Drive $S = W \cdot Kt$.
-        3.  **Protein Aggregation:** Sum phospho-states to get total protein $P$.
-            *Crucially*, if a protein is a Kinase (or Proxy), overwrite its value with $Kt$.
-        4.  **Regulation:** Calculate TF inputs $TF_{in} = TF_{mat} \cdot P$.
-        5.  **Dynamics:** Call model-specific `_rhs` kernel.
+        """Evaluate the active ODE right-hand side
+        
+        Args:
+            t: Input value used by this routine.
+            y: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
         """
         dy = np.zeros_like(y)
 
@@ -399,7 +418,7 @@ class System:
         elif MODEL == 2:
 
             if self.S_cache is None:
-                raise ValueError("MODEL==2: System.S_cache is None. simulate_odeint must set it.")
+                raise ValueError("MODEL==2: System.S_cache is None. simulate_diffrax must set it.")
 
             jb = int(np.searchsorted(self.kin_grid, t, side="right") - 1)
             if jb < 0:
@@ -419,7 +438,11 @@ class System:
         return dy
 
     def y0(self) -> np.ndarray:
-        """Returns the initial state vector y0."""
+        """Return a copy of the initial state vector
+        
+        Returns:
+            Computed result from this routine.
+        """
         if getattr(self, "custom_y0", None) is not None:
             return np.array(self.custom_y0, dtype=np.float64, copy=True)
 
@@ -441,12 +464,16 @@ class System:
         return y
 
     def odeint_args(self, S_cache=None):
-        """
-        Packs all system arrays into a tuple for the Numba JIT solver.
-
-        This method constructs the `driver_map` array, which tells the low-level solver
-        which proteins are actually Kinases (or Proxies) and should be "Driven" by
-        experimental data rather than simulated.
+        """Return legacy ODE argument tuple for helper kernels
+        
+        Args:
+            S_cache: Input value used by this routine.
+        
+        Returns:
+            Computed result from this routine.
+        
+        Raises:
+            ValueError: When inputs are inconsistent or unsupported.
         """
         # Create Driver Map for Numba
         # Maps Protein Index -> Kinase Index in Kt.

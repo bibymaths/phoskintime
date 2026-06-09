@@ -18,9 +18,12 @@ The module is organized into several submodules:
 
 - **Flexible Model Configuration:**  
   The module supports different ODE model types (e.g., Distributive, Successive, Random) through configuration
-  constants. For example, when using the "randmod" (Random model), the parameter bounds are log-transformed and the
-  optimizer works in log-space (with conversion back to the original scale).
+  constants. Parameter counts and names come from `config.constants`, bounds are expanded in parameter-name order,
+  and JAXopt operates directly in physical parameter space with projected box constraints.
 
 - **Integration with Plotting:**  
   After estimation, the module calls plotting functions (via the `Plotter` class) to visualize the ODE solution,
   parameter profiles, and goodness-of-fit metrics.
+## JAXopt/Diffrax Inference Extensions
+
+`protwise.paramest.inference` re-exports the shared PhosKinTime inference utilities for local protein-wise models. These wrappers support deterministic multistart optimization, profile likelihood, and optional NumPyro posterior analysis using the same scalar JAX/JAXopt/Diffrax objective style as the global network model. Outputs follow the same `optimization/`, `profiles/`, `posterior/`, and `plots/` directory layout used by `networkmodel.BayesianInference`.

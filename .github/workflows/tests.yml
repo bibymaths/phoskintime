@@ -1,0 +1,30 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test and notebook dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            numpy pandas scipy scikit-learn statsmodels numba matplotlib seaborn plotly openpyxl xlsxwriter adjustText \
+            jax jaxopt diffrax numpyro networkx graphviz mygene tqdm python-dotenv typer jinja2 tomli SALib \
+            pytest pytest-cov nbmake ipykernel jupyter nbformat nbclient
+
+      - name: Run tests including educational notebooks
+        run: |
+          PYTHONPATH=.:.. pytest

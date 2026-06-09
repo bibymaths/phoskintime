@@ -20,8 +20,7 @@ Packages involved: `processing`, `kinopt`, `tfopt`, `models`, `paramest`, `sensi
 ### Global (network-scale) workflow
 
 Solves a coupled ODE system spanning all genes, proteins, and kinases simultaneously. Calibrated
-against multi-omics time series (protein, mRNA, phospho). Uses Optuna + Pymoo for hyperparameter
-scanning and multi-objective evolutionary optimization.
+against multi-omics time series (protein, mRNA, phospho). Uses JAX/JAXopt for deterministic scalar optimization and Diffrax Kvaerno solvers for ODE integration. The objective is mode-aware and includes only available mRNA, protein, and phospho observations.
 
 Packages involved: `processing`, `networkmodel`, `frechet`, `knockout`.
 
@@ -46,15 +45,16 @@ flowchart TD
     end
 
     subgraph global_wf ["Global Network Workflow"]
-        H["networkmodel/runner.py\n• Optuna + Pymoo optimization\n• scan.py (hyperparameter scan)\n• refine.py (iterative refinement)"]
-        I["networkmodel/simulate.py\n• coupled ODE integration\n• jacspeedup.py (Numba JIT)"]
-        J["networkmodel/sensitivity.py\n• trajectory-based perturbation\n• Morris elementary effects"]
-        K["networkmodel/export.py\n• Pareto front, Excel, plots\n• convergence video"]
-        L["dashboard_app.py\n• Streamlit visualization\n(run via run_dashboard.py)"]
+        H["networkmodel/runner.py\n• data loading\n• topology assembly\n• orchestration"]
+        I["networkmodel/optproblem.py\n• scalar objective wrapper"]
+        J["networkmodel/jax_backend.py\n• Diffrax Kvaerno ODE integration\n• jaxopt.ProjectedGradient\n• JAX float64 numeric path"]
+        K["networkmodel/inference.py\n• ThreadPoolExecutor multistart\n• profiles and posterior helpers"]
+        L["networkmodel/sensitivity.py\n• trajectory-based perturbation"]
+        N["networkmodel/export.py / analysis.py / dashboard_app.py\n• tables\n• plots\n• Streamlit visualization"]
     end
 
     subgraph scripts_box ["Post-Processing Scripts (scripts/)"]
-        M["analyze_tf_kin_counts\ncurve_similarity\nexport_subnetworks\nmechanistic_insights\ntemporal_sensitivity\n..."]
+        M["analyze_tf_kin_counts\ncurve_similarity\nexport_subnetworks\nmechanistic_insights\ntemporal_sensitivity"]
     end
 
     A --> prep
@@ -68,14 +68,16 @@ flowchart TD
     D --> H
     H --> I
     I --> J
-    I --> K
-    K --> L
-    K --> M
+    H --> K
+    K --> J
+    H --> L
+    H --> N
+    N --> M
     G --> M
 ```
 
 > **Note:** The `all` CLI command runs `prep → tfopt → kinopt → model` only. It does **not** invoke
-> `networkmodel`. Run `phoskintime-global` (or `python -m networkmodel.runner`) separately after
+> `networkmodel`. Run `python -m networkmodel.runner` separately after
 > the local pipeline completes.
 
 ---
@@ -148,7 +150,7 @@ phoskintime/
 - **Logging**: Five near-identical `logconf.py` files exist across `config/`, `kinopt/local/config/`,
   `kinopt/evol/config/`, `tfopt/local/config/`, and `tfopt/evol/config/`. They cannot be trivially
   consolidated because each imports `LOG_DIR` and `format_duration` from its own subpackage, and the
-  top-level version adds a `mp_file_logging` parameter. Unification is tracked as a TODO in each file.
+  top-level version adds a `mp_file_logging` parameter. The duplicated loader behavior is documented in each file.
 - **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both load sections of
   `config.toml`. The latter should eventually import from the former to avoid duplication.
 - **`kinopt/` and `tfopt/` mirroring**: Both subpackages expose identical `local/` and `evol/`

@@ -7,9 +7,9 @@
 The `networkmodel` subpackage is the computational core of the PhosKinTime framework. It simulates the dynamic coupling between rapid kinase signaling and slower gene regulatory networks (GRNs) by solving a coupled, nonlinear ODE system, and provides tooling for calibration against time-resolved phosphoproteomics, proteomics, and transcriptomics data.
 
 Key design goals:
-- High-throughput simulation (Numba JIT RHS kernels; sparse topologies).
+- High-throughput simulation through JAX numeric arrays, Diffrax integration, and sparse topologies.
 - Stable, bounded regulation dynamics (saturating transcription/translation modifiers).
-- Optimization-ready API (parameter packing/unpacking, multi-objective loss aggregation).
+- Optimization-ready API (parameter packing/unpacking, single scalar JAXopt loss aggregation).
 - Explicit handling of missing network coverage (proxy logic for orphan TFs).
 
 ---
@@ -340,12 +340,12 @@ The package is structured to separate data management, topology construction, ph
 | Module | Description |
 | --- | --- |
 | `network.py` | Topology engine. Defines the `Index` class mapping biological entities to state-vector indices. Implements proxy rewiring and builds sparse interaction structures. |
-| `models.py` | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics. |
-| `solvers.py` | Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts. |
-| `simulate.py` | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points. |
-| `optproblem.py` | Optimization wrapper. `GlobalODE_MOO` class compatible with `pymoo`; handles parameter unpacking, simulation, and loss aggregation. |
-| `optimizer.py` | Strategy layer. Orchestrates global search (evolutionary / GA), iterative refinement (“zooming”), and hyperparameter tuning (e.g., via Optuna). |
-| `lossfn.py` | Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points. |
+| `models.py` | Physics kernels for distributive, sequential, combinatorial, and saturating kinetics. |
+| `jax_backend.py` | Diffrax integration, JAX observables, weighted multimodal losses, and `jaxopt.ProjectedGradient` helpers. |
+| `simulate.py` | Simulation orchestration. Runs the Diffrax solve and produces measured/observable outputs aligned to experimental time points. |
+| `optproblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` rejects unsupported multi-objective usage. |
+| `inference.py` | Optional multistart, profile-likelihood, and NumPyro posterior routines around the scalar objective. |
+| `lossfn.py` | Error metrics used by helper paths, including robust losses such as Huber and Charbonnier. |
 | `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\). |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.). |
 | `config.py` | Central configuration loader for `config.toml` (paths, solver tolerances, bounds, time grids). |
@@ -372,11 +372,12 @@ Practical requirements:
 ## Implementation Notes
 
 Numerical integration:
-- Inputs \(u_k(t)\) are typically available at discrete experimental times. The solver therefore treats kinase inputs as piecewise-constant (or bucketed) in time, which avoids interpolation-induced artifacts when dynamics are fast relative to sampling.
-- Adaptive RK45 controls local error using absolute/relative tolerances (configured in `config.toml`).
+- Inputs \(u_k(t)\) are typically available at discrete experimental times. The current Diffrax path evaluates kinase inputs through the `KinaseInput` interpolation helper and solves with `Kvaerno4` by default.
+- `DiffraxSolverConfig` exposes `Kvaerno4` and `Kvaerno5`, and absolute/relative tolerances are configured in `config.toml`.
+- `ensure_jax_float64()` enforces `jax_enable_x64=True` for the numerical path.
 
 Performance:
-- RHS kernels are Numba JIT-compiled; hot loops avoid Python object allocation.
+- The JAX backend keeps differentiable calculations in numeric arrays and avoids pandas inside the objective.
 - Sparse adjacency is stored in index lists / CSR-like structures to avoid dense matrix multiplies.
 - Combinatorial topology is exponential in the number of sites per protein; use only for small \(S_g\).
 
@@ -387,3 +388,29 @@ Stability:
 Reproducibility:
 - Keep `config.toml` and interaction maps under version control.
 - Persist fitted parameter sets and seeds for optimization runs; log solver tolerances and objective weights.
+## Scalar Inference Extensions
+
+After deterministic fitting, the PhosKinTime global workflow can run optional scalar-objective inference utilities from `networkmodel.inference` without changing the public config schema:
+
+- **Multistart local inference** runs repeated `jaxopt.ProjectedGradient` solves from deterministic bounded starts. Each worker receives its own copied residual/loss metadata, including observed arrays, active layer terms, bounds, fixed-parameter metadata, solver settings, regularization values, and mode metadata. Failed starts are recorded in `optimization/multistart_summary.csv`; the run raises only when every start fails.
+- **Profile likelihood** fixes one parameter at a time on a bounded grid and re-optimizes the remaining parameters with the same JAX/JAXopt/Diffrax scalar objective. The implementation saves per-parameter profiles and a combined summary in `profiles/`.
+- **Bayesian posterior analysis** uses NumPyro when installed. The posterior model remains JAX-compatible, uses the deterministic scalar objective as the likelihood contribution, includes only active data-layer terms through the objective, and writes samples, summaries, diagnostics, and posterior predictive scalar diagnostics to `posterior/`.
+
+Outputs are organized as:
+
+```text
+results/
+  optimization/best_fit.csv
+  optimization/multistart_summary.csv
+  optimization/multistart_parameters.csv
+  profiles/profile_likelihood_summary.csv
+  profiles/profile_likelihood_<parameter>.csv
+  posterior/posterior_samples.csv
+  posterior/posterior_summary.csv
+  posterior/posterior_predictive.csv
+  plots/multistart/
+  plots/profile_likelihood/
+  plots/posterior/
+```
+
+Parallel multistart execution uses conservative JAX/XLA settings by default (`OMP_NUM_THREADS=1` and `--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1` unless already set) to avoid oversubscription. The selected strategy is logged before starts are launched.

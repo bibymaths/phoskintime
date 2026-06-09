@@ -1,14 +1,4 @@
-"""
-Fast Loss Data Preparation Module.
-
-This script handles the crucial pre-processing step for the optimization loop.
-Instead of performing slow dictionary lookups and string comparisons inside the
-loss function (which runs thousands of times), this module maps all experimental
-data (RNA, Protein, Phospho) onto integer-based grid indices *once*.
-
-The output is a dictionary of contiguous NumPy arrays (indices, observations, weights)
-that can be passed directly to a fast JIT-compiled or Cython loss function.
-"""
+"""Convert observation data frames into compact numeric arrays for fast loss evaluation; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 
 import numpy as np
 import pandas as pd
@@ -17,26 +7,20 @@ from networkmodel.config import MODEL
 
 
 def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
-    """
-    Converts pandas DataFrames of experimental data into integer-based arrays
-    aligned with the simulation state vector and time grid.
-
-    This function performs "pre-indexing":
-    1.  Maps float timepoints to integer indices in `time_grid`.
-    2.  Maps string protein names to integer state indices (`p2i`).
-    3.  Maps specific phosphosites (e.g., "S473") to relative state offsets.
-    4.  Constructs a `prot_map` for fast state slicing.
-
+    """Prepare numeric loss arrays from observation data frames
+    
     Args:
-        idx (IndexMap): Object containing mappings (p2i, sites, n_sites, etc.).
-        df_prot (pd.DataFrame): Protein data columns [protein, time, fc, w].
-        df_rna (pd.DataFrame): RNA data columns [protein, time, fc, w].
-        df_pho (pd.DataFrame): Phospho data columns [protein, psite, time, fc, w].
-        time_grid (array-like): The fixed time points of the simulation solver.
-
+        idx: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        df_pho: Input value used by this routine.
+        time_grid: Input value used by this routine.
+    
     Returns:
-        dict: A dictionary containing keyed NumPy arrays (e.g., 'p_prot', 'obs_prot')
-              ready for the fast loss function.
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
 
     # Pre-compute time index map: Time Value (float) -> Grid Index (int)
@@ -130,18 +114,36 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
             np.asarray(ws, dtype=np.float64),
         )
 
-    # Process all three data types
-    p_prot, t_prot, obs_prot, w_prot = get_indices_basic(df_prot, idx.p2i)
-    p_rna, t_rna, obs_rna, w_rna = get_indices_basic(df_rna, idx.p2i)
-    p_pho, s_pho, t_pho, obs_pho, w_pho = get_indices_phospho(df_pho)
+    def _empty_basic():
+        return (np.asarray([], dtype=np.int32), np.asarray([], dtype=np.int32),
+                np.asarray([], dtype=np.float64), np.asarray([], dtype=np.float64))
 
-    # prot_map: A lookup table for the loss function to know where a protein's data starts in Y.
-    # Structure: [Start Index in Y, Count (sites or states)]
+    def _empty_phospho():
+        return (np.asarray([], dtype=np.int32), np.asarray([], dtype=np.int32),
+                np.asarray([], dtype=np.int32), np.asarray([], dtype=np.float64),
+                np.asarray([], dtype=np.float64))
+
+    # Process only available data types. Empty/missing layers remain empty arrays
+    # and are skipped by the scalar JAX objective rather than padded with zeros.
+    p_prot, t_prot, obs_prot, w_prot = _empty_basic() if df_prot is None or df_prot.empty else get_indices_basic(
+        df_prot, idx.p2i)
+    p_rna, t_rna, obs_rna, w_rna = _empty_basic() if df_rna is None or df_rna.empty else get_indices_basic(df_rna,
+                                                                                                           idx.p2i)
+    p_pho, s_pho, t_pho, obs_pho, w_pho = _empty_phospho() if df_pho is None or df_pho.empty else get_indices_phospho(
+        df_pho)
+
+    # prot_map: A lookup table for the global JAX loss to know where each
+    # protein's block starts in the flattened ODE state vector. The global
+    # networkmodel state layout is:
+    #   MODEL 0/1: [mRNA, unphosphorylated protein, phospho_site_0, ...]
+    #   MODEL 2:   [mRNA, combinatorial protein_state_0, ... protein_state_(2^n-1)]
+    # The second column is therefore n_sites for MODEL 0/1 and n_states for
+    # MODEL 2. n_sites is also exported separately so MODEL 2 phospho rows can
+    # aggregate states with the requested site bit set.
     prot_map = np.zeros((idx.N, 2), dtype=np.int32)
     for i in range(idx.N):
         sl = idx.block(i)
         prot_map[i, 0] = sl.start
-        # If MODEL==2, the state vector structure might differ, requiring total states vs just site count.
         prot_map[i, 1] = int(idx.n_states[i]) if MODEL == 2 else int(idx.n_sites[i])
 
     return {
@@ -149,7 +151,10 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         "p_rna": p_rna, "t_rna": t_rna, "obs_rna": obs_rna, "w_rna": w_rna,
         "p_pho": p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
         "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
-        "n_p": max(1, len(obs_prot)),
-        "n_r": max(1, len(obs_rna)),
-        "n_ph": max(1, len(obs_pho)),
+        "n_sites": np.ascontiguousarray(idx.n_sites, dtype=np.int32),
+        "state_layout": "combinatorial" if MODEL == 2 else "standard",
+        "backend_mode": "networkmodel",
+        "n_p": len(obs_prot),
+        "n_r": len(obs_rna),
+        "n_ph": len(obs_pho),
     }

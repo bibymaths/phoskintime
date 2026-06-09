@@ -1,15 +1,6 @@
 #! /usr/bin/env python3
 
-"""
-Exporting and Visualizing Simulation Results Module
-
-Export and visualize simulation results from global model optimization.
-
-This module provides functions for exporting and visualizing simulation results from global model optimization.
-It includes functions for exporting phosphorylation drive S, scanning prior regularization parameters,
-plotting phosphorylation drive S, generating diagnostic correlation plots, plotting residuals,
-and plotting boxplots of parameters across the Pareto front.
-"""
+"""Write scalar optimization outputs, diagnostic plots, residuals, parameter summaries, and fitted activity tables; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.jacspeedup, networkmodel.params, networkmodel.simulate."""
 
 import json
 import math
@@ -22,8 +13,6 @@ from matplotlib import pyplot as plt, animation
 import matplotlib.colors as mcolors
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
-from pymoo.visualization.pcp import PCP
-from pymoo.visualization.scatter import Scatter
 
 from scipy.interpolate import interp1d
 from scipy.stats import linregress
@@ -31,25 +20,20 @@ from scipy.stats import linregress
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
 from networkmodel.params import unpack_params
 from networkmodel.simulate import simulate_and_measure
-from networkmodel.jacspeedup import build_S_cache_into
+from networkmodel.TimeBucket import build_S_cache_into
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
 
 def build_site_meta(idx):
-    """
-    Returns parallel arrays of length idx.total_sites.
-
+    """Build phosphosite metadata rows from an index map
+    
     Args:
-    ----
-    idx: Index object containing model-specific information.
-
-    Returns
-    -------
-    site_protein: np.ndarray of protein names for each site
-    site_psite: np.ndarray of psite labels for each site
-    site_local: np.ndarray of local site indices within each protein
+        idx: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     total = int(idx.total_sites)
     site_protein = np.empty(total, dtype=object)
@@ -67,156 +51,6 @@ def build_site_meta(idx):
     return site_protein, site_psite, site_local
 
 
-def save_pareto_3d(res, selected_solution=None, output_dir="out_moo"):
-    """
-    Saves a high-quality 3D Scatter plot of the Pareto Front.
-    Highlights the 'selected' balanced solution if provided.
-
-    Args:
-        res: Optimization result object containing Pareto front data.
-        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
-        output_dir: Directory where plots will be saved.
-    """
-    logger.info("[Output] Generating 3D Pareto Plot...")
-
-    # 1. Setup Plot
-    # Angle (elevation, azimuth) for best viewing
-    plot = Scatter(
-        plot_3d=True,
-        angle=(45, 45),
-        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
-        figsize=(10, 8),
-        title=("Pareto Front", {'pad': 20})
-    )
-
-    # 2. Add Data
-    # All solutions in the front
-    plot.add(res.F, color="grey", alpha=0.6, s=30, label="Pareto Solutions")
-
-    # Highlight the picked solution (Red Star)
-    if selected_solution is not None:
-        plot.add(selected_solution, color="red", s=150, marker="*", label="Selected")
-
-    # 3. Save
-    # Pymoo plots wrap Matplotlib, so we can save easily
-    save_path = os.path.join(output_dir, "pareto_front_3d.png")
-    plot.save(save_path)
-    logger.info(f"[Output] Saved: {save_path}")
-
-
-def save_parallel_coordinates(res, selected_solution=None, output_dir="out_moo"):
-    """
-    Saves a Parallel Coordinate Plot (PCP).
-
-    Args:
-        res: Optimization result object containing Pareto front data.
-        selected_solution: Tuple of (fitness, decision variables) for the selected solution.
-        output_dir: Directory where plots will be saved.
-    """
-    logger.info("[Output] Generating Parallel Coordinate Plot...")
-
-    # 1. Setup Plot
-    # normalize_each_axis=True is CRITICAL because MSE errors and Reg loss
-    # might have vastly different magnitudes (e.g. 1000 vs 0.1).
-    plot = PCP(
-        title=("Objective Trade-offs", {'pad': 20}),
-        labels=["Prot MSE", "RNA MSE", "Phospho MSE"],
-        normalize_each_axis=True,
-        figsize=(12, 6),
-        legend=(True, {'loc': "upper left"})
-    )
-
-    # 2. Styling
-    plot.set_axis_style(color="grey", alpha=0.5)
-
-    # 3. Add Data
-    # Background solutions (faint)
-    plot.add(res.F, color="grey", alpha=0.2, linewidth=1)
-
-    # Highlight Selected (Bold Blue)
-    if selected_solution is not None:
-        plot.add(selected_solution, linewidth=4, color="blue", label="Selected")
-
-    # 4. Save
-    save_path = os.path.join(output_dir, "pareto_pcp.png")
-    plot.save(save_path)
-    logger.info(f"[Output] Saved: {save_path}")
-
-
-def create_convergence_video(res, output_dir="out_moo", filename="optimization_history.mp4"):
-    """
-    Creates an animation of the Pareto Front evolution using standard Matplotlib.
-
-    Args:
-        res: Optimization result object containing Pareto front data.
-        output_dir: Directory where video will be saved.
-        filename: Name of the output video file.
-    """
-    logger.info("[Output] Rendering Optimization Video...")
-
-    if not res.history:
-        logger.info("[Warning] No history found. Cannot create video.")
-        return
-
-    # Setup Figure
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Pre-determine bounds so the camera doesn't jump around
-    all_F = np.vstack([e.pop.get("F") for e in res.history])
-    min_f = all_F.min(axis=0)
-    max_f = all_F.max(axis=0)
-
-    def update(frame_idx):
-        ax.clear()
-
-        # Get data for this generation
-        entry = res.history[frame_idx]
-        gen = entry.n_gen
-        F = entry.pop.get("F")
-
-        # Plot
-        ax.scatter(F[:, 0], F[:, 1], F[:, 2], c="blue", s=10, alpha=0.6, label="Population")
-
-        # Reference (Final Result) - Ghosted
-        if res.F is not None:
-            ax.scatter(res.F[:, 0], res.F[:, 1], res.F[:, 2], c="red", s=5, alpha=0.1)
-
-        # Styling
-        ax.set_title(f"Optimization History - Gen {gen}")
-        ax.set_xlabel("Prot MSE")
-        ax.set_ylabel("RNA MSE")
-        ax.set_zlabel("Phospho MSE")
-        ax.set_xlim(min_f[0], max_f[0])
-        ax.set_ylim(min_f[1], max_f[1])
-        ax.set_zlim(min_f[2], max_f[2])
-        ax.view_init(elev=45, azim=45)
-
-    # Create Animation
-    # We skip frames to make it render faster (every 5th gen)
-    frames = list(range(0, len(res.history), 5))
-    if len(res.history) - 1 not in frames:
-        frames.append(len(res.history) - 1)
-
-    ani = animation.FuncAnimation(fig, update, frames=frames, interval=200)
-
-    # Save (Try MP4 via ffmpeg, fallback to GIF via Pillow)
-    save_path = os.path.join(output_dir, filename)
-
-    try:
-        # Try saving highly compressed MP4
-        ani.save(save_path, writer='ffmpeg', fps=5, dpi=300)
-        logger.info(f"[Output] Video saved: {save_path}")
-    except Exception:
-        # Fallback to GIF (universally supported, no ffmpeg needed)
-        gif_path = save_path.replace(".mp4", ".gif")
-        logger.info("[System] FFMPEG not found. Falling back to GIF...")
-        ani.save(gif_path, writer='pillow', fps=5, dpi=300)
-        logger.info(f"[Output] Video saved: {gif_path}")
-
-    plt.close()
-
-
 def export_pareto_front_to_excel(
         res,
         sys,
@@ -232,30 +66,25 @@ def export_pareto_front_to_excel(
         atol=1e-7,
         mxstep=5000,
 ):
-    """
-    Export all Pareto solutions into one Excel workbook.
-
-    Writes sheets:
-      - summary: objectives + scalar score + rank + weights
-      - params_genes: per-protein parameters for each sol_id (long format)
-      - params_kinases: per-kinase parameters for each sol_id (long format)
-      - traj_protein: trajectories per sol_id (long format)
-      - traj_rna: trajectories per sol_id (long format)
-      - traj_phospho: trajectories per sol_id (long format)
-
-    Notes:
-      - This can get HUGE if you have many Pareto points. Use top_k_trajectories.
-      - The function assumes res.X and res.F exist.
-
+    """Export scalar optimization trajectories and summaries to Excel
+    
     Args:
-        res: Optimization result object containing Pareto front data.
-        sys: System object containing model-specific information.
-        idx: Index object containing protein/kinase metadata.
-        slices: Slices for trajectory data (e.g., time points for protein, RNA, and phospho data).
-        output_path: Path to save the Excel workbook.
-        weights = (w_prot, w_rna, w_phos) used for scalar score + ranking.
-        top_k_trajectories: None = export trajectories for all solutions; else only top K by scalar score.
-        t_points_p, t_points_r, t_points_ph: Optional time points for trajectory data.
+        res: Input value used by this routine.
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        slices: Input value used by this routine.
+        output_path: Input value used by this routine.
+        weights: Input value used by this routine.
+        top_k_trajectories: Input value used by this routine.
+        t_points_p: Input value used by this routine.
+        t_points_r: Input value used by this routine.
+        t_points_ph: Input value used by this routine.
+        rtol: Input value used by this routine.
+        atol: Input value used by this routine.
+        mxstep: Input value used by this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     X = np.asarray(res.X)
     F = np.asarray(res.F)
@@ -270,18 +99,28 @@ def export_pareto_front_to_excel(
     w_prot, w_rna, w_phos = map(float, weights)
 
     # ---- Summary + ranking ----
-    df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+    F = np.asarray(F)
+    if F.ndim == 1 or (F.ndim == 2 and F.shape[1] == 1):
+        # New global JAX scalar objective: F contains a single scalar score per
+        # solution. Do not create legacy prot_mse/rna_mse/phospho_mse columns.
+        scalar_vals = F.reshape(-1)
+        df_summary = pd.DataFrame({"scalar_score": scalar_vals})
+    elif F.ndim == 2 and F.shape[1] == 3:
+        # Legacy 3-objective table
+        df_summary = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
+        # derive scalar_score from weighted sum
+        df_summary["scalar_score"] = (
+                w_prot * df_summary["prot_mse"]
+                + w_rna * df_summary["rna_mse"]
+                + w_phos * df_summary["phospho_mse"]
+        )
+    else:
+        raise ValueError(f"Expected scalar F with shape (n,) or (n, 1), or legacy F with shape (n, 3). Got {F.shape}.")
+
     df_summary.insert(0, "sol_id", np.arange(len(df_summary), dtype=int))
     df_summary["w_prot"] = w_prot
     df_summary["w_rna"] = w_rna
     df_summary["w_phos"] = w_phos
-
-    # scalar score for ranking / convenience
-    df_summary["scalar_score"] = (
-            w_prot * df_summary["prot_mse"]
-            + w_rna * df_summary["rna_mse"]
-            + w_phos * df_summary["phospho_mse"]
-    )
 
     # rank: 1 = best
     df_summary["rank"] = df_summary["scalar_score"].rank(method="dense").astype(int)
@@ -365,7 +204,7 @@ def export_pareto_front_to_excel(
 
         # ----- trajectories (optional / top-K) -----
         if sol_id in sol_ids_for_traj:
-            # use your existing measurement function (calls simulate_odeint internally)
+            # use your existing measurement function (calls simulate_diffrax internally)
             dfp, dfr, dfph = simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_ph)
 
             if dfp is not None and not dfp.empty:
@@ -410,24 +249,12 @@ def export_pareto_front_to_excel(
         df_traj_r.to_excel(writer, sheet_name="traj_rna", index=False)
         df_traj_ph.to_excel(writer, sheet_name="traj_phospho", index=False)
 
-    logger.info(f"[Output] Pareto export saved: {output_path}")
+    logger.info(f"[Output] Scalar export saved: {output_path}")
     logger.info(f"[Output] Solutions: {len(df_summary)} | Traj exported for: {len(sol_ids_for_traj)}")
 
 
 def _standardize_merged_fc(df, obs_suffix="_obs", pred_suffix="_pred"):
-    """
-    Standardizes a merged DataFrame with suffixes to produce columns: fc_obs, fc_pred.
-    Supports common input names: fc, pred_fc, fc_obs/fc_pred already present.
-
-    Args:
-        df: DataFrame with merged data.
-        obs_suffix: Suffix for observed data columns.
-        pred_suffix: Suffix for predicted data columns.
-
-    Returns
-    -------
-        Standardized DataFrame with fc_obs and fc_pred columns.
-    """
+    """Handle internal standardize merged fc"""
     if {"fc_obs", "fc_pred"}.issubset(df.columns):
         return df
 
@@ -465,19 +292,20 @@ def plot_goodness_of_fit(df_prot_obs, df_prot_pred,
                          df_rna_obs, df_rna_pred,
                          df_phos_obs, df_phos_pred,
                          output_dir, file_prefix=""):
-    """
-    Plots goodness of fit for protein, RNA, and phosphorylation data.
-
+    """Plot observed-versus-predicted goodness of fit
+    
     Args:
-        df_prot_obs: Protein observed data DataFrame.
-        df_prot_pred: Protein predicted data DataFrame.
-        df_rna_obs: RNA observed data DataFrame.
-        df_rna_pred: RNA predicted data DataFrame.
-        df_phos_obs: Phosphorylation observed data DataFrame.
-        df_phos_pred: Phosphorylation predicted data DataFrame.
-        output_dir: Directory where plots will be saved.
-        file_prefix: Prefix for output file names.
-
+        df_prot_obs: Input value used by this routine.
+        df_prot_pred: Input value used by this routine.
+        df_rna_obs: Input value used by this routine.
+        df_rna_pred: Input value used by this routine.
+        df_phos_obs: Input value used by this routine.
+        df_phos_pred: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        file_prefix: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
 
     def _robust_sigma(residuals: np.ndarray) -> float:
@@ -693,13 +521,25 @@ def plot_gof_from_pareto_excel(
         only_solutions=None,
         score_col: str = "scalar_score",
 ):
-    """
-    Uses the Excel produced by export_pareto_front_to_excel to plot goodness of fit
-
-      - summary
-      - traj_protein (sol_id, protein, time, pred_fc)
-      - traj_rna     (sol_id, protein, time, pred_fc)
-      - traj_phospho (sol_id, protein, psite, time, pred_fc)
+    """Plot goodness of fit from an exported Excel workbook
+    
+    Args:
+        excel_path: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        plot_goodness_of_fit_func: Input value used by this routine.
+        df_prot_obs_all: Input value used by this routine.
+        df_rna_obs_all: Input value used by this routine.
+        df_phos_obs_all: Input value used by this routine.
+        traj_protein_sheet: Input value used by this routine.
+        traj_rna_sheet: Input value used by this routine.
+        traj_phospho_sheet: Input value used by this routine.
+        summary_sheet: Input value used by this routine.
+        top_k: Input value used by this routine.
+        only_solutions: Input value used by this routine.
+        score_col: Input value used by this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -831,19 +671,21 @@ def export_results(
         df_pred_ph,
         output_dir,
 ):
-    """
-    Export pre-computed observed + predicted trajectories and model parameters.
-
+    """Export fitted trajectories and summary outputs
+    
     Args:
-        sys: System object containing model information.
-        idx: Index of the solution to export.
-        df_prot_obs: Protein observed data DataFrame.
-        df_rna_obs: RNA observed data DataFrame.
-        df_phos_obs: Phosphorylation observed data DataFrame.
-        df_pred_p: Protein predicted data DataFrame.
-        df_pred_r: RNA predicted data DataFrame.
-        df_pred_ph: Phosphorylation predicted data DataFrame.
-        output_dir: Directory where results will be saved.
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        df_prot_obs: Input value used by this routine.
+        df_rna_obs: Input value used by this routine.
+        df_phos_obs: Input value used by this routine.
+        df_pred_p: Input value used by this routine.
+        df_pred_r: Input value used by this routine.
+        df_pred_ph: Input value used by this routine.
+        output_dir: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -993,12 +835,30 @@ def save_gene_timeseries_plots(
         phos_mode: str = "per_psite",  # "mean" or "per_psite"
         max_psites: int = None,  # only used for per_psite
 ):
-    """
-    Save a 3-panel time-series plot for one protein link:
-      - Protein observed vs predicted (fc vs fc_pred)
-      - RNA observed vs predicted
-      - Phosphorylation observed vs predicted (either mean across psites or per-psite lines
-
+    """Save per-gene observed and predicted time-series plots
+    
+    Args:
+        gene: Input value used by this routine.
+        df_prot_obs: Input value used by this routine.
+        df_prot_pred: Input value used by this routine.
+        df_rna_obs: Input value used by this routine.
+        df_rna_pred: Input value used by this routine.
+        df_phos_obs: Input value used by this routine.
+        df_phos_pred: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        prot_times: Input value used by this routine.
+        rna_times: Input value used by this routine.
+        phos_times: Input value used by this routine.
+        filename_prefix: Input value used by this routine.
+        dpi: Input value used by this routine.
+        phos_mode: Input value used by this routine.
+        max_psites: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1171,99 +1031,22 @@ def save_gene_timeseries_plots(
     return out_path
 
 
-def scan_prior_reg(out_dir):
-    """
-    Scan prior regularization parameters and save Pareto front plots.
-
-    Args:
-        out_dir: Directory containing output files.
-    """
-    F = np.load(os.path.join(out_dir, "pareto_F.npy"))
-
-    if F.ndim != 2 or F.shape[1] != 3:
-        raise ValueError(f"Expected F shape (n, 3) = [prot_mse, rna_mse, phospho_mse]. Got {F.shape}")
-
-    lambda_prot_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
-    lambda_rna_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
-    lambda_phos_grid = np.logspace(-2, 2, 9)  # 0.01 .. 100
-    lambda_prior_grid = np.logspace(-4, 0, 9)  # 1e-4 .. 1
-
-    prot = F[:, 0].astype(float)
-    rna = F[:, 1].astype(float)
-    phos = F[:, 2].astype(float)
-
-    rows = []
-    for lprot in lambda_prot_grid:
-        for lrna in lambda_rna_grid:
-            for լph in lambda_phos_grid:
-                base = (float(lprot) * prot) + (float(lrna) * rna) + (float(լph) * phos)
-
-                for lprior in lambda_prior_grid:
-                    if float(lprior) <= 0:
-                        raise ValueError("lambda_prior must be > 0 to preserve ordering / meaning.")
-
-                    score = float(lprior) * base
-                    best_i = int(np.argmin(score))
-                    best_score = float(score[best_i])
-
-                    rows.append({
-                        "lambda_prot": float(lprot),
-                        "lambda_rna": float(lrna),
-                        "lambda_phospho": float(լph),
-                        "lambda_prior": float(lprior),
-                        "best_i": best_i,
-                        "best_score": best_score,
-                        "prot_mse": float(prot[best_i]),
-                        "rna_mse": float(rna[best_i]),
-                        "phospho_mse": float(phos[best_i]),
-                    })
-
-    df = pd.DataFrame(rows).sort_values(
-        ["lambda_prot", "lambda_rna", "lambda_phospho", "lambda_prior"],
-        ignore_index=True
-    )
-    df.to_csv(os.path.join(out_dir, "lambda_scan.csv"), index=False)
-
-    # also save the unique picked solutions (often repeats)
-    uniq = df.drop_duplicates("best_i").copy()
-    uniq.to_csv(os.path.join(out_dir, "lambda_scan_unique_picks.csv"), index=False)
-
-    # “recommended” choice: pick the best (prot, then rna, then phos) among unique picks
-    cand = uniq.sort_values(["prot_mse", "rna_mse", "phospho_mse"], ignore_index=True).iloc[0]
-    rec = {
-        "lambda_prot": float(cand["lambda_prot"]),
-        "lambda_rna": float(cand["lambda_rna"]),
-        "lambda_phospho": float(cand["lambda_phospho"]),
-        "lambda_prior": float(cand["lambda_prior"]),
-        "best_i": int(cand["best_i"]),
-        "objectives": {
-            "prot_mse": float(cand["prot_mse"]),
-            "rna_mse": float(cand["rna_mse"]),
-            "phospho_mse": float(cand["phospho_mse"]),
-        },
-        "note": "lambda_prior is a global multiplier; it does not change best_i for fixed F (only rescales best_score).",
-    }
-    with open(os.path.join(out_dir, "lambda_scan_recommended.json"), "w") as f:
-        json.dump(rec, f, indent=2)
-
-    logger.info(
-        "[Output] Lambda scan complete. "
-    )
-
-    return df, uniq, rec
-
-
 def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=True):
-    """
-    Export phosphorylation drive S for optimized parameters.
-    S is per-site and per time-runner (TIME_POINTS_PROTEIN / sys.kin_grid).
-
+    """Export phosphorylation-rate trajectories
+    
     Args:
-        sys: System object containing model information.
-        idx: Index of the solution to export.
-        output_dir: Directory where results will be saved.
-        filename: Name of the output file.
-        long: If True, output in long format (protein, psite, time, S); otherwise, wide format.
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        filename: Input value used by this routine.
+        long: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+        RuntimeError: When optimization or simulation fails.
     """
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1335,10 +1118,32 @@ def plot_s_rates_report(
         heatmap_per_protein: bool = True,
         heatmap_cap_sites: int = 80,  # cap number of rows in a heatmap (rank by AUC)
         agg_duplicates: str = "mean",  # if repeated (protein,psite,time)
-        dpi: int = 150,
+        dpi: int = 300,
 ) -> Path:
-    """
-    Plot phosphorylation drive S for optimized parameters.
+    """Plot phosphorylation-rate reports from CSV data
+    
+    Args:
+        csv_path: Input value used by this routine.
+        out_pdf: Input value used by this routine.
+        time_col: Input value used by this routine.
+        value_col: Input value used by this routine.
+        protein_col: Input value used by this routine.
+        psite_col: Input value used by this routine.
+        log_x: Input value used by this routine.
+        top_k_sites_per_protein: Input value used by this routine.
+        max_sites_per_page: Input value used by this routine.
+        ncols: Input value used by this routine.
+        normalize_per_site: Input value used by this routine.
+        heatmap_per_protein: Input value used by this routine.
+        heatmap_cap_sites: Input value used by this routine.
+        agg_duplicates: Input value used by this routine.
+        dpi: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
     """
     csv_path = Path(csv_path)
     out_pdf = Path(out_pdf)
@@ -1372,8 +1177,8 @@ def plot_s_rates_report(
         y = g[value_col].to_numpy(dtype=float)
         if t.size < 2:
             return float(y[0]) if y.size else 0.0
-        # trapz assumes t sorted
-        return float(np.trapz(y, t))
+        # trapezoid assumes t sorted
+        return float(np.trapezoid(y, t))
 
     auc_df = (
         df.groupby([protein_col, psite_col], as_index=False)
@@ -1571,16 +1376,14 @@ def plot_s_rates_report(
 
 
 def process_convergence_history(res, output_dir):
-    """
-    Extract and save optimization convergence history.
-
+    """Export convergence-history tables and plots
+    
     Args:
-        res: Pymoo optimization result object with history attribute
-        output_dir: Directory path to save outputs
-
+        res: Input value used by this routine.
+        output_dir: Input value used by this routine.
+    
     Returns:
-        pd.DataFrame: Convergence history dataframe with columns
-                     [n_evals, gen, min_prot_mse, min_rna_mse, min_phos_mse]
+        Computed result from this routine.
     """
 
     if res.history is None:
@@ -1634,8 +1437,14 @@ def process_convergence_history(res, output_dir):
 
 
 def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
-    """
-    Calculates and saves the effective Kinase Activity (Profile * c_k) over time.
+    """Export kinase activity trajectories
+    
+    Args:
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        t_max: Input value used by this routine.
+        n_points: Input value used by this routine.
     """
     # Create time grid for plotting
     t_grid = np.linspace(0, t_max, n_points)
@@ -1691,19 +1500,18 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
 
 
 def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
-    """
-    Plots kinase parameter correlation across Pareto front and gene parameter correlation for best solution.
-
+    """Export parameter-correlation diagnostics
+    
     Args:
-        res: Result object containing optimization results.
-        slices: Dictionary of parameter slices.
-        idx: Index object containing model indices.
-        output_dir: Directory where results will be saved.
-        best_idx: Index of the best solution to plot gene parameter correlations.
+        res: Input value used by this routine.
+        slices: Input value used by this routine.
+        idx: Input value used by this routine.
+        output_dir: Input value used by this routine.
+        best_idx: Input value used by this routine.
     """
     X = res.X
 
-    # --- Plot 1: Kinase Parameter Correlation (Pareto Front) ---
+    # --- Plot 1: Kinase Parameter Correlation (scalar objective table) ---
     # This shows if kinases are "fighting" each other or identifiable
     kin_slice = slices["c_k"]
     X_kin = X[:, kin_slice]
@@ -1722,7 +1530,7 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
             yticklabels=True,
             vmin=-1, vmax=1
         )
-        plt.title("Correlation of Kinase Parameters (Pareto Set)", fontsize=16)
+        plt.title("Correlation of Kinase Parameters (Scalar Set)", fontsize=16)
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "correlation_kinases_pareto.png"), dpi=300)
         plt.close()
@@ -1774,9 +1582,15 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
 
 
 def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
-    """
-    Calculates and plots residuals (Observed - Predicted) for the best solution.
-    Helps identify systematic bias (e.g., 'Always under-predicts at t=10' or 'Always over-predicts at t=100').
+    """Export residual tables for fitted observations
+    
+    Args:
+        sys: Input value used by this routine.
+        idx: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        df_phos: Input value used by this routine.
+        output_dir: Input value used by this routine.
     """
     # 1. Get Predictions on data timepoints
     # We need to extract the exact timepoints from the dataframes
@@ -1833,15 +1647,13 @@ def export_residuals(sys, idx, df_prot, df_rna, df_phos, output_dir):
 
 
 def export_parameter_distributions(res, slices, idx, output_dir):
-    """
-    Plots boxplots of parameters across the ENTIRE Pareto front.
-    Shows which parameters are 'identifiable' (tight box) vs 'sloppy' (wide box).
-
+    """Export optimized parameter distribution plots
+    
     Args:
-        res: Optimization result object containing Pareto front data.
-        slices: Dictionary mapping parameter names to their column indices in res.X.
-        idx: Index object containing model-specific information.
-        output_dir: Directory where plots will be saved.
+        res: Input value used by this routine.
+        slices: Input value used by this routine.
+        idx: Input value used by this routine.
+        output_dir: Input value used by this routine.
     """
     X = res.X
 
@@ -1857,7 +1669,7 @@ def export_parameter_distributions(res, slices, idx, output_dir):
         sorted_idx = df_kin.median().sort_values(ascending=False).index
         sns.boxplot(data=df_kin[sorted_idx], color="lightblue")
         plt.xticks(rotation=90)
-        plt.title("Uncertainty in Kinase Parameters (Pareto Front Distribution)")
+        plt.title("Uncertainty in Kinase Parameters (scalar objective table Distribution)")
         plt.ylabel("Activity Multiplier (c_k)")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"dist_kinases_uncertainty.png"), dpi=300)
