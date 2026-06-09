@@ -12,8 +12,8 @@
 
 [paths]
 data_dir      = "data"
-results_dir   = "results_model"
-logs_dir      = "results_model/logs"
+results_dir   = "results_model_jax"
+logs_dir      = "results_model_jax/logs"
 ode_data_dir  = "data"
 
 
@@ -183,7 +183,7 @@ method = "NSGA-II"
 # After setting the results_dir and logs_dir globally above,
 # you can set the model type here to have separate output folders
 # for each model type.
-model = "randmod"
+model = "distmod"
 
 # Upper bounds used in parameter fitting / priors
 [ode.bounds]
@@ -239,8 +239,8 @@ rna_excel     = "data/tfopt_results.xlsx"
 
 # Output naming (optional)
 [ode.output]
-out_dir_name = ""   # if empty, code can use "<ModelType>_results"
-out_xlsx_name = ""  # if empty, code can use "<ModelType>_results.xlsx"
+out_dir_name = "results_protwise_jax"   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = "results_protwise_jax.xlsx"  # if empty, code can use "<ModelType>_results.xlsx"
 
 # ============================================================
 # GLOBAL MODEL (Integrated ODE Optimization)
@@ -273,31 +273,14 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_model_global_distributive_knockout"  # Output directory
+output_dir = "results_model_global_distributive_jax"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
-
 # ------------------------------------------------------------
-# OPTIMIZER SELECTION
+# OPTIMIZATION PARAMETERS (JAXopt)
 # ------------------------------------------------------------
-optimizer = "pymoo"          # Optimization backend: "optuna" or "pymoo"
-
-# ------------------------------------------------------------
-# OPTIMIZATION PARAMETERS (Optuna)
-# ------------------------------------------------------------
-study_name = "phoskintime_networkmodel_ABL2"  # Optuna study name
-sampler    = "TPESampler"           # Optuna sampler: TPESampler, RandomSampler, CMAESampler
-pruner     = "MedianPruner"         # Optuna pruner: MedianPruner, NopPruner, SuccessiveHalvingPruner
-n_trials  = 1000                      # Number of Optuna trials
-
-# ------------------------------------------------------------
-# OPTIMIZATION PARAMETERS (Pymoo)
-# ------------------------------------------------------------
-n_gen      = 1000                       # Generations (runner arg: --n-gen)
-pop        = 300                       # Population size (runner arg: --pop)
-refine     = false                     # Run 2nd pass with tighter bounds (runner arg: --refine)
-num_refinements = 0                       # Number of refinements
-loss = 0
+n_gen      = 30                       # Maximum local optimizer iterations (runner arg: --n-gen)
+loss = 2
 # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
 # -1 for Charbonnier Loss
 
@@ -318,7 +301,7 @@ hyperparam_scan = false              # Enable hyperparameter scan
 # DATA INFERENCE FLAGS
 # ------------------------------------------------------------
 normalize_fc_steady = false             # Normalize data to t=0 (runner arg: --normalize-fc-steady)
-use_initial_condition_from_data = false  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
+use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
 
 # ------------------------------------------------------------
 # DATA SCALING OPTIONS
@@ -347,14 +330,27 @@ weighting_method_phospho = "uniform"   # Weighting for phospho data
 # ------------------------------------------------------------
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
-sensitivity_analysis = true          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
+sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
 sensitivity_perturbation = 0.05        # Perturbation for sensitivity analysis
 sensitivity_trajectories = 100       # Number of trajectories for Morris method
 sensitivity_levels = 40              # Number of levels for Morris method
 sensitivity_top_curves = 20              # Number of top curves to plot in sensitivity analysis
-sensitivity_metric = "total_signal"          #  ["total_signal", "mean", "variance", "l2_norm"]
+sensitivity_metric = "l2_norm"          #  ["total_signal", "mean", "variance", "l2_norm"]
 # ------------------------------------------------------------
 
+# ------------------------------------------------------------
+# INFERENCE / POST-OPTIMIZATION ANALYSES
+# ------------------------------------------------------------
+# --- Inference / Multistart ---
+n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
+# --- Profile Likelihood (post-optimization) ---
+profile_likelihood = false
+profile_indices = "88" # , 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
+profile_grid_size = 5
+# --- Posterior Sampling (post-optimization, requires numpyro) ---
+posterior_sampling = false
+posterior_num_warmup = 20
+posterior_num_samples = 30
 
 # MODEL & BOUNDS CONFIGURATION
 # ------------------------------------------------------------
@@ -403,4 +399,3 @@ default_model = "distributive"
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
 max_timesteps = 200000
-use_custom_solver = false

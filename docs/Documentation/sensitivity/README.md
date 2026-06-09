@@ -86,7 +86,7 @@ sensitivity_metric        = "total_signal"
 Runs automatically after optimization if `sensitivity_analysis = true` in `config.toml`:
 
 ```bash
-phoskintime-global
+python -m networkmodel.runner
 ```
 
 Or triggered from `networkmodel/runner.py` directly.

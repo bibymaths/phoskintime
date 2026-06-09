@@ -138,7 +138,8 @@ def model(
     Returns:
         None
     """
-    _run(_python_module("runner.main", conf))
+    _run(_python_module("protwise.runner.main", conf))
+
 
 @app.command()
 def networkmodel(
@@ -190,6 +191,7 @@ def clean():
                 typer.echo(f"Error deleting {path}: {e}")
 
     typer.echo(f"Cleaned up {count} cached files and directories.")
+
 
 @app.command()
 def all(

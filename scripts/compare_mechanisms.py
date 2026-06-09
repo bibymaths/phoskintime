@@ -17,10 +17,10 @@ import imageio.v2 as imageio
 from networkmodel import config
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.simulate import simulate_and_measure
-from networkmodel.analysis import simulate_until_steady
+from networkmodel.SteadyStateAnalysis import simulate_until_steady
 from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.io import load_data
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.utils import normalize_fc_to_t0
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
@@ -1840,7 +1840,7 @@ st.caption(
     "or the browser will become heavy."
 )
 
-from networkmodel.simulate import simulate_odeint  # uses odeint under the hood
+from networkmodel.simulate import simulate_diffrax
 
 
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):
@@ -1874,10 +1874,10 @@ def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval:
         # Ensure monotonic and no NaNs/Infs
         t_grid = t_grid[np.isfinite(t_grid)]
         # If you ever end up with repeats, allow them but keep order
-        # (odeint allows repeated values, but must be monotonic)
+        # Diffrax requires strictly increasing values for this comparison grid
         t_grid.sort()
 
-    Y = simulate_odeint(sys, t_grid, rtol=1e-6, atol=1e-8, mxstep=50000)
+    Y = simulate_diffrax(sys, t_grid, rtol=1e-6, atol=1e-8, max_steps=50000)
     y_last = np.asarray(Y[-1], dtype=float)
 
     Kt = sys.kin.eval(t_eval) * sys.c_k

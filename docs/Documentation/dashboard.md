@@ -11,7 +11,7 @@ global network model optimization.
 
 The main Streamlit application. It loads result files from a specified output directory and renders:
 
-- **Pareto frontier** (3D scatter: protein MSE × RNA MSE × phospho MSE)
+- **Scalar objective diagnostics** for the JAXopt/Diffrax run
 - **Convergence history** (fitness over generations)
 - **Goodness of fit** (predicted vs. observed for protein, RNA, phospho)
 - **Residuals analysis**
@@ -25,7 +25,7 @@ Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 | Field | Description |
 |---|---|
 | `args` | Command-line arguments from the runner |
-| `picked_index` | Index of the selected Pareto solution |
+| `picked_index` | Index of the selected scalar-objective solution |
 | `frechet_scores` | Fréchet distance scores per protein |
 | `lambdas` | Lambda regularization values |
 | `solver_times` | ODE solver timing per protein |
@@ -33,7 +33,7 @@ Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 | `slices` | Parameter slices |
 | `xl` / `xu` | Lower / upper parameter bounds |
 
-The bundle avoids pickling complex Pymoo objects, making it portable across Python sessions.
+The bundle stores scalar objective arrays and mode metadata, making it portable across Python sessions.
 
 ### `run_dashboard.py`
 
@@ -48,7 +48,8 @@ The dashboard looks for files in the `--output-dir` you specify. Required / opti
 | File | Status | Description |
 |---|---|---|
 | `dashboard_bundle.pkl` | Required | Saved by `networkmodel/runner.py` after optimization |
-| `pareto_F.csv` | Optional (falls back to bundle) | Pareto objective values |
+| `scalar_objective.csv` | Preferred | Scalar objective values with mode metadata |
+| `pareto_F.csv` | Backward-compatible alias | Scalar objective values |
 | `convergence_history.csv` | Optional | Generation-by-generation convergence |
 | `pred_prot_picked.csv` | Optional | Predicted protein time series (picked solution) |
 | `pred_rna_picked.csv` | Optional | Predicted RNA time series (picked solution) |
@@ -75,21 +76,20 @@ Streamlit will start a local web server. The default URL is:
 http://localhost:8501
 ```
 
-### Option 2: Via the phoskintime-global entry point
+### Option 2: Via the networkmodel runner entry point
 
-`phoskintime-global` runs `networkmodel/runner.py`. All settings default to `config.toml` values
+`python -m networkmodel.runner` runs `networkmodel/runner.py`. All settings default to `config.toml` values
 and can be overridden via CLI arguments:
 
 ```bash
 # Run with defaults from config.toml
-phoskintime-global
+python -m networkmodel.runner
 
 # Override specific settings
-phoskintime-global \
+python -m networkmodel.runner \
   --output-dir results_global \
   --n-gen 500 \
-  --pop 200 \
-  --solver pymoo
+  --solver jaxopt
 ```
 
 Key arguments (all optional — defaults come from `config.toml`):
@@ -101,11 +101,9 @@ Key arguments (all optional — defaults come from `config.toml`):
 | `--ms` | Path to MS protein data |
 | `--rna` | Path to RNA data |
 | `--output-dir` | Output directory |
-| `--n-gen` | Number of generations |
-| `--pop` | Population size |
-| `--solver` | `pymoo` or `optuna` |
+| `--n-gen` | Maximum JAXopt iterations |
+| `--solver` | `jaxopt`; legacy values are accepted and mapped with warnings |
 | `--sensitivity` | Enable sensitivity analysis |
-| `--refine` | Enable refinement pass |
 | `--scan` | Run hyperparameter scan |
 
 This runs the full optimization pipeline via `networkmodel/runner.py` and saves the bundle.
@@ -123,7 +121,7 @@ python run_dashboard.py --output-dir results_model_global_distributive_knockout
 
 | Symptom | Likely cause |
 |---|---|
-| `FileNotFoundError: dashboard_bundle.pkl` | Run `phoskintime-global` first to generate results |
+| `FileNotFoundError: dashboard_bundle.pkl` | Run `python -m networkmodel.runner` first to generate results |
 | `KeyError` on bundle fields | Bundle was saved by an older version; re-run the optimizer |
 | Streamlit not found | Install streamlit: `pip install streamlit` |
 | Empty plots | Result CSVs are missing; check `--output-dir` path |
@@ -135,7 +133,7 @@ python run_dashboard.py --output-dir results_model_global_distributive_knockout
 Streamlit defaults to port **8501**. To use a different port:
 
 ```bash
-streamlit run run_dashboard.py --server.port 8502 -- --output-dir ...
+streamlit run run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
 ```
 
 ---
@@ -149,3 +147,17 @@ streamlit run run_dashboard.py --server.port 8502 -- --output-dir ...
 
 This separation ensures the dashboard can be launched independently from the optimization run,
 and makes the bundle serialization independent of UI concerns.
+
+## Inference Outputs
+
+The dashboard includes an **Inference** tab when optional inference files are present. It displays:
+
+- `optimization/best_fit.csv`
+- `optimization/multistart_summary.csv`
+- `optimization/multistart_parameters.csv`
+- `profiles/profile_likelihood_summary.csv`
+- `posterior/posterior_summary.csv`
+- `posterior/posterior_samples.csv`
+- plots from `plots/multistart/`, `plots/profile_likelihood/`, and `plots/posterior/`
+
+These are diagnostic scalar-objective summaries, not true multi-objective optimizer fronts.

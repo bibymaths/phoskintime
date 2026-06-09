@@ -1,357 +1,150 @@
-# PhoskinTime — Interpretation & Development Notes
+# Interpreting `networkmodel` Outputs
 
-This document captures how to interpret outputs from the global phosphorylation–transcription model and what to keep in
-mind during further development.
+This document describes how to read outputs that are currently produced by the integrated `networkmodel` scalar JAXopt
+workflow. It covers fitted trajectories, scalar objective diagnostics, parameter summaries, sensitivity outputs,
+inference outputs, and dashboard files written by the implemented modules in this package.
 
----
+## What this module does not do
 
-## 1. Core Principle
+- It does not infer causal certainty from a fitted edge or parameter.
+- It does not implement node-deletion knockout simulation as part of the documented runner path.
+- It does not report retired multi-objective fronts from the current scalar optimizer.
+- It does not guarantee that every optional analysis exists unless the corresponding flag or configuration toggle was
+  enabled and its dependencies are installed.
 
-This model is **dynamical and mechanistic**, not purely statistical.
+## Core interpretation principle
 
-- Outputs are **emergent behaviors** of an ODE system.
-- Every observed effect is a **result of parameterized biochemical processes**:
-    - kinase activity → phosphorylation
-    - phosphorylation → protein state
-    - protein state → transcriptional regulation
+The fitted outputs are trajectories from a parameterized ODE system. A predicted change should be interpreted as the
+model's propagated response under the fitted parameters, observed time grid, topology, and loss weights, not as a
+standalone correlation.
 
-**Do not interpret outputs as correlations. Interpret them as propagated mechanistic effects.**
+The three fitted layers are:
 
----
+- protein observations from the mass-spectrometry input,
+- RNA observations from the RNA input,
+- phospho observations from the phospho input after the mechanistic kinase-site filter in `runner.py`.
 
-## 2. What a Knockout (KO) Means
+## Fitted trajectory tables and plots
 
-A KO is implemented as a **parameter perturbation**, not node removal.
+Protein, RNA, and phospho trajectory outputs compare observed fold-change values with model-predicted values on the
+configured time grids:
 
-### Types:
-
-- **Protein KO** → scaling `A_i` (synthesis)
-- **Kinase KO** → scaling `Kmat` and `c_k`
-
-### Implications:
-
-- The node still exists in the system.
-- Its **activity is suppressed**, not structurally deleted.
-- Downstream effects arise through:
-    - reduced phosphorylation flux
-    - altered steady-state protein levels
-    - modified TF activity
-
----
-
-## 3. Interpretation of Outputs
-
-### 3.1 Log2 Impact (KO / WT)
-
-- Measures **steady-state shift**
-- Interpretation:
-    - `≈ 0` → no effect
-    - `> 0` → upregulation after KO
-    - `< 0` → downregulation after KO
-
-⚠️ This is **not sensitivity**. It is endpoint behavior.
-
----
-
-### 3.2 Sensitivity Score (Trajectory Difference)
-
-- Computed as:
-
+```text
+TIME_POINTS_PROTEIN -> protein fitted trajectories
+TIME_POINTS_RNA -> RNA fitted trajectories
+TIME_POINTS_PHOSPHO -> phospho fitted trajectories
 ```
 
-Σ |WT(t) - KO(t)|
+Use these plots to check whether the optimized scalar objective is fitting the available data layers with comparable
+quality. Large residuals at early time points can indicate a mismatch in initial conditions or kinase input scaling;
+large late residuals can indicate turnover or transcriptional regulation parameters that do not match the observed
+trajectory.
 
+## Scalar objective and convergence diagnostics
+
+The scalar objective combines available layer losses and the prior penalty. The active layers are detected by
+`detect_data_mode` from non-empty protein, RNA, and phospho arrays.
+
+Interpret objective outputs as follows:
+
+| Output         | Meaning                                                                                    |
+|----------------|--------------------------------------------------------------------------------------------|
+| `scalar_total` | Total scalar value minimized by `jaxopt.ProjectedGradient`.                                |
+| protein loss   | Contribution from protein observations when protein data are available.                    |
+| RNA loss       | Contribution from RNA observations when RNA data are available.                            |
+| phospho loss   | Contribution from phospho observations when phospho data are available.                    |
+| prior          | Penalty for movement away from default physical parameters when `lambda_prior` is nonzero. |
+
+A lower scalar objective is better for the exact same input data, weights, bounds, model, and seed. Do not compare
+objective values across different scaling methods, layer weights, or data subsets without accounting for those changes.
+
+## Parameter summaries
+
+The optimizer works on raw parameters and converts them to positive physical parameters with softplus transforms before
+simulation. Bounds are applied through projection.
+
+The main parameter groups are:
+
+| Group      | Interpretation                                                    |
+|------------|-------------------------------------------------------------------|
+| `c_k`      | Kinase activity multipliers applied to kinase input trajectories. |
+| `A_i`      | Basal mRNA production parameters.                                 |
+| `B_i`      | mRNA degradation parameters.                                      |
+| `C_i`      | Protein production parameters.                                    |
+| `D_i`      | Protein deactivation or turnover parameters.                      |
+| `Dp_i`     | Phosphosite dephosphorylation parameters.                         |
+| `E_i`      | Transcriptional efficacy parameters.                              |
+| `tf_scale` | Transcription-factor scaling parameter.                           |
+
+A parameter near a configured lower or upper bound should be read as a constrained optimum for the current objective,
+not as a measured biochemical constant.
+
+## Kinase activity outputs
+
+`export_kinase_activities` writes kinase activity trajectories over a generated time grid. These values are model inputs
+or fitted multipliers applied to observed kinase proxies, so they should be interpreted as effective activity signals in
+the fitted model.
+
+High kinase activity can produce a small fitted phospho effect when the kinase has few represented substrates, when the
+affected substrates are weakly weighted in the loss, or when dephosphorylation parameters counteract the forward drive.
+
+## Phosphorylation-rate reports
+
+`export_S_rates` and `plot_s_rates_report` summarize phosphorylation-rate trajectories by protein and site. These
+reports are useful for ranking model-implied phospho fluxes within the represented kinase-site topology.
+
+Do not read a high rate as experimental validation of a kinase-site relationship. The relationship must already exist in
+the input topology to be represented in the model.
+
+## Residual outputs
+
+Residual tables compare observed and predicted values for matched entities and time points. Use residuals to identify:
+
+- proteins or sites that consistently miss across time,
+- time windows with systematic underprediction or overprediction,
+- layer-specific mismatch after changing `lambda_protein`, `lambda_rna`, or `lambda_phospho`.
+
+Residuals are conditional on preprocessing. Changing `scaling_method` or fold-change normalization changes the residual
+scale.
+
+## Sensitivity outputs
+
+When sensitivity analysis is enabled, the package perturbs fitted parameters within computed bounds and summarizes how
+the selected scalar metric changes. The implemented metrics include names accepted by `SENSITIVITY_METRIC`, such as
+`total_signal`, `mean`, `variance`, and `l2_norm`.
+
+Interpret sensitivity scores as local model-response summaries around the fitted parameter set. They do not prove
+biological necessity, and they depend on the chosen perturbation size, trajectory count, level count, and metric.
+
+## Inference outputs
+
+Optional inference helpers are controlled by these configuration constants:
+
+```text
+N_STARTS
+PROFILE_LIKELIHOOD
+PROFILE_INDICES
+PROFILE_GRID_SIZE
+POSTERIOR_SAMPLING
+POSTERIOR_NUM_WARMUP
+POSTERIOR_NUM_SAMPLES
 ```
 
-- Captures **temporal perturbation magnitude**
-
-Interpretation:
-
-- High sensitivity → system strongly reacts over time
-- Low sensitivity → system is robust or buffered
-
-This is closer to a **functional importance metric** than steady-state change.
-
----
-
-### 3.3 Δ Trajectories (WT − KO)
-
-- Shows **signal loss propagation over time**
-- Useful for:
-- identifying early vs late responders
-- distinguishing transient vs sustained effects
-
-Interpretation:
-
-- Early divergence → direct regulation
-- Delayed divergence → indirect cascade
-
----
-
-### 3.4 Kinase Drive (Σ W * Kt)
-
-- Measures **total phosphorylation influence**
-- Combines:
-- network connectivity (`W`)
-- dynamic activity (`Kt`)
-
-Interpretation:
-
-- High drive ≠ high expression
-- High drive = strong **functional influence on phosphorylation layer**
-
----
-
-### 3.5 Dominant Kinase per Site
-
-- Identifies **which kinase controls each phospho-site**
-
-Interpretation:
-
-- High dominance count → control hub
-- Low dominance → distributed regulation
-
----
-
-## 4. Network Interpretation (Global + Influence Maps)
-
-### 4.1 Edge Meaning
-
-#### Signaling edges
-
-```
-
-kinase → protein
-weight = Σ (beta * Kt)
-
-```
-
-- Represents **phosphorylation drive**
-- Dynamic and context-dependent
-
-#### Transcription edges
-
-```
-
-TF → target
-weight = tf_scale * tf_mat * TF_level
-
-```
-
-- Represents **regulatory drive**
-- Depends on protein abundance (not just topology)
-
----
-
-### 4.2 What Edge Weight Is NOT
-
-- Not probability
-- Not confidence
-- Not causal strength in isolation
-
-It is:
-> A **context-dependent instantaneous influence** under current system state
-
----
-
-### 4.3 Δ Network (KO − WT)
-
-This is the most important view.
-
-Interpretation:
-
-- Positive edge → strengthened under KO
-- Negative edge → weakened under KO
-
-Use this to identify:
-
-- compensatory pathways
-- broken signaling routes
-- emergent rewiring
-
----
-
-## 5. Seed Node Concept (Influence Maps)
-
-- Seed = **starting point of cascade exploration**
-- Usually:
-    - the KO target (recommended default)
-
-Interpretation:
-
-- Depth 1 → direct targets
-- Depth 2+ → propagated effects
-
-⚠️ Changing seed changes **perspective**, not system behavior.
-
----
-
-## 6. Time Matters
-
-The system is **non-linear and time-dependent**.
-
-### Key consequences:
-
-- Early-time network ≠ steady-state network
-- Edge weights evolve
-- Dominant pathways can switch
-
-### Best practice:
-
-- Always compare:
-    - early (minutes)
-    - mid (transition)
-    - late (steady-state)
-
----
-
-## 7. Common Misinterpretations (Avoid These)
-
-### ❌ “High edge weight = important pathway”
-
-Not necessarily. It may be:
-
-- transient
-- redundant
-- buffered downstream
-
----
-
-### ❌ “No change = not relevant”
-
-Wrong. Could mean:
-
-- redundancy
-- robustness
-- compensation
-
----
-
-### ❌ “KO effect is local”
-
-Incorrect. Effects propagate through:
-
-- phosphorylation cascades
-- transcription loops
-
----
-
-### ❌ “TF edges are static”
-
-False. They depend on:
-
-- protein levels (dynamic)
-- system state
-
----
-
-## 8. Development Guidelines
-
-### 8.1 Always Separate
-
-- **Model mechanics** (ODE, parameters)
-- **Visualization layer** (graphs, plots)
-
-Do not mix logic.
-
----
-
-### 8.2 Use Hard System Reset
-
-Always rebuild system for:
-
-- WT
-- KO
-- sweep
-
-```
-
-sys_local, idx_local, ... = load_system()
-
-```
-
-Avoid state leakage.
-
----
-
-### 8.3 Keep Time Grids Valid
-
-ODE solvers require:
-
-- strictly monotonic time arrays
-
-Never reuse:
-
-- unordered
-- duplicated
-- mixed grids
-
----
-
-### 8.4 Scaling & Stability
-
-- Edge weights can explode or vanish
-- Always:
-    - threshold (`min_abs_weight`)
-    - cap (`max_edges`)
-
----
-
-### 8.5 Performance Constraints
-
-- gravis is heavy
-- limit:
-    - edges (~300–500)
-    - timepoints (~10–15)
-
----
-
-## 9. What This Model Is Good For
-
-- Mechanistic hypothesis generation
-- Pathway tracing
-- KO impact analysis
-- Multi-layer signaling + transcription coupling
-
----
-
-## 10. What This Model Is NOT
-
-- A statistical inference engine
-- A causal discovery model
-- A ground truth representation of biology
-
-It is:
-> A **structured dynamical hypothesis system**
-
----
-
-## 11. Practical Workflow
-
-1. Select KO
-2. Inspect:
-    - impact scatter
-    - sensitivity
-3. Check Δ trajectories
-4. Analyze:
-    - global network (Δ)
-5. Drill down:
-    - functional influence (seed = KO target)
-6. Validate:
-    - consistency across time
-
----
-
-## 12. Final Guiding Rule
-
-> Do not trust a single view.
-
-Always triangulate:
-
-- time dynamics
-- steady state
-- network structure
-
-Only consistent signals across all three are meaningful.
-
----
+Multistart summaries compare solutions from multiple bounded starting vectors. Profile-likelihood outputs sweep selected
+raw parameter indices and re-evaluate objective behavior across a grid. Posterior sampling uses the optional NumPyro
+path in `inference.py` when that dependency is available.
+
+## Dashboard outputs
+
+The dashboard utilities load saved output files from the result directory and render static tables, figures, and
+scalar-run summaries. The dashboard does not recompute the ODE solution; it presents files that were already exported by
+the run.
+
+## Recommended checks after a run
+
+1. Confirm that the detected data mode includes the layers you expected.
+2. Inspect convergence and the final scalar objective.
+3. Check goodness-of-fit plots for each available data layer.
+4. Review residuals for systematic layer or time-window bias.
+5. Inspect parameter distributions and bound-adjacent values.
+6. Use sensitivity outputs only as model-response diagnostics, not as independent validation.

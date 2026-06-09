@@ -1,31 +1,8 @@
 #! usr/bin/python
 
-"""
-Main Driver for PhosKinTime Global Model.
+"""Run the command-line networkmodel workflow that loads data, builds topology, optimizes parameters, and writes outputs; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.analysis, networkmodel.buildmat, networkmodel.cache, networkmodel.config, networkmodel.dashboard_bundle, networkmodel.export, networkmodel.BayesianInference, networkmodel.io, networkmodel.jax_backend, networkmodel.mode_outputs, networkmodel.network, networkmodel.optproblem, networkmodel.params, networkmodel.scan, networkmodel.sensitivity, networkmodel.simulate, networkmodel.steadystate, networkmodel.utils."""
 
-This script runs the optimization and analysis steps of the PhosKinTime Global Model.
-It loads the data, builds the model, and runs the optimization.
-
-The script can be run in two modes:
-1. Standard optimization: run_optuna_solver()
-2. Sensitivity analysis: run_sensitivity_analysis()
-
-The script can also be run in parallel using the multiprocessing module.
-This is useful for running the optimization on multiple cores.
-To enable parallel execution, set the CORES environment variable to the number of cores to use.
-"""
-import argparse
-import atexit
-import json
-import logging
 import os
-from pathlib import Path
-
-from networkmodel.dashboard_bundle import save_dashboard_bundle
-from networkmodel.optuna_solver import run_optuna_solver
-from networkmodel.scan import run_hyperparameter_scan
-from networkmodel.sensitivity import run_sensitivity_analysis
-from networkmodel.steadystate import _dump_y0
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -33,51 +10,75 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
+POSTERIOR_NUM_CHAINS_ENV = os.environ.get("POSTERIOR_NUM_CHAINS", "8")
+
+os.environ.setdefault(
+    "XLA_FLAGS",
+    (
+        f"--xla_force_host_platform_device_count={POSTERIOR_NUM_CHAINS_ENV} "
+        "--xla_cpu_multi_thread_eigen=false "
+        "intra_op_parallelism_threads=1"
+    ),
+)
+
+import argparse
+import atexit
+import json
+import logging
 import pickle
-import numpy as np
 import multiprocessing as mp
+
+import numpy as np
 import pandas as pd
 
-from pymoo.algorithms.moo.unsga3 import UNSGA3
-from pymoo.core.problem import StarmapParallelization
-from pymoo.operators.crossover.sbx import SBX
-from pymoo.operators.mutation.pm import PM
-from pymoo.operators.sampling.lhs import LHS
-from pymoo.termination.default import DefaultMultiObjectiveTermination
-from pymoo.util.ref_dirs import get_reference_directions
-from pymoo.optimize import minimize as pymoo_minimize
-
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.dashboard_bundle import save_dashboard_bundle
+from networkmodel.scan import run_hyperparameter_scan
+from networkmodel.sensitivity import run_sensitivity_analysis
+from networkmodel.InitialConditions import _dump_y0
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
-    POPULATION_SIZE, SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
+    SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
     REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
-    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, REFINE, NUM_REFINE, \
+    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, \
     WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
-    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, N_TRIALS, AVAILABLE_MODELS, OPTIMIZER, HYPERPARAM_SCAN, MODEL, \
-    USE_CUSTOM_SOLVER, CORES
+    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, HYPERPARAM_SCAN, MODEL, CORES, \
+    N_STARTS, PROFILE_LIKELIHOOD, PROFILE_INDICES, PROFILE_GRID_SIZE, POSTERIOR_SAMPLING, \
+    POSTERIOR_NUM_WARMUP, POSTERIOR_NUM_SAMPLES
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.optproblem import GlobalODE_MOO, build_weight_functions
+from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
 from networkmodel.params import init_raw_params, unpack_params
-from networkmodel.refine import run_iterative_refinement
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
     get_optimized_sets
 from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
-    export_results, save_pareto_3d, save_parallel_coordinates, create_convergence_video, save_gene_timeseries_plots, \
-    scan_prior_reg, export_S_rates, plot_s_rates_report, process_convergence_history, export_kinase_activities, \
+    export_results, save_gene_timeseries_plots, \
+    export_S_rates, plot_s_rates_report, export_kinase_activities, \
     export_param_correlations, export_residuals, export_parameter_distributions
-from networkmodel.analysis import simulate_until_steady, plot_steady_state_all
+from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all
+from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
+from networkmodel.BayesianInference import (
+    InferenceContext,
+    run_multistart,
+    run_profile_likelihood_standalone_processes,
+    run_numpyro_posterior_standalone_processes,
+    configure_jax_parallelism,
+)
+
+from networkmodel.PosteriorObjective import write_posterior_payload
+from networkmodel.mode_outputs import write_scalar_result_tables
 from common.frechet import frechet_distance
 from config_loader import load_config_toml
 from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
+global problem
 
 
 @atexit.register
 def _close_log_handlers():
+    """Handle internal close log handlers"""
     lg = logging.getLogger()
     for h in list(lg.handlers):
         try:
@@ -88,7 +89,14 @@ def _close_log_handlers():
 
 
 def main():
-    global problem
+    """Run the networkmodel entry point
+    
+    Returns:
+        Computed result from this routine.
+    
+    Raises:
+        ValueError: When inputs are inconsistent or unsupported.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--kinase-net", default=KINASE_NET_FILE)
     parser.add_argument("--tf-net", default=TF_NET_FILE)
@@ -103,9 +111,8 @@ def main():
     parser.add_argument("--output-dir", default=RESULTS_DIR)
     parser.add_argument("--cores", type=int, default=CORES)
 
-    # Pymoo
+    # JAXopt
     parser.add_argument("--n-gen", type=int, default=MAX_ITERATIONS)
-    parser.add_argument("--pop", type=int, default=POPULATION_SIZE)
     parser.add_argument("--seed", type=int, default=SEED)
 
     # Loss weights
@@ -118,17 +125,14 @@ def main():
     parser.add_argument("--normalize-fc-steady", action="store_true", default=NORMALIZE_FC_STEADY)
     parser.add_argument("--use-initial-condition-from-data", action="store_true",
                         default=USE_INITIAL_CONDITION_FROM_DATA)
-    parser.add_argument("--refine", action="store_true",
-                        help="Run a second optimization pass with tighter bounds around the Pareto front.",
-                        default=REFINE)
     parser.add_argument("--scan", action="store_true",
                         help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
                         default=HYPERPARAM_SCAN)
     parser.add_argument("--sensitivity", action="store_true",
                         help="Run a sensitivity analysis after optimization.",
                         default=SENSITIVITY_ANALYSIS)
-    parser.add_argument("--solver", type=str, choices=["pymoo", "optuna"], default=OPTIMIZER,
-                        help="Choice of optimization solver.")
+    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default="jaxopt",
+                        help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -148,10 +152,7 @@ def main():
     logger.info(f"Documentation      : {DOCS_URL}")
     logger.info("============================================================")
 
-    if USE_CUSTOM_SOLVER:
-        logger.info("[Solver] Using Custom Adaptive Heun Bucketed Solver")
-    else:
-        logger.info("[Solver] Using Scipy ODEint Solver")
+    logger.info("[Solver] Using Diffrax Kvaerno Solver")
 
     if MODEL == 0:
         logger.info("[Model] Using Distributive Model")
@@ -167,7 +168,6 @@ def main():
     logger.info(f"[Args] Output directory: {args.output_dir}")
     logger.info(f"[Args] Number of cores: {args.cores}")
     logger.info(f"[Args] Number of generations: {args.n_gen}")
-    logger.info(f"[Args] Population size: {args.pop}")
     logger.info(f"[Args] Seed: {args.seed}")
     logger.info(f"[Args] Lambda prior: {args.lambda_prior}")
     logger.info(f"[Args] Lambda protein: {args.lambda_protein}")
@@ -236,8 +236,8 @@ def main():
         if missing:
             raise ValueError(f"TF net missing columns: {missing}. Found columns: {list(df_tf.columns)}")
 
-        proteins_with_sites = set(df_kin["protein"].unique())  # signaling layer “state-capable” proteins
-        kinase_set = set(df_kin["kinase"].unique())  # kinases (drivers / feedback proxies)
+        # proteins_with_sites = set(df_kin["protein"].unique())  # signaling layer “state-capable” proteins
+        # kinase_set = set(df_kin["kinase"].unique())  # kinases (drivers / feedback proxies)
 
         proteins_with_sites = set(df_kin["protein"].unique())  # state-capable signaling proteins
         kinase_set = set(df_kin["kinase"].unique())
@@ -425,19 +425,19 @@ def main():
     #
     # logger.info(f"[Index] Proteins in model (full-universe): {len(idx.proteins)}")
 
-    # Build weight functions
-    w_prot_pho, w_rna = build_weight_functions(
-        TIME_POINTS_PROTEIN,
-        TIME_POINTS_RNA,
-        scheme_prot_pho=WEIGHTING_METHOD_PROTEIN,
-        scheme_rna=WEIGHTING_METHOD_RNA,
-        early_window_prot_pho=120.0,
-        early_window_rna=30.0,
+    # New: keep the config for logging, but don't treat it as a callable
+    weight_cfg = build_weight_functions(
+        method_protein=WEIGHTING_METHOD_PROTEIN,
+        method_rna=WEIGHTING_METHOD_RNA,
+        time_grid=TIME_POINTS_PROTEIN,
     )
 
-    df_prot["w"] = w_prot_pho(df_prot["time"].to_numpy(dtype=float))
-    df_pho["w"] = w_prot_pho(df_pho["time"].to_numpy(dtype=float))
-    df_rna["w"] = w_rna(df_rna["time"].to_numpy(dtype=float))
+    logger.info("[Weights] Protein weighting scheme: %s", weight_cfg["protein"])
+    logger.info("[Weights] RNA weighting scheme: %s", weight_cfg["rna"])
+
+    # The scalar JAX objective uses global lambdas, so use uniform per-row weights here
+    df_prot["w"] = 1.0
+    df_rna["w"] = 1.0
 
     # 3) Build W + TF 
     # -------------------------------------------------------------------------
@@ -515,12 +515,12 @@ def main():
     defaults = {
         "c_k": c_k_init,
         "A_i": np.ones(idx.N),
-        "B_i": np.full(idx.N, 0.2),
+        "B_i": np.full(idx.N, 0.05),
         "C_i": np.full(idx.N, 0.5),
         "D_i": np.full(idx.N, 0.05),
-        "Dp_i": np.full(idx.total_sites, 0.05),
+        "Dp_i": np.full(idx.total_sites, 0.1),
         "E_i": np.ones(idx.N),
-        "tf_scale": 0.1
+        "tf_scale": 1.0
     }
 
     # Model system of Data IO + ODE + solver + optimization
@@ -545,14 +545,52 @@ def main():
     loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
     loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
     loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+    logger.info(
+        "[GlobalObjective] Loss data mapped with %s state layout; phospho rows=%d; lambda_phospho=%g",
+        loss_data.get("state_layout", "standard"),
+        int(loss_data.get("n_ph", 0)),
+        float(args.lambda_phospho),
+    )
+    if float(args.lambda_phospho) == 0.0 and int(loss_data.get("n_ph", 0)) > 0:
+        logger.warning("[GlobalObjective] Phospho data are present but --lambda-phospho is zero.")
 
     # 6) Decision vector bounds
 
     # Calculate optimal bounds based on network topology and data constraints
     custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
 
-    # Initialize raw params using these custom bounds for optimization
+    # Initialize raw params using these custom bounds for optimization.
+    # The theta layout intentionally excludes network alpha/beta construction weights.
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
+
+    parameter_names = np.empty(theta0.shape[0], dtype=object)
+
+    for name, sl in slices.items():
+        if name == "c_k":
+            labels = [f"c_k[{k}]" for k in idx.kinases]
+        elif name == "Dp_i":
+            labels = [
+                f"Dp_i[{p}_{s}]"
+                for p, sites in zip(idx.proteins, idx.sites)
+                for s in sites
+            ]
+        elif name == "tf_scale":
+            labels = ["tf_scale"]
+        else:
+            labels = [f"{name}[{p}]" for p in idx.proteins]
+
+        parameter_names[sl] = labels
+
+    parameter_names = parameter_names.tolist()
+
+    logger.info("[Optimizer] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, xl.shape, xu.shape)
+    if theta0.shape != xl.shape or theta0.shape != xu.shape:
+        raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {xl.shape}, {xu.shape}")
+    if "alpha" in slices or "beta" in slices:
+        raise ValueError("alpha/beta are fixed network weights and must not be optimized")
+    for _name, _sl in slices.items():
+        logger.info("[Optimizer] theta group %-8s slice=(%d,%d) size=%d", _name, _sl.start, _sl.stop,
+                    _sl.stop - _sl.start)
 
     opt_proteins, opt_sites, opt_kinases = get_optimized_sets(idx, slices, xl, xu)
 
@@ -576,13 +614,8 @@ def main():
 
         runner = None
         pool = None
-        # 7) Pymoo parallel runner
-        if args.cores > 1:
-            pool = mp.Pool(args.cores)
-            runner = StarmapParallelization(pool.starmap)
-            logger.info(f"[Fit] Parallel evaluation enabled with {args.cores} workers.")
-        else:
-            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
+        logger.warning(
+            "[Deprecated Config] Hyperparameter scan is retained for compatibility but runs without legacy evolutionary parallelization in JAXopt mode.")
 
         # This function will run the loop, save Excel/PNGs, and return the best dict
         best_lambdas = run_hyperparameter_scan(
@@ -612,136 +645,164 @@ def main():
 
     logger.info(f"[Scan] Using lambdas: {lambdas}")
 
-    if args.solver == "optuna":
-
-        total_trials = N_TRIALS
-
-        logger.info(f"[Optuna] Running Optuna solver with {total_trials} total trials "
-                    f"({args.pop} pop x {args.n_gen} generations).")
-
-        res = run_optuna_solver(
-            args=args,
-            sys=sys,
-            loss_data=loss_data,
-            slices=slices,
-            xl=xl,
-            xu=xu,
-            defaults=defaults,
-            lambdas=lambdas,
-            time_grid=solver_times,
-            n_trials=total_trials,
-            df_prot=df_prot,
-            df_rna=df_rna,
-            df_pho=df_pho
-        )
-
+    warn_deprecated_backend_options(vars(args), logger_obj=logger)
+    args.solver = "jaxopt"
+    mode = detect_data_mode(loss_data=loss_data, logger_obj=logger)
+    problem = GlobalODEScalarObjective(
+        sys=sys,
+        slices=slices,
+        loss_data=loss_data,
+        defaults=defaults,
+        lambdas=lambdas,
+        time_grid=solver_times,
+        xl=xl,
+        xu=xu,
+        data_mode=mode,
+    )
+    logger.info(
+        f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, "
+        f"{loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points"
+    )
+    configure_jax_parallelism(max_workers=args.cores, logger_obj=logger)
+    ctx = InferenceContext(
+        objective_fun=problem.objective,
+        theta0=theta0,
+        lower=xl,
+        upper=xu,
+        mode=mode,
+        output_dir=args.output_dir,
+        parameter_names=parameter_names,
+        maxiter=args.n_gen,
+        tol=1e-6,
+    )
+    if N_STARTS > 1:
+        try:
+            ms = run_multistart(ctx, n_starts=N_STARTS, seed=args.seed, max_workers=args.cores)
+            best_row = ms["best"].drop(
+                columns=["start_id", "seed", "success", "selected_best"],
+                errors="ignore",
+            ).iloc[0]
+            best_x = np.asarray(best_row.values, dtype=np.float64)
+            best_f = float(ms["summary"].loc[ms["summary"]["selected_best"], "final_objective"].iloc[0])
+            opt_state = None
+            # Repopulate problem.final_loss_breakdown from the winning parameters.
+            try:
+                objective_raw = getattr(problem, "objective_raw", problem._objective_raw)
+                _, breakdown = objective_raw(best_x)
+                problem.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
+            except Exception as e:
+                logger.warning("Could not repopulate loss breakdown after multistart: %s", e)
+        except RuntimeError:
+            logger.warning("Multistart failed; falling back to single-start solve.")
+            best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
     else:
+        best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
 
-        runner = None
-        pool = None
-        # 7) Pymoo parallel runner
-        if args.cores > 1:
-            pool = mp.Pool(os.cpu_count())
-            runner = StarmapParallelization(pool.starmap)
-            logger.info(f"[Fit] Parallel evaluation enabled with {os.cpu_count()} workers.")
-        else:
-            logger.info("[Fit] Parallel evaluation disabled (or unavailable).")
+    res = JaxoptResult(
+        X=np.asarray([best_x], dtype=float),
+        F=np.asarray([[best_f]], dtype=float),
+        objective_value=float(best_f),
+        params=np.asarray(best_x, dtype=float),
+        state=opt_state,
+        data_mode=mode,
+        loss_breakdown=dict(problem.final_loss_breakdown),
+    )
+    # Replace the original ctx with a post-optimization version.
+    # Only theta0 changes — everything else is identical.
+    ctx = InferenceContext(
+        objective_fun=problem.objective,
+        theta0=best_x,
+        lower=xl,
+        upper=xu,
+        mode=mode,
+        output_dir=args.output_dir,
+        parameter_names=parameter_names,
+        maxiter=args.n_gen,
+        tol=1e-6,
+    )
 
-        # 8) Problem
-        problem = GlobalODE_MOO(
-            sys=sys,
-            slices=slices,
-            loss_data=loss_data,
-            defaults=defaults,
-            lambdas=lambdas,
-            time_grid=solver_times,
-            xl=xl,
-            xu=xu,
-            elementwise_runner=runner
-        )
+    if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
+        try:
+            logger.info("[Profile] Profile likelihood requested for indices: %s", PROFILE_INDICES)
 
-        # 9) UNSGA3 needs reference directions
-        ref_dirs = get_reference_directions(
-            "das-dennis",
-            problem.n_obj,
-            n_partitions=20,
-            seed=args.seed
-        )
+            profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
 
-        # logger.info number of reference directions
-        logger.info(f"[Fit] Number of reference directions: {len(ref_dirs)}")
+            profile_run_config_path = write_posterior_payload(
+                ctx=ctx,
+                runner_args=args,
+                lambdas=lambdas,
+                output_dir=args.output_dir,
+            )
 
-        algorithm = UNSGA3(
-            pop_size=args.pop,
-            ref_dirs=ref_dirs,
-            eliminate_duplicates=True,
-            sampling=LHS(),
-            crossover=SBX(prob=0.9, eta=15),
-            mutation=PM(prob=1 / problem.n_var, eta=10),
-        )
+            profile_result = run_profile_likelihood_standalone_processes(
+                run_config_path=profile_run_config_path,
+                output_dir=args.output_dir,
+                parameter_indices=profile_indices,
+                grid_size=PROFILE_GRID_SIZE,
+                max_workers=1,
+            )
 
-        termination = DefaultMultiObjectiveTermination(
-            xtol=1e-8,
-            cvtol=1e-6,
-            ftol=0.0025,
-            period=30,
-            n_max_gen=args.n_gen,
-            n_max_evals=100000
-        )
+            logger.info(
+                "[Profile] Profile likelihood complete | rows=%d | output_dir=%s",
+                len(profile_result["summary"]),
+                profile_result["output_dir"],
+            )
 
-        logger.info(
-            f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, {loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points")
-        logger.info(f"[Fit] UNSGA3: pop={args.pop}, n_gen={args.n_gen}, n_var={problem.n_var}, n_obj={problem.n_obj}")
+        except Exception:
+            logger.exception("[Profile] Profile likelihood failed.")
 
-        res = pymoo_minimize(
-            problem,
-            algorithm,
-            termination,
-            seed=args.seed,
-            save_history=True,
-            verbose=True
-        )
+    if POSTERIOR_SAMPLING:
+        try:
+            logger.info(
+                "[Posterior] Requested standalone posterior sampling "
+                "with warmup=%s, samples=%s.",
+                POSTERIOR_NUM_WARMUP,
+                POSTERIOR_NUM_SAMPLES,
+            )
 
-        if pool is not None:
-            pool.close()
-            pool.join()
+            run_config_path = write_posterior_payload(
+                ctx=ctx,
+                runner_args=args,
+                lambdas=lambdas,
+                output_dir=args.output_dir,
+            )
+
+            posterior_result = run_numpyro_posterior_standalone_processes(
+                run_config_path=run_config_path,
+                output_dir=args.output_dir,
+                num_warmup=POSTERIOR_NUM_WARMUP,
+                num_samples=POSTERIOR_NUM_SAMPLES,
+                seed=args.seed,
+                num_processes=4,
+            )
+
+            logger.info(
+                "[Posterior] Complete | samples=%d | output_dir=%s",
+                len(posterior_result["samples"]),
+                posterior_result["output_dir"],
+            )
+
+        except Exception:
+            logger.exception("[Posterior] Posterior sampling failed.")
 
     # Save full result object
     with open(os.path.join(args.output_dir, f"{args.solver}_optimization_result.pkl"), "wb") as f:
         pickle.dump(res, f)
     logger.info("[Output] Saved full optimization state (pickle).")
 
-    if args.solver != "optuna":
-        # Export convergence history
-        df_hist = process_convergence_history(res, args.output_dir)
-        df_hist.to_csv(Path(args.output_dir) / "convergence_history.csv", index=False)
+    logger.info("[Refinement] Scalar JAXopt mode uses deterministic local optimization; legacy refinement is not run.")
 
-        if args.refine:
-            logger.info("[Refinement] Recursive refinement started.")
-
-            # Pass the result of the first run (res) as the starting point
-            res = run_iterative_refinement(
-                problem,
-                res,
-                args,
-                idx=sys.idx,
-                max_passes=NUM_REFINE,
-                padding=0.25
-            )
-
-            logger.info("[Refinement] Recursive refinement complete.")
-
-    # 10) Save Pareto set
+    # 10) Save scalar optimum with backward-compatible filenames
     X = res.X
     F = res.F
 
     np.save(os.path.join(args.output_dir, "pareto_X.npy"), X)
     np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
 
-    # Also write a CSV summary
-    df_pareto = pd.DataFrame(F, columns=["prot_mse", "rna_mse", "phospho_mse"])
-    df_pareto.to_csv(os.path.join(args.output_dir, "pareto_F.csv"), index=False)
-    logger.info(f"[Output] Saved Pareto front: {len(df_pareto)} solutions")
+    # Also write CSV/JSON summaries with mode metadata.
+    output_paths = write_scalar_result_tables(args.output_dir, mode, F.reshape(-1))
+    df_pareto = pd.read_csv(output_paths["legacy_objective"])
+    logger.info(f"[Output] Saved scalar objective table: {len(df_pareto)} solution(s)")
 
     excel_path = os.path.join(args.output_dir, "pareto_front.xlsx")
 
@@ -755,20 +816,7 @@ def main():
         top_k_trajectories=None,
     )
 
-    logger.info(f"[Output] Saved Pareto front Excel: {excel_path}")
-
-    # plot_gof_from_pareto_excel(
-    #     excel_path=excel_path,
-    #     output_dir=os.path.join(args.output_dir, "goodness_of_fits_all_solutions"),
-    #     plot_goodness_of_fit_func=plot_goodness_of_fit,
-    #     df_prot_obs_all=df_prot,
-    #     df_rna_obs_all=df_rna,
-    #     df_phos_obs_all=df_pho,
-    #     top_k=10,
-    #     score_col="scalar_score",
-    # )
-
-    # logger.info(f"[Output] Saved Goodness of Fit plots for all Pareto solutions.")
+    logger.info(f"[Output] Saved scalar objective Excel compatibility file: {excel_path}")
 
     # 11) Pick one solution
     # Modified solution selection using Fréchet distance
@@ -859,7 +907,6 @@ def main():
     logger.info("=" * 60)
 
     theta_best = X[I].astype(float)
-    F_best = F[I]
     params = unpack_params(theta_best, slices)
     sys.update(**params)
 
@@ -884,7 +931,7 @@ def main():
     export_residuals(sys, idx, df_prot, df_rna, df_pho, args.output_dir)
     logger.info("[Output] Saved residual analysis.")
 
-    # 4. Parameter Uncertainty (Check robustness across Pareto front)
+    # 4. Parameter Uncertainty (Check robustness around scalar optimum)
     export_parameter_distributions(res, slices, idx, args.output_dir)
     logger.info("[Output] Saved parameter uncertainty analysis.")
 
@@ -921,15 +968,15 @@ def main():
     with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
         json.dump(p_out, f, indent=2)
 
-    # Write picked objective values
-    picked = {"prot_mse": float(F[I, 0]), "rna_mse": float(F[I, 1]), "phospho_mse": float(F[I, 2]),
-              "scalar_score": float(
-                  args.lambda_protein * F[I, 0] + args.lambda_rna * F[I, 1] + args.lambda_phospho * F[I, 2])}
+    # Write picked objective values. Global JAXopt now returns a scalar F with
+    # per-modality components captured from the scalar objective breakdown.
+    scalar_score = float(np.asarray(F[I]).reshape(-1)[0])
+    picked = {"scalar_score": scalar_score}
+    picked.update({k: float(v) for k, v in getattr(res, "loss_breakdown", {}).items()})
     with open(os.path.join(args.output_dir, "picked_objectives.json"), "w") as f:
         json.dump(picked, f, indent=2)
 
-    logger.info(
-        f"[Loss] Solution: prot_mse={picked['prot_mse']:.6f}, rna_mse={picked['rna_mse']:.6f}, phospho_mse={picked['phospho_mse']:.6f}, scalar_score={picked['scalar_score']:.6f}")
+    logger.info("[Loss] Picked scalar objective breakdown: %s", picked)
 
     plot_goodness_of_fit(df_prot, dfp, df_rna, dfr, df_pho, dfph, output_dir=args.output_dir)
     logger.info("[Done] Goodness of Fit plot saved.")
@@ -954,14 +1001,26 @@ def main():
 
     logger.info("[Simulate] Running post-optimization dynamics check...")
 
-    # 1. Simulate for 7 days (10080 min) to see long-term behavior
-    logger.info("[Simulate] Simulating system for 7 days to assess steady-state behavior.")
-    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 7 * 60)
+    # 1. Simulate to see long-term behavior
+    logger.info("[Simulate] Simulating system for 14 days to assess steady-state behavior.")
+    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 14 * 60)
 
-    # Log for each protein whether it reached steady state
+    # Log for each protein whether it approximately reached steady state
+    window = min(10, Y_check.shape[1])
+
     for i, protein in enumerate(idx.proteins):
-        reached_steady_state = Y_check[i, -1] > 0.99 * Y_check[i, 0]
-        logger.info(f"Protein {protein}: Steady state reached? {reached_steady_state}")
+        y_tail = Y_check[i, -window:]
+
+        tail_range = np.max(y_tail) - np.min(y_tail)
+        final_scale = abs(Y_check[i, -1]) + 1e-12
+        rel_tail_change = tail_range / final_scale
+
+        reached_steady_state = rel_tail_change < 1e-4
+
+        logger.info(
+            f"Protein {protein}: Steady state reached? {reached_steady_state} "
+            f"| final={Y_check[i, -1]:.6g}, rel_tail_change={rel_tail_change:.3e}"
+        )
 
     # 2. Plot every single protein
     plot_steady_state_all(
@@ -978,22 +1037,6 @@ def main():
         export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
 
     logger.info("[Done] Exported results saved.")
-
-    # 1. 3D Pareto Front
-    save_pareto_3d(res, selected_solution=F_best, output_dir=args.output_dir)
-    logger.info("[Done] 3D Pareto plot saved.")
-
-    # 2. Parallel Coordinate Plot
-    save_parallel_coordinates(res, selected_solution=F_best, output_dir=args.output_dir)
-    logger.info("[Done] Parallel Coordinate plot saved.")
-
-    # 3. Convergence Video
-    create_convergence_video(res, output_dir=args.output_dir)
-    logger.info("[Done] Convergence video saved.")
-
-    # 4. Prior Regularization Scan
-    scan_prior_reg(out_dir=args.output_dir)
-    logger.info("[Done] Prior regularization scan saved.")
 
     # Display all parameters from the configuration class
     global_config = load_config_toml("config.toml")

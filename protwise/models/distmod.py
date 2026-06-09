@@ -1,6 +1,5 @@
 import numpy as np
 from numba import njit
-from scipy.integrate import odeint
 from config.constants import NORMALIZE_MODEL_OUTPUT
 
 @njit(cache=True)
@@ -90,45 +89,10 @@ def unpack_params(params, num_psites):
     D_rates = params[4 + num_psites : 4 + 2 * num_psites]
     return A, B, C, D, S_rates, D_rates
 
-def solve_ode(params, init_cond, num_psites, t):
-    """
-    Solve the ODE system for the distributive phosphorylation model.
+def solve_ode(params, init_cond, num_psites, t, **kwargs):
+    """Solve this mechanism with the centralized Diffrax Kvaerno backend."""
+    from protwise.models.diffrax_solver import solve_protwise_ode
 
-    Args:
-        params: array of parameters
-        init_cond: initial conditions
-        num_psites: number of phosphorylation sites
-        t: time points
-
-    Returns:
-        sol: solution of the ODE system
-        P_fitted: phosphorylated sites
-    """
-
-    # Unpack the parameters
-    A, B, C, D, S_rates, D_rates = unpack_params(params, num_psites)
-
-    # Call the odeint function to solve the ODE system
-    sol = np.clip(np.asarray(odeint(ode_core, init_cond, t,
-                                    args=(A, B, C, D, S_rates, D_rates))),  0, None)
-
-    # Normalize the solution if NORMALIZE_MODEL_OUTPUT is True
-    if NORMALIZE_MODEL_OUTPUT:
-        # Normalize the solution to the initial condition
-        norm_init = np.array(init_cond, dtype=sol.dtype)
-        # Calculate the reciprocal of the norm_init
-        recip = 1.0 / norm_init
-        # Normalize the solution by multiplying by the reciprocal of the norm_init
-        sol *= recip[np.newaxis, :]
-
-    # Extract the mRNA from the solution
-    R_fitted = sol[5:, 0].T
-
-    # Extract the protein from the solution
-    Pr_fitted = sol[:, 1].T
-
-    # Extract the phosphorylated sites from the solution
-    P_fitted = sol[:, 2:].T
-
-    # Return the solution and the protein with phosphorylated sites
-    return sol, np.concatenate((R_fitted.flatten(), Pr_fitted.flatten(), P_fitted.flatten()))
+    # Pass an explicit model name so direct calls to this module are not affected
+    # by the global config.constants.ODE_MODEL selected for a different mechanism.
+    return solve_protwise_ode(params, init_cond, num_psites, t, model_name="distmod", **kwargs)

@@ -33,7 +33,7 @@ $$
 \text{SE}(\beta_i) = \sqrt{ \text{Var}(\beta_i) } = \sqrt{ \text{diag}(\text{pcov})_i }
 $$
 
-Where `pcov` is the **covariance matrix** from the curve fitting routine (typically from `scipy.optimize.curve_fit`).
+Where `pcov` is a covariance-style diagnostic matrix when an uncertainty estimator provides one; the active protwise parameter path uses JAXopt rather than curve-fitting.
 
 ---
 

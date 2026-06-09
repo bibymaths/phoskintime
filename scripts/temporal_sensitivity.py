@@ -27,7 +27,7 @@ import plotly.express as px
 
 from networkmodel.config import RNA_DATA_FILE, KINASE_NET_FILE, TF_NET_FILE, MS_DATA_FILE, TIME_POINTS_PROTEIN
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.buildmat import build_W_parallel, build_tf_matrix
+from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.utils import normcols, find_col
 

@@ -59,6 +59,22 @@ mechanistic hypotheses, including:
 
 ---
 
+
+---
+
+## Educational notebooks
+
+Executable educational notebooks are available under `notebooks/` and cover end-to-end dummy-data workflows for KinOpt, TFOpt, protein-wise ODE fitting, and network-level modeling.
+
+| Notebook | Module | What it demonstrates |
+| -------- | ------ | -------------------- |
+| `01_kinopt_educational_workflow.ipynb` | `kinopt` | Kinase/phosphosite preprocessing, constrained local optimization, ranked multistart solution ensemble, exports, and plots. |
+| `02_tfopt_educational_workflow.ipynb` | `tfopt` | TF-target regulatory-effect modeling, fixed arrays, constrained local optimization, outputs, and visualization. |
+| `03_protwise_educational_workflow.ipynb` | `phoskintime.protwise` | Mode-aware protein-wise ODE fitting with Diffrax-based ODE solving and JAXopt parameter estimation. |
+| `04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal loss handling, adjacency interpretation, JAX/Diffrax solving, multistart ranking, and exports. |
+
+Run them interactively with `jupyter lab notebooks/` or as executable tests with `pytest --nbmake notebooks/*.ipynb`.
+
 ## Modeling backends (local vs global)
 
 PhosKinTime provides two complementary modeling stacks:
@@ -126,15 +142,9 @@ Typical workflows:
 
 The **kinopt** package provides advanced optimization and post-processing:
 
-#### evol
-
-Global evolutionary optimization using pymoo (DE, NSGA-II):
-
-- Problem formulation, data construction, exporter for Excel and plots
-
 #### local
 
-Local constrained optimization using SciPy solvers (SLSQP, TRUST-CONSTR) with Numba-accelerated objectives
+Local constrained optimization workflows with compact preprocessing arrays, Numba-accelerated objectives, and notebook examples that demonstrate ranked multistart solution ensembles.
 
 #### optimality
 
@@ -155,19 +165,10 @@ _This version has been modified and optimized by Abhinav Mishra._
 The **tfopt** package estimates transcriptional regulation using mRNA and TF time-series data through constrained
 optimization.
 
-#### evol
-
-Global evolutionary optimization using pymoo (NSGA-II, AGEMOEA, SMSEMOA):
-
-- Multi-objective loss (fit error, α and β constraint violations)
-- Parallel evaluation, Excel export, and HTML/plot reports
-
 #### local
 
-Local constrained optimization using SciPy solvers (SLSQP):
-
-- Fast deterministic optimization under linear constraints
-- Numba-accelerated objectives, identical output and reports as `evol`
+Local constrained optimization for TF-target regulatory effects with α and β constraints, deterministic dummy-data notebooks, CSV exports, and visualization.
+- Numba-accelerated objectives and notebook-oriented CSV/plot reports
 
 #### objfn
 
@@ -220,10 +221,6 @@ Run TFOPT with the local solver:
 python phoskintime tfopt --mode local
 ```
 
-Run TFOPT with the evolutionary solver:
-```bash
-python phoskintime tfopt --mode evol
-```
 
 ### Run Kinase-Phosphorylation Optimization (KINOPT)
 Run KINOPT with the local solver:
@@ -231,10 +228,6 @@ Run KINOPT with the local solver:
 python phoskintime kinopt --mode local
 ```
 
-Run KINOPT with the evolutionary solver:
-```bash
-python phoskintime kinopt --mode evol
-```
 
 ### Run the Model
 Execute the modeling stage:

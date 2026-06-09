@@ -1,25 +1,4 @@
-"""
-Dashboard bundle saving and loading utilities.
-
-This module provides functions to save and load a compact, dashboard-friendly bundle
-containing essential data for visualization. The bundle is designed to be lean,
-including only the necessary data for visualization, avoiding pickling of custom classes
-for robustness.
-
-Variables stored in the bundle:
-
-- args: command-line arguments
-- picked_index: index of the protein picked for visualization
-- frechet_scores: dictionary of Frechet distances for each protein
-- lambdas: dictionary of lambda values for each protein
-- solver_times: dictionary of solver times for each protein
-- defaults: dictionary of default values for each protein
-- slices: dictionary of slice values for each protein
-- xl, xu: lower and upper bounds for each protein
-
-Note that the bundle does not store the optimization result object (res) or the
-Pymoo algorithm (sys).
-"""
+"""Save and load compact dashboard payloads for scalar optimization runs; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on no other networkmodel modules."""
 from __future__ import annotations
 
 import pickle
@@ -46,11 +25,35 @@ def save_dashboard_bundle(
         frechet_scores=None,
         picked_index: int | None = None,
 ) -> Path:
+    """Save dashboard input data to disk
+    
+    Args:
+        output_dir: Input value used by this routine.
+        args: Positional arguments forwarded to the runner.
+        res: Input value used by this routine.
+        slices: Input value used by this routine.
+        xl: Input value used by this routine.
+        xu: Input value used by this routine.
+        defaults: Input value used by this routine.
+        lambdas: Input value used by this routine.
+        solver_times: Input value used by this routine.
+        df_prot: Input value used by this routine.
+        df_rna: Input value used by this routine.
+        df_pho: Input value used by this routine.
+        frechet_scores: Input value used by this routine.
+        picked_index: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    pareto_F = np.asarray(getattr(res, "F", None)) if res is not None else None
-    pareto_X = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None
+    objective_values = np.asarray(getattr(res, "F", None)) if res is not None else None
+    parameter_values = np.asarray(getattr(res, "X", None)) if res is not None and hasattr(res, "X") else None
+    mode_obj = getattr(res, "data_mode", None)
+    data_mode = getattr(mode_obj, "data_mode", None)
+    active_layers = list(getattr(mode_obj, "available_layers", []) or [])
 
     bundle = {
         "args": vars(args) if hasattr(args, "__dict__") else args,
@@ -62,8 +65,12 @@ def save_dashboard_bundle(
         "slices": slices,
         "xl": xl,
         "xu": xu,
-        "pareto_F": pareto_F,
-        "pareto_X": pareto_X,
+        "objective_values": objective_values,
+        "parameter_values": parameter_values,
+        "data_mode": data_mode,
+        "active_layers": active_layers,
+        "pareto_F": objective_values,  # backward-compatible alias
+        "pareto_X": parameter_values,  # backward-compatible alias
         "df_prot_obs": df_prot,
         "df_rna_obs": df_rna,
         "df_pho_obs": df_pho,
@@ -77,6 +84,14 @@ def save_dashboard_bundle(
 
 
 def load_dashboard_bundle(output_dir: str | Path) -> dict:
+    """Load dashboard input data from disk
+    
+    Args:
+        output_dir: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     p = Path(output_dir) / "dashboard_bundle.pkl"
     with p.open("rb") as f:
         return pickle.load(f)

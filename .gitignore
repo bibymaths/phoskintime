@@ -57,3 +57,10 @@ __pycache__/
 # Ignore any dist files - wheels
 /dist/
 .idea/
+
+site/
+# Ignore generated educational notebook outputs while preserving directory structure
+/notebooks/outputs/**
+!/notebooks/outputs/
+!/notebooks/outputs/*/
+!/notebooks/outputs/*/.gitkeep

@@ -1,21 +1,4 @@
-"""
-Kinetic Model Kernels (Right-Hand Side Definitions).
-
-This module contains the JIT-compiled kernels that define the system of Ordinary Differential Equations (ODEs)
-for different biological kinetic assumptions.
-
-**Supported Models:**
-1.  **Distributive (Model 0):** Sites on the same protein are phosphorylated independently.
-    State space scales linearly with sites ($N_{sites} + 2$).
-2.  **Sequential (Model 1):** Phosphorylation occurs in a strict order ($P_0 \to P_1 \to \dots$).
-    Useful for processive kinases. State space is linear.
-3.  **Combinatorial (Model 2):** Every possible phosphorylation pattern is a distinct state.
-    State space scales exponentially ($2^{N_{sites}} + 1$). Handles complex logic like logic gates.
-4.  **Saturating (Model 4):** Uses Michaelis-Menten kinetics for translation and phosphorylation.
-    Prevents unbiological rate explosions at high concentrations.
-
-
-"""
+"""Define NumPy right-hand-side kernels for supported phosphorylation topologies; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on no other networkmodel modules."""
 
 import numpy as np
 from numba import njit
@@ -26,26 +9,15 @@ from numba import njit
 # -----------------------------------------------------------------------------
 @njit(fastmath=True, cache=True, nogil=True, inline='always')
 def calculate_synthesis_rate(Ai, tf_scale, u_raw):
-    """
-    Computes the transcription rate based on Transcription Factor (TF) input.
-
-    Uses a rational (Hill-like) function that is numerically stable and bounded.
-
-
-
-    Logic:
-    - **Soft-Clipping:** The raw input `u` is first mapped to (-1, 1) to prevent
-      numerical overflow/instability using $u_{norm} = u / (1 + |u|)$.
-    - **Activation (u > 0):** Rate increases from $A_i$ to $A_i \times (1 + tf\_scale)$.
-    - **Repression (u < 0):** Rate decreases from $A_i$ to $A_i / (1 + tf\_scale)$.
-
+    """Calculate saturating transcriptional synthesis rate
+    
     Args:
-        Ai (float): Basal synthesis rate.
-        tf_scale (float): Maximum fold-change factor.
-        u_raw (float): Raw total TF input (weighted sum of regulators).
-
+        Ai: Input value used by this routine.
+        tf_scale: Input value used by this routine.
+        u_raw: Input value used by this routine.
+    
     Returns:
-        float: The calculated synthesis rate.
+        Computed result from this routine.
     """
     # 1. Squash input to (-1, 1) to prevent numerical instability
     # This acts as a soft-clipping mechanism.
@@ -71,19 +43,23 @@ def calculate_synthesis_rate(Ai, tf_scale, u_raw):
 @njit(fastmath=True, cache=True, nogil=True)
 def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
-    """
-    Right-Hand Side for Model 4: Saturating Kinetics.
-
-
-
-    Unlike other models that use Mass Action kinetics (Rate = k * [S]), this model
-    uses Michaelis-Menten forms (Rate = Vmax * [S] / (Km + [S])) for Translation
-    and Phosphorylation. This prevents "runaway" kinetics where high protein
-    concentrations lead to infinitely fast reactions.
-
-    Physics:
-    - **Translation:** Limited by ribosome availability.
-    - **Phosphorylation:** Limited by enzyme (kinase) availability relative to substrate.
+    """Evaluate the saturating topology right-hand side
+    
+    Args:
+        y: Input value used by this routine.
+        dy: Input value used by this routine.
+        A_i: Input value used by this routine.
+        B_i: Input value used by this routine.
+        C_i: Input value used by this routine.
+        D_i: Input value used by this routine.
+        Dp_i: Input value used by this routine.
+        E_i: Input value used by this routine.
+        tf_scale: Input value used by this routine.
+        TF_inputs: Input value used by this routine.
+        S_all: Input value used by this routine.
+        offset_y: Input value used by this routine.
+        offset_s: Input value used by this routine.
+        n_sites: Input value used by this routine.
     """
     N = A_i.shape[0]
     K_SAT = 1.0  # Saturation constant (normalized units)
@@ -149,12 +125,23 @@ def saturating_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
 @njit(fastmath=True, cache=True, nogil=True)
 def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                      offset_y, offset_s, n_sites):
-    """
-    Right-Hand Side for Model 0: Distributive (Independent) Binding.
-
-    Assumes that the phosphorylation status of one site does not affect others.
-    We track the Unphosphorylated species $P$ and $N_{sites}$ distinct mono-phosphorylated species.
-    This is a simplification that ignores multi-phosphorylated states but captures individual site dynamics efficiently.
+    """Evaluate the distributive topology right-hand side
+    
+    Args:
+        y: Input value used by this routine.
+        dy: Input value used by this routine.
+        A_i: Input value used by this routine.
+        B_i: Input value used by this routine.
+        C_i: Input value used by this routine.
+        D_i: Input value used by this routine.
+        Dp_i: Input value used by this routine.
+        E_i: Input value used by this routine.
+        tf_scale: Input value used by this routine.
+        TF_inputs: Input value used by this routine.
+        S_all: Input value used by this routine.
+        offset_y: Input value used by this routine.
+        offset_s: Input value used by this routine.
+        n_sites: Input value used by this routine.
     """
     N = A_i.shape[0]
 
@@ -215,14 +202,23 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 @njit(fastmath=True, cache=True, nogil=True)
 def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
-    r"""
-    Right-Hand Side for Model 1: Sequential Binding.
-
-    Assumes phosphorylation must happen in a specific order:
-    $P_0 \xrightarrow{k_0} P_1 \xrightarrow{k_1} P_2 \dots \xrightarrow{k_{n-1}} P_n$
-
-    Dephosphorylation is assumed to be distributive (any state can revert to the previous one).
-    This model is suitable for processive kinases or mechanisms with strict steric requirements.
+    """Evaluate the sequential topology right-hand side
+    
+    Args:
+        y: Input value used by this routine.
+        dy: Input value used by this routine.
+        A_i: Input value used by this routine.
+        B_i: Input value used by this routine.
+        C_i: Input value used by this routine.
+        D_i: Input value used by this routine.
+        Dp_i: Input value used by this routine.
+        E_i: Input value used by this routine.
+        tf_scale: Input value used by this routine.
+        TF_inputs: Input value used by this routine.
+        S_all: Input value used by this routine.
+        offset_y: Input value used by this routine.
+        offset_s: Input value used by this routine.
+        n_sites: Input value used by this routine.
     """
     N = A_i.shape[0]
 
@@ -308,10 +304,7 @@ def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_
 
 @njit(cache=True, nogil=True)
 def _bit_index_from_lsb(lsb):
-    """
-    Fast conversion of a Least Significant Bit (power of 2) to its integer index.
-    e.g., 4 (binary 100) -> 2.
-    """
+    """Handle internal bit index from lsb"""
     j = 0
     while lsb > 1:
         lsb >>= 1
@@ -328,18 +321,30 @@ def combinatorial_rhs(
         n_sites, n_states,
         trans_from, trans_to, trans_site, trans_off, trans_n
 ):
-    """
-    Right-Hand Side for Model 2: Combinatorial Binding.
-
-
-
-    Tracks all $2^N$ possible states. This allows for complex logic (e.g., "Site A facilitates Site B").
-
-    The state transition logic is split into:
-    1.  **Dephosphorylation (Implicit Graph):** Iterates over all states `m`. For every set bit in `m`, 
-        calculates decay to `m ^ lsb`.
-    2.  **Phosphorylation (Explicit Graph):** Uses pre-calculated `trans_*` arrays to apply forward 
-        transitions based on available sites.
+    """Evaluate the combinatorial topology right-hand side
+    
+    Args:
+        y: Input value used by this routine.
+        dy: Input value used by this routine.
+        A_i: Input value used by this routine.
+        B_i: Input value used by this routine.
+        C_i: Input value used by this routine.
+        D_i: Input value used by this routine.
+        Dp_i: Input value used by this routine.
+        E_i: Input value used by this routine.
+        tf_scale: Input value used by this routine.
+        TF_inputs: Input value used by this routine.
+        S_cache: Input value used by this routine.
+        jb: Input value used by this routine.
+        offset_y: Input value used by this routine.
+        offset_s: Input value used by this routine.
+        n_sites: Input value used by this routine.
+        n_states: Input value used by this routine.
+        trans_from: Input value used by this routine.
+        trans_to: Input value used by this routine.
+        trans_site: Input value used by this routine.
+        trans_off: Input value used by this routine.
+        trans_n: Input value used by this routine.
     """
     N = A_i.shape[0]
     jb_loc = jb  # local binding helps Numba
@@ -433,19 +438,13 @@ def combinatorial_rhs(
 
 
 def build_random_transitions(idx):
-    """
-    Precompute random phosphorylation transitions for all proteins (Model 2 Setup).
-
-    Constructs the sparse adjacency list for the hypercube state graph.
-
-    Returns arrays for Numba:
-      trans_from, trans_to, trans_site  (flattened)
-      trans_off[i], trans_n[i] per protein i
-
-    Interpretation:
-      for protein i:
-        transitions are in slice [trans_off[i] : trans_off[i]+trans_n[i]]
-        each transition uses site index 'j' (0..ns-1) to pick rate S_all[s_start + j]
+    """Build transition arrays for combinatorial topology
+    
+    Args:
+        idx: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     trans_from = []
     trans_to = []

@@ -125,18 +125,14 @@ class PhosKinConfig:
     bounds_config: dict[str, tuple[float, float]]
     model: str
 
-    use_custom_solver: bool
     ode_abs_tol: float
     ode_rel_tol: float
     ode_max_steps: int
 
     loss_mode: int
     maximum_iterations: int
-    population_size: int
     seed: int
     cores: int
-    refine: bool
-    num_refine: int
 
     regularization_rna: float
     regularization_lambda: float
@@ -155,13 +151,14 @@ class PhosKinConfig:
 
     hyperparam_scan: bool = False
 
-    optimizer: str = "pymoo"  # "optuna" or "pymoo"
-
-    # Optuna-specific knobs
-    study_name: str = ""
-    sampler: str = "TPESampler"
-    pruner: str = "MedianPruner"
-    n_trials: int = 0
+    # Inference / post-optimization analyses
+    n_starts: int = 1
+    profile_likelihood: bool = False
+    profile_indices: str = ""
+    profile_grid_size: int = 10
+    posterior_sampling: bool = False
+    posterior_num_warmup: int = 20
+    posterior_num_samples: int = 30
 
     # Data scaling & weighting
     scaling_method: str = "none"
@@ -221,8 +218,6 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     res_dir = cfg.get("output_dir", cfg.get("output_directory", "results_global"))
     cores = int(cfg.get("cores", 0))
     seed = int(cfg.get("seed", 42))
-    refine = bool(cfg.get("refine", False))
-    num_refine = int(cfg.get("num_refinements", cfg.get("num_refine", 0)))
 
     # -------------------------
     # 3) Data inference flags
@@ -254,24 +249,23 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     available_models = tuple(models_cfg.get("available_models", []) or [])
 
     # -------------------------
-    # 6) Optimizer selection + params
+    # 6) JAXopt optimizer params
     # -------------------------
-    optimizer = str(cfg.get("optimizer", "pymoo")).strip().lower()
-
     hyp_scan = bool(cfg.get("hyperparam_scan", False))
 
-    # Pymoo-style knobs
     max_iter = int(cfg.get("n_gen", 200))
-    pop_size = int(cfg.get("pop", 100))
 
     # Loss
     loss_mode = int(cfg.get("loss", 0))
 
-    # Optuna knobs
-    study_name = str(cfg.get("study_name", ""))
-    sampler = str(cfg.get("sampler", "TPESampler"))
-    pruner = str(cfg.get("pruner", "MedianPruner"))
-    n_trials = int(cfg.get("n_trials", 0))
+    # Inference / post-optimization analyses
+    n_starts = int(cfg.get("n_starts", 1))
+    profile_likelihood = bool(cfg.get("profile_likelihood", False))
+    profile_indices = str(cfg.get("profile_indices", ""))
+    profile_grid_size = int(cfg.get("profile_grid_size", 10))
+    posterior_sampling = bool(cfg.get("posterior_sampling", False))
+    posterior_num_warmup = int(cfg.get("posterior_num_warmup", 20))
+    posterior_num_samples = int(cfg.get("posterior_num_samples", 30))
 
     # -------------------------
     # 7) Regularization (loss weights)
@@ -287,7 +281,6 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # 8) Solver
     # -------------------------
     sol_cfg = cfg.get("solver", {}) or {}
-    use_custom_solver = bool(sol_cfg.get("use_custom_solver", False))
     ode_abs_tol = float(sol_cfg.get("absolute_tolerance", 1e-8))
     ode_rel_tol = float(sol_cfg.get("relative_tolerance", 1e-8))
     ode_max_steps = int(sol_cfg.get("max_timesteps", 200000))
@@ -342,20 +335,15 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         model=model,
 
-        use_custom_solver=use_custom_solver,
         ode_abs_tol=ode_abs_tol,
         ode_rel_tol=ode_rel_tol,
         ode_max_steps=ode_max_steps,
 
         loss_mode=loss_mode,
         maximum_iterations=max_iter,
-        population_size=pop_size,
 
         seed=seed,
         cores=cores,
-
-        refine=refine,
-        num_refine=num_refine,
 
         regularization_rna=reg_rna,
         regularization_lambda=reg_lambda,
@@ -374,11 +362,13 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         hyperparam_scan=hyp_scan,
 
-        optimizer=optimizer,
-        study_name=study_name,
-        sampler=sampler,
-        pruner=pruner,
-        n_trials=n_trials,
+        n_starts=n_starts,
+        profile_likelihood=profile_likelihood,
+        profile_indices=profile_indices,
+        profile_grid_size=profile_grid_size,
+        posterior_sampling=posterior_sampling,
+        posterior_num_warmup=posterior_num_warmup,
+        posterior_num_samples=posterior_num_samples,
 
         scaling_method=scaling_method,
 

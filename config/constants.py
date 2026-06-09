@@ -18,12 +18,11 @@ _PATHS = _CFG.get("_paths", {}) or {}
 # Flag to indicate if the code is in development mode.
 DEV_TEST = bool(_CFG.get("dev_test", False))
 
-
 ########################################################################################################################
 # GLOBAL CONSTANTS
 ########################################################################################################################
 
-# Select the ODE model for phosphorylation kinetics: distmod | succmod | randmod
+# Select the ODE model for phosphorylation kinetics: protwise | distmod | succmod | randmod
 ODE_MODEL = str(_CFG.get("model", "randmod"))
 
 # Upper bounds
@@ -82,12 +81,12 @@ GAMMA_WEIGHT = float(_w.get("var", 1.0))
 DELTA_WEIGHT = float(_w.get("mse", 1.0))
 MU_WEIGHT = float(_w.get("l2", 1.0))
 
-
 ########################################################################################################################
 # INTERNAL CONSTANTS
 ########################################################################################################################
 
 model_names = {
+    "protwise": "Protein-wise",
     "distmod": "Distributive",
     "succmod": "Successive",
     "randmod": "Random",
@@ -102,7 +101,6 @@ Y_METRIC_DESCRIPTIONS = {
     "l2_norm": "Euclidean norm of the flattened values (captures overall magnitude in L2 sense).",
 }
 Y_METRIC = str(_CFG.get("y_metric", "total_signal"))
-
 
 ########################################################################################################################
 # PATHS, DIRECTORIES, AND FILES (config-driven)
@@ -126,11 +124,13 @@ LOG_DIR = LOGS_DIR / f"{model_type}_logs"
 # Inputs
 _inputs = _CFG.get("inputs", {}) or {}
 
+
 def _req_path(key: str) -> Path:
     v = _inputs.get(key)
     if not v:
         raise KeyError(f"[ode.inputs] is missing required key '{key}' in config.toml")
     return _ROOT / str(v)
+
 
 # These MUST be explicit in [ode.inputs] (no tfopt imports)
 INPUT_EXCEL_PROTEIN = _req_path("protein_excel")
@@ -141,7 +141,6 @@ INPUT_EXCEL_RNA = _req_path("rna_excel")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-
 
 ########################################################################################################################
 # PLOTTING STYLE CONFIGURATION
@@ -158,12 +157,57 @@ available_markers = [
 
 
 ########################################################################################################################
-# MODEL-SPECIFIC LABEL HELPERS
+# MODEL-SPECIFIC PARAMETER AND LABEL HELPERS
 ########################################################################################################################
 
-if ODE_MODEL == "randmod":
-    get_param_names = get_param_names_rand
-    generate_labels = generate_labels_rand
-else:
-    get_param_names = get_param_names_ds
-    generate_labels = generate_labels_ds
+def _normalize_model_name(model_name: str | None = None) -> str:
+    model = str(model_name or ODE_MODEL).strip().lower()
+    aliases = {
+        "dist": "distmod",
+        "distributive": "distmod",
+        "succ": "succmod",
+        "successive": "succmod",
+        "random": "randmod",
+    }
+    return aliases.get(model, model)
+
+
+def get_num_params(model_name: str | None, num_psites: int) -> int:
+    """Return the number of kinetic parameters for a local ODE model."""
+    n = int(num_psites)
+    if n < 0:
+        raise ValueError("num_psites must be non-negative")
+
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        return 4 + n + (2 ** n - 1)
+    if model in {"protwise", "distmod", "succmod"}:
+        return 4 + 2 * n
+    raise ValueError(f"Unsupported ODE model for parameter count: {model_name!r}")
+
+
+def get_param_names(num_psites: int, model_name: str | None = None) -> list[str]:
+    """Return parameter labels whose length matches get_num_params()."""
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        names = get_param_names_rand(int(num_psites))
+    elif model in {"protwise", "distmod", "succmod"}:
+        names = get_param_names_ds(int(num_psites))
+    else:
+        raise ValueError(f"Unsupported ODE model for parameter names: {model_name!r}")
+
+    expected = get_num_params(model, num_psites)
+    if len(names) != expected:
+        raise ValueError(
+            f"Parameter name/count mismatch for {model}: {len(names)} names for {expected} parameters."
+        )
+    return names
+
+
+def generate_labels(num_psites: int, model_name: str | None = None) -> list[str]:
+    model = _normalize_model_name(model_name)
+    if model == "randmod":
+        return generate_labels_rand(int(num_psites))
+    if model in {"protwise", "distmod", "succmod"}:
+        return generate_labels_ds(int(num_psites))
+    raise ValueError(f"Unsupported ODE model for state labels: {model_name!r}")

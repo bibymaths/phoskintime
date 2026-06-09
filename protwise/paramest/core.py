@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from protwise.knockout import apply_knockout, generate_knockout_combinations
-from config.constants import get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
-from protwise.models import illustrate
+from config.constants import ODE_MODEL, get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
+from protwise.models.diagram import illustrate
 from protwise.paramest.toggle import estimate_parameters
 from protwise.sensitivity import sensitivity_analysis
 from protwise.models import solve_ode
@@ -100,18 +100,26 @@ def process_gene(
     logger.info("           --------------------------------")
 
     # Solve Full ODE with Final Params
-    final_params = estimated_params[-1]
+    final_params = np.asarray(estimated_params[-1])
 
     # Insert labels of the protein and phosphorylation sites
+    param_names = get_param_names(num_psites, ODE_MODEL)
+    if len(param_names) != final_params.size:
+        logger.warning(
+            "[%s] Parameter length (%d) != number of names (%d); truncating.",
+            gene,
+            final_params.size,
+            len(param_names),
+        )
     gene_psite_dict_local = {'Protein': gene}
-    for i, name in enumerate(get_param_names(num_psites)):
-        gene_psite_dict_local[name] = [final_params[i]]
+    for name, value in zip(param_names, final_params):
+        gene_psite_dict_local[name] = [value]
 
     # Solve ODE with final parameters
     sol_full, _ = solve_ode(final_params, init_cond, num_psites, time_points)
 
     # Generate Labels
-    labels = generate_labels(num_psites)
+    labels = generate_labels(num_psites, ODE_MODEL)
 
     logger.info(f"[{gene}]      Generating plots...")
 
@@ -187,7 +195,11 @@ def process_gene(
         plotter.plot_knockouts(knockout_dict, num_psites, psite_values)
 
     # Save Parameters
-    df_params = pd.DataFrame(estimated_params, columns=get_param_names(num_psites))
+    labelled_param_count = min(len(param_names), final_params.size)
+    df_params = pd.DataFrame(
+        np.asarray(estimated_params)[:, :labelled_param_count],
+        columns=param_names[:labelled_param_count],
+    )
     df_params.insert(0, "Time", time_points[:len(estimated_params)])
     df_params['Regularization'] = regularization_val
     param_path = os.path.join(out_dir, f"{gene}_parameters.xlsx")

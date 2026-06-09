@@ -16,7 +16,7 @@ The configuration file is `config.toml` at the project root. It is loaded by two
 
 > **Technical debt:** Both modules load overlapping configuration surfaces from `config.toml`.
 > They should be unified so `networkmodel/config.py` entirely delegates to `config_loader.py`.
-> See the TODO comment in `config_loader.py`.
+> See `config_loader.py` for the shared loader behavior.
 
 ---
 
@@ -120,7 +120,7 @@ Controls the global network-scale pipeline (`networkmodel/`). Consumed by `netwo
 |---|---|---|---|
 | `app_name` | string | `"Phoskintime-Global"` | Application display name |
 | `version` | string | `"0.4.0"` | Package version |
-| `output_dir` | string | `"results_model_global_..."` | Output directory |
+| `output_dir` | string | `"results_model_global_distributive_jax"` | Output directory |
 | `cores` | int | `80` | CPU cores to use (0 = all available) |
 | `seed` | int | `42` | Random seed |
 
@@ -138,21 +138,22 @@ Controls the global network-scale pipeline (`networkmodel/`). Consumed by `netwo
 
 ### Optimizer settings
 
+The current global path uses `jaxopt.ProjectedGradient` with `projection=project_bounds`. The runner exposes `--n-gen` as the command-line name for the maximum JAXopt iteration count; `config_loader.load_config_toml()` maps the `[networkmodel]` key `n_gen` to `MAX_ITERATIONS` in `networkmodel/config.py`.
+
+```bash
+python -m networkmodel.runner --solver jaxopt --n-gen 30
+```
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `optimizer` | string | `"pymoo"` | `"optuna"` or `"pymoo"` |
-| `n_gen` | int | `1000` | Number of generations (Pymoo) |
-| `pop` | int | `300` | Population size |
-| `n_trials` | int | `1000` | Number of Optuna trials |
-| `refine` | bool | `false` | Enable iterative refinement pass |
-| `num_refinements` | int | `0` | Number of refinement iterations |
-| `hyperparam_scan` | bool | `false` | Enable Optuna hyperparameter scan |
+| `n_gen` | int | `200` in the loader fallback | Maximum JAXopt iterations, exposed as `MAX_ITERATIONS` |
+| `hyperparam_scan` | bool | `false` | Enables the compatibility hyperparameter scan entry point |
 
 ### Loss and regularization
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `loss` | int | `0` | Loss type (0=MSE, 1=Huber, 2=Pseudo-Huber, ...) |
+| `loss` | int | `0` | Loss selector used by the configured loss functions |
 | `lambda_prior` | float | `0.1` | Weight for prior adherence |
 | `lambda_protein` | float | `1.0` | Weight for protein fit error |
 | `lambda_rna` | float | `1.0` | Weight for RNA fit error |
@@ -215,12 +216,14 @@ Kinetic parameter bounds for the global ODE. Each entry is `[min, max]`.
 
 ### `[networkmodel.solver]`
 
+The global path uses Diffrax through `DiffraxSolverConfig`. Current solver names are `Kvaerno4` and `Kvaerno5`; `simulate_diffrax` defaults to `Kvaerno4`.
+
 | Key | Default | Description |
 |---|---|---|
 | `absolute_tolerance` | `1e-8` | ODE absolute tolerance |
 | `relative_tolerance` | `1e-8` | ODE relative tolerance |
 | `max_timesteps` | `200000` | Maximum ODE integration steps |
-| `use_custom_solver` | `false` | Use custom Numba-based solver instead of SciPy |
+
 
 ---
 

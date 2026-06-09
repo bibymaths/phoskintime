@@ -1,22 +1,4 @@
-"""
-High-Performance Loss Functions Module.
-
-This module implements the objective functions used to quantify the discrepancy
-between model predictions ($Y$) and experimental data (Protein, RNA, Phospho).
-
-**Key Features:**
-1.  **JIT Compilation:** All functions are decorated with `@njit` from Numba to
-    enable C-like performance, which is critical when the loss function is called
-    thousands of times during optimization.
-2.  **Multi-Modal Support:** Handles RNA, Total Protein, and Phospho-site data
-    simultaneously.
-3.  **Robust Error Metrics:** Supports multiple loss modes (Squared Error, Huber,
-    Pseudo-Huber, Charbonnier) to handle outliers in biological data.
-4.  **Topology Awareness:** Includes separate logic for standard models (linear states)
-    and combinatorial models (bitwise state aggregation).
-
-
-"""
+"""Compute scalar loss values for protein, RNA, and phospho observations from simulated trajectories; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config."""
 
 import numpy as np
 from numba import njit
@@ -27,16 +9,27 @@ EPS = 1e-9
 
 @njit(fastmath=True, cache=True, nogil=True)
 def sq(diff):
-    """Standard Squared Error: (y - y_pred)^2."""
+    """Compute squared loss
+    
+    Args:
+        diff: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
+    """
     return diff * diff
 
 
 @njit(fastmath=True, cache=True, nogil=True)
 def huber(diff, delta=1.0):
-    """
-    Huber Loss.
-    Behaves like Squared Error for small errors (<= delta) and Absolute Error
-    for large errors. Robust to outliers.
+    """Compute Huber loss
+    
+    Args:
+        diff: Input value used by this routine.
+        delta: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     a = diff if diff >= 0.0 else -diff
     if a <= delta:
@@ -46,9 +39,14 @@ def huber(diff, delta=1.0):
 
 @njit(fastmath=True, cache=True, nogil=True)
 def pseudo_huber(diff, delta=1.0):
-    """
-    Pseudo-Huber Loss.
-    A smooth approximation of Huber loss that is differentiable everywhere.
+    """Compute pseudo-Huber loss
+    
+    Args:
+        diff: Input value used by this routine.
+        delta: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     x = diff / delta
     return (delta * delta) * ((1.0 + x * x) ** 0.5 - 1.0)
@@ -56,19 +54,27 @@ def pseudo_huber(diff, delta=1.0):
 
 @njit(fastmath=True, cache=True, nogil=True)
 def charbonnier(diff, eps=1e-3):
-    """
-    Charbonnier Loss (differentiable L1).
-    $\sqrt{diff^2 + \epsilon^2}$. Very robust to outliers.
+    """Compute Charbonnier loss
+    
+    Args:
+        diff: Input value used by this routine.
+        eps: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     return (diff * diff + eps * eps) ** 0.5 - eps
 
 
 @njit(fastmath=True, cache=True, nogil=True)
 def log_cosh(diff):
-    """
-    Log-Hyperbolic Cosine Loss.
-    Approx: x^2/2 for small x, abs(x) - log(2) for large x.
-    Smoother than Huber; helps gradients flow better near zero.
+    """Compute log-cosh loss
+    
+    Args:
+        diff: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     s = np.abs(diff)
     if s > 20.0:
@@ -79,20 +85,29 @@ def log_cosh(diff):
 
 @njit(fastmath=True, cache=True, nogil=True)
 def cauchy_loss(diff, c=1.0):
-    """
-    Cauchy (Lorentzian) Loss.
-    Scales logarithmically for large errors.
-    Extremely robust to outliers; the influence of an outlier tends to zero.
+    """Compute Cauchy loss
+    
+    Args:
+        diff: Input value used by this routine.
+        c: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     return np.log(1.0 + (diff / c) ** 2)
 
 
 @njit(fastmath=True, cache=True, nogil=True)
 def poisson_scaled_mse(diff, pred_val, eps=1e-6):
-    """
-    Poisson-Scaled MSE.
-    Weights the error by the inverse of the predicted intensity.
-    Penalizes relative error more heavily at low values and allows more variance at high values.
+    """Compute Poisson-scaled mean squared error
+    
+    Args:
+        diff: Input value used by this routine.
+        pred_val: Input value used by this routine.
+        eps: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     # Weight = 1 / (Intensity + eps)
     # Loss = (Obs - Pred)^2 / Pred
@@ -101,10 +116,14 @@ def poisson_scaled_mse(diff, pred_val, eps=1e-6):
 
 @njit(fastmath=True, cache=True, nogil=True)
 def geman_mcclure(diff, delta=1.0):
-    """
-    Geman-McClure Loss.
-    Soft-saturating loss. As error -> infinity, loss -> constant.
-    This strictly limits the maximum penalty any single data point can exert.
+    """Compute Geman-McClure loss
+    
+    Args:
+        diff: Input value used by this routine.
+        delta: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     x2 = diff * diff
     return x2 / (x2 + delta * delta)
@@ -119,26 +138,30 @@ def loss_function_noncomb(
         prot_map,
         prot_base_idx, rna_base_idx, pho_base_idx
 ):
-    """
-    Loss function for Models 0, 1, and 4 (Non-Combinatorial).
-
-    In these models, the state vector is linear:
-    [RNA, Unphos, Phos_site1, Phos_site2, ...]
-
-    Calculates:
-    1.  **Protein:** (Unphos + Sum(Phos_states)) / Baseline
-    2.  **RNA:** RNA_state / Baseline
-    3.  **Phospho:** Phos_state_j / Baseline
-
+    """Compute multimodal loss for non-combinatorial state layouts
+    
     Args:
-        Y (np.ndarray): Simulation trajectory (n_times x n_states).
-        *_prot, *_rna, *_pho: Arrays of indices (protein index, time index, etc.),
-                              observations, and weights for each data type.
-        prot_map (np.ndarray): Lookup table for state offsets.
-        *_base_idx: Index of the normalization baseline timepoint (usually t=0).
-
+        Y: Input value used by this routine.
+        p_prot: Input value used by this routine.
+        t_prot: Input value used by this routine.
+        obs_prot: Input value used by this routine.
+        w_prot: Input value used by this routine.
+        p_rna: Input value used by this routine.
+        t_rna: Input value used by this routine.
+        obs_rna: Input value used by this routine.
+        w_rna: Input value used by this routine.
+        p_pho: Input value used by this routine.
+        s_pho: Input value used by this routine.
+        t_pho: Input value used by this routine.
+        obs_pho: Input value used by this routine.
+        w_pho: Input value used by this routine.
+        prot_map: Input value used by this routine.
+        prot_base_idx: Input value used by this routine.
+        rna_base_idx: Input value used by this routine.
+        pho_base_idx: Input value used by this routine.
+    
     Returns:
-        tuple: (loss_protein, loss_rna, loss_phospho)
+        Computed result from this routine.
     """
     loss_p = 0.0
     for k in range(p_prot.size):
@@ -255,19 +278,30 @@ def loss_function_comb(
         prot_map,
         prot_base_idx, rna_base_idx, pho_base_idx
 ):
-    """
-    Loss function for Model 2 (Combinatorial).
-
-
-
-    In this model, states represent all $2^n$ combinations of phosphorylation.
-    To calculate observables, we must aggregate these states:
-    1.  **Protein:** Sum of all $2^n$ states.
-    2.  **Phospho Site j:** Sum of all states where the $j$-th bit is 1.
-
+    """Compute multimodal loss for combinatorial state layouts
+    
     Args:
-        Y (np.ndarray): Simulation trajectory.
-        ... (same as noncomb) ...
+        Y: Input value used by this routine.
+        p_prot: Input value used by this routine.
+        t_prot: Input value used by this routine.
+        obs_prot: Input value used by this routine.
+        w_prot: Input value used by this routine.
+        p_rna: Input value used by this routine.
+        t_rna: Input value used by this routine.
+        obs_rna: Input value used by this routine.
+        w_rna: Input value used by this routine.
+        p_pho: Input value used by this routine.
+        s_pho: Input value used by this routine.
+        t_pho: Input value used by this routine.
+        obs_pho: Input value used by this routine.
+        w_pho: Input value used by this routine.
+        prot_map: Input value used by this routine.
+        prot_base_idx: Input value used by this routine.
+        rna_base_idx: Input value used by this routine.
+        pho_base_idx: Input value used by this routine.
+    
+    Returns:
+        Computed result from this routine.
     """
     loss_p = 0.0
     for k in range(p_prot.size):
