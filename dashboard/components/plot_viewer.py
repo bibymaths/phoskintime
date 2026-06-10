@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import streamlit as st
-import streamlit.components.v1 as components
-
 from dashboard.file_utils import DisplayFile, human_size, read_text_preview
 
 
 def render_plots(plots: list[DisplayFile]) -> None:
+    import streamlit as st
+    import streamlit.components.v1 as components
+
     st.subheader("Plots")
     if not plots:
         st.info("No PNG, JPG, JPEG, SVG, or HTML plots were found in plots/ or recognised legacy plot folders.")

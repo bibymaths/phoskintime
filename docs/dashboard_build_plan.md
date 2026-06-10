@@ -389,3 +389,8 @@ The dashboard now supports no-code setup before launching registered workflows: 
 ### Phase 4 implementation note (June 2026)
 
 Workflow-specific dashboard panels now live under `dashboard/workflow_panels/` for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. The panels discover and display existing workbooks, CSVs, plots, reports, bundles, and inference outputs from the selected result directory while leaving model fitting, ODE solving, optimization, and expensive analyses in the existing backend scripts/CLI modules. Advanced analyses are exposed as parameterized command builders and are not executed automatically on page load.
+
+
+## 15. Implementation Status
+
+The no-code dashboard phases are implemented in the unified `dashboard/` package. The current implementation provides the standard result contract and provenance helpers, a lazy result browser, a structured command launcher, upload/configuration panels, workflow-specific result panels, advanced-analysis command wrappers, dashboard-focused tests, Pixi dashboard tasks, git-ignore coverage for generated artifacts, and user documentation. Streamlit UI imports are kept inside render functions so importing dashboard modules does not start a Streamlit server or require optional UI dependencies until those render paths are used.

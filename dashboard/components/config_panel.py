@@ -3,13 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import streamlit as st
 
 from dashboard.config_utils import parse_config_file
 from dashboard.registry import WorkflowDescriptor
 
 
 def render_config_panel(workflow: WorkflowDescriptor, available_files: list[Path]) -> tuple[dict[str, Any], dict[str, str]]:
+    import streamlit as st
+
     """Render structured parameter and workflow-specific input assignment controls."""
     st.subheader("Configure workflow")
     arguments: dict[str, Any] = {}

@@ -75,6 +75,11 @@ Executable educational notebooks are available under `notebooks/` and cover end-
 
 Run them interactively with `jupyter lab notebooks/` or as executable tests with `pytest --nbmake notebooks/*.ipynb`.
 
+
+## No-code dashboard
+
+Use the unified Streamlit dashboard to browse existing result directories, preview uploaded inputs, launch registered CLI/Pixi workflows, and download result archives. See [No-code dashboard documentation](Documentation/no_code_dashboard.md).
+
 ## Modeling backends (local vs global)
 
 PhosKinTime provides two complementary modeling stacks:

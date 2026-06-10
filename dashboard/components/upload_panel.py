@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
-
 from dashboard.file_utils import (
     UPLOAD_EXTENSIONS,
     create_upload_dir,
@@ -15,11 +13,14 @@ from dashboard.file_utils import (
 
 def render_upload_panel(repo_root: Path, run_name: str) -> list[Path]:
     """Render upload controls and save files under dashboard_uploads/<run_id>/ on demand."""
+    import streamlit as st
+
     st.subheader("Upload inputs")
     uploaded = st.file_uploader(
         "Upload input/config files",
         type=sorted(ext.lstrip(".") for ext in UPLOAD_EXTENSIONS),
         accept_multiple_files=True,
+        help="Files are copied to dashboard_uploads/<run name>/ and are not written into data/ automatically.",
     )
     saved: list[Path] = []
     if not uploaded:

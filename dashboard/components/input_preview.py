@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
-
 from dashboard.file_utils import preview_table, read_text_preview, validate_existing_file
 
 
 def render_input_preview(paths: list[Path]) -> None:
     """Preview uploaded/selected files without modifying them."""
+    import streamlit as st
+
     st.subheader("Input preview")
     if not paths:
         st.info("Upload or select files to preview them here.")
@@ -22,9 +22,13 @@ def render_input_preview(paths: list[Path]) -> None:
         try:
             st.dataframe(preview_table(selected), use_container_width=True)
         except Exception as exc:
-            st.error(f"Could not preview table: {exc}")
+            st.error(f"Could not preview table. Check that the file is a readable CSV, TSV, or Excel workbook: {exc}")
     else:
-        text, truncated = read_text_preview(selected)
+        try:
+            text, truncated = read_text_preview(selected)
+        except UnicodeDecodeError as exc:
+            st.error(f"Could not preview text file: {exc}")
+            return
         st.code(text)
         if truncated:
             st.caption("Preview truncated for display.")

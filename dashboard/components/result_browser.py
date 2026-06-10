@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import streamlit as st
-
 from dashboard.components.download_panel import render_download_panel
 from dashboard.components.log_viewer import render_logs, render_text_file
 from dashboard.components.metadata_viewer import render_metadata
@@ -13,11 +11,15 @@ from dashboard.result_parser import ResultInventory
 
 
 def _summary_metric(label: str, value: int) -> None:
+    import streamlit as st
+
     st.metric(label, value)
 
 
 def render_result_browser(inventory: ResultInventory) -> None:
     """Render all discovered result-directory content."""
+    import streamlit as st
+
     workflow = infer_workflow(inventory)
     st.header("Result browser")
     st.caption(f"Directory: `{inventory.root}`")
@@ -60,6 +62,8 @@ def render_result_browser(inventory: ResultInventory) -> None:
 
 
 def _render_downloadable_list(label: str, files) -> None:
+    import streamlit as st
+
     st.subheader(label)
     if not files:
         st.info(f"No {label.lower()} were found in the selected result directory.")

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
-
 from dashboard.file_utils import DisplayFile, read_text_preview
 
 
 def render_text_file(label: str, path: Path | None, language: str | None = None) -> None:
+    import streamlit as st
+
     st.subheader(label)
     if path is None:
         st.info(f"No {label} file was found in this result directory.")
@@ -19,6 +19,8 @@ def render_text_file(label: str, path: Path | None, language: str | None = None)
 
 
 def render_logs(logs: list[DisplayFile]) -> None:
+    import streamlit as st
+
     st.subheader("Logs")
     if not logs:
         st.info("No log files were found under logs/ or console.log.")

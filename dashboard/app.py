@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import streamlit as st
 
 from dashboard.command_builder import build_workflow_command, sanitize_run_name
 from dashboard.components.command_preview import render_command_preview
@@ -32,6 +31,8 @@ def _candidate_result_dirs(base: Path) -> list[Path]:
 
 
 def _render_browser_panel(default_directory: Path | None = None) -> None:
+    import streamlit as st
+
     with st.sidebar:
         st.header("Result directory")
         default_base = default_directory.parent if default_directory else Path("results")
@@ -60,6 +61,8 @@ def _render_browser_panel(default_directory: Path | None = None) -> None:
 
 
 def _render_launcher_panel() -> None:
+    import streamlit as st
+
     st.header("Workflow launcher")
     st.write("Construct, preview, and run registered PhosKinTime workflows using existing CLI modules.")
     render_cancellation_note()
@@ -142,6 +145,8 @@ def _render_launcher_panel() -> None:
 
 
 def main() -> None:
+    import streamlit as st
+
     st.set_page_config(page_title="PhosKinTime Dashboard", layout="wide")
     st.title("PhosKinTime Dashboard")
     st.write("Browse existing result directories or launch registered CLI workflows without reimplementing scientific logic.")

@@ -68,3 +68,5 @@ site/
 # Dashboard uploads and local archives
 /dashboard_uploads/
 *.zip
+/results/
+/.streamlit/

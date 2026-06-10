@@ -130,6 +130,7 @@ phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
 dashboard = "PYTHONPATH=. streamlit run dashboard/app.py"
+dashboard-dev = "PYTHONPATH=. streamlit run dashboard/app.py --server.runOnSave=true"
 
 docs-serve = "zensical serve"
 docs-build = "zensical build"

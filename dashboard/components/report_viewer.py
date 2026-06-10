@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import base64
 
-import streamlit as st
-import streamlit.components.v1 as components
-
 from dashboard.file_utils import DisplayFile, human_size, read_text_preview
 
 
 def render_reports(reports: list[DisplayFile]) -> None:
     """Render report files where Streamlit can preview them."""
+    import streamlit as st
+    import streamlit.components.v1 as components
+
     st.subheader("Reports")
     if not reports:
         st.info("No HTML, Markdown, or PDF reports were found in reports/.")

@@ -113,3 +113,12 @@ def test_invalid_existing_file_handling(tmp_path):
 
     assert "File is empty" in validate_existing_file(empty)
     assert any("Unsupported extension" in problem for problem in validate_existing_file(unsupported))
+
+
+def test_preview_rejects_malformed_excel_with_user_actionable_error(tmp_path):
+    pytest.importorskip("pandas")
+    workbook = tmp_path / "broken.xlsx"
+    workbook.write_bytes(b"not an excel workbook")
+
+    with pytest.raises(Exception):
+        preview_table(workbook)
