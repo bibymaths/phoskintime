@@ -369,3 +369,7 @@ The PhosKinTime repository contains a rich suite of optimisation algorithms, ODE
 [\[4\]](chrome://newtab/) \[title unknown\]
 
 <chrome://newtab/>
+
+### Phase 0 implementation note (June 2026)
+
+The backend output contract is implemented with shared result utilities in `common/results.py`. The local kinase, local TF, ProtWise runner, network model runner, and Typer workflow wrappers now accept `--outdir`/`--output-dir` and initialize the standard run subdirectories (`tables/`, `plots/`, `logs/`, `reports/`, `artifacts/`) plus provenance files (`metadata.json`, `command.txt`, `console.log`, and `config_resolved.yaml` when a resolved configuration is available). Legacy top-level output filenames are retained for compatibility, and dashboard-facing copies are mirrored into the standard subfolders.

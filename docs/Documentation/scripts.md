@@ -220,3 +220,7 @@ High sample counts significantly increase computation time.
   `networkmodel/config.py`.
 - The `compare_mechanisms.py` script requires additional dependencies (`gravis`, `networkx`,
   `imageio`) not included in the base `requirements.txt`.
+
+## Dashboard-ready output directories
+
+Major backend workflows accept an explicit `--outdir`/`--output-dir` option so automated tools and the planned no-code dashboard can discover outputs consistently. A run directory contains `metadata.json`, `command.txt`, `console.log`, `config_resolved.yaml` when applicable, and the standard `tables/`, `plots/`, `logs/`, `reports/`, and `artifacts/` subdirectories. Legacy filenames are retained at the run-directory root where existing scripts or documentation rely on them, with dashboard-facing copies mirrored into the standard subfolders.

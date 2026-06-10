@@ -54,7 +54,7 @@ def _run(cmd: list[str]) -> None:
     sp.check_call([PY, "-m", *cmd], cwd=ROOT)
 
 
-def _python_module(module: str, cfg: Path | None) -> list[str]:
+def _python_module(module: str, cfg: Path | None, outdir: Path | None = None) -> list[str]:
     """
     Return `python module [--conf path]`.
 
@@ -67,6 +67,8 @@ def _python_module(module: str, cfg: Path | None) -> list[str]:
     cmd = [module]
     if cfg is not None:
         cmd += ["--conf", str(cfg)]
+    if outdir is not None:
+        cmd += ["--outdir", str(outdir)]
     return cmd
 
 
@@ -84,6 +86,7 @@ def prep():
 @app.command()
 def tfopt(
         mode: str = typer.Option("local", help="local | evol"),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to TOML/YAML config. Uses defaults if omitted."
@@ -99,12 +102,13 @@ def tfopt(
         None
     """
     module = f"tfopt.{mode}"
-    _run(_python_module(module, conf))
+    _run(_python_module(module, conf, outdir if mode == "local" else None))
 
 
 @app.command()
 def kinopt(
         mode: str = typer.Option("local", help="local | evol"),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to TOML/YAML config. Uses defaults if omitted."
@@ -120,11 +124,12 @@ def kinopt(
         None
     """
     module = f"kinopt.{mode}"
-    _run(_python_module(module, conf))
+    _run(_python_module(module, conf, outdir if mode == "local" else None))
 
 
 @app.command()
 def model(
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to model config file. Uses defaults if omitted."
@@ -138,11 +143,12 @@ def model(
     Returns:
         None
     """
-    _run(_python_module("protwise.runner.main", conf))
+    _run(_python_module("protwise.runner.main", conf, outdir))
 
 
 @app.command()
 def networkmodel(
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to global model config file. Uses config.toml by default."
@@ -155,7 +161,7 @@ def networkmodel(
     section of your configuration.
     """
     # Assuming the package is named 'networkmodel' and has a 'runner.py'
-    _run(_python_module("networkmodel.runner", conf))
+    _run(_python_module("networkmodel.runner", conf, outdir))
 
 
 @app.command()
@@ -201,6 +207,7 @@ def all(
         tf_conf: Path | None = typer.Option(None, help="tfopt config file"),
         kin_conf: Path | None = typer.Option(None, help="kinopt config file"),
         model_conf: Path | None = typer.Option(None, help="model config file"),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Base directory for workflow outputs."),
 ):
     """
     Run every stage in sequence.
@@ -220,9 +227,9 @@ def all(
         None
     """
     prep()
-    tfopt.callback(mode=tf_mode, conf=tf_conf)
-    kinopt.callback(mode=kin_mode, conf=kin_conf)
-    model.callback(conf=model_conf)
+    tfopt.callback(mode=tf_mode, conf=tf_conf, outdir=(outdir / "tfopt" if outdir else None))
+    kinopt.callback(mode=kin_mode, conf=kin_conf, outdir=(outdir / "kinopt" if outdir else None))
+    model.callback(conf=model_conf, outdir=(outdir / "protwise" if outdir else None))
 
 
 if __name__ == "__main__":

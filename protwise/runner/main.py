@@ -18,6 +18,10 @@ from config.logconf import setup_logger
 from protwise.paramest.core import process_gene_wrapper
 from protwise.plotting import Plotter
 from common.utils import latexit
+from common.results import (
+    attach_file_console_logger, ensure_result_dir, populate_standard_subdirs,
+    write_command, write_metadata, write_resolved_config,
+)
 from common.utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
 
 logger = setup_logger()
@@ -35,6 +39,10 @@ if not args:
     logger.error("Invalid arguments. Exiting.")
     exit(1)
 config = extract_config(args)
+
+if getattr(args, "outdir", None):
+    OUT_DIR = ensure_result_dir(args.outdir)["root"]
+    OUT_RESULTS_DIR = OUT_DIR / OUT_RESULTS_DIR.name
 
 # Check if the configuration is valid
 if not config:
@@ -62,6 +70,17 @@ def main():
     Returns:
         None
     """
+    ensure_result_dir(OUT_DIR)
+    attach_file_console_logger(logger, OUT_DIR)
+    write_command(OUT_DIR)
+    write_resolved_config(OUT_DIR, config)
+    write_metadata(
+        OUT_DIR,
+        workflow="protwise.runner",
+        args=args,
+        inputs=[config.get("input_excel_protein"), config.get("input_excel_psite"), config.get("input_excel_rna")],
+    )
+
     # Set up the logger
     logger.info("           --------------------------------")
     logger.info(f"{model_type} Phosphorylation Modelling Configuration")

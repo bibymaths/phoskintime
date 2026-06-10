@@ -26,6 +26,7 @@ import atexit
 import json
 import logging
 import pickle
+import sys
 import multiprocessing as mp
 
 import numpy as np
@@ -69,6 +70,10 @@ from networkmodel.BayesianInference import (
 from networkmodel.PosteriorObjective import write_posterior_payload
 from networkmodel.mode_outputs import write_scalar_result_tables
 from common.frechet import frechet_distance
+from common.results import (
+    attach_file_console_logger, ensure_result_dir, populate_standard_subdirs,
+    write_command, write_metadata, write_resolved_config,
+)
 from config_loader import load_config_toml
 from config.config import setup_logger
 
@@ -98,6 +103,7 @@ def main():
         ValueError: When inputs are inconsistent or unsupported.
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument("--conf", default=None, help="Compatibility option; networkmodel settings are loaded before argument parsing.")
     parser.add_argument("--kinase-net", default=KINASE_NET_FILE)
     parser.add_argument("--tf-net", default=TF_NET_FILE)
     parser.add_argument("--ms", default=MS_DATA_FILE)
@@ -108,7 +114,7 @@ def main():
     parser.add_argument("--kinopt", default=KINOPT_RESULTS_FILE)
     parser.add_argument("--tfopt", default=TFOPT_RESULTS_FILE)
 
-    parser.add_argument("--output-dir", default=RESULTS_DIR)
+    parser.add_argument("--output-dir", "--outdir", dest="output_dir", default=RESULTS_DIR)
     parser.add_argument("--cores", type=int, default=CORES)
 
     # JAXopt
@@ -135,7 +141,16 @@ def main():
                         help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
 
     args = parser.parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
+    args.output_dir = str(ensure_result_dir(args.output_dir)["root"])
+    attach_file_console_logger(logger, args.output_dir)
+    write_command(args.output_dir)
+    write_resolved_config(args.output_dir, vars(args))
+    write_metadata(
+        args.output_dir,
+        workflow="networkmodel.runner",
+        args=args,
+        inputs=[args.kinase_net, args.tf_net, args.ms, args.rna, args.phospho, args.kinopt, args.tfopt],
+    )
 
     # logger.info Arguments
     logger.info("============================================================")
@@ -1120,6 +1135,7 @@ def main():
     logger.info(f"[Dashboard] Saved dashboard bundle: {bundle_path}")
 
     # Finalize logging
+    populate_standard_subdirs(args.output_dir)
     logger.info(f"[Complete] All results saved to: {args.output_dir}")
 
 

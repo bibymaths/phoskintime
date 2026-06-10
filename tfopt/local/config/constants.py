@@ -46,6 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - SLSQP mRNA-TF Optimization Problem."
     )
+    parser.add_argument("--conf", default=None, help="Compatibility option; configuration is loaded before argument parsing.")
     parser.add_argument("--lower_bound", type=float, default=float(_CFG.get("lower_bound", -4.0)))
     parser.add_argument("--upper_bound", type=float, default=float(_CFG.get("upper_bound", 4.0)))
     parser.add_argument(
@@ -55,6 +56,13 @@ def parse_args():
         default=int(_CFG.get("loss_type", 5)),
         help="0:MSE 1:MAE 2:softl1 3:cauchy 4:arctan 5:elastic-net 6:tikhonov",
     )
+    parser.add_argument(
+        "--outdir", "--output-dir",
+        dest="outdir",
+        type=Path,
+        default=OUT_DIR,
+        help="Directory where all run outputs and provenance files are written.",
+    )
 
     args = parser.parse_args()
-    return args.lower_bound, args.upper_bound, args.loss_type
+    return args.lower_bound, args.upper_bound, args.loss_type, args.outdir

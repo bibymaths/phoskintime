@@ -102,6 +102,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Cell Signalling Events in Temporal Space"
     )
+    parser.add_argument("--conf", default=None, help="Compatibility option; configuration is loaded before argument parsing.")
     parser.add_argument("--A-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_prod}")
     parser.add_argument("--B-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_deg}")
     parser.add_argument("--C-bound", type=parse_bound_pair, default=f"0, {UB_Protein_prod}")
@@ -118,6 +119,8 @@ def parse_args():
     parser.add_argument("--input-excel-rna", type=str,
                         default=INPUT_EXCEL_RNA,
                         help="Path to the estimated optimized mRNA-TF file")
+    parser.add_argument("--outdir", "--output-dir", dest="outdir", type=str, default=None,
+                        help="Directory where all run outputs and provenance files are written.")
     return parser.parse_args()
 
 
@@ -170,6 +173,7 @@ def extract_config(args):
         'input_excel_psite': args.input_excel_psite,
         'input_excel_rna': args.input_excel_rna,
         'max_workers': 1 if DEV_TEST else os.cpu_count(),
+        'outdir': args.outdir,
     }
     return config
 
