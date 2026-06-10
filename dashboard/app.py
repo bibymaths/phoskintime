@@ -15,6 +15,7 @@ from dashboard.components.run_status import render_run_status
 from dashboard.components.upload_panel import render_upload_panel
 from dashboard.components.validation_panel import render_validation_panel, validate_dashboard_setup
 from dashboard.components.workflow_selector import render_workflow_selector
+from dashboard.components.workflow_tabs import render_workflow_tabs
 from dashboard.config_utils import DashboardSelection
 from dashboard.result_parser import discover_result_directory
 from dashboard.runner import log_tail, run_built_command
@@ -55,6 +56,7 @@ def _render_browser_panel(default_directory: Path | None = None) -> None:
     if not inventory.has_content:
         st.warning("This directory exists, but no standard PhosKinTime result files were discovered.")
     render_result_browser(inventory)
+    render_workflow_tabs(inventory.root)
 
 
 def _render_launcher_panel() -> None:
@@ -132,7 +134,9 @@ def _render_launcher_panel() -> None:
             elif final_event.status == "success":
                 st.success("Run completed. The result directory is shown below.")
                 try:
-                    render_result_browser(discover_result_directory(built.outdir))
+                    inventory = discover_result_directory(built.outdir)
+                    render_result_browser(inventory)
+                    render_workflow_tabs(inventory.root)
                 except (FileNotFoundError, NotADirectoryError) as exc:
                     st.warning(f"Run finished, but the result directory could not be opened: {exc}")
 

@@ -385,3 +385,7 @@ The dashboard now includes a registered workflow launcher that builds argv-list 
 ### Phase 3 implementation note (June 2026)
 
 The dashboard now supports no-code setup before launching registered workflows: users can upload supported input/config files into `dashboard_uploads/<run_id>/`, preview CSV/TSV/XLSX data, assign files to workflow-specific input roles, edit structured parameters based on the actual CLI flags, validate basic file problems, and save or download JSON/YAML presets. These selections are converted into the existing argv-list command builder so execution still goes through the original CLI modules rather than dashboard-side scientific logic.
+
+### Phase 4 implementation note (June 2026)
+
+Workflow-specific dashboard panels now live under `dashboard/workflow_panels/` for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. The panels discover and display existing workbooks, CSVs, plots, reports, bundles, and inference outputs from the selected result directory while leaving model fitting, ODE solving, optimization, and expensive analyses in the existing backend scripts/CLI modules. Advanced analyses are exposed as parameterized command builders and are not executed automatically on page load.
