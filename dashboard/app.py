@@ -4,8 +4,16 @@ from pathlib import Path
 
 import streamlit as st
 
+from dashboard.command_builder import build_workflow_command
+from dashboard.components.command_preview import render_command_preview
+from dashboard.components.console_panel import render_cancellation_note, render_console
 from dashboard.components.result_browser import render_result_browser
+from dashboard.components.run_status import render_run_status
+from dashboard.components.workflow_selector import render_workflow_selector
 from dashboard.result_parser import discover_result_directory
+from dashboard.runner import log_tail, run_built_command
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _candidate_result_dirs(base: Path) -> list[Path]:
@@ -16,21 +24,21 @@ def _candidate_result_dirs(base: Path) -> list[Path]:
     return candidates
 
 
-def main() -> None:
-    st.set_page_config(page_title="PhosKinTime Result Browser", layout="wide")
-    st.title("PhosKinTime Result Browser")
-    st.write("Browse existing PhosKinTime result directories without launching workflows or uploading files.")
-
+def _render_browser_panel(default_directory: Path | None = None) -> None:
     with st.sidebar:
         st.header("Result directory")
-        base = Path(st.text_input("Base results folder", value="results")).expanduser()
+        default_base = default_directory.parent if default_directory else Path("results")
+        base = Path(st.text_input("Base results folder", value=str(default_base), key="browser-base")).expanduser()
         candidates = _candidate_result_dirs(base)
+        if default_directory and default_directory.is_dir() and default_directory not in candidates:
+            candidates.insert(0, default_directory)
         if candidates:
-            choice = st.selectbox("Select folder", candidates, format_func=lambda path: str(path))
-            directory_text = st.text_input("Selected result directory", value=str(choice))
+            index = candidates.index(default_directory) if default_directory in candidates else 0
+            choice = st.selectbox("Select folder", candidates, index=index, format_func=lambda path: str(path), key="browser-choice")
+            directory_text = st.text_input("Selected result directory", value=str(choice), key="browser-directory")
         else:
             st.info("No selectable folders found under the base path. Enter a result directory manually.")
-            directory_text = st.text_input("Selected result directory", value=str(base))
+            directory_text = st.text_input("Selected result directory", value=str(base), key="browser-directory-manual")
 
     try:
         inventory = discover_result_directory(directory_text)
@@ -41,6 +49,79 @@ def main() -> None:
     if not inventory.has_content:
         st.warning("This directory exists, but no standard PhosKinTime result files were discovered.")
     render_result_browser(inventory)
+
+
+def _render_launcher_panel() -> None:
+    st.header("Workflow launcher")
+    st.write("Construct, preview, and run registered PhosKinTime workflows using existing CLI modules.")
+    render_cancellation_note()
+
+    workflow, env, run_name, argument_values = render_workflow_selector(REPO_ROOT)
+    try:
+        built = build_workflow_command(
+            workflow.key,
+            repo_root=REPO_ROOT,
+            pixi_environment=env,
+            run_name=run_name,
+            argument_values=argument_values,
+        )
+    except (KeyError, ValueError) as exc:
+        st.error(str(exc))
+        return
+
+    render_command_preview(built)
+    render_run_status(st.session_state.get("launcher_status"), st.session_state.get("launcher_returncode"))
+
+    if st.button("Run workflow", type="primary"):
+        console_lines: list[str] = []
+        console_placeholder = st.empty()
+        status_placeholder = st.empty()
+        st.session_state["launcher_status"] = "running"
+        st.session_state["launcher_returncode"] = None
+        with status_placeholder.container():
+            render_run_status("running")
+        final_event = None
+        try:
+            for event in run_built_command(built, repo_root=REPO_ROOT):
+                final_event = event
+                if event.line:
+                    console_lines.append(event.line)
+                    with console_placeholder.container():
+                        render_console(console_lines)
+        except FileNotFoundError as exc:
+            st.session_state["launcher_status"] = "failure"
+            st.session_state["launcher_returncode"] = 127
+            st.error(f"Could not start workflow command: {exc}")
+            return
+
+        if final_event is not None:
+            st.session_state["launcher_status"] = final_event.status
+            st.session_state["launcher_returncode"] = final_event.returncode
+            st.session_state["last_run_dir"] = str(built.outdir)
+            with status_placeholder.container():
+                render_run_status(final_event.status, final_event.returncode)
+            if final_event.status == "failure":
+                st.subheader("Log tail")
+                st.code(log_tail(built.outdir), language="text")
+            elif final_event.status == "success":
+                st.success("Run completed. The result directory is shown below.")
+                try:
+                    render_result_browser(discover_result_directory(built.outdir))
+                except (FileNotFoundError, NotADirectoryError) as exc:
+                    st.warning(f"Run finished, but the result directory could not be opened: {exc}")
+
+
+def main() -> None:
+    st.set_page_config(page_title="PhosKinTime Dashboard", layout="wide")
+    st.title("PhosKinTime Dashboard")
+    st.write("Browse existing result directories or launch registered CLI workflows without reimplementing scientific logic.")
+
+    launcher_tab, browser_tab = st.tabs(["Run workflow", "Browse results"])
+    with launcher_tab:
+        _render_launcher_panel()
+    with browser_tab:
+        last_run_dir = st.session_state.get("last_run_dir")
+        _render_browser_panel(Path(last_run_dir) if last_run_dir else None)
 
 
 if __name__ == "__main__":

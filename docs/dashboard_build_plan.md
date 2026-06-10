@@ -377,3 +377,7 @@ The backend output contract is implemented with shared result utilities in `comm
 ### Phase 1 implementation note (June 2026)
 
 The initial dashboard component lives under `dashboard/` and focuses only on browsing existing result directories. It discovers the Phase 0 output contract and selected legacy outputs, lazily loads tables/plots/logs/reports only after a user selects them, and provides an in-memory ZIP archive for downloading a result directory. Workflow launching and file uploads remain outside this phase.
+
+### Phase 2 implementation note (June 2026)
+
+The dashboard now includes a registered workflow launcher that builds argv-list commands for existing Pixi/Python entry points, previews commands before execution, runs subprocesses from the repository root with `shell=False`, streams merged stdout/stderr into the UI and `console.log`, records launcher provenance, and opens successful run directories in the result browser. Upload/config editing remains out of scope. Interactive cancellation is not exposed yet because reliable Streamlit cancellation needs a persistent background job supervisor; the runner has a cancellation callback boundary for a future supervised implementation.
