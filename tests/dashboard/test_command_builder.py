@@ -83,3 +83,33 @@ def test_command_generation_from_assigned_inputs(tmp_path):
 def test_unsupported_input_roles_are_not_generated(tmp_path):
     with pytest.raises(ValueError, match="Unsupported input roles"):
         build_workflow_command("networkmodel", repo_root=tmp_path, input_assignments={"shell": "bad"})
+
+
+def test_networkmodel_command_with_csv_assignments_is_unchanged(tmp_path):
+    kinase = tmp_path / "kinase.csv"
+    tf = tmp_path / "tf.csv"
+    protein = tmp_path / "protein.csv"
+    rna = tmp_path / "rna.csv"
+    phospho = tmp_path / "phospho.csv"
+    for path in (kinase, tf, protein, rna, phospho):
+        path.write_text("col\nvalue\n", encoding="utf-8")
+
+    built = build_workflow_command(
+        "networkmodel",
+        repo_root=tmp_path,
+        run_name="csv-inputs",
+        use_pixi=False,
+        input_assignments={
+            "kinase_network": kinase,
+            "tf_network": tf,
+            "protein_file": protein,
+            "rna_file": rna,
+            "phosphosite_file": phospho,
+        },
+    )
+
+    assert ["--kinase-net", str(kinase)] == built.command[built.command.index("--kinase-net"):built.command.index("--kinase-net") + 2]
+    assert ["--tf-net", str(tf)] == built.command[built.command.index("--tf-net"):built.command.index("--tf-net") + 2]
+    assert ["--ms", str(protein)] == built.command[built.command.index("--ms"):built.command.index("--ms") + 2]
+    assert ["--rna", str(rna)] == built.command[built.command.index("--rna"):built.command.index("--rna") + 2]
+    assert ["--phospho", str(phospho)] == built.command[built.command.index("--phospho"):built.command.index("--phospho") + 2]

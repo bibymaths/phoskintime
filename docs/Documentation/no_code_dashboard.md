@@ -62,6 +62,8 @@ dashboard_uploads/<run_id>/
 
 Uploads are not written into `data/` and are not modified silently. The dashboard checks for empty files, unsupported extensions, unreadable files, and duplicate filenames after sanitization. CSV, TSV, and Excel inputs can be previewed with pandas before they are assigned to a workflow.
 
+Workflow-specific validation follows the backend readers. ProtWise protein input and Networkmodel kinase network, TF network, MS/protein, RNA, and phosphoproteomics inputs must be CSV files because those runners read them with `pandas.read_csv`. Excel remains valid only for workflow inputs that are actually read as Excel, such as ProtWise phosphosite/RNA files or previous KinOpt/TFOpt result workbooks.
+
 ## Command preview and execution
 
 Before a run starts, the dashboard shows the exact command preview and the underlying argument list. This keeps runs reproducible and helps users copy the command into a terminal if preferred.

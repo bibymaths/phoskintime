@@ -34,3 +34,70 @@ def test_validation_panel_helper_reports_duplicate_and_unknown_role(tmp_path):
 
     assert any("Duplicate filenames" in problem for problem in problems)
     assert any("Unsupported input role" in problem for problem in problems)
+
+
+def _write_file(path):
+    path.write_text("col\nvalue\n", encoding="utf-8")
+    return path
+
+
+def _validation_problems(workflow_key: str, role: str, path):
+    return validate_input_assignments(get_workflow(workflow_key), {role: str(path)})
+
+
+def test_protwise_protein_input_accepts_csv_and_rejects_xlsx(tmp_path):
+    csv = _write_file(tmp_path / "protein.csv")
+    xlsx = _write_file(tmp_path / "protein.xlsx")
+
+    assert _validation_problems("protwise-model", "protein_file", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("protwise-model", "protein_file", xlsx))
+
+
+def test_networkmodel_kinase_network_accepts_only_csv(tmp_path):
+    csv = _write_file(tmp_path / "kinase.csv")
+    tsv = _write_file(tmp_path / "kinase.tsv")
+    xlsx = _write_file(tmp_path / "kinase.xlsx")
+
+    assert _validation_problems("networkmodel", "kinase_network", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "kinase_network", tsv))
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "kinase_network", xlsx))
+
+
+def test_networkmodel_tf_network_accepts_only_csv(tmp_path):
+    csv = _write_file(tmp_path / "tf.csv")
+    tsv = _write_file(tmp_path / "tf.tsv")
+    xlsx = _write_file(tmp_path / "tf.xlsx")
+
+    assert _validation_problems("networkmodel", "tf_network", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "tf_network", tsv))
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "tf_network", xlsx))
+
+
+def test_networkmodel_ms_protein_data_accepts_only_csv(tmp_path):
+    csv = _write_file(tmp_path / "protein.csv")
+    tsv = _write_file(tmp_path / "protein.tsv")
+    xlsx = _write_file(tmp_path / "protein.xlsx")
+
+    assert _validation_problems("networkmodel", "protein_file", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "protein_file", tsv))
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "protein_file", xlsx))
+
+
+def test_networkmodel_rna_data_accepts_only_csv(tmp_path):
+    csv = _write_file(tmp_path / "rna.csv")
+    tsv = _write_file(tmp_path / "rna.tsv")
+    xlsx = _write_file(tmp_path / "rna.xlsx")
+
+    assert _validation_problems("networkmodel", "rna_file", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "rna_file", tsv))
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "rna_file", xlsx))
+
+
+def test_networkmodel_phospho_data_accepts_only_csv(tmp_path):
+    csv = _write_file(tmp_path / "phospho.csv")
+    tsv = _write_file(tmp_path / "phospho.tsv")
+    xlsx = _write_file(tmp_path / "phospho.xlsx")
+
+    assert _validation_problems("networkmodel", "phosphosite_file", csv) == []
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "phosphosite_file", tsv))
+    assert any(".csv" in problem for problem in _validation_problems("networkmodel", "phosphosite_file", xlsx))

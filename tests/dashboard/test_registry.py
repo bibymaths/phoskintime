@@ -43,3 +43,25 @@ def test_launchable_registry_entries_include_command_metadata():
     assert kinopt.output_dir_arg == "--outdir"
     assert kinopt.accepted_arguments
     assert get_workflow("networkmodel").output_dir_arg == "--output-dir"
+
+
+def _spec(workflow_key: str, role: str):
+    workflow = get_workflow(workflow_key)
+    return next(spec for spec in workflow.input_assignments if spec.role == role)
+
+
+def test_protwise_protein_input_matches_csv_backend_reader():
+    spec = _spec("protwise-model", "protein_file")
+
+    assert spec.extensions == (".csv",)
+    assert "CSV" in spec.label
+    assert "Excel" not in spec.description
+
+
+def test_networkmodel_input_specs_match_csv_backend_readers():
+    roles = ("kinase_network", "tf_network", "protein_file", "rna_file", "phosphosite_file")
+
+    for role in roles:
+        spec = _spec("networkmodel", role)
+        assert spec.extensions == (".csv",)
+        assert "CSV" in spec.label
