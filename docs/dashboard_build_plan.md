@@ -373,3 +373,7 @@ The PhosKinTime repository contains a rich suite of optimisation algorithms, ODE
 ### Phase 0 implementation note (June 2026)
 
 The backend output contract is implemented with shared result utilities in `common/results.py`. The local kinase, local TF, ProtWise runner, network model runner, and Typer workflow wrappers now accept `--outdir`/`--output-dir` and initialize the standard run subdirectories (`tables/`, `plots/`, `logs/`, `reports/`, `artifacts/`) plus provenance files (`metadata.json`, `command.txt`, `console.log`, and `config_resolved.yaml` when a resolved configuration is available). Legacy top-level output filenames are retained for compatibility, and dashboard-facing copies are mirrored into the standard subfolders.
+
+### Phase 1 implementation note (June 2026)
+
+The initial dashboard component lives under `dashboard/` and focuses only on browsing existing result directories. It discovers the Phase 0 output contract and selected legacy outputs, lazily loads tables/plots/logs/reports only after a user selects them, and provides an in-memory ZIP archive for downloading a result directory. Workflow launching and file uploads remain outside this phase.

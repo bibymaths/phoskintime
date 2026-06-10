@@ -1,7 +1,8 @@
+"""Shared PhosKinTime utilities."""
+
+
 def format_duration(seconds):
-    """Format a duration in seconds into a human-readable string."""
-    if seconds < 60:
-        return f"{seconds:.2f} sec"
-    if seconds < 3600:
-        return f"{seconds / 60:.2f} min"
-    return f"{seconds / 3600:.2f} hr"
+    """Format a duration in seconds without importing heavy common utilities at package import time."""
+    from common.utils.display import format_duration as _format_duration
+
+    return _format_duration(seconds)
