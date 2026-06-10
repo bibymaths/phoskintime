@@ -381,3 +381,7 @@ The initial dashboard component lives under `dashboard/` and focuses only on bro
 ### Phase 2 implementation note (June 2026)
 
 The dashboard now includes a registered workflow launcher that builds argv-list commands for existing Pixi/Python entry points, previews commands before execution, runs subprocesses from the repository root with `shell=False`, streams merged stdout/stderr into the UI and `console.log`, records launcher provenance, and opens successful run directories in the result browser. Upload/config editing remains out of scope. Interactive cancellation is not exposed yet because reliable Streamlit cancellation needs a persistent background job supervisor; the runner has a cancellation callback boundary for a future supervised implementation.
+
+### Phase 3 implementation note (June 2026)
+
+The dashboard now supports no-code setup before launching registered workflows: users can upload supported input/config files into `dashboard_uploads/<run_id>/`, preview CSV/TSV/XLSX data, assign files to workflow-specific input roles, edit structured parameters based on the actual CLI flags, validate basic file problems, and save or download JSON/YAML presets. These selections are converted into the existing argv-list command builder so execution still goes through the original CLI modules rather than dashboard-side scientific logic.

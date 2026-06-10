@@ -59,3 +59,27 @@ def test_pixi_environment_selection_reads_defined_environments(tmp_path):
     pixi.write_text('[environments]\ndefault = {}\ndev = {}\nviz = {}\n', encoding="utf-8")
 
     assert pixi_environments(pixi) == ["default", "dev", "viz"]
+
+
+def test_command_generation_from_assigned_inputs(tmp_path):
+    kinase = tmp_path / "kinase.csv"
+    config = tmp_path / "config.toml"
+    kinase.write_text("a\n", encoding="utf-8")
+    config.write_text("[x]\n", encoding="utf-8")
+
+    built = build_workflow_command(
+        "networkmodel",
+        repo_root=tmp_path,
+        run_name="assigned",
+        use_pixi=False,
+        input_assignments={"kinase_network": kinase, "config": config, "networkmodel_result_dir": tmp_path},
+    )
+
+    assert ["--kinase-net", str(kinase)] == built.command[built.command.index("--kinase-net"):built.command.index("--kinase-net") + 2]
+    assert ["--conf", str(config)] == built.command[built.command.index("--conf"):built.command.index("--conf") + 2]
+    assert "networkmodel_result_dir" not in built.command
+
+
+def test_unsupported_input_roles_are_not_generated(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported input roles"):
+        build_workflow_command("networkmodel", repo_root=tmp_path, input_assignments={"shell": "bad"})

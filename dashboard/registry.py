@@ -23,6 +23,18 @@ class ArgumentSpec:
 
 
 @dataclass(frozen=True)
+class InputSpec:
+    """Workflow input role that can be assigned from uploads or selected files."""
+
+    role: str
+    label: str
+    argument_name: str | None = None
+    description: str = ""
+    required: bool = False
+    extensions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class WorkflowDescriptor:
     key: str
     label: str
@@ -32,6 +44,7 @@ class WorkflowDescriptor:
     module_args: tuple[str, ...] = ()
     accepted_arguments: tuple[ArgumentSpec, ...] = ()
     required_inputs: tuple[str, ...] = ()
+    input_assignments: tuple[InputSpec, ...] = ()
     output_dir_arg: str | None = "--outdir"
     expected_output_folder: str | None = None
     result_workflow_keys: tuple[str, ...] = field(default_factory=tuple)
@@ -85,6 +98,9 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("method", "--method", "str", "Optimisation method."),
         ),
         required_inputs=("input1.csv", "input2.csv"),
+        input_assignments=(
+            InputSpec("config", "Config file", "conf", "Optional kinopt config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+        ),
         output_dir_arg="--outdir",
         expected_output_folder="results/kinopt-local",
         result_workflow_keys=("kinopt.local",),
@@ -102,6 +118,9 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("loss_type", "--loss_type", "int", "Loss function identifier."),
         ),
         required_inputs=("input1.csv", "input3.csv", "input4.csv"),
+        input_assignments=(
+            InputSpec("config", "Config file", "conf", "Optional tfopt config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+        ),
         output_dir_arg="--outdir",
         expected_output_folder="results/tfopt-local",
         result_workflow_keys=("tfopt.local",),
@@ -120,6 +139,12 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("input_excel_rna", "--input-excel-rna", "path", "RNA input Excel file."),
         ),
         required_inputs=("protein Excel", "phosphosite Excel", "RNA Excel"),
+        input_assignments=(
+            InputSpec("config", "Config file", "conf", "Optional ProtWise config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("protein_file", "Protein file", "input_excel_protein", "Protein input Excel file.", extensions=(".xlsx",)),
+            InputSpec("phosphosite_file", "Phosphosite file", "input_excel_psite", "Phosphosite input Excel file.", extensions=(".xlsx",)),
+            InputSpec("rna_file", "RNA/mRNA file", "input_excel_rna", "RNA input Excel file.", extensions=(".xlsx",)),
+        ),
         output_dir_arg="--outdir",
         expected_output_folder="results/protwise-model",
         result_workflow_keys=("protwise.runner",),
@@ -144,6 +169,17 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("sensitivity", "--sensitivity", "bool", "Run sensitivity analysis."),
         ),
         required_inputs=("kinase network", "TF network", "MS/protein data", "RNA data", "phospho data"),
+        input_assignments=(
+            InputSpec("config", "Config file", "conf", "Optional networkmodel config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("kinase_network", "Kinase network file", "kinase_net", "Kinase network CSV/TSV file.", extensions=(".csv", ".tsv")),
+            InputSpec("tf_network", "TF network file", "tf_net", "TF network CSV/TSV file.", extensions=(".csv", ".tsv")),
+            InputSpec("protein_file", "Protein/MS file", "ms", "Protein/MS data file.", extensions=(".csv", ".tsv", ".xlsx")),
+            InputSpec("rna_file", "RNA/mRNA file", "rna", "RNA data file.", extensions=(".csv", ".tsv", ".xlsx")),
+            InputSpec("phosphosite_file", "Phosphosite file", "phospho", "Phosphoproteomics data file.", extensions=(".csv", ".tsv", ".xlsx")),
+            InputSpec("previous_kinopt", "Previous KinOpt result", "kinopt", "Previous kinopt Excel result.", extensions=(".xlsx",)),
+            InputSpec("previous_tfopt", "Previous TFOpt result", "tfopt", "Previous tfopt Excel result.", extensions=(".xlsx",)),
+            InputSpec("networkmodel_result_dir", "Networkmodel result directory", None, "Reference result directory for browsing; not passed to CLI."),
+        ),
         output_dir_arg="--output-dir",
         expected_output_folder="results/networkmodel",
         result_workflow_keys=("networkmodel.runner",),
@@ -161,6 +197,11 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("tf_conf", "--tf-conf", "path", "TFOpt config file."),
             ArgumentSpec("kin_conf", "--kin-conf", "path", "KinOpt config file."),
             ArgumentSpec("model_conf", "--model-conf", "path", "ProtWise config file."),
+        ),
+        input_assignments=(
+            InputSpec("tf_config", "TFOpt config file", "tf_conf", "Config for TFOpt stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("kin_config", "KinOpt config file", "kin_conf", "Config for KinOpt stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("model_config", "ProtWise config file", "model_conf", "Config for ProtWise stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
         ),
         output_dir_arg="--outdir",
         expected_output_folder="results/phoskintime-all",

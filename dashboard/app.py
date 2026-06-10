@@ -4,12 +4,18 @@ from pathlib import Path
 
 import streamlit as st
 
-from dashboard.command_builder import build_workflow_command
+from dashboard.command_builder import build_workflow_command, sanitize_run_name
 from dashboard.components.command_preview import render_command_preview
+from dashboard.components.config_panel import render_config_panel
 from dashboard.components.console_panel import render_cancellation_note, render_console
+from dashboard.components.input_preview import render_input_preview
+from dashboard.components.preset_panel import render_preset_panel
 from dashboard.components.result_browser import render_result_browser
 from dashboard.components.run_status import render_run_status
+from dashboard.components.upload_panel import render_upload_panel
+from dashboard.components.validation_panel import render_validation_panel, validate_dashboard_setup
 from dashboard.components.workflow_selector import render_workflow_selector
+from dashboard.config_utils import DashboardSelection
 from dashboard.result_parser import discover_result_directory
 from dashboard.runner import log_tail, run_built_command
 
@@ -56,23 +62,43 @@ def _render_launcher_panel() -> None:
     st.write("Construct, preview, and run registered PhosKinTime workflows using existing CLI modules.")
     render_cancellation_note()
 
-    workflow, env, run_name, argument_values = render_workflow_selector(REPO_ROOT)
+    workflow, env, run_name = render_workflow_selector(REPO_ROOT)
+    safe_run_name = sanitize_run_name(run_name)
+    uploaded_paths = render_upload_panel(REPO_ROOT, safe_run_name)
+    retained_paths = [Path(path) for path in st.session_state.get("uploaded_paths", []) if Path(path).exists()]
+    combined_paths = sorted({*retained_paths, *uploaded_paths}, key=lambda path: path.name.lower())
+    if uploaded_paths:
+        st.session_state["uploaded_paths"] = [str(path) for path in combined_paths]
+    render_input_preview(combined_paths)
+    argument_values, input_assignments = render_config_panel(workflow, combined_paths)
+    validation_problems = validate_dashboard_setup(workflow, combined_paths, input_assignments)
+    can_run = render_validation_panel(validation_problems)
+
     try:
         built = build_workflow_command(
             workflow.key,
             repo_root=REPO_ROOT,
             pixi_environment=env,
-            run_name=run_name,
+            run_name=safe_run_name,
             argument_values=argument_values,
+            input_assignments=input_assignments,
         )
     except (KeyError, ValueError) as exc:
         st.error(str(exc))
         return
 
     render_command_preview(built)
+    selection = DashboardSelection(
+        workflow_key=workflow.key,
+        run_name=safe_run_name,
+        pixi_environment=env,
+        arguments=argument_values,
+        input_assignments=input_assignments,
+    )
+    render_preset_panel(selection, REPO_ROOT)
     render_run_status(st.session_state.get("launcher_status"), st.session_state.get("launcher_returncode"))
 
-    if st.button("Run workflow", type="primary"):
+    if st.button("Run workflow", type="primary", disabled=not can_run):
         console_lines: list[str] = []
         console_placeholder = st.empty()
         status_placeholder = st.empty()

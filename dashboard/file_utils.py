@@ -15,6 +15,9 @@ TEXT_EXTENSIONS = {".txt", ".log", ".yaml", ".yml", ".json", ".md", ".csv", ".ts
 
 EXCLUDED_ZIP_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git"}
 
+UPLOAD_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".yaml", ".yml", ".json", ".txt"}
+_FILENAME_SAFE_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+
 
 @dataclass(frozen=True)
 class DisplayFile:
@@ -107,3 +110,98 @@ def human_size(num_bytes: int) -> str:
             return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
         value /= 1024
     return f"{num_bytes} B"
+
+
+def sanitize_filename(filename: str) -> str:
+    """Return a safe filename while preserving a supported extension when present."""
+    raw = Path(filename).name.strip().replace(" ", "-")
+    cleaned = "".join(ch if ch in _FILENAME_SAFE_CHARS else "-" for ch in raw).strip(".-_")
+    return cleaned or "uploaded-file"
+
+
+def create_upload_dir(repo_root: str | Path, run_id: str, base_dir: str | Path = "dashboard_uploads") -> Path:
+    """Create a per-run dashboard upload directory under the repository by default."""
+    from dashboard.command_builder import sanitize_run_name
+
+    root = Path(repo_root).resolve()
+    base = Path(base_dir).expanduser()
+    if not base.is_absolute():
+        base = root / base
+    directory = (base / sanitize_run_name(run_id)).resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def detect_duplicate_filenames(filenames: Iterable[str]) -> list[str]:
+    """Return sanitized duplicate upload filenames."""
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for name in filenames:
+        safe = sanitize_filename(name)
+        if safe in seen:
+            duplicates.add(safe)
+        seen.add(safe)
+    return sorted(duplicates)
+
+
+def validate_upload_filename(filename: str) -> list[str]:
+    """Validate a dashboard upload filename without reading content."""
+    safe = sanitize_filename(filename)
+    suffix = Path(safe).suffix.lower()
+    if suffix not in UPLOAD_EXTENSIONS:
+        return [f"Unsupported extension for {filename!r}: {suffix or '<none>'}"]
+    return []
+
+
+def save_uploaded_file(uploaded_file, upload_dir: str | Path) -> Path:
+    """Save a Streamlit-style uploaded file into the run upload directory."""
+    directory = Path(upload_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    name = sanitize_filename(getattr(uploaded_file, "name", "uploaded-file"))
+    problems = validate_upload_filename(name)
+    if problems:
+        raise ValueError("; ".join(problems))
+    target = directory / name
+    if hasattr(uploaded_file, "getbuffer"):
+        data = bytes(uploaded_file.getbuffer())
+    elif hasattr(uploaded_file, "read"):
+        data = uploaded_file.read()
+    else:
+        data = bytes(uploaded_file)
+    if not data:
+        raise ValueError(f"Uploaded file is empty: {name}")
+    target.write_bytes(data)
+    return target
+
+
+def validate_existing_file(path: str | Path) -> list[str]:
+    """Detect basic file problems for saved uploads or selected paths."""
+    file_path = Path(path)
+    problems: list[str] = []
+    if not file_path.exists():
+        return [f"File does not exist: {file_path}"]
+    if not file_path.is_file():
+        return [f"Path is not a file: {file_path}"]
+    if file_path.suffix.lower() not in UPLOAD_EXTENSIONS:
+        problems.append(f"Unsupported extension: {file_path.suffix.lower() or '<none>'}")
+    try:
+        if file_path.stat().st_size == 0:
+            problems.append("File is empty")
+    except OSError as exc:
+        problems.append(f"Unreadable file: {exc}")
+    return problems
+
+
+def preview_table(path: str | Path, max_rows: int = 50, sheet_name: str | int | None = 0):
+    """Read a bounded preview of CSV/TSV/XLSX files using pandas."""
+    import pandas as pd
+
+    file_path = Path(path)
+    suffix = file_path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(file_path, nrows=max_rows)
+    if suffix == ".tsv":
+        return pd.read_csv(file_path, sep="\t", nrows=max_rows)
+    if suffix == ".xlsx":
+        return pd.read_excel(file_path, sheet_name=0 if sheet_name is None else sheet_name, nrows=max_rows)
+    raise ValueError(f"Preview is not supported for {suffix or '<none>'} files")
