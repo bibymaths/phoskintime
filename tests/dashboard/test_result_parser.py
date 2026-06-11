@@ -73,3 +73,43 @@ def test_discovers_legacy_local_excel_outputs(tmp_path):
     inventory = discover_result_directory(root)
 
     assert {item.name for item in inventory.tables} == {"kinopt_results.xlsx", "tfopt_results.xlsx"}
+
+
+def test_protwise_report_like_html_is_report_not_plot(tmp_path):
+    root = tmp_path / "protwise"
+    root.mkdir()
+    (root / "Protein-wise_report.html").write_text("<html>report</html>", encoding="utf-8")
+    (root / "fit.html").write_text("<html>plot</html>", encoding="utf-8")
+
+    inventory = discover_result_directory(root)
+
+    assert {item.relative_path for item in inventory.reports} == {"Protein-wise_report.html"}
+    assert {item.relative_path for item in inventory.plots} == {"fit.html"}
+
+
+def test_all_workflow_parent_discovers_child_result_directories(tmp_path):
+    root = tmp_path / "all-run"
+    root.mkdir()
+    for dirname in ("tables", "plots", "logs", "reports", "artifacts"):
+        (root / dirname).mkdir()
+    (root / "metadata.json").write_text(json.dumps({"workflow": "phoskintime-all"}), encoding="utf-8")
+    (root / "command.txt").write_text("pixi run phoskintime-all", encoding="utf-8")
+    (root / "console.log").write_text("done", encoding="utf-8")
+    (root / "config_resolved.yaml").write_text("workflow: all\n", encoding="utf-8")
+
+    for child in ("tfopt", "kinopt", "protwise"):
+        child_root = root / child
+        (child_root / "tables").mkdir(parents=True)
+        (child_root / "plots").mkdir()
+        (child_root / "logs").mkdir()
+        (child_root / "reports").mkdir()
+        (child_root / "artifacts").mkdir()
+        (child_root / "metadata.json").write_text(json.dumps({"workflow": child}), encoding="utf-8")
+        (child_root / "tables" / f"{child}_summary.csv").write_text("x\n1\n", encoding="utf-8")
+
+    inventory = discover_result_directory(root)
+
+    assert [path.name for path in inventory.child_runs] == ["kinopt", "protwise", "tfopt"]
+    assert inventory.has_content
+    child_inventory = discover_result_directory(root / "protwise")
+    assert {item.relative_path for item in child_inventory.tables} == {"tables/protwise_summary.csv"}

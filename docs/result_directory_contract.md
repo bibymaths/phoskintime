@@ -91,6 +91,8 @@ The dashboard result parser recognizes selected legacy outputs so older runs can
 
 Legacy support is compatibility behavior. New workflow code should still write the standard folders and provenance files.
 
+Integrated `phoskintime-all` runs may contain child workflow result folders such as `tfopt/`, `kinopt/`, and `protwise/` beneath the parent run directory. The parent directory records launcher-level provenance, while each child directory remains independently browseable with its own tables, plots, reports, logs, artifacts, and provenance where produced.
+
 ## Workflow-specific expected outputs
 
 ### KinOpt

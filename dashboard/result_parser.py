@@ -24,6 +24,8 @@ LEGACY_TABLE_NAMES = {
 }
 LEGACY_ANALYSIS_DIRS = ("optimization", "profiles", "posterior", "plots")
 PROVENANCE_FILES = ("metadata.json", "command.txt", "console.log", "config_resolved.yaml")
+STANDARD_SUBDIRS = {"tables", "plots", "logs", "reports", "artifacts"}
+CHILD_WORKFLOW_DIRS = {"tfopt", "kinopt", "protwise", "networkmodel"}
 
 
 @dataclass(frozen=True)
@@ -40,11 +42,25 @@ class ResultInventory:
     logs: list[DisplayFile] = field(default_factory=list)
     reports: list[DisplayFile] = field(default_factory=list)
     artifacts: list[DisplayFile] = field(default_factory=list)
+    child_runs: list[Path] = field(default_factory=list)
     missing_expected: list[str] = field(default_factory=list)
 
     @property
     def has_content(self) -> bool:
-        return any((self.metadata, self.command, self.console_log, self.config, self.tables, self.plots, self.logs, self.reports, self.artifacts))
+        return any(
+            (
+                self.metadata,
+                self.command,
+                self.console_log,
+                self.config,
+                self.tables,
+                self.plots,
+                self.logs,
+                self.reports,
+                self.artifacts,
+                self.child_runs,
+            )
+        )
 
 
 def _display_files(root: Path, paths: list[Path], category: str) -> list[DisplayFile]:
@@ -57,6 +73,37 @@ def _display_files(root: Path, paths: list[Path], category: str) -> list[Display
         seen.add(resolved)
         files.append(DisplayFile(path=path, root=root, category=category))
     return files
+
+
+def _is_report_like_html(path: Path) -> bool:
+    """Return whether an HTML file should be treated as a report rather than a plot."""
+    return path.suffix.lower() in {".html", ".htm"} and "report" in path.stem.lower()
+
+
+def _is_child_result_dir(path: Path) -> bool:
+    """Detect immediate nested workflow outputs such as phoskintime-all stage folders."""
+    if not path.is_dir() or path.name in STANDARD_SUBDIRS:
+        return False
+    if path.name in CHILD_WORKFLOW_DIRS:
+        return True
+    if any((path / name).is_file() for name in PROVENANCE_FILES):
+        return True
+    if any((path / dirname).is_dir() for dirname in STANDARD_SUBDIRS):
+        return True
+    if any((path / name).is_file() for name in LEGACY_TABLE_NAMES):
+        return True
+    if any((path / dirname).is_dir() for dirname in LEGACY_ANALYSIS_DIRS):
+        return True
+    return False
+
+
+def discover_child_result_directories(path: str | Path) -> list[Path]:
+    """Return immediate nested result directories without recursively parsing contents."""
+    root = resolve_directory(path)
+    return sorted(
+        (child.resolve() for child in root.iterdir() if _is_child_result_dir(child)),
+        key=lambda p: p.name.lower(),
+    )
 
 
 def _top_level_legacy_tables(root: Path) -> list[Path]:
@@ -83,23 +130,33 @@ def discover_result_directory(path: str | Path) -> ResultInventory:
     table_paths.extend(_top_level_legacy_tables(root))
     table_paths.extend(_legacy_dir_files(root, TABLE_EXTENSIONS))
 
-    plot_paths = filter_by_suffix(iter_files(root / "plots"), PLOT_EXTENSIONS)
-    plot_paths.extend(_legacy_dir_files(root, PLOT_EXTENSIONS))
-    plot_paths.extend(filter_by_suffix([p for p in root.iterdir() if p.is_file()], PLOT_EXTENSIONS))
+    top_level_files = [p for p in root.iterdir() if p.is_file()]
+    plot_dir_paths = filter_by_suffix(iter_files(root / "plots"), PLOT_EXTENSIONS)
+    legacy_plot_paths = _legacy_dir_files(root, PLOT_EXTENSIONS)
+    report_like_html = [
+        p
+        for p in [*top_level_files, *plot_dir_paths, *legacy_plot_paths]
+        if _is_report_like_html(p)
+    ]
+
+    plot_paths = [p for p in plot_dir_paths if not _is_report_like_html(p)]
+    plot_paths.extend(p for p in legacy_plot_paths if not _is_report_like_html(p))
+    plot_paths.extend(
+        filter_by_suffix(
+            (p for p in top_level_files if not _is_report_like_html(p)),
+            PLOT_EXTENSIONS,
+        )
+    )
 
     log_paths = iter_files(root / "logs")
     if console_log is not None:
         log_paths.insert(0, console_log)
 
     report_paths = filter_by_suffix(iter_files(root / "reports"), REPORT_EXTENSIONS)
-    report_paths.extend(
-        filter_by_suffix(
-            [p for p in root.iterdir() if p.is_file() and p.stem.lower() == "report"],
-            REPORT_EXTENSIONS,
-        )
-    )
+    report_paths.extend(filter_by_suffix(report_like_html, REPORT_EXTENSIONS))
 
     artifact_paths = iter_files(root / "artifacts")
+    child_runs = discover_child_result_directories(root)
 
     missing = [name for name in PROVENANCE_FILES if not (root / name).is_file()]
     for dirname in ("tables", "plots", "logs", "reports", "artifacts"):
@@ -117,5 +174,6 @@ def discover_result_directory(path: str | Path) -> ResultInventory:
         logs=_display_files(root, log_paths, "log"),
         reports=_display_files(root, report_paths, "report"),
         artifacts=_display_files(root, artifact_paths, "artifact"),
+        child_runs=child_runs,
         missing_expected=missing,
     )
