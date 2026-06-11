@@ -864,11 +864,50 @@ def main():
         xu=xu,
         data_mode=mode,
     )
+
+    n_protein_obs = int(loss_data.get("n_p", 0))
+    n_rna_obs = int(loss_data.get("n_r", 0))
+    n_phospho_obs = int(loss_data.get("n_ph", 0))
+    n_total_obs = n_protein_obs + n_rna_obs + n_phospho_obs
+
+    n_protein_entities = int(df_prot["protein"].nunique()) if "protein" in df_prot.columns else 0
+    n_rna_entities = int(df_rna["protein"].nunique()) if "protein" in df_rna.columns else 0
+
+    if {"protein", "psite"}.issubset(df_pho.columns):
+        n_phospho_sites = int(df_pho[["protein", "psite"]].drop_duplicates().shape[0])
+    elif "psite" in df_pho.columns:
+        n_phospho_sites = int(df_pho["psite"].nunique())
+    else:
+        n_phospho_sites = 0
+
+    n_protein_times = int(df_prot["time"].nunique()) if "time" in df_prot.columns else 0
+    n_rna_times = int(df_rna["time"].nunique()) if "time" in df_rna.columns else 0
+    n_phospho_times = int(df_pho["time"].nunique()) if "time" in df_pho.columns else 0
+
     logger.info(
-        f"[Data] Number of points: {loss_data['n_p']} protein, {loss_data['n_r']} RNA, "
-        f"{loss_data['n_ph']} phospho | Total {loss_data['n_p'] + loss_data['n_r'] + loss_data['n_ph']} data points"
+        "[Data] Loss observations: "
+        "%d protein rows, %d RNA rows, %d phospho rows | Total %d observation rows",
+        n_protein_obs,
+        n_rna_obs,
+        n_phospho_obs,
+        n_total_obs,
     )
+
+    logger.info(
+        "[Data] Loss entities: "
+        "%d protein entities × %d time points, "
+        "%d RNA entities × %d time points, "
+        "%d phosphosites × %d time points",
+        n_protein_entities,
+        n_protein_times,
+        n_rna_entities,
+        n_rna_times,
+        n_phospho_sites,
+        n_phospho_times,
+    )
+
     configure_jax_parallelism(max_workers=args.cores, logger_obj=logger)
+
     ctx = InferenceContext(
         objective_fun=problem.objective,
         theta0=theta0,

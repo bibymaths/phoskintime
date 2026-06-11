@@ -56,7 +56,10 @@ def _render_browser_panel(default_directory: Path | None = None) -> None:
 
     if not inventory.has_content:
         st.warning("This directory exists, but no standard PhosKinTime result files were discovered.")
-    render_result_browser(inventory)
+    render_result_browser(
+        inventory,
+        key_prefix=f"browser-{inventory.root.name}",
+    )
     render_workflow_tabs(inventory.root)
 
 
@@ -138,7 +141,10 @@ def _render_launcher_panel() -> None:
                 st.success("Run completed. The result directory is shown below.")
                 try:
                     inventory = discover_result_directory(built.outdir)
-                    render_result_browser(inventory)
+                    render_result_browser(
+                        inventory,
+                        key_prefix=f"launcher-{workflow.key}-{safe_run_name}",
+                    )
                     render_workflow_tabs(inventory.root)
                 except (FileNotFoundError, NotADirectoryError) as exc:
                     st.warning(f"Run finished, but the result directory could not be opened: {exc}")

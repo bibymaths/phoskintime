@@ -424,7 +424,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
 
     mp_ctx = _get_process_context()
 
-    with ProcessPoolExecutor(max_workers=n_workers, mp_context=mp_ctx) as executor:
+    with ProcessPoolExecutor(max_workers=n_workers, mp_context=mp_ctx, max_tasks_per_child=1) as executor:
         futures = {
             executor.submit(_worker_simulation, task): task[0]
             for task in tasks
