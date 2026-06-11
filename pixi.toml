@@ -43,6 +43,8 @@ graphviz = "*"
 python-graphviz = "*"
 pydot = "*"
 networkx = "*"
+gravis = "*"
+imageio = "*"
 
 # Bioinformatics / annotation utilities
 mygene = "*"
