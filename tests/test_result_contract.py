@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from common.results import (
     STANDARD_SUBDIRS,
     ensure_result_dir,
@@ -33,6 +35,23 @@ def test_result_contract_helpers_write_provenance(tmp_path):
     assert metadata["output_directory"] == str(outdir.resolve())
     assert metadata["python_version"]
     assert metadata["inputs"][0]["sha256"]
+
+
+def test_metadata_and_resolved_config_preserve_numpy_arrays_as_lists(tmp_path):
+    np = pytest.importorskip("numpy")
+    outdir = tmp_path / "run"
+    time_grid = np.asarray([0.0, 2.0, 4.0, 8.0], dtype=float)
+
+    write_resolved_config(outdir, {"time_grid": time_grid, "scalar": np.float64(1.5)})
+    write_metadata(outdir, "unit.workflow", extra={"effective_time_grid": time_grid})
+
+    metadata = json.loads((outdir / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["effective_time_grid"] == [0.0, 2.0, 4.0, 8.0]
+
+    resolved = (outdir / "config_resolved.yaml").read_text(encoding="utf-8")
+    assert "[ 0." not in resolved
+    assert "0.0" in resolved
+    assert "8.0" in resolved
 
 
 def test_populate_standard_subdirs_copies_legacy_outputs(tmp_path):

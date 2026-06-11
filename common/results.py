@@ -95,20 +95,32 @@ def shlex_quote(value: str) -> str:
     return shlex.quote(str(value))
 
 
-def _jsonable(value: Any) -> Any:
+def to_json_safe(value: Any) -> Any:
+    """Convert values such as NumPy arrays/scalars and Paths to JSON-safe objects."""
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, dict):
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        return {str(k): to_json_safe(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
-        return [_jsonable(v) for v in value]
+        return [to_json_safe(v) for v in value]
+    if hasattr(value, "tolist") and callable(value.tolist):
+        return to_json_safe(value.tolist())
+    if hasattr(value, "item") and callable(value.item):
+        try:
+            return to_json_safe(value.item())
+        except (TypeError, ValueError):
+            pass
     if hasattr(value, "__dict__"):
-        return _jsonable(vars(value))
+        return to_json_safe(vars(value))
     try:
         json.dumps(value)
         return value
     except TypeError:
         return str(value)
+
+
+def _jsonable(value: Any) -> Any:
+    return to_json_safe(value)
 
 
 def write_command(outdir: str | Path, argv: Iterable[str] | None = None) -> Path:
