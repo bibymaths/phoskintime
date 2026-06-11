@@ -291,26 +291,44 @@ def run_sim(sys, idx, mod_params):
 
 # --- UI Setup ---
 st.title("🧪 Global Signaling & Transcriptional Knockout Explorer")
-sys, idx, best_params, df_tf_model, s_rates = load_system()
+st.caption("This dashboard builds the networkmodel system and runs WT/KO simulations on demand.")
+
+with st.sidebar:
+    if st.button("Clear cached model", key="clear-compare-cache"):
+        st.cache_resource.clear()
+        st.session_state.pop("compare_mechanisms_started", None)
+        st.rerun()
+
+    start_dashboard = st.button(
+        "Load model and start dashboard",
+        type="primary",
+        key="start-compare-mechanisms",
+    )
+
+if start_dashboard:
+    st.session_state["compare_mechanisms_started"] = True
+
+if not st.session_state.get("compare_mechanisms_started", False):
+    st.info("Click **Load model and start dashboard** in the sidebar. First load may take several minutes.")
+    st.stop()
+
+with st.spinner("Loading data, building network matrices, and reconstructing fitted parameters..."):
+    sys, idx, best_params, df_tf_model, s_rates = load_system()
 
 st.sidebar.header("🕹️ Control Panel")
+
 ko_type = st.sidebar.selectbox("1. Choose Perturbation Type", ["None", "Protein (Synthesis)", "Kinase (Activity)"])
 
 ko_params = {k: v.copy() if isinstance(v, np.ndarray) else v for k, v in best_params.items()}
 
 Kmat_backup = None  # default
 
-
 def restore_Kinase():
-    """
-    Restores the state or data related to Kinase to its default or initial configuration.
+    """No-op retained for old graph code compatibility.
 
-    This function is designed to reset or reconstruct necessary elements connected
-    to Kinase, which can include internal systems, data, or processes, based on
-    the implementation.
-
-    Returns:
-        None: This function does not return any value.
+    Do not mutate sys.kin.Kmat in this dashboard. simulate.py now caches the
+    JAX RHS, and the RHS captures kinase input arrays as static topology.
+    Kinase inhibition should therefore be represented through c_k only.
     """
     return None
 
@@ -319,46 +337,29 @@ if ko_type == "Protein (Synthesis)":
     target = st.sidebar.selectbox("Select Target Protein", idx.proteins)
     p_idx = idx.p2i[target]
     scale = st.sidebar.slider("Protein Synthesis Scale (0 = KO, 1 = WT)", 0.0, 1.0, 0.0, 0.05)
-    ko_params["A_i"][p_idx] *= scale  # scale synthesis rate
-    sys.update(**ko_params)
+
+    ko_params["A_i"][p_idx] *= scale
 
 elif ko_type == "Kinase (Activity)":
     target = st.sidebar.selectbox("Select Kinase to Inhibit", idx.kinases)
     k_idx = idx.k2i[target]
     scale = st.sidebar.slider("Kinase Activity Scale (0 = KO, 1 = WT)", 0.0, 1.0, 0.0, 0.05)
 
-    # Backup Kmat and c_k for later restoration
-    Kmat_backup = sys.kin.Kmat.copy()
-    c_k_backup = sys.c_k.copy()
-
-    # Apply multiplicative inhibition to both dynamic and static components
-    sys.kin.Kmat[k_idx, :] *= scale
+    # Important: do not mutate sys.kin.Kmat here.
+    # The cached JAX RHS captures kin_Kmat statically.
+    # Use c_k as the dynamic kinase-activity control.
     ko_params["c_k"][k_idx] *= scale
 
-
-    # Restore both after KO simulation
-    def restore_Kinase():
-        """
-        Restores the kinase matrix and kinase concentration values to their original backup states.
-
-        This function resets specific global system variables to their previously saved states using backup
-        values. It is particularly useful for restoring system consistency after temporary modifications.
-
-        Raises:
-            AttributeError: If any of the required backup attributes are not available or have been removed
-            from the system.
-        """
-        sys.kin.Kmat = Kmat_backup
-        sys.c_k = c_k_backup
-
-
-    sys.update(**ko_params)
 else:
     target = None
 
 # --- Simulation Logic ---
-wt_dfp, wt_dfr, wt_pho = run_sim(sys, idx, best_params)
-ko_dfp, ko_dfr, ko_pho = run_sim(sys, idx, ko_params)
+with st.spinner("Running WT and KO simulations..."):
+    wt_dfp, wt_dfr, wt_pho = run_sim(sys, idx, best_params)
+    ko_dfp, ko_dfr, ko_pho = run_sim(sys, idx, ko_params)
+
+# Leave the mutable System in a known baseline state after the comparison.
+sys.update(**best_params)
 
 # --- Versatile Visualization: The Impact Scatter ---
 st.header("🎯 System-Wide Impact Analysis")
@@ -590,11 +591,24 @@ t_max = st.slider(
     step=60
 )
 
-n_points = 10000
+n_points = st.select_slider(
+    "Forward simulation resolution",
+    options=[250, 500, 1000, 2500, 5000, 10000],
+    value=1000,
+)
 
-# Simulate WT to steady state
-t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
+run_forward_panel = st.button(
+    "Run detailed WT/KO forward simulation",
+    key="run-forward-simulation-panel",
+)
 
+if not run_forward_panel:
+    st.info("Click the button above to run the detailed forward simulation panel.")
+    st.stop()
+
+with st.spinner(f"Running WT forward simulation with {n_points} time points..."):
+    sys.update(**best_params)
+    t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
 
 # Extract per-protein output
 def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
@@ -654,11 +668,14 @@ def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
 # WT values
 df_wt = extract_fc_from_Y(Y_wt, idx, t_fine, selected_p)
 
-# KO simulation
-sys.update(**ko_params)
-t_ko, Y_ko = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
+with st.spinner(f"Running KO forward simulation with {n_points} time points..."):
+    sys.update(**ko_params)
+    t_ko, Y_ko = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
+
 df_ko = extract_fc_from_Y(Y_ko, idx, t_ko, selected_p)
-sys.update(**best_params)  # restore baseline
+
+# Restore baseline after KO simulation.
+sys.update(**best_params)
 
 # --- Plot mRNA
 col1, col2 = st.columns(2)

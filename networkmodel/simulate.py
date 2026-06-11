@@ -35,9 +35,19 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
     )
     params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i,
               np.asarray([sys.tf_scale], dtype=np.float64))
+    rhs = getattr(sys, "_cached_jax_rhs", None)
+    if rhs is None:
+        rhs = make_networkmodel_rhs(sys)
+        sys._cached_jax_rhs = rhs
+
     return np.asarray(
-        solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), params=params, rhs=make_networkmodel_rhs(sys),
-                      config=cfg),
+        solve_diffrax(
+            y0,
+            np.asarray(t_eval, dtype=np.float64),
+            params=params,
+            rhs=rhs,
+            config=cfg,
+        ),
         dtype=np.float64,
     )
 
