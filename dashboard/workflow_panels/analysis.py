@@ -50,7 +50,17 @@ ANALYSIS_TASKS: dict[str, AnalysisTask] = {
         "Mechanistic insights",
         "Run the existing mechanistic insights script; inputs are passed through its CLI.",
         "scripts/mechanistic_insights.py",
-        {"results_dir": "--results-dir", "out_dir": "--out-dir"},
+        {
+            "kinase_net": "--kinase-net",
+            "tf_net": "--tf-net",
+            "ms": "--ms",
+            "rna": "--rna",
+            "phospho": "--phospho",
+            "kinopt": "--kinopt",
+            "tfopt": "--tfopt",
+            "output_dir": "--output-dir",
+            "cores": "--cores",
+        },
     ),
     "temporal-sensitivity": AnalysisTask(
         "temporal-sensitivity",
@@ -79,6 +89,8 @@ def build_analysis_command(task_key: str, values: dict[str, Any], result_dir: st
     merged = dict(values)
     if "out_dir" in task.arguments and not merged.get("out_dir"):
         merged["out_dir"] = analysis_output_dir(result_dir, task_key)
+    elif task_key == "mechanistic-insights" and not merged.get("output_dir"):
+        merged["output_dir"] = result_dir
     elif task_key in {"protein-accumulators", "temporal-sensitivity"}:
         analysis_output_dir(result_dir, task_key)
     for name, flag in task.arguments.items():
