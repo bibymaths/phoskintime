@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-from config.constants import RESULTS_DIR
+from networkmodel.config import RESULTS_DIR
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")

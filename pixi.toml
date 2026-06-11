@@ -26,6 +26,7 @@ plotly = "*"
 openpyxl = "*"
 xlsxwriter = "*"
 adjusttext = "*"
+ansi2html = "*"
 
 # Optimization, sensitivity analysis, and modeling utilities
 pymoo = "*"

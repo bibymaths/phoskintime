@@ -167,6 +167,14 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("seed", "--seed", "int", "Random seed."),
             ArgumentSpec("scan", "--scan", "bool", "Run hyperparameter scan."),
             ArgumentSpec("sensitivity", "--sensitivity", "bool", "Run sensitivity analysis."),
+            ArgumentSpec(
+                name="kinopt",
+                flag="--kinopt",
+            ),
+            ArgumentSpec(
+                name="tfopt",
+                flag="--tfopt",
+            ),
         ),
         required_inputs=("kinase network", "TF network", "MS/protein data", "RNA data", "phospho data"),
         input_assignments=(

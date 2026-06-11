@@ -11,11 +11,11 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".svg"}
 HTML_EXTENSIONS = {".html", ".htm"}
 PLOT_EXTENSIONS = IMAGE_EXTENSIONS | HTML_EXTENSIONS
 REPORT_EXTENSIONS = HTML_EXTENSIONS | {".md", ".pdf"}
-TEXT_EXTENSIONS = {".txt", ".log", ".yaml", ".yml", ".json", ".md", ".csv", ".tsv"}
+TEXT_EXTENSIONS = {".txt", ".log", ".yaml", ".yml", ".toml", ".json", ".md", ".csv", ".tsv"}
 
 EXCLUDED_ZIP_PARTS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git"}
 
-UPLOAD_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".yaml", ".yml", ".json", ".txt"}
+UPLOAD_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".yaml", ".yml", ".toml", ".json", ".txt"}
 _FILENAME_SAFE_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
 
 
