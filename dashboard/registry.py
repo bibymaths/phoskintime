@@ -91,7 +91,7 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         pixi_task="kinopt-local",
         python_module="kinopt.local",
         accepted_arguments=(
-            ArgumentSpec("conf", "--conf", "path", "Optional TOML/YAML configuration file."),
+            ArgumentSpec("conf", "--conf", "path", "Optional TOML configuration file."),
             ArgumentSpec("lower_bound", "--lower_bound", "float", "Lower optimisation bound."),
             ArgumentSpec("upper_bound", "--upper_bound", "float", "Upper optimisation bound."),
             ArgumentSpec("loss_type", "--loss_type", "str", "Loss function name."),
@@ -99,7 +99,7 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         ),
         required_inputs=("input1.csv", "input2.csv"),
         input_assignments=(
-            InputSpec("config", "Config file", "conf", "Optional kinopt config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("config", "TOML config file", "conf", "Optional kinopt TOML config file.", extensions=(".toml",)),
         ),
         output_dir_arg="--outdir",
         expected_output_folder="results/kinopt-local",
@@ -112,14 +112,14 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         pixi_task="tfopt-local",
         python_module="tfopt.local",
         accepted_arguments=(
-            ArgumentSpec("conf", "--conf", "path", "Optional TOML/YAML configuration file."),
+            ArgumentSpec("conf", "--conf", "path", "Optional TOML configuration file."),
             ArgumentSpec("lower_bound", "--lower_bound", "float", "Lower optimisation bound."),
             ArgumentSpec("upper_bound", "--upper_bound", "float", "Upper optimisation bound."),
             ArgumentSpec("loss_type", "--loss_type", "int", "Loss function identifier."),
         ),
         required_inputs=("input1.csv", "input3.csv", "input4.csv"),
         input_assignments=(
-            InputSpec("config", "Config file", "conf", "Optional tfopt config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("config", "TOML config file", "conf", "Optional tfopt TOML config file.", extensions=(".toml",)),
         ),
         output_dir_arg="--outdir",
         expected_output_folder="results/tfopt-local",
@@ -140,7 +140,7 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         ),
         required_inputs=("protein CSV", "phosphosite Excel", "RNA Excel"),
         input_assignments=(
-            InputSpec("config", "Config file", "conf", "Optional ProtWise config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("config", "TOML config file", "conf", "Optional ProtWise TOML config file.", extensions=(".toml",)),
             InputSpec("protein_file", "Protein CSV file", "input_excel_protein", "Protein input CSV file read by ProtWise.", extensions=(".csv",)),
             InputSpec("phosphosite_file", "Phosphosite file", "input_excel_psite", "Phosphosite input Excel file.", extensions=(".xlsx",)),
             InputSpec("rna_file", "RNA/mRNA file", "input_excel_rna", "RNA input Excel file.", extensions=(".xlsx",)),
@@ -170,7 +170,7 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         ),
         required_inputs=("kinase network", "TF network", "MS/protein data", "RNA data", "phospho data"),
         input_assignments=(
-            InputSpec("config", "Config file", "conf", "Optional networkmodel config file.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("config", "TOML config file", "conf", "Optional networkmodel TOML config file.", extensions=(".toml",)),
             InputSpec("kinase_network", "Kinase network CSV file", "kinase_net", "Kinase network CSV file read by networkmodel.", extensions=(".csv",)),
             InputSpec("tf_network", "TF network CSV file", "tf_net", "TF network CSV file read by networkmodel.", extensions=(".csv",)),
             InputSpec("protein_file", "Protein/MS CSV file", "ms", "Protein/MS CSV data file read by networkmodel.", extensions=(".csv",)),
@@ -199,9 +199,9 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("model_conf", "--model-conf", "path", "ProtWise config file."),
         ),
         input_assignments=(
-            InputSpec("tf_config", "TFOpt config file", "tf_conf", "Config for TFOpt stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
-            InputSpec("kin_config", "KinOpt config file", "kin_conf", "Config for KinOpt stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
-            InputSpec("model_config", "ProtWise config file", "model_conf", "Config for ProtWise stage.", extensions=(".toml", ".yaml", ".yml", ".json")),
+            InputSpec("tf_config", "TFOpt TOML config file", "tf_conf", "TOML config for TFOpt stage.", extensions=(".toml",)),
+            InputSpec("kin_config", "KinOpt TOML config file", "kin_conf", "TOML config for KinOpt stage.", extensions=(".toml",)),
+            InputSpec("model_config", "ProtWise TOML config file", "model_conf", "TOML config for ProtWise stage.", extensions=(".toml",)),
         ),
         output_dir_arg="--outdir",
         expected_output_folder="results/phoskintime-all",

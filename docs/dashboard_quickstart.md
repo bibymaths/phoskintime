@@ -73,7 +73,7 @@ Uploaded files are saved under:
 dashboard_uploads/<run_id>/
 ```
 
-Supported upload extensions are `.csv`, `.tsv`, `.xlsx`, `.yaml`, `.yml`, `.json`, and `.txt`. Workflow execution validation may be stricter than upload validation. For example, Networkmodel execution inputs and the ProtWise protein input currently use CSV readers in the backend, so those assigned inputs must be `.csv`.
+Supported upload extensions are `.csv`, `.tsv`, `.xlsx`, `.yaml`, `.yml`, `.json`, and `.txt`. Workflow execution validation may be stricter than upload validation. Config files passed as `--conf` currently must be `.toml`, and Networkmodel execution inputs plus the ProtWise protein input currently use CSV readers in the backend, so those assigned data inputs must be `.csv`.
 
 ## Download results
 

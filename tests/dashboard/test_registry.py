@@ -65,3 +65,17 @@ def test_networkmodel_input_specs_match_csv_backend_readers():
         spec = _spec("networkmodel", role)
         assert spec.extensions == (".csv",)
         assert "CSV" in spec.label
+
+
+def test_config_input_specs_match_toml_only_runners():
+    for workflow_key, roles in {
+        "kinopt-local": ("config",),
+        "tfopt-local": ("config",),
+        "protwise-model": ("config",),
+        "networkmodel": ("config",),
+        "phoskintime-all": ("tf_config", "kin_config", "model_config"),
+    }.items():
+        for role in roles:
+            spec = _spec(workflow_key, role)
+            assert spec.extensions == (".toml",)
+            assert "TOML" in spec.label

@@ -90,6 +90,7 @@ Do not rely on the PyCharm package installer for Pixi-managed dependencies. Add 
 
 The upload panel accepts a broad set of extensions, but workflow assignment validation follows backend readers.
 
+- Config files assigned to workflow `--conf` fields currently must be TOML; YAML/JSON uploads are for preview/preset contexts unless a runner explicitly supports them.
 - ProtWise protein input currently expects CSV when the backend uses `pd.read_csv`.
 - Networkmodel kinase network, TF network, MS/protein, RNA, and phosphoproteomics inputs currently expect CSV with the default `pd.read_csv` reader.
 - ProtWise phosphosite/RNA and previous KinOpt/TFOpt result inputs are Excel where the backend uses Excel readers.

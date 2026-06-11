@@ -54,7 +54,7 @@ The result browser also recognizes practical legacy layouts, including Networkmo
 
 ## Upload behavior
 
-The upload panel accepts `.csv`, `.tsv`, `.xlsx`, `.yaml`, `.yml`, `.json`, and `.txt` files. Uploaded files are copied to a per-run folder:
+The upload panel accepts `.csv`, `.tsv`, `.xlsx`, `.yaml`, `.yml`, `.json`, and `.txt` files for upload/preview or preset workflows. Files assigned to workflow `--conf` fields currently must be `.toml` because the target runners parse TOML. Uploaded files are copied to a per-run folder:
 
 ```text
 dashboard_uploads/<run_id>/

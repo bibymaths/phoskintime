@@ -48,6 +48,7 @@ Registry rules:
 - Accepted file extensions must match backend readers.
 - Required inputs must match CLI behavior.
 - Labels/help text must not overpromise support.
+- Config `InputSpec` extensions passed as `--conf` must remain `.toml` unless the target runner implements YAML/JSON parsing with tests.
 - `--conf` must be forwarded and honored by the backend runner.
 - Explicit CLI flags override config values.
 - `output_dir_arg` must match the workflow CLI (`--outdir` or `--output-dir`).

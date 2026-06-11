@@ -4,7 +4,7 @@ This reference lists actual Pixi tasks and Typer wrapper commands present in the
 
 ## Config precedence
 
-For workflows that support `--conf`:
+For workflows that support `--conf`, the dashboard currently validates assigned config files as TOML because the target runners parse TOML:
 
 ```text
 Explicit CLI flags override values from --conf.
@@ -288,6 +288,7 @@ These are not all Pixi tasks. Run them directly only after reading each script's
 
 ## File-format constraints
 
+- Do not document YAML/JSON execution config support unless the target runner implements YAML/JSON loading; dashboard `--conf` assignments are restricted to `.toml`.
 - Do not document TSV/XLSX execution support for Networkmodel network/data inputs unless the backend reader is extended beyond default `pandas.read_csv`.
 - Do not document Excel support for ProtWise protein input unless the backend reader changes from `pd.read_csv`.
 - Dashboard upload preview can read more formats than a specific workflow can execute.

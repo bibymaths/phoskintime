@@ -101,3 +101,24 @@ def test_networkmodel_phospho_data_accepts_only_csv(tmp_path):
     assert _validation_problems("networkmodel", "phosphosite_file", csv) == []
     assert any(".csv" in problem for problem in _validation_problems("networkmodel", "phosphosite_file", tsv))
     assert any(".csv" in problem for problem in _validation_problems("networkmodel", "phosphosite_file", xlsx))
+
+
+def test_workflow_config_inputs_accept_only_toml(tmp_path):
+    toml = _write_file(tmp_path / "config.toml")
+    yaml = _write_file(tmp_path / "config.yaml")
+    yml = _write_file(tmp_path / "config.yml")
+    json_config = _write_file(tmp_path / "config.json")
+
+    for workflow_key, role in (
+        ("kinopt-local", "config"),
+        ("tfopt-local", "config"),
+        ("protwise-model", "config"),
+        ("networkmodel", "config"),
+        ("phoskintime-all", "tf_config"),
+        ("phoskintime-all", "kin_config"),
+        ("phoskintime-all", "model_config"),
+    ):
+        assert _validation_problems(workflow_key, role, toml) == []
+        for invalid in (yaml, yml, json_config):
+            problems = _validation_problems(workflow_key, role, invalid)
+            assert any(".toml" in problem for problem in problems)

@@ -17,13 +17,13 @@ The dashboard should be used for convenience and reproducibility. The CLI and ba
 | Workflow | Purpose | Expected inputs | Accepted execution formats | Output location | Runtime class | Dashboard execution | Result-only viewing |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `prep` | Run preprocessing cleanup via `processing.cleanup`. | Files referenced by repository configuration and preprocessing conventions. | Config/data dependent. | Existing preprocessing outputs; no dedicated dashboard output flag. | Short | Yes | Limited |
-| `kinopt-local` / `kinopt` | Local kinase-to-phosphosite optimization. | Protein/kinase abundance CSV, phosphosite CSV/network data, optional config. | Registered config files: `.toml`, `.yaml`, `.yml`, `.json`; workflow data follows backend config. | `results/kinopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
+| `kinopt-local` / `kinopt` | Local kinase-to-phosphosite optimization. | Protein/kinase abundance CSV, phosphosite CSV/network data, optional config. | Registered config files passed as `--conf`: `.toml`; workflow data follows backend config. | `results/kinopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
 | `kinopt-evol` | Evolutionary KinOpt mode exposed as a Pixi task. | Same family of KinOpt inputs, governed by backend config. | Backend dependent. | Backend-defined outputs. | Medium/long | Not directly registered in dashboard launcher | Result folders can be browsed if contract/legacy layout is present |
-| `tfopt-local` / `tfopt` | Local TF-to-mRNA optimization. | mRNA/RNA CSV, TF network CSV, optional config. | Registered config files: `.toml`, `.yaml`, `.yml`, `.json`; workflow data follows backend config. | `results/tfopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
+| `tfopt-local` / `tfopt` | Local TF-to-mRNA optimization. | mRNA/RNA CSV, TF network CSV, optional config. | Registered config files passed as `--conf`: `.toml`; workflow data follows backend config. | `results/tfopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
 | `tfopt-evol` | Evolutionary TFOpt mode exposed as a Pixi task. | Same family of TFOpt inputs, governed by backend config. | Backend dependent. | Backend-defined outputs. | Medium/long | Not directly registered in dashboard launcher | Result folders can be browsed if contract/legacy layout is present |
-| `protwise-model` / `model` | Protein-wise ODE fitting downstream of KinOpt/TFOpt. | Protein CSV, phosphosite Excel workbook, RNA/TFOpt Excel workbook, optional TOML config. | Protein input: `.csv`; phosphosite and RNA result inputs: `.xlsx`; config: `.toml`, `.yaml`, `.yml`, `.json` in dashboard assignment. | `results/protwise-model/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium/long | Yes | Yes |
+| `protwise-model` / `model` | Protein-wise ODE fitting downstream of KinOpt/TFOpt. | Protein CSV, phosphosite Excel workbook, RNA/TFOpt Excel workbook, optional TOML config. | Protein input: `.csv`; phosphosite and RNA result inputs: `.xlsx`; config passed as `--conf`: `.toml`. | `results/protwise-model/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium/long | Yes | Yes |
 | `networkmodel` | Coupled kinase-signaling and TF/RNA global network model. | Kinase network CSV, TF network CSV, MS/protein CSV, RNA CSV, optional phosphoproteomics CSV, optional KinOpt/TFOpt Excel priors, TOML config. | Network/data inputs read by backend with `pandas.read_csv`: `.csv` only; prior result workbooks: `.xlsx`. | `results/networkmodel/<run_id>/` when launched by dashboard; CLI `--output-dir`/`--outdir` supported. | Long | Yes | Yes |
-| `phoskintime-all` | Typer wrapper for preprocessing, local TFOpt, local KinOpt, and ProtWise. | Stage-specific configs for TFOpt/KinOpt/ProtWise. | Config assignment: `.toml`, `.yaml`, `.yml`, `.json`. | `results/phoskintime-all/<run_id>/` when launched by dashboard. | Long | Yes | Stage result folders can be browsed |
+| `phoskintime-all` | Typer wrapper for preprocessing, local TFOpt, local KinOpt, and ProtWise. | Stage-specific configs for TFOpt/KinOpt/ProtWise. | Config assignment for CLI execution: `.toml`. | `results/phoskintime-all/<run_id>/` when launched by dashboard. | Long | Yes | Stage result folders can be browsed |
 | Advanced analysis scripts | Existing analysis utilities such as curve similarity, protein accumulator detection, subnetwork export, mechanistic insights, temporal sensitivity, and mechanism comparison. | Existing result folders/tables, depending on script. | Script-specific; do not assume upload conversion. | Selected run directory under `tables/`, `plots/`, `reports/`, or `artifacts/` when integrated. | Medium/long | Exposed as parameterized wrappers where available; not run automatically | Yes |
 
 ## Launching the dashboard
@@ -75,7 +75,7 @@ dashboard_uploads/<run_id>/
 
 Uploaded files are not silently copied into `data/`. The command preview points to the uploaded/selected path used by the backend.
 
-General upload extensions accepted by the UI are:
+General upload extensions accepted by the UI for preview or preset storage are:
 
 ```text
 .csv, .tsv, .xlsx, .yaml, .yml, .json, .txt
@@ -83,6 +83,7 @@ General upload extensions accepted by the UI are:
 
 Workflow execution validation is stricter and follows backend readers:
 
+- Config files assigned to workflow `--conf` fields currently must be TOML because the target runners parse TOML.
 - ProtWise protein input currently expects CSV because the backend reads it with `pd.read_csv`.
 - ProtWise phosphosite and RNA result inputs currently expect Excel workbooks.
 - Networkmodel kinase network, TF network, MS/protein data, RNA data, and phosphoproteomics inputs currently expect CSV because the backend reads them with default `pd.read_csv`.
