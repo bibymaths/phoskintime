@@ -1,5 +1,5 @@
 import pandas as pd
-from kinopt.local.config.constants import TIME_POINTS, OUT_FILE
+from kinopt.local.config.constants import TIME_POINTS, OUT_FILE, OUT_DIR
 from kinopt.local.exporter.helpers import build_genes_data
 from kinopt.local.exporter.plotout import *
 from kinopt.local.config.logconf import setup_logger
@@ -8,7 +8,7 @@ logger = setup_logger()
 
 
 def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
-                   result, mse, rmse, mae, mape, r_squared):
+                   result, mse, rmse, mae, mape, r_squared, filename=OUT_FILE, out_dir=OUT_DIR):
     """
     Function to output the results of the optimization process.
 
@@ -53,14 +53,14 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
 
     # For each gene, call the plotting functions.
     for gene, data in genes_data.items():
-        plot_fits_for_gene(gene, data, TIME_POINTS)
-        plot_cumulative_residuals(gene, data, TIME_POINTS)
-        plot_autocorrelation_residuals(gene, data, TIME_POINTS)
-        plot_histogram_residuals(gene, data, TIME_POINTS)
-        plot_qqplot_residuals(gene, data, TIME_POINTS)
+        plot_fits_for_gene(gene, data, TIME_POINTS, out_dir=out_dir)
+        plot_cumulative_residuals(gene, data, TIME_POINTS, out_dir=out_dir)
+        plot_autocorrelation_residuals(gene, data, TIME_POINTS, out_dir=out_dir)
+        plot_histogram_residuals(gene, data, TIME_POINTS, out_dir=out_dir)
+        plot_qqplot_residuals(gene, data, TIME_POINTS, out_dir=out_dir)
 
     # Write results to Excel.
-    output_file = OUT_FILE
+    output_file = filename
     with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
         alpha_list = []
         for (gene, psite), kinases in alpha_values.items():

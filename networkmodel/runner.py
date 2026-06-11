@@ -23,56 +23,20 @@ os.environ.setdefault(
 
 import argparse
 import atexit
+import importlib
 import json
 import logging
 import pickle
+import sys
 import multiprocessing as mp
+from dataclasses import asdict, is_dataclass
+from pathlib import Path
+from typing import Any
 
-import numpy as np
-import pandas as pd
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.toml"
+NETWORKMODEL_CONFIG_ENV = "PHOSKINTIME_NETWORKMODEL_CONFIG"
 
-from networkmodel.dashboard_bundle import save_dashboard_bundle
-from networkmodel.scan import run_hyperparameter_scan
-from networkmodel.sensitivity import run_sensitivity_analysis
-from networkmodel.InitialConditions import _dump_y0
-from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
-from networkmodel.cache import prepare_fast_loss_data
-from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, MAX_ITERATIONS, \
-    SEED, REGULARIZATION_LAMBDA, REGULARIZATION_RNA, REGULARIZATION_PHOSPHO, TIME_POINTS_PHOSPHO, \
-    REGULARIZATION_PROTEIN, NORMALIZE_FC_STEADY, USE_INITIAL_CONDITION_FROM_DATA, KINASE_NET_FILE, TF_NET_FILE, \
-    MS_DATA_FILE, RNA_DATA_FILE, PHOSPHO_DATA_FILE, KINOPT_RESULTS_FILE, TFOPT_RESULTS_FILE, \
-    WEIGHTING_METHOD_PROTEIN, WEIGHTING_METHOD_RNA, APP_NAME, VERSION, PARENT_PACKAGE, CITATION, DOI, GITHUB_URL, \
-    DOCS_URL, SENSITIVITY_METRIC, SENSITIVITY_ANALYSIS, AVAILABLE_MODELS, HYPERPARAM_SCAN, MODEL, CORES, \
-    N_STARTS, PROFILE_LIKELIHOOD, PROFILE_INDICES, PROFILE_GRID_SIZE, POSTERIOR_SAMPLING, \
-    POSTERIOR_NUM_WARMUP, POSTERIOR_NUM_SAMPLES
-from networkmodel.io import load_data
-from networkmodel.network import Index, KinaseInput, System
-from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
-from networkmodel.params import init_raw_params, unpack_params
-from networkmodel.simulate import simulate_and_measure
-from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds, \
-    get_optimized_sets
-from networkmodel.export import export_pareto_front_to_excel, plot_goodness_of_fit, \
-    export_results, save_gene_timeseries_plots, \
-    export_S_rates, plot_s_rates_report, export_kinase_activities, \
-    export_param_correlations, export_residuals, export_parameter_distributions
-from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all
-from networkmodel.backend import warn_deprecated_backend_options, detect_data_mode, JaxoptResult
-from networkmodel.BayesianInference import (
-    InferenceContext,
-    run_multistart,
-    run_profile_likelihood_standalone_processes,
-    run_numpyro_posterior_standalone_processes,
-    configure_jax_parallelism,
-)
-
-from networkmodel.PosteriorObjective import write_posterior_payload
-from networkmodel.mode_outputs import write_scalar_result_tables
-from common.frechet import frechet_distance
-from config_loader import load_config_toml
-from config.config import setup_logger
-
-logger = setup_logger(log_dir=RESULTS_DIR)
+logger = logging.getLogger(__name__)
 global problem
 
 
@@ -88,82 +52,323 @@ def _close_log_handlers():
             pass
 
 
+
+def _jsonable_runtime(value: Any) -> Any:
+    """Convert runtime configuration values to JSON/YAML-safe primitives."""
+    if isinstance(value, Path):
+        return str(value)
+    if is_dataclass(value):
+        return _jsonable_runtime(asdict(value))
+    if isinstance(value, dict):
+        return {str(k): _jsonable_runtime(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable_runtime(v) for v in value]
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    try:
+        json.dumps(value)
+        return value
+    except TypeError:
+        return str(value)
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _default_config_path() -> Path:
+    return DEFAULT_CONFIG_PATH
+
+
+def parse_config_path(argv: list[str] | None = None) -> Path | None:
+    """Parse only --conf so selected config is known before defaults are resolved."""
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--conf", default=None)
+    known, _ = pre_parser.parse_known_args(argv)
+    return Path(known.conf).expanduser() if known.conf else None
+
+
+def _resolve_config_path(conf_path: Path | None) -> Path:
+    return (conf_path or _default_config_path()).expanduser().resolve()
+
+
+def load_networkmodel_config(conf_path: Path | None):
+    """Load selected networkmodel config and expose it to networkmodel.config importers."""
+    resolved = _resolve_config_path(conf_path)
+    os.environ[NETWORKMODEL_CONFIG_ENV] = str(resolved)
+    if "networkmodel.config" in sys.modules:
+        importlib.reload(sys.modules["networkmodel.config"])
+    from config_loader import load_config_toml
+
+    return load_config_toml(resolved)
+
+
+def _model_code(model: Any) -> int:
+    if isinstance(model, int):
+        return model
+    name = str(model).strip().lower()
+    mapping = {"distributive": 0, "sequential": 1, "successive": 1, "combinatorial": 2, "saturating": 4, "saturation": 4}
+    return mapping.get(name, 4)
+
+
+def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path: Path | None) -> dict[str, Any]:
+    default_path = _default_config_path().resolve()
+    return {
+        "conf": str(supplied_conf_path) if supplied_conf_path is not None else None,
+        "resolved_config_path": str(resolved_config_path),
+        "config_source": "custom" if supplied_conf_path is not None and resolved_config_path != default_path else "default",
+        "kinase_net": config.kinase_net,
+        "tf_net": config.tf_net,
+        "ms": config.ms_data,
+        "rna": config.rna_data,
+        "phospho": config.phospho_data,
+        "kinopt": config.kinopt_results,
+        "tfopt": config.tfopt_results,
+        "output_dir": config.results_dir,
+        "cores": config.cores,
+        "n_gen": config.maximum_iterations,
+        "seed": config.seed,
+        "lambda_prior": config.regularization_lambda,
+        "lambda_protein": config.regularization_protein,
+        "lambda_rna": config.regularization_rna,
+        "lambda_phospho": config.regularization_phospho,
+        "normalize_fc_steady": _as_bool(config.normalize_fc_steady),
+        "use_initial_condition_from_data": _as_bool(config.use_initial_condition_from_data),
+        "scan": _as_bool(config.hyperparam_scan),
+        "sensitivity": _as_bool(config.sensitivity_analysis),
+        "solver": "jaxopt",
+        "app_name": getattr(config, "app_name", "Phoskintime-Global"),
+        "version": getattr(config, "version", "0.1.0"),
+        "parent_package": getattr(config, "parent_package", "phoskintime"),
+        "citation": getattr(config, "citation", ""),
+        "doi": getattr(config, "doi", ""),
+        "github_url": getattr(config, "github_url", ""),
+        "docs_url": getattr(config, "docs_url", ""),
+        "available_models": tuple(getattr(config, "available_models", ()) or ()),
+        "model": getattr(config, "model", "combinatorial"),
+        "model_code": _model_code(getattr(config, "model", "combinatorial")),
+        "time_points_protein": config.time_points_prot,
+        "time_points_rna": config.time_points_rna,
+        "time_points_phospho": config.time_points_phospho,
+        "weighting_method_protein": getattr(config, "weighting_method_protein", "uniform"),
+        "weighting_method_rna": getattr(config, "weighting_method_rna", "uniform"),
+        "sensitivity_metric": getattr(config, "sensitivity_metric", "total_signal"),
+        "n_starts": int(getattr(config, "n_starts", 1)),
+        "profile_likelihood": _as_bool(getattr(config, "profile_likelihood", False)),
+        "profile_indices": str(getattr(config, "profile_indices", "")),
+        "profile_grid_size": int(getattr(config, "profile_grid_size", 10)),
+        "posterior_sampling": _as_bool(getattr(config, "posterior_sampling", False)),
+        "posterior_num_warmup": int(getattr(config, "posterior_num_warmup", 20)),
+        "posterior_num_samples": int(getattr(config, "posterior_num_samples", 30)),
+        "raw_config": config,
+    }
+
+
+def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
+    """Build the full parser after config-backed defaults are known."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--conf", default=config_defaults["conf"], help="Path to TOML config used for networkmodel defaults.")
+    parser.add_argument("--kinase-net", default=config_defaults["kinase_net"])
+    parser.add_argument("--tf-net", default=config_defaults["tf_net"])
+    parser.add_argument("--ms", default=config_defaults["ms"])
+    parser.add_argument("--rna", default=config_defaults["rna"])
+    parser.add_argument("--phospho", default=config_defaults["phospho"])
+    parser.add_argument("--kinopt", default=config_defaults["kinopt"])
+    parser.add_argument("--tfopt", default=config_defaults["tfopt"])
+    parser.add_argument("--output-dir", "--outdir", dest="output_dir", default=config_defaults["output_dir"])
+    parser.add_argument("--cores", type=int, default=config_defaults["cores"])
+    parser.add_argument("--n-gen", type=int, default=config_defaults["n_gen"])
+    parser.add_argument("--seed", type=int, default=config_defaults["seed"])
+    parser.add_argument("--lambda-prior", type=float, default=config_defaults["lambda_prior"])
+    parser.add_argument("--lambda-protein", type=float, default=config_defaults["lambda_protein"])
+    parser.add_argument("--lambda-rna", type=float, default=config_defaults["lambda_rna"])
+    parser.add_argument("--lambda-phospho", type=float, default=config_defaults["lambda_phospho"])
+    parser.add_argument("--normalize-fc-steady", action="store_true", default=config_defaults["normalize_fc_steady"])
+    parser.add_argument("--use-initial-condition-from-data", action="store_true", default=config_defaults["use_initial_condition_from_data"])
+    parser.add_argument("--scan", action="store_true", help="Run a hyperparameter scan using Optuna to find the best regularization parameters.", default=config_defaults["scan"])
+    parser.add_argument("--sensitivity", action="store_true", help="Run a sensitivity analysis after optimization.", default=config_defaults["sensitivity"])
+    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"], help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
+    return parser
+
+
+def resolve_runtime_config(args: argparse.Namespace, config_defaults: dict[str, Any]) -> argparse.Namespace:
+    """Attach selected-config metadata and config-only defaults to parsed args."""
+    for key, value in config_defaults.items():
+        if key not in vars(args):
+            setattr(args, key, value)
+    return args
+
+
+def parse_runtime_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, dict[str, Any]]:
+    """Parse --conf first, load that config, then parse all args with selected defaults."""
+    supplied_conf_path = parse_config_path(argv)
+    resolved_config_path = _resolve_config_path(supplied_conf_path)
+    config = load_networkmodel_config(supplied_conf_path)
+    defaults = _config_defaults(config, resolved_config_path, supplied_conf_path)
+    parser = build_parser(defaults)
+    args = parser.parse_args(argv)
+    return resolve_runtime_config(args, defaults), defaults
+
+
+def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "supplied_config_path": args.conf,
+        "resolved_config_path": args.resolved_config_path,
+        "config_source": args.config_source,
+        "effective_inputs": {
+            "kinase_net": args.kinase_net,
+            "tf_net": args.tf_net,
+            "ms": args.ms,
+            "rna": args.rna,
+            "phospho": args.phospho,
+            "kinopt": args.kinopt,
+            "tfopt": args.tfopt,
+        },
+        "effective_settings": {
+            "output_dir": args.output_dir,
+            "cores": args.cores,
+            "n_gen": args.n_gen,
+            "seed": args.seed,
+            "solver": args.solver,
+            "lambda_prior": args.lambda_prior,
+            "lambda_protein": args.lambda_protein,
+            "lambda_rna": args.lambda_rna,
+            "lambda_phospho": args.lambda_phospho,
+            "normalize_fc_steady": args.normalize_fc_steady,
+            "use_initial_condition_from_data": args.use_initial_condition_from_data,
+            "scan": args.scan,
+            "sensitivity": args.sensitivity,
+            "model": args.model,
+            "model_code": args.model_code,
+            "time_points_protein": args.time_points_protein,
+            "time_points_rna": args.time_points_rna,
+            "time_points_phospho": args.time_points_phospho,
+            "n_starts": args.n_starts,
+            "profile_likelihood": args.profile_likelihood,
+            "posterior_sampling": args.posterior_sampling,
+        },
+    }
+
+
+def initialize_run_contract(args: argparse.Namespace) -> argparse.Namespace:
+    """Create output/provenance files after config and CLI precedence are resolved."""
+    from common.results import attach_file_console_logger, ensure_result_dir, write_command, write_metadata, write_resolved_config
+    from config.config import setup_logger
+
+    global logger
+    args.output_dir = str(ensure_result_dir(args.output_dir)["root"])
+    logger = setup_logger(log_dir=args.output_dir)
+    attach_file_console_logger(logger, args.output_dir)
+    write_command(args.output_dir)
+    write_resolved_config(args.output_dir, _jsonable_runtime(vars(args)))
+    write_metadata(
+        args.output_dir,
+        workflow="networkmodel.runner",
+        args=args,
+        inputs=[args.kinase_net, args.tf_net, args.ms, args.rna, args.phospho, args.kinopt, args.tfopt],
+        extra=_runtime_metadata_extra(args),
+    )
+    return args
+
+
+def _import_runtime_dependencies() -> None:
+    """Import networkmodel runtime modules only after --conf selected the config file."""
+    global np, pd, save_dashboard_bundle, run_hyperparameter_scan, run_sensitivity_analysis
+    global _dump_y0, build_W_parallel, build_tf_matrix, prepare_fast_loss_data, load_data
+    global Index, KinaseInput, System, GlobalODEScalarObjective, build_weight_functions
+    global init_raw_params, unpack_params, simulate_and_measure, normalize_fc_to_t0, _base_idx
+    global calculate_bio_bounds, get_optimized_sets, export_pareto_front_to_excel, plot_goodness_of_fit
+    global export_results, save_gene_timeseries_plots, export_S_rates, plot_s_rates_report
+    global export_kinase_activities, export_param_correlations, export_residuals, export_parameter_distributions
+    global simulate_until_steady, plot_steady_state_all, warn_deprecated_backend_options, detect_data_mode
+    global JaxoptResult, InferenceContext, run_multistart, run_profile_likelihood_standalone_processes
+    global run_numpyro_posterior_standalone_processes, configure_jax_parallelism, write_posterior_payload
+    global write_scalar_result_tables, frechet_distance, populate_standard_subdirs
+
+    import numpy as np
+    import pandas as pd
+    from common.frechet import frechet_distance
+    from common.results import populate_standard_subdirs
+    from networkmodel.BayesianInference import (
+        InferenceContext,
+        configure_jax_parallelism,
+        run_multistart,
+        run_numpyro_posterior_standalone_processes,
+        run_profile_likelihood_standalone_processes,
+    )
+    from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
+    from networkmodel.InitialConditions import _dump_y0
+    from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
+    from networkmodel.PosteriorObjective import write_posterior_payload
+    from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all
+    from networkmodel.backend import JaxoptResult, detect_data_mode, warn_deprecated_backend_options
+    from networkmodel.cache import prepare_fast_loss_data
+    from networkmodel.dashboard_bundle import save_dashboard_bundle
+    from networkmodel.export import (
+        export_S_rates,
+        export_kinase_activities,
+        export_param_correlations,
+        export_pareto_front_to_excel,
+        export_parameter_distributions,
+        export_residuals,
+        export_results,
+        plot_goodness_of_fit,
+        plot_s_rates_report,
+        save_gene_timeseries_plots,
+    )
+    from networkmodel.io import load_data
+    from networkmodel.mode_outputs import write_scalar_result_tables
+    from networkmodel.network import Index, KinaseInput, System
+    from networkmodel.params import init_raw_params, unpack_params
+    from networkmodel.scan import run_hyperparameter_scan
+    from networkmodel.sensitivity import run_sensitivity_analysis
+    from networkmodel.simulate import simulate_and_measure
+    from networkmodel.utils import _base_idx, calculate_bio_bounds, get_optimized_sets, normalize_fc_to_t0
+
 def main():
     """Run the networkmodel entry point
-    
+
     Returns:
         Computed result from this routine.
-    
+
     Raises:
         ValueError: When inputs are inconsistent or unsupported.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--kinase-net", default=KINASE_NET_FILE)
-    parser.add_argument("--tf-net", default=TF_NET_FILE)
-    parser.add_argument("--ms", default=MS_DATA_FILE)
-    parser.add_argument("--rna", default=RNA_DATA_FILE)
-    parser.add_argument("--phospho", default=PHOSPHO_DATA_FILE)
-
-    # kinopt and tfopt results
-    parser.add_argument("--kinopt", default=KINOPT_RESULTS_FILE)
-    parser.add_argument("--tfopt", default=TFOPT_RESULTS_FILE)
-
-    parser.add_argument("--output-dir", default=RESULTS_DIR)
-    parser.add_argument("--cores", type=int, default=CORES)
-
-    # JAXopt
-    parser.add_argument("--n-gen", type=int, default=MAX_ITERATIONS)
-    parser.add_argument("--seed", type=int, default=SEED)
-
-    # Loss weights
-    parser.add_argument("--lambda-prior", type=float, default=REGULARIZATION_LAMBDA)
-    parser.add_argument("--lambda-protein", type=float, default=REGULARIZATION_PROTEIN)
-    parser.add_argument("--lambda-rna", type=float, default=REGULARIZATION_RNA)
-    parser.add_argument("--lambda-phospho", type=float, default=REGULARIZATION_PHOSPHO)
-
-    # Data inference
-    parser.add_argument("--normalize-fc-steady", action="store_true", default=NORMALIZE_FC_STEADY)
-    parser.add_argument("--use-initial-condition-from-data", action="store_true",
-                        default=USE_INITIAL_CONDITION_FROM_DATA)
-    parser.add_argument("--scan", action="store_true",
-                        help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
-                        default=HYPERPARAM_SCAN)
-    parser.add_argument("--sensitivity", action="store_true",
-                        help="Run a sensitivity analysis after optimization.",
-                        default=SENSITIVITY_ANALYSIS)
-    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default="jaxopt",
-                        help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
-
-    args = parser.parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
+    args, config_defaults = parse_runtime_args()
+    args = initialize_run_contract(args)
+    _import_runtime_dependencies()
 
     # logger.info Arguments
     logger.info("============================================================")
     logger.info("PhosKinTime Global Model")
     logger.info("------------------------------------------------------------")
-    logger.info(f"Application        : {APP_NAME}")
-    logger.info(f"Version            : {VERSION}")
-    logger.info(f"Available Models   : {AVAILABLE_MODELS}")
+    logger.info(f"Application        : {args.app_name}")
+    logger.info(f"Version            : {args.version}")
+    logger.info(f"Available Models   : {args.available_models}")
     logger.info("------------------------------------------------------------")
-    logger.info(f"Parent Package     : {PARENT_PACKAGE}")
-    logger.info(f"Citation           : {CITATION}")
-    logger.info(f"DOI                : {DOI}")
-    logger.info(f"Source Code        : {GITHUB_URL}")
-    logger.info(f"Documentation      : {DOCS_URL}")
+    logger.info(f"Parent Package     : {args.parent_package}")
+    logger.info(f"Citation           : {args.citation}")
+    logger.info(f"DOI                : {args.doi}")
+    logger.info(f"Source Code        : {args.github_url}")
+    logger.info(f"Documentation      : {args.docs_url}")
     logger.info("============================================================")
 
     logger.info("[Solver] Using Diffrax Kvaerno Solver")
 
-    if MODEL == 0:
+    if args.model_code == 0:
         logger.info("[Model] Using Distributive Model")
-    elif MODEL == 1:
+    elif args.model_code == 1:
         logger.info("[Model] Using Sequential Model")
-    elif MODEL == 2:
+    elif args.model_code == 2:
         logger.info("[Model] Using Combinatorial Model")
-    elif MODEL == 4:
+    elif args.model_code == 4:
         logger.info("[Model] Using Saturating Model")
     else:
-        raise ValueError(f"Unknown MODEL value in config file: {MODEL}")
+        raise ValueError(f"Unknown MODEL value in config file: {args.model_code}")
 
     logger.info(f"[Args] Output directory: {args.output_dir}")
     logger.info(f"[Args] Number of cores: {args.cores}")
@@ -365,7 +570,7 @@ def main():
     )
 
     # -----------------------------------------------------------------------------
-    # FULL-UNIVERSE MODE (LEGACY / “MODEL EVERYTHING” BEHAVIOR)
+    # FULL-UNIVERSE MODE (LEGACY / “args.model_code EVERYTHING” BEHAVIOR)
     # -----------------------------------------------------------------------------
     # Rationale
     # ---------
@@ -427,9 +632,9 @@ def main():
 
     # New: keep the config for logging, but don't treat it as a callable
     weight_cfg = build_weight_functions(
-        method_protein=WEIGHTING_METHOD_PROTEIN,
-        method_rna=WEIGHTING_METHOD_RNA,
-        time_grid=TIME_POINTS_PROTEIN,
+        method_protein=args.weighting_method_protein,
+        method_rna=args.weighting_method_rna,
+        time_grid=args.time_points_protein,
     )
 
     logger.info("[Weights] Protein weighting scheme: %s", weight_cfg["protein"])
@@ -439,11 +644,11 @@ def main():
     df_prot["w"] = 1.0
     df_rna["w"] = 1.0
 
-    # 3) Build W + TF 
+    # 3) Build W + TF
     # -------------------------------------------------------------------------
     # Network Matrix Construction
     # -------------------------------------------------------------------------
-    # Build the kinase-substrate interaction matrix (W_global) and the 
+    # Build the kinase-substrate interaction matrix (W_global) and the
     # transcription factor regulatory matrix (tf_mat) in parallel for efficiency.
     #
     # W_global: Sparse matrix (sites × kinases) encoding kinase-substrate relationships
@@ -539,7 +744,7 @@ def main():
         logger.info("[Model] Initial conditions set from data.")
 
     # 5) Precompute loss data on solver time grid
-    solver_times = np.unique(np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO]))
+    solver_times = np.unique(np.concatenate([args.time_points_protein, args.time_points_rna, args.time_points_phospho]))
 
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
     loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
@@ -675,9 +880,9 @@ def main():
         maxiter=args.n_gen,
         tol=1e-6,
     )
-    if N_STARTS > 1:
+    if args.n_starts > 1:
         try:
-            ms = run_multistart(ctx, n_starts=N_STARTS, seed=args.seed, max_workers=args.cores)
+            ms = run_multistart(ctx, n_starts=args.n_starts, seed=args.seed, max_workers=args.cores)
             best_row = ms["best"].drop(
                 columns=["start_id", "seed", "success", "selected_best"],
                 errors="ignore",
@@ -721,11 +926,11 @@ def main():
         tol=1e-6,
     )
 
-    if PROFILE_LIKELIHOOD and PROFILE_INDICES.strip():
+    if args.profile_likelihood and args.profile_indices.strip():
         try:
-            logger.info("[Profile] Profile likelihood requested for indices: %s", PROFILE_INDICES)
+            logger.info("[Profile] Profile likelihood requested for indices: %s", args.profile_indices)
 
-            profile_indices = [int(x) for x in PROFILE_INDICES.split(",") if x.strip()]
+            profile_indices = [int(x) for x in args.profile_indices.split(",") if x.strip()]
 
             profile_run_config_path = write_posterior_payload(
                 ctx=ctx,
@@ -738,7 +943,7 @@ def main():
                 run_config_path=profile_run_config_path,
                 output_dir=args.output_dir,
                 parameter_indices=profile_indices,
-                grid_size=PROFILE_GRID_SIZE,
+                grid_size=args.profile_grid_size,
                 max_workers=1,
             )
 
@@ -751,13 +956,13 @@ def main():
         except Exception:
             logger.exception("[Profile] Profile likelihood failed.")
 
-    if POSTERIOR_SAMPLING:
+    if args.posterior_sampling:
         try:
             logger.info(
                 "[Posterior] Requested standalone posterior sampling "
                 "with warmup=%s, samples=%s.",
-                POSTERIOR_NUM_WARMUP,
-                POSTERIOR_NUM_SAMPLES,
+                args.posterior_num_warmup,
+                args.posterior_num_samples,
             )
 
             run_config_path = write_posterior_payload(
@@ -770,8 +975,8 @@ def main():
             posterior_result = run_numpyro_posterior_standalone_processes(
                 run_config_path=run_config_path,
                 output_dir=args.output_dir,
-                num_warmup=POSTERIOR_NUM_WARMUP,
-                num_samples=POSTERIOR_NUM_SAMPLES,
+                num_warmup=args.posterior_num_warmup,
+                num_samples=args.posterior_num_samples,
                 seed=args.seed,
                 num_processes=4,
             )
@@ -832,7 +1037,7 @@ def main():
 
         # Simulate with current parameters
         dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
-            sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO
+            sys, idx, args.time_points_protein, args.time_points_rna, args.time_points_phospho
         )
 
         detailed_scores = {"prot": {}, "rna": {}, "phospho": {}}
@@ -916,7 +1121,7 @@ def main():
             idx=idx,
             fitted_params=params,
             output_dir=args.output_dir,
-            metric=SENSITIVITY_METRIC
+            metric=args.sensitivity_metric
         )
 
     # 1. Export Dynamic Kinase Activities (Mechanism check)
@@ -957,7 +1162,7 @@ def main():
         f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
-    dfp, dfr, dfph = simulate_and_measure(sys, idx, TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO)
+    dfp, dfr, dfph = simulate_and_measure(sys, idx, args.time_points_protein, args.time_points_rna, args.time_points_phospho)
 
     # Save raw preds
     if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
@@ -992,8 +1197,8 @@ def main():
             df_phos_obs=df_pho,
             df_phos_pred=dfph,
             output_dir=ts_dir,
-            prot_times=TIME_POINTS_PROTEIN,
-            rna_times=TIME_POINTS_RNA,
+            prot_times=args.time_points_protein,
+            rna_times=args.time_points_rna,
             filename_prefix="fit"
         )
 
@@ -1038,8 +1243,8 @@ def main():
 
     logger.info("[Done] Exported results saved.")
 
-    # Display all parameters from the configuration class
-    global_config = load_config_toml("config.toml")
+    # Display all parameters from the selected configuration class
+    global_config = args.raw_config
     logger.info("=" * 80)
     logger.info("GLOBAL MODEL CONFIGURATION")
     logger.info("=" * 80)
@@ -1120,6 +1325,7 @@ def main():
     logger.info(f"[Dashboard] Saved dashboard bundle: {bundle_path}")
 
     # Finalize logging
+    populate_standard_subdirs(args.output_dir)
     logger.info(f"[Complete] All results saved to: {args.output_dir}")
 
 

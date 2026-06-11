@@ -220,3 +220,11 @@ High sample counts significantly increase computation time.
   `networkmodel/config.py`.
 - The `compare_mechanisms.py` script requires additional dependencies (`gravis`, `networkx`,
   `imageio`) not included in the base `requirements.txt`.
+
+## Dashboard-ready output directories
+
+Major backend workflows accept an explicit `--outdir`/`--output-dir` option so automated tools and the planned no-code dashboard can discover outputs consistently. A run directory contains `metadata.json`, `command.txt`, `console.log`, `config_resolved.yaml` when applicable, and the standard `tables/`, `plots/`, `logs/`, `reports/`, and `artifacts/` subdirectories. Legacy filenames are retained at the run-directory root where existing scripts or documentation rely on them, with dashboard-facing copies mirrored into the standard subfolders.
+
+## Unified dashboard integration and legacy script status
+
+The unified dashboard now provides workflow-specific result panels for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. Legacy visualization/readout scripts such as `kinopt_network_viz.py`, `tfopt_network_viz.py`, `kinopt_network_readout.py`, and `tfopt_network_readout.py` are retained for batch reproducibility, but interactive exploration should prefer the unified dashboard panels and the existing `app/kinopt.py` / `app/tfopt.py` logic where available. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.

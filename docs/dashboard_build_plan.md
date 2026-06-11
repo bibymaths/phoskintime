@@ -369,3 +369,28 @@ The PhosKinTime repository contains a rich suite of optimisation algorithms, ODE
 [\[4\]](chrome://newtab/) \[title unknown\]
 
 <chrome://newtab/>
+
+### Phase 0 implementation note (June 2026)
+
+The backend output contract is implemented with shared result utilities in `common/results.py`. The local kinase, local TF, ProtWise runner, network model runner, and Typer workflow wrappers now accept `--outdir`/`--output-dir` and initialize the standard run subdirectories (`tables/`, `plots/`, `logs/`, `reports/`, `artifacts/`) plus provenance files (`metadata.json`, `command.txt`, `console.log`, and `config_resolved.yaml` when a resolved configuration is available). Legacy top-level output filenames are retained for compatibility, and dashboard-facing copies are mirrored into the standard subfolders.
+
+### Phase 1 implementation note (June 2026)
+
+The initial dashboard component lives under `dashboard/` and focuses only on browsing existing result directories. It discovers the Phase 0 output contract and selected legacy outputs, lazily loads tables/plots/logs/reports only after a user selects them, and provides an in-memory ZIP archive for downloading a result directory. Workflow launching and file uploads remain outside this phase.
+
+### Phase 2 implementation note (June 2026)
+
+The dashboard now includes a registered workflow launcher that builds argv-list commands for existing Pixi/Python entry points, previews commands before execution, runs subprocesses from the repository root with `shell=False`, streams merged stdout/stderr into the UI and `console.log`, records launcher provenance, and opens successful run directories in the result browser. Upload/config editing remains out of scope. Interactive cancellation is not exposed yet because reliable Streamlit cancellation needs a persistent background job supervisor; the runner has a cancellation callback boundary for a future supervised implementation.
+
+### Phase 3 implementation note (June 2026)
+
+The dashboard now supports no-code setup before launching registered workflows: users can upload supported input/config files into `dashboard_uploads/<run_id>/`, preview CSV/TSV/XLSX data, assign files to workflow-specific input roles, edit structured parameters based on the actual CLI flags, validate basic file problems, and save or download JSON/YAML presets. These selections are converted into the existing argv-list command builder so execution still goes through the original CLI modules rather than dashboard-side scientific logic.
+
+### Phase 4 implementation note (June 2026)
+
+Workflow-specific dashboard panels now live under `dashboard/workflow_panels/` for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. The panels discover and display existing workbooks, CSVs, plots, reports, bundles, and inference outputs from the selected result directory while leaving model fitting, ODE solving, optimization, and expensive analyses in the existing backend scripts/CLI modules. Advanced analyses are exposed as parameterized command builders and are not executed automatically on page load.
+
+
+## 15. Implementation Status
+
+The no-code dashboard phases are implemented in the unified `dashboard/` package. The current implementation provides the standard result contract and provenance helpers, a lazy result browser, a structured command launcher, upload/configuration panels, workflow-specific result panels, advanced-analysis command wrappers, dashboard-focused tests, Pixi dashboard tasks, git-ignore coverage for generated artifacts, and user documentation. Streamlit UI imports are kept inside render functions so importing dashboard modules does not start a Streamlit server or require optional UI dependencies until those render paths are used.

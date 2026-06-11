@@ -2,7 +2,12 @@ import os
 import argparse
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib
 from numba import njit
 
 from config.constants import (
@@ -82,44 +87,156 @@ def ensure_output_directory(directory):
     os.makedirs(directory, exist_ok=True)
 
 
-def parse_args():
-    """
-    Parse command-line arguments for the PhosKinTime script.
-    This function uses argparse to define and handle the command-line options.
-    It includes options for setting bounds, fixed parameters, bootstrapping,
-    profile estimation, and input file paths.
-    The function returns the parsed arguments as a Namespace object.
-    The arguments include:
-    --A-bound, --B-bound, --C-bound, --D-bound,
-    --Ssite-bound, --Dsite-bound, --bootstraps,
-    --input-excel-protein, --input-excel-psite, --input-excel-rna.
 
-    Args:
-        None
-    Returns:
-        argparse.Namespace: The parsed command-line arguments.
-    """
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in (override or {}).items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def default_config_path() -> Path:
+    return PROJECT_ROOT / "config.toml"
+
+
+def parse_config_path(argv: list[str] | None = None) -> Path | None:
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--conf", default=None)
+    known, _ = pre_parser.parse_known_args(argv)
+    return Path(known.conf).expanduser() if known.conf else None
+
+
+def _model_type(model: str) -> str:
+    return {
+        "protwise": "Protein-wise",
+        "distmod": "Distributive",
+        "succmod": "Successive",
+        "randmod": "Random",
+    }.get(str(model), "Unknown")
+
+
+def load_selected_config(conf_path: str | Path | None = None) -> dict[str, Any]:
+    selected = Path(conf_path).expanduser().resolve() if conf_path else default_config_path().resolve()
+    with selected.open("rb") as handle:
+        raw = tomllib.load(handle)
+    ode = raw.get("ode", {}) or {}
+    modes = ode.get("modes", {}) or {}
+    merged = _deep_merge(ode, modes.get("local", {}) or {})
+    merged["_paths"] = raw.get("paths", {}) or {}
+    merged["_root"] = str(PROJECT_ROOT)
+    merged["_config_path"] = str(selected)
+    merged["_config_source"] = "custom" if conf_path else "default"
+    return merged
+
+
+def _path_from_config(root: Path, value: str | Path) -> Path:
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else root / path
+
+
+def _defaults_from_loaded_config(loaded_config: dict[str, Any]) -> dict[str, Any]:
+    root = Path(loaded_config.get("_root", PROJECT_ROOT))
+    paths = loaded_config.get("_paths", {}) or {}
+    bounds = loaded_config.get("bounds", {}) or {}
+    bootstrap = loaded_config.get("bootstrap", {}) or {}
+    time = loaded_config.get("time", {}) or {}
+    inputs = loaded_config.get("inputs", {}) or {}
+    output = loaded_config.get("output", {}) or {}
+    fit = loaded_config.get("fit", {}) or {}
+    weights = fit.get("composite_weights", {}) or {}
+    sensitivity = loaded_config.get("sensitivity", {}) or {}
+    morris = sensitivity.get("morris", {}) or {}
+
+    model = str(loaded_config.get("model", "randmod"))
+    model_type = _model_type(model)
+    results_dir = _path_from_config(root, paths.get("results_dir", "results"))
+    out_dir_name = str(output.get("out_dir_name") or "").strip()
+    out_xlsx_name = str(output.get("out_xlsx_name") or "").strip()
+    out_dir = results_dir / (out_dir_name or f"{model_type}_results")
+
+    return {
+        "conf": None if loaded_config.get("_config_source") == "default" else loaded_config.get("_config_path"),
+        "resolved_config_path": loaded_config.get("_config_path"),
+        "config_source": loaded_config.get("_config_source", "default"),
+        "A_bound": (0.0, float(bounds.get("mRNA_prod", 20))),
+        "B_bound": (0.0, float(bounds.get("mRNA_deg", 20))),
+        "C_bound": (0.0, float(bounds.get("protein_prod", 20))),
+        "D_bound": (0.0, float(bounds.get("protein_deg", 20))),
+        "Ssite_bound": (0.0, float(bounds.get("phospho_prod", 20))),
+        "Dsite_bound": (0.0, float(bounds.get("phospho_deg", bounds.get("protein_deg", 20)))),
+        "bootstraps": int(bootstrap.get("n", 0)),
+        "input_excel_protein": _path_from_config(root, inputs.get("protein_excel", "data/input1.csv")),
+        "input_excel_psite": _path_from_config(root, inputs.get("psite_excel", "data/kinopt_results.xlsx")),
+        "input_excel_rna": _path_from_config(root, inputs.get("rna_excel", "data/tfopt_results.xlsx")),
+        "outdir": out_dir,
+        "out_results_dir": out_dir / (out_xlsx_name or f"{model_type}_results.xlsx"),
+        "time_points": np.asarray(time.get("protein", [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]), dtype=float),
+        "time_points_rna": np.asarray(time.get("rna", [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]), dtype=float),
+        "model": model,
+        "model_type": model_type,
+        "dev_test": bool(loaded_config.get("dev_test", False)),
+        "use_regularization": bool(fit.get("use_regularization", True)),
+        "alpha_ci": float(loaded_config.get("alpha_ci", 0.95)),
+        "weights": {
+            "alpha": float(weights.get("rmse", 1.0)),
+            "beta": float(weights.get("mae", 1.0)),
+            "gamma": float(weights.get("var", 1.0)),
+            "delta": float(weights.get("mse", 1.0)),
+            "mu": float(weights.get("l2", 1.0)),
+        },
+        "sensitivity": {
+            "enabled": bool(sensitivity.get("enabled", True)),
+            "metric": str(loaded_config.get("y_metric", "total_signal")),
+            "num_trajectories": int(morris.get("num_trajectories", 1000)),
+            "num_levels": int(morris.get("num_levels", 400)),
+            "perturbation": float(sensitivity.get("perturbation", 0.5)),
+        },
+    }
+
+
+def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="PhosKinTime - ODE Parameter Estimation of Cell Signalling Events in Temporal Space"
     )
-    parser.add_argument("--A-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_prod}")
-    parser.add_argument("--B-bound", type=parse_bound_pair, default=f"0, {UB_mRNA_deg}")
-    parser.add_argument("--C-bound", type=parse_bound_pair, default=f"0, {UB_Protein_prod}")
-    parser.add_argument("--D-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
-    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=f"0, {UB_Phospho_prod}")
-    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=f"0, {UB_Protein_deg}")
-    parser.add_argument("--bootstraps", type=int, default=BOOTSTRAPS)
-    parser.add_argument("--input-excel-protein", type=str,
-                        default=INPUT_EXCEL_PROTEIN,
-                        help="Path to the original protein data file")
-    parser.add_argument("--input-excel-psite", type=str,
-                        default=INPUT_EXCEL_PSITE,
-                        help="Path to the estimated optimized phosphorylation-residue file")
-    parser.add_argument("--input-excel-rna", type=str,
-                        default=INPUT_EXCEL_RNA,
-                        help="Path to the estimated optimized mRNA-TF file")
-    return parser.parse_args()
+    parser.add_argument("--conf", default=defaults["conf"], help="Path to ProtWise/ODE TOML config file.")
+    parser.add_argument("--A-bound", type=parse_bound_pair, default=defaults["A_bound"])
+    parser.add_argument("--B-bound", type=parse_bound_pair, default=defaults["B_bound"])
+    parser.add_argument("--C-bound", type=parse_bound_pair, default=defaults["C_bound"])
+    parser.add_argument("--D-bound", type=parse_bound_pair, default=defaults["D_bound"])
+    parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=defaults["Ssite_bound"])
+    parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=defaults["Dsite_bound"])
+    parser.add_argument("--bootstraps", type=int, default=defaults["bootstraps"])
+    parser.add_argument("--input-excel-protein", type=str, default=str(defaults["input_excel_protein"]), help="Path to the original protein data file")
+    parser.add_argument("--input-excel-psite", type=str, default=str(defaults["input_excel_psite"]), help="Path to the estimated optimized phosphorylation-residue file")
+    parser.add_argument("--input-excel-rna", type=str, default=str(defaults["input_excel_rna"]), help="Path to the estimated optimized mRNA-TF file")
+    parser.add_argument("--outdir", "--output-dir", dest="outdir", type=str, default=str(defaults["outdir"]), help="Directory where all run outputs and provenance files are written.")
+    return parser
 
+
+def parse_args(argv: list[str] | None = None):
+    selected_config = parse_config_path(argv)
+    if selected_config is not None:
+        os.environ["PHOSKINTIME_ODE_CONFIG"] = str(selected_config.expanduser().resolve())
+    loaded_config = load_selected_config(selected_config)
+    defaults = _defaults_from_loaded_config(loaded_config)
+    parser = build_parser(defaults)
+    args = parser.parse_args(argv)
+    args.resolved_config_path = str(Path(defaults["resolved_config_path"]).resolve())
+    args.config_source = defaults["config_source"]
+    args.time_points = defaults["time_points"]
+    args.time_points_rna = defaults["time_points_rna"]
+    args.out_results_dir = str(Path(args.outdir) / Path(defaults["out_results_dir"]).name)
+    args.model = defaults["model"]
+    args.model_type = defaults["model_type"]
+    args.dev_test = defaults["dev_test"]
+    args.use_regularization = defaults["use_regularization"]
+    args.alpha_ci = defaults["alpha_ci"]
+    args.weights = defaults["weights"]
+    args.sensitivity = defaults["sensitivity"]
+    return args
 
 def log_config(logger, bounds, args):
     """
@@ -143,17 +260,11 @@ def log_config(logger, bounds, args):
     np.set_printoptions(suppress=True)
 
 
-def extract_config(args):
+
+def extract_config(args, loaded_config: dict[str, Any] | None = None):
     """
-    Extract configuration settings from command-line arguments.
-    This function creates a dictionary containing the parameter bounds, bootstrapping iterations.
-    The function returns the configuration dictionary.
-
-    Args:
-        args (argparse.Namespace): The command-line arguments.
-    Returns:
-        dict: The configuration settings.
-
+    Extract effective ProtWise runtime settings after config and CLI precedence
+    have been resolved. CLI values override values loaded from --conf/default config.
     """
     bounds = {
         "A": args.A_bound,
@@ -161,15 +272,29 @@ def extract_config(args):
         "C": args.C_bound,
         "D": args.D_bound,
         "S(i)": args.Ssite_bound,
-        "D(i)": args.Dsite_bound
+        "D(i)": args.Dsite_bound,
     }
     config = {
-        'bounds': bounds,
-        'bootstraps': args.bootstraps,
-        'input_excel_protein': args.input_excel_protein,
-        'input_excel_psite': args.input_excel_psite,
-        'input_excel_rna': args.input_excel_rna,
-        'max_workers': 1 if DEV_TEST else os.cpu_count(),
+        "bounds": bounds,
+        "bootstraps": args.bootstraps,
+        "input_excel_protein": args.input_excel_protein,
+        "input_excel_psite": args.input_excel_psite,
+        "input_excel_rna": args.input_excel_rna,
+        "max_workers": 1 if getattr(args, "dev_test", DEV_TEST) else os.cpu_count(),
+        "outdir": args.outdir,
+        "out_results_dir": args.out_results_dir,
+        "time_points": args.time_points,
+        "time_points_rna": args.time_points_rna,
+        "supplied_config_path": args.conf,
+        "resolved_config_path": args.resolved_config_path,
+        "config_source": args.config_source,
+        "model": args.model,
+        "model_type": args.model_type,
+        "dev_test": args.dev_test,
+        "use_regularization": args.use_regularization,
+        "alpha_ci": args.alpha_ci,
+        "weights": args.weights,
+        "sensitivity": args.sensitivity,
     }
     return config
 

@@ -64,3 +64,9 @@ site/
 !/notebooks/outputs/
 !/notebooks/outputs/*/
 !/notebooks/outputs/*/.gitkeep
+
+# Dashboard uploads and local archives
+/dashboard_uploads/
+*.zip
+/results/
+/.streamlit/
