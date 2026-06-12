@@ -178,7 +178,7 @@ def load_system():
     # IMPORTANT: ensure model selection matches run *before* building System
     config.MODEL = 0
 
-    results_dir = Path("./results_model_global_distributive")
+    results_dir = Path("./results_network_distributive")
 
     class Args:
         kinase_net, tf_net = config.KINASE_NET_FILE, config.TF_NET_FILE

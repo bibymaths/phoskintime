@@ -76,7 +76,7 @@ def save_dashboard_bundle(
         "df_pho_obs": df_pho,
     }
 
-    bundle_path = out / "dashboard_bundle.pkl"
+    bundle_path = out / "artifacts" / "dashboard_bundle.pkl"
     with bundle_path.open("wb") as f:
         pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -92,6 +92,6 @@ def load_dashboard_bundle(output_dir: str | Path) -> dict:
     Returns:
         Computed result from this routine.
     """
-    p = Path(output_dir) / "dashboard_bundle.pkl"
+    p = Path(output_dir) / "artifacts" / "dashboard_bundle.pkl"
     with p.open("rb") as f:
         return pickle.load(f)
