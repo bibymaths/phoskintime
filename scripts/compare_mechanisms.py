@@ -8,6 +8,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import json
+import inspect
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -21,17 +22,12 @@ import gravis as gv
 import networkx as nx
 from pathlib import Path
 
-import io
-import imageio.v2 as imageio
-
 from networkmodel import config
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.SteadyStateAnalysis import simulate_until_steady
-from networkmodel.params import init_raw_params, unpack_params
 from networkmodel.io import load_data
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
-from networkmodel.utils import normalize_fc_to_t0
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
 RESULTS_DIR_PICKED = Path("./results_network_sequential")
@@ -385,7 +381,6 @@ def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
         df = df.merge(df_long, on="time", how="left")
 
     return df
-
 def _safe_min_max(values: np.ndarray) -> tuple[float, float]:
     """Return finite min/max values for dashboard diagnostics."""
     arr = np.asarray(values, dtype=float)
@@ -395,17 +390,151 @@ def _safe_min_max(values: np.ndarray) -> tuple[float, float]:
     return float(np.min(finite)), float(np.max(finite))
 
 
+def _simulate_until_steady_optional_y0(sys_obj, t_max: float, n_points: int, y0: np.ndarray | None = None):
+    """
+    Call simulate_until_steady with a fixed initial state if the installed function exposes
+    such an argument. Otherwise fall back to the normal call.
+
+    This keeps compare_mechanisms.py script-only and avoids modifying networkmodel modules.
+    """
+    sig = inspect.signature(simulate_until_steady)
+    kwargs = {
+        "t_max": float(t_max),
+        "n_points": int(n_points),
+    }
+
+    used_fixed_y0 = False
+
+    if y0 is not None:
+        for y0_name in ("y0", "initial_state", "initial_conditions", "y_init"):
+            if y0_name in sig.parameters:
+                kwargs[y0_name] = np.asarray(y0, dtype=float)
+                used_fixed_y0 = True
+                break
+
+    t, Y = simulate_until_steady(sys_obj, **kwargs)
+    return t, Y, used_fixed_y0
+
+
+def _align_Y_to_reference_initial(
+    Y: np.ndarray,
+    Y_ref: np.ndarray,
+    eps: float = 1e-12,
+) -> np.ndarray:
+    """
+    Align a trajectory to the reference initial state.
+
+    This removes artificial t=0 inflation caused by separately initialized
+    perturbation trajectories. Multiplicative alignment preserves non-negativity
+    and relative dynamic shape better than a blind additive shift.
+    """
+    Y = np.asarray(Y, dtype=float)
+    Y_ref = np.asarray(Y_ref, dtype=float)
+
+    if Y.ndim != 2 or Y_ref.ndim != 2:
+        raise ValueError(f"Expected 2D trajectories, got Y={Y.shape}, Y_ref={Y_ref.shape}")
+
+    if Y.shape[1] != Y_ref.shape[1]:
+        raise ValueError(
+            f"State dimension mismatch: KO has {Y.shape[1]} states, WT has {Y_ref.shape[1]} states"
+        )
+
+    Y_aligned = Y.copy()
+
+    ko0 = Y[0, :].astype(float)
+    wt0 = Y_ref[0, :].astype(float)
+
+    scale = np.ones_like(ko0, dtype=float)
+    can_scale = np.abs(ko0) > eps
+
+    scale[can_scale] = wt0[can_scale] / ko0[can_scale]
+    Y_aligned[:, can_scale] = Y[:, can_scale] * scale[can_scale]
+
+    # If a KO initial state is numerically zero but WT is not, use additive correction.
+    cannot_scale = ~can_scale
+    if np.any(cannot_scale):
+        Y_aligned[:, cannot_scale] = Y[:, cannot_scale] + (wt0[cannot_scale] - ko0[cannot_scale])
+
+    # Enforce exact equality at t=0 after numerical alignment.
+    Y_aligned[0, :] = wt0
+
+    return Y_aligned
+
+
+def _run_forward_wt_ko_for_display(
+    sys_obj,
+    best_params: dict,
+    ko_params: dict,
+    t_max: float,
+    n_points: int,
+):
+    """
+    Run WT and KO forward simulations for the dashboard.
+
+    WT is the fitted baseline.
+    KO is simulated with perturbed parameters, then displayed from the WT fitted
+    initial state. If simulate_until_steady supports y0, that is used directly.
+    Otherwise the KO trajectory is state-aligned for display.
+    """
+    sys_obj.update(**best_params)
+    t_wt, Y_wt, _ = _simulate_until_steady_optional_y0(
+        sys_obj,
+        t_max=t_max,
+        n_points=n_points,
+        y0=None,
+    )
+
+    Y_wt = np.asarray(Y_wt, dtype=float)
+    wt_y0 = Y_wt[0, :].copy()
+
+    sys_obj.update(**ko_params)
+    t_ko, Y_ko_raw, used_fixed_y0 = _simulate_until_steady_optional_y0(
+        sys_obj,
+        t_max=t_max,
+        n_points=n_points,
+        y0=wt_y0,
+    )
+
+    Y_ko_raw = np.asarray(Y_ko_raw, dtype=float)
+
+    if used_fixed_y0:
+        Y_ko_plot = Y_ko_raw.copy()
+        Y_ko_plot[0, :] = wt_y0
+        alignment_mode = "fixed y0 passed to simulate_until_steady"
+    else:
+        Y_ko_plot = _align_Y_to_reference_initial(Y_ko_raw, Y_wt)
+        alignment_mode = "post-simulation WT-initial-state alignment"
+
+    sys_obj.update(**best_params)
+
+    return {
+        "t_fine": np.asarray(t_wt, dtype=float),
+        "Y_wt": Y_wt,
+        "t_ko": np.asarray(t_ko, dtype=float),
+        "Y_ko_raw": Y_ko_raw,
+        "Y_ko_plot": Y_ko_plot,
+        "used_fixed_y0": used_fixed_y0,
+        "alignment_mode": alignment_mode,
+    }
+
+
 def extract_phosphosite_states_from_Y(
-        Y: np.ndarray,
-        idx: Index,
-        t: np.ndarray,
-        protein: str,
-        normalize_to_t0: bool = False,
+    Y: np.ndarray,
+    idx: Index,
+    t: np.ndarray,
+    protein: str,
+    normalize_to_t0: bool = False,
+    reference_raw_states: np.ndarray | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    """Extract raw or t0-normalized phosphosite ODE states for one protein.
+    """
+    Extract raw or reference-normalized phosphosite ODE states for one protein.
 
     This intentionally reads directly from the ODE state vector. It does not use
     exported fitted predictions, pred_fc, or simulate_and_measure() output.
+
+    If reference_raw_states is provided, normalization uses its t0 denominator.
+    That is required for intervention plots: WT and KO must use the same WT
+    t0 phosphosite reference.
     """
     p_idx = idx.p2i[protein]
     ns = int(idx.n_sites[p_idx])
@@ -417,23 +546,234 @@ def extract_phosphosite_states_from_Y(
 
     start = int(idx.offset_y[p_idx]) + 2
     stop = start + ns
+
     raw_states = np.asarray(Y[:, start:stop], dtype=float)
     plotted_states = raw_states.copy()
 
     if normalize_to_t0:
-        denom = raw_states[0, :].copy()
+        ref = raw_states if reference_raw_states is None else np.asarray(reference_raw_states, dtype=float)
+
+        if ref.shape[1] != raw_states.shape[1]:
+            raise ValueError(
+                f"Reference phosphosite state dimension mismatch: ref={ref.shape}, raw={raw_states.shape}"
+            )
+
+        denom = ref[0, :].copy()
         denom[np.abs(denom) < 1e-12] = 1.0
         plotted_states = raw_states / denom
 
     df = pd.DataFrame(plotted_states, columns=site_names)
-    df["time"] = t
+    df["time"] = np.asarray(t, dtype=float)
+
     df_long = df.melt(
         id_vars="time",
         var_name="psite",
         value_name="psite_value",
     )
+
     return df_long, raw_states, plotted_states
 
+def _extract_raw_phosphosite_matrix(
+    Y: np.ndarray,
+    idx: Index,
+    protein: str,
+) -> tuple[list[str], np.ndarray]:
+    """Return raw phosphosite ODE states for one protein as (site_names, matrix)."""
+    p_idx = idx.p2i[protein]
+    ns = int(idx.n_sites[p_idx])
+    site_names = list(idx.sites[p_idx])
+
+    if ns <= 0:
+        return [], np.zeros((Y.shape[0], 0), dtype=float)
+
+    start = int(idx.offset_y[p_idx]) + 2
+    stop = start + ns
+
+    return site_names, np.asarray(Y[:, start:stop], dtype=float)
+
+
+def _interp_state_matrix(
+    t_src: np.ndarray,
+    values_src: np.ndarray,
+    t_target: np.ndarray,
+) -> np.ndarray:
+    """Interpolate each state column onto requested target times."""
+    t_src = np.asarray(t_src, dtype=float)
+    t_target = np.asarray(t_target, dtype=float)
+    values_src = np.asarray(values_src, dtype=float)
+
+    if values_src.size == 0:
+        return np.zeros((len(t_target), 0), dtype=float)
+
+    order = np.argsort(t_src)
+    t_src = t_src[order]
+    values_src = values_src[order, :]
+
+    out = np.empty((len(t_target), values_src.shape[1]), dtype=float)
+
+    for j in range(values_src.shape[1]):
+        out[:, j] = np.interp(t_target, t_src, values_src[:, j])
+
+    return out
+
+
+def _build_inspector_ko_phosphosite_intervention_df(
+    sys_obj,
+    idx: Index,
+    best_params: dict,
+    ko_params: dict,
+    protein: str,
+    wt_pho_data: pd.DataFrame,
+    n_points: int = 1000,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Build KO phosphosite inspector values on the same scale as WT picked pred_fc.
+
+    Correct scale rule:
+        KO_display_fc(t) = WT_picked_pred_fc(t) * KO_raw_state(t) / WT_raw_state(t)
+
+    This avoids the bad t0 normalization:
+        KO_raw_state(t) / WT_raw_state(t0)
+
+    which can inflate values to 20-50 when WT t0 state is around 0.01.
+    """
+    if wt_pho_data is None or wt_pho_data.empty:
+        empty = pd.DataFrame(columns=["time", "psite", "psite_value"])
+        debug = pd.DataFrame()
+        return empty, debug
+
+    required = {"protein", "psite", "time", "pred_fc"}
+    missing = required - set(wt_pho_data.columns)
+    if missing:
+        raise ValueError(
+            f"wt_pho_data is missing columns required for phosphosite inspector: {missing}"
+        )
+
+    target_times = np.asarray(
+        sorted(wt_pho_data["time"].dropna().unique()),
+        dtype=float,
+    )
+
+    if target_times.size == 0:
+        empty = pd.DataFrame(columns=["time", "psite", "psite_value"])
+        debug = pd.DataFrame()
+        return empty, debug
+
+    t_max_local = float(np.max(target_times))
+    n_points_local = max(int(n_points), int(target_times.size) * 50)
+
+    forward = _run_forward_wt_ko_for_display(
+        sys_obj=sys_obj,
+        best_params=best_params,
+        ko_params=ko_params,
+        t_max=t_max_local,
+        n_points=n_points_local,
+    )
+
+    t_wt = np.asarray(forward["t_fine"], dtype=float)
+    Y_wt = np.asarray(forward["Y_wt"], dtype=float)
+
+    t_ko = np.asarray(forward["t_ko"], dtype=float)
+    Y_ko_plot = np.asarray(forward["Y_ko_plot"], dtype=float)
+
+    site_names, raw_wt_full = _extract_raw_phosphosite_matrix(Y_wt, idx, protein)
+    _, raw_ko_full = _extract_raw_phosphosite_matrix(Y_ko_plot, idx, protein)
+
+    if not site_names:
+        empty = pd.DataFrame(columns=["time", "psite", "psite_value"])
+        debug = pd.DataFrame()
+        return empty, debug
+
+    raw_wt_at_obs = _interp_state_matrix(t_wt, raw_wt_full, target_times)
+    raw_ko_at_obs = _interp_state_matrix(t_ko, raw_ko_full, target_times)
+
+    rows = []
+    eps = 1e-12
+
+    for j, site in enumerate(site_names):
+        wt_site = wt_pho_data[wt_pho_data["psite"].astype(str) == str(site)].copy()
+
+        if wt_site.empty:
+            continue
+
+        wt_site["time"] = pd.to_numeric(wt_site["time"], errors="coerce")
+        wt_site["pred_fc"] = pd.to_numeric(wt_site["pred_fc"], errors="coerce")
+        wt_site = wt_site.dropna(subset=["time", "pred_fc"])
+
+        if wt_site.empty:
+            continue
+
+        # Map observation time -> row in target_times.
+        time_to_i = {float(t): i for i, t in enumerate(target_times)}
+
+        for r in wt_site.itertuples(index=False):
+            t_val = float(r.time)
+            i = time_to_i[t_val]
+
+            wt_raw = float(raw_wt_at_obs[i, j])
+            ko_raw = float(raw_ko_at_obs[i, j])
+            wt_picked_fc = float(r.pred_fc)
+
+            if abs(wt_raw) < eps:
+                # Do not divide by a near-zero state. If WT raw is too small,
+                # treat KO effect ratio as neutral rather than creating inflation.
+                effect_ratio = 1.0
+            else:
+                effect_ratio = ko_raw / wt_raw
+
+            ko_display_fc = wt_picked_fc * effect_ratio
+
+            rows.append(
+                {
+                    "protein": protein,
+                    "psite": str(site),
+                    "time": t_val,
+                    "psite_value": ko_display_fc,
+                    "wt_picked_fc": wt_picked_fc,
+                    "wt_raw_state": wt_raw,
+                    "ko_raw_state": ko_raw,
+                    "effect_ratio_ko_over_wt": effect_ratio,
+                }
+            )
+
+    ko_long = pd.DataFrame(rows)
+
+    if raw_wt_full.shape == raw_ko_full.shape and raw_wt_full.size:
+        t0_max_abs_diff = float(np.max(np.abs(raw_wt_full[0, :] - raw_ko_full[0, :])))
+    else:
+        t0_max_abs_diff = float("nan")
+
+    if ko_long.empty:
+        debug = pd.DataFrame()
+    else:
+        debug = pd.DataFrame(
+            {
+                "metric": [
+                    "WT raw phosphosite min",
+                    "WT raw phosphosite max",
+                    "KO displayed raw phosphosite min",
+                    "KO displayed raw phosphosite max",
+                    "KO/WT raw effect ratio min",
+                    "KO/WT raw effect ratio max",
+                    "KO inspector displayed FC min",
+                    "KO inspector displayed FC max",
+                    "max abs WT-vs-KO phosphosite difference at t0",
+                ],
+                "value": [
+                    float(np.nanmin(raw_wt_full)),
+                    float(np.nanmax(raw_wt_full)),
+                    float(np.nanmin(raw_ko_full)),
+                    float(np.nanmax(raw_ko_full)),
+                    float(np.nanmin(ko_long["effect_ratio_ko_over_wt"])),
+                    float(np.nanmax(ko_long["effect_ratio_ko_over_wt"])),
+                    float(np.nanmin(ko_long["psite_value"])),
+                    float(np.nanmax(ko_long["psite_value"])),
+                    t0_max_abs_diff,
+                ],
+            }
+        )
+
+    return ko_long, debug
 
 # --- UI Setup ---
 st.title("🧪 Global Signaling & Transcriptional Knockout Explorer")
@@ -882,18 +1222,140 @@ with c2:
 
 st.divider()
 
+st.header("Data - Fit Inspector")
 selected_p = st.selectbox("Select a protein to inspect in detail:", idx.proteins)
+wt_p_data = wt_dfp[wt_dfp["protein"] == selected_p]
+ko_p_data = ko_dfp[ko_dfp["protein"] == selected_p]
+wt_r_data = wt_dfr[wt_dfr["protein"] == selected_p]
+ko_r_data = ko_dfr[ko_dfr["protein"] == selected_p]
+wt_pho_data = wt_pho[wt_pho["protein"] == selected_p]
+ko_pho_data = ko_pho[ko_pho["protein"] == selected_p]
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    fig_insp_r = go.Figure()
+    fig_insp_r.add_trace(
+        go.Scatter(x=wt_r_data["time"], y=wt_r_data["pred_fc"], name="Wild Type",
+                   line=dict(dash="dash", color="black", width=2))
+    )
+    fig_insp_r.add_trace(
+        go.Scatter(x=ko_r_data["time"], y=ko_r_data["pred_fc"], name="Knockout", line=dict(color="red", width=3))
+    )
+    fig_insp_r.update_layout(title=f"{selected_p} mRNA Response", xaxis_title="Time (min)", yaxis_title="Fold Change",
+                             template="plotly_white")
+    st.plotly_chart(fig_insp_r, use_container_width=True)
+
+with col2:
+    fig_insp_p = go.Figure()
+    fig_insp_p.add_trace(
+        go.Scatter(x=wt_p_data["time"], y=wt_p_data["pred_fc"], name="Wild Type",
+                   line=dict(dash="dash", color="black", width=2))
+    )
+    fig_insp_p.add_trace(
+        go.Scatter(x=ko_p_data["time"], y=ko_p_data["pred_fc"], name="Knockout", line=dict(color="blue", width=3))
+    )
+    fig_insp_p.update_layout(title=f"{selected_p} Protein Abundance", xaxis_title="Time (min)",
+                             yaxis_title="Fold Change", template="plotly_white")
+    st.plotly_chart(fig_insp_p, use_container_width=True)
+
+with col3:
+    if wt_pho_data.empty:
+        st.info("No phospho-site data available for this protein.")
+    else:
+        fig_sites = go.Figure()
+
+        phospho_times = wt_pho_data["time"].dropna().unique()
+
+        if ko_type != "None":
+            ko_phosphosite_inspector_df, ko_phosphosite_debug_df = (
+                _build_inspector_ko_phosphosite_intervention_df(
+                    sys_obj=sys,
+                    idx=idx,
+                    best_params=best_params,
+                    ko_params=ko_params,
+                    protein=selected_p,
+                    wt_pho_data=wt_pho_data,
+                    n_points=1000,
+                )
+            )
+        else:
+            ko_phosphosite_inspector_df = pd.DataFrame(
+                columns=["time", "psite", "psite_value"]
+            )
+            ko_phosphosite_debug_df = pd.DataFrame()
+
+        for site in wt_pho_data["psite"].dropna().unique():
+            color = px.colors.qualitative.Plotly[
+                hash(site) % len(px.colors.qualitative.Plotly)
+            ]
+
+            site_wt = wt_pho_data[wt_pho_data["psite"] == site]
+
+            fig_sites.add_trace(
+                go.Scatter(
+                    x=site_wt["time"],
+                    y=site_wt["pred_fc"],
+                    name=f"Wild Type {site}",
+                    mode="lines",
+                    line=dict(dash="dash", color=color, width=2),
+                )
+            )
+
+            if ko_type != "None":
+                site_ko = ko_phosphosite_inspector_df[
+                    ko_phosphosite_inspector_df["psite"] == site
+                ]
+
+                if not site_ko.empty:
+                    fig_sites.add_trace(
+                        go.Scatter(
+                            x=site_ko["time"],
+                            y=site_ko["psite_value"],
+                            name=f"Knockout {site}",
+                            mode="lines",
+                            line=dict(color=color, width=3),
+                        )
+                    )
+            else:
+                fig_sites.add_trace(
+                    go.Scatter(
+                        x=site_wt["time"],
+                        y=site_wt["pred_fc"],
+                        name=f"Knockout {site}",
+                        mode="lines",
+                        line=dict(color=color, width=3),
+                    )
+                )
+
+        fig_sites.update_layout(
+            title=f"{selected_p} Phosphosite Dynamics",
+            xaxis_title="Time (min)",
+            yaxis_title="Fold Change",
+            template="plotly_white",
+        )
+
+        st.plotly_chart(fig_sites, use_container_width=True)
+
+        if ko_type != "None" and not ko_phosphosite_debug_df.empty:
+            with st.expander("Data inspector phosphosite intervention debug", expanded=False):
+                st.dataframe(
+                    ko_phosphosite_debug_df,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+st.divider()
 
 # --- Forward Simulation Panel with Finer Resolution ---
 st.subheader(f"🔁 Forward Simulation of {selected_p}")
 
-# Slider for t_max (in minutes): range from 1 hour to 14 days
 t_max = st.slider(
     "Simulation Time (minutes)",
     min_value=2,
-    max_value=14 * 24 * 60,  # 14 days
-    value=960,  # default: 16 hrs
-    step=60
+    max_value=14 * 24 * 60,
+    value=960,
+    step=60,
 )
 
 n_points = st.select_slider(
@@ -901,6 +1363,7 @@ n_points = st.select_slider(
     options=[250, 500, 1000, 2500, 5000, 10000],
     value=1000,
 )
+
 run_forward_panel = st.button(
     "Run detailed WT/KO forward simulation",
     key="run-forward-simulation-panel",
@@ -914,23 +1377,17 @@ forward_cache_key = (
 )
 
 if run_forward_panel:
-    with st.spinner(f"Running WT forward simulation with {n_points} time points..."):
-        sys.update(**best_params)
-        t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
-
-    with st.spinner(f"Running KO forward simulation with {n_points} time points..."):
-        sys.update(**ko_params)
-        t_ko, Y_ko = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
-
-    sys.update(**best_params)
+    with st.spinner(f"Running WT/KO forward simulation with {n_points} time points..."):
+        forward_results = _run_forward_wt_ko_for_display(
+            sys_obj=sys,
+            best_params=best_params,
+            ko_params=ko_params,
+            t_max=float(t_max),
+            n_points=int(n_points),
+        )
 
     st.session_state["forward_panel_cache_key"] = forward_cache_key
-    st.session_state["forward_panel_results"] = {
-        "t_fine": t_fine,
-        "Y_wt": Y_wt,
-        "t_ko": t_ko,
-        "Y_ko": Y_ko,
-    }
+    st.session_state["forward_panel_results"] = forward_results
 
 has_forward_results = (
     st.session_state.get("forward_panel_cache_key") == forward_cache_key
@@ -944,46 +1401,69 @@ else:
 
     t_fine = cached["t_fine"]
     Y_wt = cached["Y_wt"]
+
     t_ko = cached["t_ko"]
-    Y_ko = cached["Y_ko"]
+    Y_ko_raw = cached.get("Y_ko_raw", cached.get("Y_ko"))
+    Y_ko_plot = cached.get("Y_ko_plot", Y_ko_raw)
+
+    used_fixed_y0 = bool(cached.get("used_fixed_y0", False))
+    alignment_mode = cached.get("alignment_mode", "legacy cache / no alignment metadata")
 
     normalize_forward_states = st.checkbox(
         "Normalize forward states to t0",
-        value=True,
+        value=False,
         key="normalize_forward_states",
     )
+
     normalize_forward_phosphosite_states = st.checkbox(
-        "Normalize forward phosphosite states to t0",
+        "Normalize forward phosphosite states to WT t0",
         value=False,
         key="normalize_forward_phosphosite_states",
     )
 
+    # Use Y_ko_plot for all displayed KO forward-state panels.
+    # This removes artificial KO t0 inflation while preserving the perturbation trajectory shape.
     df_wt = extract_fc_from_Y(
-        Y_wt, idx, t_fine, selected_p,
+        Y_wt,
+        idx,
+        t_fine,
+        selected_p,
         normalize=normalize_forward_states,
     )
 
     df_ko = extract_fc_from_Y(
-        Y_ko, idx, t_ko, selected_p,
+        Y_ko_plot,
+        idx,
+        t_ko,
+        selected_p,
         normalize=normalize_forward_states,
     )
 
     df_wt_phosphosite, raw_wt_phosphosite, plotted_wt_phosphosite = extract_phosphosite_states_from_Y(
-        Y_wt, idx, t_fine, selected_p,
+        Y_wt,
+        idx,
+        t_fine,
+        selected_p,
         normalize_to_t0=normalize_forward_phosphosite_states,
+        reference_raw_states=None,
     )
+
     df_ko_phosphosite, raw_ko_phosphosite, plotted_ko_phosphosite = extract_phosphosite_states_from_Y(
-        Y_ko, idx, t_ko, selected_p,
+        Y_ko_plot,
+        idx,
+        t_ko,
+        selected_p,
         normalize_to_t0=normalize_forward_phosphosite_states,
+        reference_raw_states=raw_wt_phosphosite,
     )
 
     y_label = (
-        "Phosphosite ODE state normalized to t0"
+        "Phosphosite ODE state normalized to WT t0"
         if normalize_forward_phosphosite_states
         else "Raw phosphosite ODE state"
     )
 
-    # --- Plot mRNA
+    # --- Plot mRNA and protein
     col1, col2 = st.columns(2)
 
     with col1:
@@ -1007,13 +1487,12 @@ else:
         fig_fine_r.update_layout(
             title="mRNA Simulation",
             xaxis_title="Time",
-            yaxis_title="Fold Change",
+            yaxis_title="Fold Change" if normalize_forward_states else "Raw mRNA ODE state",
             template="plotly_white",
         )
         fig_fine_r.update_xaxes(type="log")
         st.plotly_chart(fig_fine_r, use_container_width=True)
 
-    # --- Plot Protein
     with col2:
         fig_fine_p = go.Figure()
         fig_fine_p.add_trace(
@@ -1035,7 +1514,7 @@ else:
         fig_fine_p.update_layout(
             title="Protein Simulation",
             xaxis_title="Time",
-            yaxis_title="Fold Change",
+            yaxis_title="Fold Change" if normalize_forward_states else "Raw total protein ODE state",
             template="plotly_white",
         )
         fig_fine_p.update_xaxes(type="log")
@@ -1046,7 +1525,7 @@ else:
     # --- Signaling Drive Panel
     with col1:
         if selected_p in idx.p2i:
-            t_S, Y_S = t_ko, Y_ko
+            t_S, Y_S = t_ko, Y_ko_plot
 
             kin_vals = Y_S[:, [idx.k2i[k] for k in idx.kinases]].T
             kin_scaled = kin_vals * ko_params["c_k"][:, None]
@@ -1090,126 +1569,191 @@ else:
         else:
             st.warning(f"{selected_p} not found in protein index.")
 
-    # --- Phospho-site state panel
+    # --- Phosphosite calibrated fine-grid ODE dynamics panel
     with col2:
         fig_sites_fine = go.Figure()
 
-        if not df_wt_phosphosite.empty:
-            for site in df_wt_phosphosite["psite"].dropna().unique():
-                site_wt = df_wt_phosphosite[df_wt_phosphosite["psite"] == site]
-                site_ko = df_ko_phosphosite[df_ko_phosphosite["psite"] == site]
+        wt_pho_forward_data = wt_pho[wt_pho["protein"] == selected_p].copy()
+
+        if not df_wt_phosphosite.empty and not wt_pho_forward_data.empty:
+            p_idx = idx.p2i[selected_p]
+            site_order = list(idx.sites[p_idx])
+
+            raw_wt_matrix = np.asarray(raw_wt_phosphosite, dtype=float)
+            raw_ko_matrix = np.asarray(raw_ko_phosphosite, dtype=float)
+
+            t_wt_grid = np.asarray(t_fine, dtype=float)
+            t_ko_grid = np.asarray(t_ko, dtype=float)
+
+            eps = 1e-12
+            debug_rows = []
+
+            for j, site in enumerate(site_order):
+                site_wt_picked = wt_pho_forward_data[
+                    wt_pho_forward_data["psite"].astype(str) == str(site)
+                ].copy()
+
+                if site_wt_picked.empty:
+                    continue
+
+                site_wt_picked["time"] = pd.to_numeric(
+                    site_wt_picked["time"], errors="coerce"
+                )
+                site_wt_picked["pred_fc"] = pd.to_numeric(
+                    site_wt_picked["pred_fc"], errors="coerce"
+                )
+                site_wt_picked = site_wt_picked.dropna(subset=["time", "pred_fc"])
+                site_wt_picked = site_wt_picked.sort_values("time")
+
+                if site_wt_picked.empty:
+                    continue
+
+                picked_t = site_wt_picked["time"].to_numpy(dtype=float)
+                picked_fc = site_wt_picked["pred_fc"].to_numpy(dtype=float)
+
+                wt_raw_fine = raw_wt_matrix[:, j]
+                ko_raw_fine = raw_ko_matrix[:, j]
+
+                # Interpolate only the smooth raw WT ODE state to picked model times
+                # for estimating one scalar measurement calibration. This does NOT
+                # create a time-dependent coarse calibration curve.
+                wt_raw_at_picked_t = np.interp(
+                    picked_t,
+                    t_wt_grid,
+                    wt_raw_fine,
+                )
+
+                valid = (
+                    np.isfinite(wt_raw_at_picked_t)
+                    & np.isfinite(picked_fc)
+                    & (np.abs(wt_raw_at_picked_t) > eps)
+                )
+
+                if np.any(valid):
+                    # Robust scalar calibration: median picked_FC / raw_state.
+                    # This puts the fine ODE trajectory on the same magnitude scale
+                    # as the pipeline-picked phosphosite prediction without using
+                    # tiny t0 denominators or piecewise interpolation.
+                    ratios = picked_fc[valid] / wt_raw_at_picked_t[valid]
+                    ratios = ratios[np.isfinite(ratios)]
+
+                    if ratios.size:
+                        calibration = float(np.median(ratios))
+                    else:
+                        calibration = 1.0
+                else:
+                    calibration = 1.0
+
+                wt_fc_fine = wt_raw_fine * calibration
+
+                if ko_type != "None":
+                    ko_fc_fine = ko_raw_fine * calibration
+                else:
+                    ko_fc_fine = wt_fc_fine.copy()
 
                 color = px.colors.qualitative.Plotly[
                     hash(site) % len(px.colors.qualitative.Plotly)
                 ]
 
-                if not site_wt.empty:
-                    fig_sites_fine.add_trace(
-                        go.Scatter(
-                            x=site_wt["time"],
-                            y=site_wt["psite_value"],
-                            name=f"WT {site}",
-                            line=dict(dash="dash", color=color),
-                        )
+                fig_sites_fine.add_trace(
+                    go.Scatter(
+                        x=t_wt_grid,
+                        y=wt_fc_fine,
+                        name=f"Wild Type {site}",
+                        mode="lines",
+                        line=dict(dash="dash", color=color, width=2),
                     )
+                )
 
-                if not site_ko.empty:
-                    fig_sites_fine.add_trace(
-                        go.Scatter(
-                            x=site_ko["time"],
-                            y=site_ko["psite_value"],
-                            name=f"KO {site}",
-                            line=dict(color=color),
-                        )
+                fig_sites_fine.add_trace(
+                    go.Scatter(
+                        x=t_ko_grid,
+                        y=ko_fc_fine,
+                        name=f"Knockout {site}",
+                        mode="lines",
+                        line=dict(color=color, width=3),
                     )
+                )
+
+                # Optional picked WT model points, useful for checking alignment.
+                fig_sites_fine.add_trace(
+                    go.Scatter(
+                        x=picked_t,
+                        y=picked_fc,
+                        name=f"Picked WT model {site}",
+                        mode="markers",
+                        marker=dict(size=6, color=color, symbol="circle-open"),
+                        showlegend=False,
+                    )
+                )
+
+                debug_rows.append(
+                    {
+                        "psite": site,
+                        "WT raw min": float(np.nanmin(wt_raw_fine)),
+                        "WT raw max": float(np.nanmax(wt_raw_fine)),
+                        "KO raw min": float(np.nanmin(ko_raw_fine)),
+                        "KO raw max": float(np.nanmax(ko_raw_fine)),
+                        "WT calibrated FC min": float(np.nanmin(wt_fc_fine)),
+                        "WT calibrated FC max": float(np.nanmax(wt_fc_fine)),
+                        "KO calibrated FC min": float(np.nanmin(ko_fc_fine)),
+                        "KO calibrated FC max": float(np.nanmax(ko_fc_fine)),
+                        "picked WT FC min": float(np.nanmin(picked_fc)),
+                        "picked WT FC max": float(np.nanmax(picked_fc)),
+                        "scalar calibration": calibration,
+                    }
+                )
 
             fig_sites_fine.update_layout(
-                title=f"{selected_p} Phosphosite State Dynamics",
+                title=f"{selected_p} Phosphosite Dynamics",
                 xaxis_title="Time (min)",
-                yaxis_title=y_label,
+                yaxis_title="Fold Change",
                 template="plotly_white",
             )
             fig_sites_fine.update_xaxes(type="log")
             st.plotly_chart(fig_sites_fine, use_container_width=True)
 
-            raw_wt_min, raw_wt_max = _safe_min_max(raw_wt_phosphosite)
-            raw_ko_min, raw_ko_max = _safe_min_max(raw_ko_phosphosite)
-            plotted_wt_min, plotted_wt_max = _safe_min_max(plotted_wt_phosphosite)
-            plotted_ko_min, plotted_ko_max = _safe_min_max(plotted_ko_phosphosite)
-            debug_df = pd.DataFrame(
-                {
-                    "series": [
-                        "raw WT phosphosite",
-                        "raw KO phosphosite",
-                        "plotted WT phosphosite",
-                        "plotted KO phosphosite",
-                    ],
-                    "min": [raw_wt_min, raw_ko_min, plotted_wt_min, plotted_ko_min],
-                    "max": [raw_wt_max, raw_ko_max, plotted_wt_max, plotted_ko_max],
-                }
-            )
-            with st.expander("Forward phosphosite state debug", expanded=False):
-                st.dataframe(debug_df, use_container_width=True, hide_index=True)
+            if raw_wt_matrix.shape == raw_ko_matrix.shape and raw_wt_matrix.size:
+                phosphosite_t0_max_abs_diff = float(
+                    np.max(np.abs(raw_wt_matrix[0, :] - raw_ko_matrix[0, :]))
+                )
+            else:
+                phosphosite_t0_max_abs_diff = float("nan")
+
+            with st.expander("Forward phosphosite calibrated dynamics debug", expanded=False):
+                st.write(
+                    {
+                        "alignment_mode": alignment_mode,
+                        "used_fixed_y0_argument": used_fixed_y0,
+                        "max_abs_t0_difference_WT_vs_displayed_KO_phosphosite": phosphosite_t0_max_abs_diff,
+                        "calibration_mode": "single robust per-site scalar: median(picked WT FC / WT raw ODE state)",
+                    }
+                )
+
+                if debug_rows:
+                    st.dataframe(
+                        pd.DataFrame(debug_rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                if Y_ko_raw is not None:
+                    _, raw_ko_unaligned_phosphosite, _ = extract_phosphosite_states_from_Y(
+                        Y_ko_raw,
+                        idx,
+                        t_ko,
+                        selected_p,
+                        normalize_to_t0=False,
+                    )
+                    unaligned_min, unaligned_max = _safe_min_max(raw_ko_unaligned_phosphosite)
+                    st.write(
+                        {
+                            "raw_unaligned_KO_phosphosite_min": unaligned_min,
+                            "raw_unaligned_KO_phosphosite_max": unaligned_max,
+                        }
+                    )
         else:
             st.info("No phospho site data available for this protein.")
-
-st.divider()
-
-st.header("Data - Fit Inspector")
-wt_p_data = wt_dfp[wt_dfp["protein"] == selected_p]
-ko_p_data = ko_dfp[ko_dfp["protein"] == selected_p]
-wt_r_data = wt_dfr[wt_dfr["protein"] == selected_p]
-ko_r_data = ko_dfr[ko_dfr["protein"] == selected_p]
-wt_pho_data = wt_pho[wt_pho["protein"] == selected_p]
-ko_pho_data = ko_pho[ko_pho["protein"] == selected_p]
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    fig_insp_r = go.Figure()
-    fig_insp_r.add_trace(
-        go.Scatter(x=wt_r_data["time"], y=wt_r_data["pred_fc"], name="Wild Type",
-                   line=dict(dash="dash", color="black", width=2))
-    )
-    fig_insp_r.add_trace(
-        go.Scatter(x=ko_r_data["time"], y=ko_r_data["pred_fc"], name="Knockout", line=dict(color="red", width=3))
-    )
-    fig_insp_r.update_layout(title=f"{selected_p} mRNA Response", xaxis_title="Time (min)", yaxis_title="Fold Change",
-                             template="plotly_white")
-    st.plotly_chart(fig_insp_r, use_container_width=True)
-
-with col2:
-    fig_insp_p = go.Figure()
-    fig_insp_p.add_trace(
-        go.Scatter(x=wt_p_data["time"], y=wt_p_data["pred_fc"], name="Wild Type",
-                   line=dict(dash="dash", color="black", width=2))
-    )
-    fig_insp_p.add_trace(
-        go.Scatter(x=ko_p_data["time"], y=ko_p_data["pred_fc"], name="Knockout", line=dict(color="blue", width=3))
-    )
-    fig_insp_p.update_layout(title=f"{selected_p} Protein Abundance", xaxis_title="Time (min)",
-                             yaxis_title="Fold Change", template="plotly_white")
-    st.plotly_chart(fig_insp_p, use_container_width=True)
-
-with col3:
-    if wt_pho_data.empty:
-        st.info("No phospho-site data available for this protein.")
-    else:
-        fig_sites = go.Figure()
-        for site in wt_pho_data["psite"].unique():
-            color = px.colors.qualitative.Plotly[hash(site) % len(px.colors.qualitative.Plotly)]
-            site_wt = wt_pho_data[wt_pho_data["psite"] == site]
-            site_ko = ko_pho_data[ko_pho_data["psite"] == site]
-            fig_sites.add_trace(
-                go.Scatter(x=site_wt["time"], y=site_wt["pred_fc"], name=f"WT Site: {site}",
-                           line=dict(dash="dash", color=color))
-            )
-            fig_sites.add_trace(
-                go.Scatter(x=site_ko["time"], y=site_ko["pred_fc"], name=f"KO Site: {site}", line=dict(color=color))
-            )
-        fig_sites.update_layout(title=f"{selected_p} Phospho-site Dynamics", xaxis_title="Time (min)",
-                                yaxis_title="Fold Change", template="plotly_white")
-    st.plotly_chart(fig_sites, use_container_width=True)
 
 st.divider()
 
