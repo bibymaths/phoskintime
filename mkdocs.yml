@@ -35,8 +35,10 @@ theme:
 
 nav:
   - Home: index.md
-  - Reference: reference.md
-  - Changelog: Documentation/CHANGELOG.md
+  - Terms of use: ../TERMS_OF_USE.md
+  - Contributing: ../CONTRIBUTING.md
+  - API Reference: reference.md
+  - Changelog: ../CHANGELOG.md
   - Documentation:
       - Architecture & Data Flow: Documentation/architecture.md
       - Configuration Reference: Documentation/configuration.md
