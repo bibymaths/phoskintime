@@ -52,7 +52,6 @@ def _close_log_handlers():
             pass
 
 
-
 def _jsonable_runtime(value: Any) -> Any:
     """Convert runtime configuration values to JSON/YAML-safe primitives."""
     if isinstance(value, Path):
@@ -111,7 +110,8 @@ def _model_code(model: Any) -> int:
     if isinstance(model, int):
         return model
     name = str(model).strip().lower()
-    mapping = {"distributive": 0, "sequential": 1, "successive": 1, "combinatorial": 2, "saturating": 4, "saturation": 4}
+    mapping = {"distributive": 0, "sequential": 1, "successive": 1, "combinatorial": 2, "saturating": 4,
+               "saturation": 4}
     return mapping.get(name, 4)
 
 
@@ -171,7 +171,8 @@ def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path
 def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
     """Build the full parser after config-backed defaults are known."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--conf", default=config_defaults["conf"], help="Path to TOML config used for networkmodel defaults.")
+    parser.add_argument("--conf", default=config_defaults["conf"],
+                        help="Path to TOML config used for networkmodel defaults.")
     parser.add_argument("--kinase-net", default=config_defaults["kinase_net"])
     parser.add_argument("--tf-net", default=config_defaults["tf_net"])
     parser.add_argument("--ms", default=config_defaults["ms"])
@@ -188,10 +189,15 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--lambda-rna", type=float, default=config_defaults["lambda_rna"])
     parser.add_argument("--lambda-phospho", type=float, default=config_defaults["lambda_phospho"])
     parser.add_argument("--normalize-fc-steady", action="store_true", default=config_defaults["normalize_fc_steady"])
-    parser.add_argument("--use-initial-condition-from-data", action="store_true", default=config_defaults["use_initial_condition_from_data"])
-    parser.add_argument("--scan", action="store_true", help="Run a hyperparameter scan using Optuna to find the best regularization parameters.", default=config_defaults["scan"])
-    parser.add_argument("--sensitivity", action="store_true", help="Run a sensitivity analysis after optimization.", default=config_defaults["sensitivity"])
-    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"], help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
+    parser.add_argument("--use-initial-condition-from-data", action="store_true",
+                        default=config_defaults["use_initial_condition_from_data"])
+    parser.add_argument("--scan", action="store_true",
+                        help="Run a hyperparameter scan using Optuna to find the best regularization parameters.",
+                        default=config_defaults["scan"])
+    parser.add_argument("--sensitivity", action="store_true", help="Run a sensitivity analysis after optimization.",
+                        default=config_defaults["sensitivity"])
+    parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"],
+                        help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
     return parser
 
 
@@ -256,7 +262,8 @@ def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
 
 def initialize_run_contract(args: argparse.Namespace) -> argparse.Namespace:
     """Create output/provenance files after config and CLI precedence are resolved."""
-    from common.results import attach_file_console_logger, ensure_result_dir, write_command, write_metadata, write_resolved_config
+    from common.results import attach_file_console_logger, ensure_result_dir, write_command, write_metadata, \
+        write_resolved_config
     from config.config import setup_logger
 
     global logger
@@ -328,6 +335,7 @@ def _import_runtime_dependencies() -> None:
     from networkmodel.sensitivity import run_sensitivity_analysis
     from networkmodel.simulate import simulate_and_measure
     from networkmodel.utils import _base_idx, calculate_bio_bounds, get_optimized_sets, normalize_fc_to_t0
+
 
 def main():
     """Run the networkmodel entry point
@@ -1201,7 +1209,8 @@ def main():
         f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
-    dfp, dfr, dfph = simulate_and_measure(sys, idx, args.time_points_protein, args.time_points_rna, args.time_points_phospho)
+    dfp, dfr, dfph = simulate_and_measure(sys, idx, args.time_points_protein, args.time_points_rna,
+                                          args.time_points_phospho)
 
     # Save raw preds
     if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)

@@ -140,9 +140,12 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         ),
         required_inputs=("protein CSV", "phosphosite Excel", "RNA Excel"),
         input_assignments=(
-            InputSpec("config", "TOML config file", "conf", "Optional ProtWise TOML config file.", extensions=(".toml",)),
-            InputSpec("protein_file", "Protein CSV file", "input_excel_protein", "Protein input CSV file read by ProtWise.", extensions=(".csv",)),
-            InputSpec("phosphosite_file", "Phosphosite file", "input_excel_psite", "Phosphosite input Excel file.", extensions=(".xlsx",)),
+            InputSpec("config", "TOML config file", "conf", "Optional ProtWise TOML config file.",
+                      extensions=(".toml",)),
+            InputSpec("protein_file", "Protein CSV file", "input_excel_protein",
+                      "Protein input CSV file read by ProtWise.", extensions=(".csv",)),
+            InputSpec("phosphosite_file", "Phosphosite file", "input_excel_psite", "Phosphosite input Excel file.",
+                      extensions=(".xlsx",)),
             InputSpec("rna_file", "RNA/mRNA file", "input_excel_rna", "RNA input Excel file.", extensions=(".xlsx",)),
         ),
         output_dir_arg="--outdir",
@@ -178,15 +181,24 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         ),
         required_inputs=("kinase network", "TF network", "MS/protein data", "RNA data", "phospho data"),
         input_assignments=(
-            InputSpec("config", "TOML config file", "conf", "Optional networkmodel TOML config file.", extensions=(".toml",)),
-            InputSpec("kinase_network", "Kinase network CSV file", "kinase_net", "Kinase network CSV file read by networkmodel.", extensions=(".csv",)),
-            InputSpec("tf_network", "TF network CSV file", "tf_net", "TF network CSV file read by networkmodel.", extensions=(".csv",)),
-            InputSpec("protein_file", "Protein/MS CSV file", "ms", "Protein/MS CSV data file read by networkmodel.", extensions=(".csv",)),
-            InputSpec("rna_file", "RNA/mRNA CSV file", "rna", "RNA CSV data file read by networkmodel.", extensions=(".csv",)),
-            InputSpec("phosphosite_file", "Phosphoproteomics CSV file", "phospho", "Phosphoproteomics CSV data file read by networkmodel.", extensions=(".csv",)),
-            InputSpec("previous_kinopt", "Previous KinOpt result", "kinopt", "Previous kinopt Excel result.", extensions=(".xlsx",)),
-            InputSpec("previous_tfopt", "Previous TFOpt result", "tfopt", "Previous tfopt Excel result.", extensions=(".xlsx",)),
-            InputSpec("networkmodel_result_dir", "Networkmodel result directory", None, "Reference result directory for browsing; not passed to CLI."),
+            InputSpec("config", "TOML config file", "conf", "Optional networkmodel TOML config file.",
+                      extensions=(".toml",)),
+            InputSpec("kinase_network", "Kinase network CSV file", "kinase_net",
+                      "Kinase network CSV file read by networkmodel.", extensions=(".csv",)),
+            InputSpec("tf_network", "TF network CSV file", "tf_net", "TF network CSV file read by networkmodel.",
+                      extensions=(".csv",)),
+            InputSpec("protein_file", "Protein/MS CSV file", "ms", "Protein/MS CSV data file read by networkmodel.",
+                      extensions=(".csv",)),
+            InputSpec("rna_file", "RNA/mRNA CSV file", "rna", "RNA CSV data file read by networkmodel.",
+                      extensions=(".csv",)),
+            InputSpec("phosphosite_file", "Phosphoproteomics CSV file", "phospho",
+                      "Phosphoproteomics CSV data file read by networkmodel.", extensions=(".csv",)),
+            InputSpec("previous_kinopt", "Previous KinOpt result", "kinopt", "Previous kinopt Excel result.",
+                      extensions=(".xlsx",)),
+            InputSpec("previous_tfopt", "Previous TFOpt result", "tfopt", "Previous tfopt Excel result.",
+                      extensions=(".xlsx",)),
+            InputSpec("networkmodel_result_dir", "Networkmodel result directory", None,
+                      "Reference result directory for browsing; not passed to CLI."),
         ),
         output_dir_arg="--output-dir",
         expected_output_folder="results/networkmodel",
@@ -207,9 +219,12 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("model_conf", "--model-conf", "path", "ProtWise config file."),
         ),
         input_assignments=(
-            InputSpec("tf_config", "TFOpt TOML config file", "tf_conf", "TOML config for TFOpt stage.", extensions=(".toml",)),
-            InputSpec("kin_config", "KinOpt TOML config file", "kin_conf", "TOML config for KinOpt stage.", extensions=(".toml",)),
-            InputSpec("model_config", "ProtWise TOML config file", "model_conf", "TOML config for ProtWise stage.", extensions=(".toml",)),
+            InputSpec("tf_config", "TFOpt TOML config file", "tf_conf", "TOML config for TFOpt stage.",
+                      extensions=(".toml",)),
+            InputSpec("kin_config", "KinOpt TOML config file", "kin_conf", "TOML config for KinOpt stage.",
+                      extensions=(".toml",)),
+            InputSpec("model_config", "ProtWise TOML config file", "model_conf", "TOML config for ProtWise stage.",
+                      extensions=(".toml",)),
         ),
         output_dir_arg="--outdir",
         expected_output_folder="results/phoskintime-all",
@@ -230,7 +245,8 @@ def get_workflow(key: str) -> WorkflowDescriptor:
 
 def launchable_workflows() -> list[WorkflowDescriptor]:
     """Return dashboard-safe workflows that have an executable Python module."""
-    return [wf for wf in sorted(WORKFLOWS.values(), key=lambda item: item.key) if wf.safe_for_dashboard and wf.python_module]
+    return [wf for wf in sorted(WORKFLOWS.values(), key=lambda item: item.key) if
+            wf.safe_for_dashboard and wf.python_module]
 
 
 def infer_workflow(inventory: ResultInventory) -> WorkflowDescriptor:

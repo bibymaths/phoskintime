@@ -11,7 +11,8 @@ def render_preset_panel(selection: DashboardSelection, repo_root: Path) -> None:
     import streamlit as st
 
     st.subheader("Preset")
-    preset_name = st.text_input("Preset filename", value=f"{selection.run_name}.json", help="Save the current dashboard selections for reproducibility.")
+    preset_name = st.text_input("Preset filename", value=f"{selection.run_name}.json",
+                                help="Save the current dashboard selections for reproducibility.")
     if st.button("Save preset"):
         target = repo_root / "dashboard_uploads" / selection.run_name / preset_name
         try:

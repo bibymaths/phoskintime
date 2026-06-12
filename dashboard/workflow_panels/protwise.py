@@ -16,9 +16,12 @@ def discover_protwise_panel(root: str | Path) -> WorkflowPanelData:
         for item in inventory.tables
         if any(key in item.name.lower() for key in PROTWISE_KEYWORDS) or item.suffix in {".xlsx", ".csv"}
     }
-    plots = [item for item in inventory.plots if any(key in item.name.lower() for key in PROTWISE_KEYWORDS)] or inventory.plots
-    messages = [] if (tables or plots or inventory.reports) else ["No ProtWise-specific outputs were discovered; run the model first or select another result directory."]
-    return WorkflowPanelData(root=root, tables=tables, plots=plots, reports=inventory.reports, artifacts=inventory.artifacts, messages=messages)
+    plots = [item for item in inventory.plots if
+             any(key in item.name.lower() for key in PROTWISE_KEYWORDS)] or inventory.plots
+    messages = [] if (tables or plots or inventory.reports) else [
+        "No ProtWise-specific outputs were discovered; run the model first or select another result directory."]
+    return WorkflowPanelData(root=root, tables=tables, plots=plots, reports=inventory.reports,
+                             artifacts=inventory.artifacts, messages=messages)
 
 
 def render(root: str | Path) -> None:

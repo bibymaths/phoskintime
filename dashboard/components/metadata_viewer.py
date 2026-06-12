@@ -12,7 +12,8 @@ def render_metadata(path: Path | None) -> None:
 
     st.subheader("Metadata")
     if path is None:
-        st.info("No metadata.json file was found. The run can still be browsed, but provenance details are unavailable.")
+        st.info(
+            "No metadata.json file was found. The run can still be browsed, but provenance details are unavailable.")
         return
     try:
         st.json(json.loads(path.read_text(encoding="utf-8")))

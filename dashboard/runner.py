@@ -52,12 +52,12 @@ def prepare_run_provenance(built: BuiltCommand, extra: dict | None = None) -> Pa
 
 
 def stream_command(
-    command: list[str],
-    *,
-    cwd: str | Path,
-    outdir: str | Path,
-    env: dict[str, str] | None = None,
-    cancel_check: Callable[[], bool] | None = None,
+        command: list[str],
+        *,
+        cwd: str | Path,
+        outdir: str | Path,
+        env: dict[str, str] | None = None,
+        cancel_check: Callable[[], bool] | None = None,
 ) -> Iterator[RunEvent]:
     """Run a command with shell=False, streaming merged stdout/stderr and writing console.log."""
     root = ensure_result_dir(outdir)["root"]
@@ -96,10 +96,10 @@ def stream_command(
 
 
 def run_built_command(
-    built: BuiltCommand,
-    *,
-    repo_root: str | Path,
-    cancel_check: Callable[[], bool] | None = None,
+        built: BuiltCommand,
+        *,
+        repo_root: str | Path,
+        cancel_check: Callable[[], bool] | None = None,
 ) -> Iterator[RunEvent]:
     """Prepare provenance, execute a built workflow command, and update run metadata."""
     outdir = prepare_run_provenance(built)

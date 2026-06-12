@@ -17,5 +17,6 @@ def render_workflow_selector(repo_root: Path) -> tuple[WorkflowDescriptor, str, 
 
     envs = pixi_environments(repo_root / "pixi.toml")
     env = st.selectbox("Pixi environment", envs, index=0, help="Choose a Pixi environment defined in pixi.toml.")
-    run_name = st.text_input("Run name", value=f"{workflow.key}-run", help="Used to name the result and upload folders; unsafe characters are sanitized.")
+    run_name = st.text_input("Run name", value=f"{workflow.key}-run",
+                             help="Used to name the result and upload folders; unsafe characters are sanitized.")
     return workflow, env, run_name

@@ -34,9 +34,9 @@ def render_download_panel(inventory: ResultInventory, key_prefix: str = "downloa
     )
 
     if st.button(
-        "Prepare ZIP archive",
-        key=_widget_key(root_key, "prepare-zip"),
-        help="Package all files in this result directory for download.",
+            "Prepare ZIP archive",
+            key=_widget_key(root_key, "prepare-zip"),
+            help="Package all files in this result directory for download.",
     ):
         try:
             st.session_state[zip_state_key] = create_result_zip(root)

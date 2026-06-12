@@ -14,7 +14,8 @@ def discover_kinopt_panel(root: str | Path) -> WorkflowPanelData:
     result = _first_existing(root, ("kinopt_results.xlsx",))
     tables = {"kinopt_results": result} if result else {}
     messages = [] if result else ["No kinopt_results.xlsx file found in the result directory or tables/."]
-    return WorkflowPanelData(root=root, primary_result=result, tables=tables, plots=inventory.plots, reports=inventory.reports, artifacts=inventory.artifacts, messages=messages)
+    return WorkflowPanelData(root=root, primary_result=result, tables=tables, plots=inventory.plots,
+                             reports=inventory.reports, artifacts=inventory.artifacts, messages=messages)
 
 
 def render(root: str | Path) -> None:

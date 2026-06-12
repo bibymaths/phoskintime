@@ -59,8 +59,8 @@ def render_result_browser(inventory: ResultInventory, key_prefix: str = "results
 
     if inventory.missing_expected:
         with st.expander(
-            "Missing standard contract files/folders",
-            expanded=False,
+                "Missing standard contract files/folders",
+                expanded=False,
         ):
             st.write(
                 "The browser can still show recognised legacy outputs, "

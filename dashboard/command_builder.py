@@ -31,7 +31,8 @@ def sanitize_run_name(name: str) -> str:
     return cleaned or "run"
 
 
-def build_output_dir(repo_root: str | Path, workflow_key: str, run_name: str, output_base: str | Path = "results") -> Path:
+def build_output_dir(repo_root: str | Path, workflow_key: str, run_name: str,
+                     output_base: str | Path = "results") -> Path:
     """Build a project-local output directory for a workflow run."""
     root = Path(repo_root).resolve()
     base = Path(output_base).expanduser()
@@ -73,8 +74,8 @@ def workflow_arguments(workflow: WorkflowDescriptor, values: dict[str, Any] | No
     return args
 
 
-
-def arguments_from_input_assignments(workflow: WorkflowDescriptor, input_assignments: dict[str, str | Path] | None = None) -> dict[str, str]:
+def arguments_from_input_assignments(workflow: WorkflowDescriptor,
+                                     input_assignments: dict[str, str | Path] | None = None) -> dict[str, str]:
     """Map workflow input roles to supported CLI argument names."""
     input_assignments = input_assignments or {}
     specs = {spec.role: spec for spec in workflow.input_assignments}
@@ -94,9 +95,9 @@ def arguments_from_input_assignments(workflow: WorkflowDescriptor, input_assignm
 
 
 def merge_argument_sources(
-    workflow: WorkflowDescriptor,
-    argument_values: dict[str, Any] | None = None,
-    input_assignments: dict[str, str | Path] | None = None,
+        workflow: WorkflowDescriptor,
+        argument_values: dict[str, Any] | None = None,
+        input_assignments: dict[str, str | Path] | None = None,
 ) -> dict[str, Any]:
     """Merge structured parameters with input assignments without inventing CLI options."""
     merged = dict(argument_values or {})
@@ -104,16 +105,17 @@ def merge_argument_sources(
         merged[name] = value
     return merged
 
+
 def build_workflow_command(
-    workflow_key: str,
-    *,
-    repo_root: str | Path = ".",
-    pixi_environment: str = "default",
-    run_name: str = "run",
-    output_base: str | Path = "results",
-    argument_values: dict[str, Any] | None = None,
-    input_assignments: dict[str, str | Path] | None = None,
-    use_pixi: bool = True,
+        workflow_key: str,
+        *,
+        repo_root: str | Path = ".",
+        pixi_environment: str = "default",
+        run_name: str = "run",
+        output_base: str | Path = "results",
+        argument_values: dict[str, Any] | None = None,
+        input_assignments: dict[str, str | Path] | None = None,
+        use_pixi: bool = True,
 ) -> BuiltCommand:
     """Build a workflow command as argv list without shell interpolation."""
     workflow = get_workflow(workflow_key)

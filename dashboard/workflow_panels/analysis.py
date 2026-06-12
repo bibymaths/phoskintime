@@ -118,7 +118,8 @@ def render(root: str | Path) -> None:
     import streamlit as st
 
     st.subheader("Advanced analyses")
-    st.caption("Analyses are not run automatically. Build a command, review it, and run via the launcher or terminal when appropriate.")
+    st.caption(
+        "Analyses are not run automatically. Build a command, review it, and run via the launcher or terminal when appropriate.")
     task = st.selectbox("Analysis", list(ANALYSIS_TASKS.values()), format_func=lambda item: item.label)
     st.write(task.description)
     values: dict[str, Any] = {}

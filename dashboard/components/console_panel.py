@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def render_console(lines: list[str], height: int = 360) -> None:
     """Render streamed ANSI-colored console output in Streamlit."""
     import streamlit as st
@@ -32,6 +33,7 @@ def render_console(lines: list[str], height: int = 360) -> None:
         """,
         unsafe_allow_html=True,
     )
+
 
 def render_cancellation_note() -> None:
     """Explain the current cancellation boundary without exposing unsafe controls."""

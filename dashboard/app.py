@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from dashboard.command_builder import build_workflow_command, sanitize_run_name
 from dashboard.components.command_preview import render_command_preview
 from dashboard.components.config_panel import render_config_panel
@@ -42,7 +41,8 @@ def _render_browser_panel(default_directory: Path | None = None) -> None:
             candidates.insert(0, default_directory)
         if candidates:
             index = candidates.index(default_directory) if default_directory in candidates else 0
-            choice = st.selectbox("Select folder", candidates, index=index, format_func=lambda path: str(path), key="browser-choice")
+            choice = st.selectbox("Select folder", candidates, index=index, format_func=lambda path: str(path),
+                                  key="browser-choice")
             directory_text = st.text_input("Selected result directory", value=str(choice), key="browser-directory")
         else:
             st.info("No selectable folders found under the base path. Enter a result directory manually.")
@@ -155,7 +155,8 @@ def main() -> None:
 
     st.set_page_config(page_title="PhosKinTime Dashboard", layout="wide")
     st.title("PhosKinTime Dashboard")
-    st.write("Browse existing result directories or launch registered CLI workflows without reimplementing scientific logic.")
+    st.write(
+        "Browse existing result directories or launch registered CLI workflows without reimplementing scientific logic.")
 
     launcher_tab, browser_tab = st.tabs(["Run workflow", "Browse results"])
     with launcher_tab:

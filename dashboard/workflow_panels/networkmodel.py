@@ -27,8 +27,10 @@ def discover_networkmodel_panel(root: str | Path) -> WorkflowPanelData:
     for item in inventory.tables:
         if item.relative_path.startswith(("optimization/", "profiles/", "posterior/")):
             tables[item.relative_path] = item.path
-    messages = [] if (bundle or tables or inventory.plots) else ["No networkmodel bundle, scalar objective, predictions, or inference outputs were found."]
-    return WorkflowPanelData(root=root, primary_result=bundle, tables=tables, plots=inventory.plots, reports=inventory.reports, artifacts=inventory.artifacts, messages=messages)
+    messages = [] if (bundle or tables or inventory.plots) else [
+        "No networkmodel bundle, scalar objective, predictions, or inference outputs were found."]
+    return WorkflowPanelData(root=root, primary_result=bundle, tables=tables, plots=inventory.plots,
+                             reports=inventory.reports, artifacts=inventory.artifacts, messages=messages)
 
 
 def render(root: str | Path) -> None:

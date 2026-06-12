@@ -11,7 +11,8 @@ def render_plots(plots: list[DisplayFile]) -> None:
     if not plots:
         st.info("No PNG, JPG, JPEG, SVG, or HTML plots were found in plots/ or recognised legacy plot folders.")
         return
-    selected = st.selectbox("Plot", plots, format_func=lambda item: f"{item.relative_path} ({human_size(item.size_bytes)})")
+    selected = st.selectbox("Plot", plots,
+                            format_func=lambda item: f"{item.relative_path} ({human_size(item.size_bytes)})")
     if selected.suffix in {".png", ".jpg", ".jpeg", ".svg"}:
         st.image(str(selected.path), caption=selected.relative_path, use_container_width=True)
     elif selected.suffix in {".html", ".htm"}:

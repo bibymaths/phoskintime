@@ -273,13 +273,13 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_model_global_distributive_jax"  # Output directory
+output_dir = "results_network_distributive"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 # ------------------------------------------------------------
 # OPTIMIZATION PARAMETERS (JAXopt)
 # ------------------------------------------------------------
-n_gen      = 30                       # Maximum local optimizer iterations (runner arg: --n-gen)
+n_gen      = 100                       # Maximum local optimizer iterations (runner arg: --n-gen)
 loss = 2
 # Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
 # -1 for Charbonnier Loss
@@ -342,10 +342,10 @@ sensitivity_metric = "l2_norm"          #  ["total_signal", "mean", "variance", 
 # INFERENCE / POST-OPTIMIZATION ANALYSES
 # ------------------------------------------------------------
 # --- Inference / Multistart ---
-n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
+n_starts = 10               # int: restarts; 1 = single-start (current behaviour)
 # --- Profile Likelihood (post-optimization) ---
 profile_likelihood = false
-profile_indices = "88" # , 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
+profile_indices = "" # 88, 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
 profile_grid_size = 5
 # --- Posterior Sampling (post-optimization, requires numpyro) ---
 posterior_sampling = false

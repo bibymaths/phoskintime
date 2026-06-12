@@ -9,7 +9,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 import json
-import multiprocessing as mp
 import os
 import sys
 from pathlib import Path
@@ -312,14 +311,15 @@ def _plot_multistart(summary: pd.DataFrame, params: pd.DataFrame, names: Sequenc
         fig.savefig(plot_dir / "parameter_objective_tradeoff.png", dpi=300)
         plt.close(fig)
 
+
 def run_profile_likelihood_standalone_processes(
-    *,
-    run_config_path: str | Path,
-    output_dir: str | Path,
-    parameter_indices: Sequence[int],
-    grid_size: int = 5,
-    max_workers: int = 1,
-    timeout_seconds: int | None = None,
+        *,
+        run_config_path: str | Path,
+        output_dir: str | Path,
+        parameter_indices: Sequence[int],
+        grid_size: int = 5,
+        max_workers: int = 1,
+        timeout_seconds: int | None = None,
 ) -> dict:
     """Run profile likelihood in standalone subprocesses.
 
@@ -480,7 +480,7 @@ def run_profile_likelihood_standalone_processes(
             .transform("min")
         )
         summary.loc[finite_mask, "delta_objective"] = (
-            summary.loc[finite_mask, "objective_value"].to_numpy() - mins.to_numpy()
+                summary.loc[finite_mask, "objective_value"].to_numpy() - mins.to_numpy()
         )
 
     summary.to_csv(out / "profile_likelihood_summary.csv", index=False)
@@ -505,6 +505,7 @@ def run_profile_likelihood_standalone_processes(
         "worker_status": status_df,
         "output_dir": out,
     }
+
 
 def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence[int], grid_size: int = 5) -> dict:
     out = Path(ctx.output_dir) / "profiles"

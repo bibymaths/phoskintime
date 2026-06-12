@@ -30,7 +30,8 @@ def render_tables(tables: list[DisplayFile]) -> None:
     if not tables:
         st.info("No CSV, TSV, or Excel tables were found in tables/ or recognised legacy locations.")
         return
-    selected = st.selectbox("Table", tables, format_func=lambda item: f"{item.relative_path} ({human_size(item.size_bytes)})")
+    selected = st.selectbox("Table", tables,
+                            format_func=lambda item: f"{item.relative_path} ({human_size(item.size_bytes)})")
     sheet_name = None
     if selected.suffix in {".xlsx", ".xls"}:
         try:
@@ -42,4 +43,5 @@ def render_tables(tables: list[DisplayFile]) -> None:
     try:
         st.dataframe(_read_table(str(selected.path), selected.suffix, sheet_name), use_container_width=True)
     except Exception as exc:
-        st.error(f"Could not load table {selected.relative_path}. Check that it is a readable CSV, TSV, or Excel file: {exc}")
+        st.error(
+            f"Could not load table {selected.relative_path}. Check that it is a readable CSV, TSV, or Excel file: {exc}")
