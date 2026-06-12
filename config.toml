@@ -348,9 +348,9 @@ profile_likelihood = false
 profile_indices = "" # 88, 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
 profile_grid_size = 5
 # --- Posterior Sampling (post-optimization, requires numpyro) ---
-posterior_sampling = false
-posterior_num_warmup = 20
-posterior_num_samples = 30
+posterior_sampling = true
+posterior_num_warmup = 300
+posterior_num_samples = 500
 
 # MODEL & BOUNDS CONFIGURATION
 # ------------------------------------------------------------

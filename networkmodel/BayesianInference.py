@@ -584,6 +584,136 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     fig.savefig(path, dpi=300)
     plt.close(fig)
 
+def _requires_nonnegative_posterior_support(name: str) -> bool:
+    """Return True for model parameters that are physically non-negative.
+
+    These are kinetic/rate/scale parameters. Signed regulatory parameters,
+    if any, are intentionally left unconstrained.
+    """
+    name = str(name)
+
+    return (
+        name.startswith("c_k[")
+        or name.startswith("A_i[")
+        or name.startswith("B_i[")
+        or name.startswith("C_i[")
+        or name.startswith("D_i[")
+        or name.startswith("Dp_i[")
+        or name.startswith("E_i[")
+        or name == "tf_scale"
+    )
+
+
+def _sanitize_numpyro_posterior_bounds(
+    lower,
+    upper,
+    names,
+    *,
+    eps: float = 1e-8,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sanitize posterior bounds before constructing NumPyro priors.
+
+    NumPyro samples directly from these bounds. Therefore, for parameters that
+    are physically non-negative, the posterior lower bound must be >= 0.
+
+    This function intentionally raises on impossible intervals rather than
+    silently producing invalid posterior samples.
+    """
+    lower = np.asarray(lower, dtype=np.float64).copy()
+    upper = np.asarray(upper, dtype=np.float64).copy()
+    names = list(names)
+
+    if len(names) != len(lower):
+        raise ValueError(
+            f"Parameter name count does not match bounds: "
+            f"len(names)={len(names)}, len(lower)={len(lower)}"
+        )
+
+    if lower.shape != upper.shape:
+        raise ValueError(
+            f"Posterior lower/upper shape mismatch: "
+            f"lower={lower.shape}, upper={upper.shape}"
+        )
+
+    bad_finite = ~np.isfinite(lower) | ~np.isfinite(upper)
+    if np.any(bad_finite):
+        bad_names = [names[i] for i in np.where(bad_finite)[0]]
+        raise ValueError(
+            "Posterior bounds contain non-finite values for parameters: "
+            f"{bad_names}"
+        )
+
+    for i, name in enumerate(names):
+        if _requires_nonnegative_posterior_support(name):
+            if upper[i] <= 0.0:
+                raise ValueError(
+                    f"Invalid posterior bounds for non-negative parameter {name}: "
+                    f"lower={lower[i]}, upper={upper[i]}. "
+                    "The upper bound must be > 0. Fix calculate_bio_bounds() "
+                    "or init_raw_params() upstream."
+                )
+
+            lower[i] = max(lower[i], 0.0)
+
+            if upper[i] <= lower[i]:
+                raise ValueError(
+                    f"Invalid posterior interval for non-negative parameter {name}: "
+                    f"lower={lower[i]}, upper={upper[i]}."
+                )
+
+    bad_interval = upper <= lower
+    if np.any(bad_interval):
+        bad_names = [names[i] for i in np.where(bad_interval)[0]]
+        raise ValueError(
+            "Posterior bounds contain invalid intervals with upper <= lower: "
+            f"{bad_names}"
+        )
+
+    too_narrow = (upper - lower) < eps
+    if np.any(too_narrow):
+        bad_names = [names[i] for i in np.where(too_narrow)[0]]
+        raise ValueError(
+            "Posterior bounds are too narrow for stable NUTS initialization: "
+            f"{bad_names}"
+        )
+
+    return lower, upper
+
+
+def _make_interior_initial_value(theta0, lower, upper, *, eps: float = 1e-8) -> np.ndarray:
+    """Clip theta0 safely inside the NumPyro Uniform support."""
+    theta0 = np.asarray(theta0, dtype=np.float64)
+    lower = np.asarray(lower, dtype=np.float64)
+    upper = np.asarray(upper, dtype=np.float64)
+
+    width = upper - lower
+    interior_eps = np.minimum(eps, 0.25 * width)
+
+    return np.clip(
+        theta0,
+        lower + interior_eps,
+        upper - interior_eps,
+    )
+
+
+def _assert_no_negative_nonnegative_samples(sample_df: pd.DataFrame, names: Sequence[str]) -> None:
+    """Fail if NumPyro produced negative samples for non-negative parameters."""
+    nonnegative_cols = [
+        name for name in names
+        if name in sample_df.columns and _requires_nonnegative_posterior_support(name)
+    ]
+
+    if not nonnegative_cols:
+        return
+
+    mins = sample_df[nonnegative_cols].min(axis=0)
+    leaked = mins[mins < -1e-10]
+
+    if not leaked.empty:
+        raise RuntimeError(
+            "Posterior produced negative samples for parameters that should be "
+            f"non-negative: {leaked.to_dict()}"
+        )
 
 def run_numpyro_posterior(
         ctx: InferenceContext,
@@ -602,27 +732,52 @@ def run_numpyro_posterior(
         from numpyro.infer import MCMC, NUTS
     except ImportError as exc:
         raise RuntimeError(
-            "NumPyro posterior inference requires the optional 'numpyro' dependency. Install numpyro to run posterior analysis.") from exc
+            "NumPyro posterior inference requires the optional 'numpyro' dependency. "
+            "Install numpyro to run posterior analysis."
+        ) from exc
+
     out = Path(ctx.output_dir) / "posterior"
     plot_dir = Path(ctx.output_dir) / "plots" / "posterior"
     out.mkdir(parents=True, exist_ok=True)
     plot_dir.mkdir(parents=True, exist_ok=True)
+
+    names = _param_names(len(ctx.theta0), ctx.parameter_names)
+
     lower_np = np.asarray(ctx.lower, dtype=np.float64).copy()
     upper_np = np.asarray(ctx.upper, dtype=np.float64).copy()
 
-    bad = upper_np <= lower_np
-    if np.any(bad):
-        upper_np[bad] = lower_np[bad] + 1e-12
+    # Critical fix:
+    # NumPyro samples directly from these bounds, so physical non-negativity
+    # must be enforced before constructing the Uniform prior.
+    lower_np, upper_np = _sanitize_numpyro_posterior_bounds(
+        lower_np,
+        upper_np,
+        names,
+    )
 
-    theta_center_np = np.clip(
-        np.asarray(ctx.theta0, dtype=np.float64),
-        lower_np + 1e-8,
-        upper_np - 1e-8,
+    theta_center_np = _make_interior_initial_value(
+        ctx.theta0,
+        lower_np,
+        upper_np,
     )
 
     theta_center = jnp.asarray(theta_center_np, dtype=jnp.float64)
     lower = jnp.asarray(lower_np, dtype=jnp.float64)
     upper = jnp.asarray(upper_np, dtype=jnp.float64)
+
+    if ctx.fixed_mask is not None:
+        fixed_mask_np = np.asarray(ctx.fixed_mask, dtype=bool)
+    else:
+        fixed_mask_np = None
+
+    if ctx.fixed_values is not None:
+        fixed_values_np = _make_interior_initial_value(
+            ctx.fixed_values,
+            lower_np,
+            upper_np,
+        )
+    else:
+        fixed_values_np = None
 
     def model():
         theta = numpyro.sample(
@@ -630,29 +785,27 @@ def run_numpyro_posterior(
             dist.Uniform(lower, upper).to_event(1),
         )
 
-        if ctx.fixed_mask is not None and ctx.fixed_values is not None:
-            fixed_mask = jnp.asarray(ctx.fixed_mask, dtype=bool)
-            fixed_values = jnp.clip(
-                jnp.asarray(ctx.fixed_values, dtype=jnp.float64),
-                lower,
-                upper,
-            )
+        if fixed_mask_np is not None and fixed_values_np is not None:
+            fixed_mask = jnp.asarray(fixed_mask_np, dtype=bool)
+            fixed_values = jnp.asarray(fixed_values_np, dtype=jnp.float64)
             theta = jnp.where(fixed_mask, fixed_values, theta)
 
         sigma = numpyro.sample("sigma", dist.Exponential(1.0))
+
         objective = ctx.objective_fun(theta)
 
         numpyro.deterministic("scalar_objective", objective)
-        numpyro.factor("objective_likelihood", -0.5 * objective / (sigma * sigma + 1e-6))
+
+        numpyro.factor(
+            "objective_likelihood",
+            -0.5 * objective / (sigma * sigma + 1e-6),
+        )
 
     kernel = NUTS(
         model,
         init_strategy=numpyro.infer.init_to_value(
-            values=
-            {
-                "theta": theta_center
-            }
-        )
+            values={"theta": theta_center}
+        ),
     )
 
     mcmc = MCMC(
@@ -673,37 +826,67 @@ def run_numpyro_posterior(
             arr = np.asarray(value)
             if arr.ndim <= 1:
                 diagnostics[key] = arr.tolist()
+
         with open(out / "posterior_extra_fields.json", "w") as f:
             json.dump(diagnostics, f, indent=2)
 
     samples = mcmc.get_samples(group_by_chain=False)
 
-    names = _param_names(len(ctx.theta0), ctx.parameter_names)
-    theta_samples = np.asarray(samples["theta"])
+    theta_samples = np.asarray(samples["theta"], dtype=np.float64)
     sample_df = pd.DataFrame(theta_samples, columns=names)
-    sample_df["sigma"] = np.asarray(samples["sigma"])
+
+    sample_df["sigma"] = np.asarray(samples["sigma"], dtype=np.float64)
 
     if "scalar_objective" in samples:
-        sample_df["scalar_objective"] = np.asarray(samples["scalar_objective"])
+        sample_df["scalar_objective"] = np.asarray(
+            samples["scalar_objective"],
+            dtype=np.float64,
+        )
+
     sample_df["data_mode"] = ctx.mode.data_mode
+
+    # Fail loudly if anything escaped the intended physical support.
+    _assert_no_negative_nonnegative_samples(sample_df, names)
+
     sample_df.to_csv(out / "posterior_samples.csv", index=False)
+
     summary_rows = []
 
     for col in names + ["sigma"]:
         vals = sample_df[col].to_numpy(dtype=np.float64)
-        summary_rows.append({"parameter": col, "mean": vals.mean(), "median": np.median(vals), "sd": vals.std(ddof=0),
-                             "ci_05": np.quantile(vals, 0.05), "ci_95": np.quantile(vals, 0.95),
-                             "ess": float(len(vals)), "r_hat": np.nan, "data_mode": ctx.mode.data_mode})
+
+        summary_rows.append(
+            {
+                "parameter": col,
+                "mean": float(vals.mean()),
+                "median": float(np.median(vals)),
+                "sd": float(vals.std(ddof=0)),
+                "ci_05": float(np.quantile(vals, 0.05)),
+                "ci_95": float(np.quantile(vals, 0.95)),
+                "ess": float(len(vals)),
+                "r_hat": np.nan,
+                "data_mode": ctx.mode.data_mode,
+            }
+        )
 
     summary = pd.DataFrame(summary_rows)
     summary.to_csv(out / "posterior_summary.csv", index=False)
-    predictive = sample_df[
-        ["scalar_objective", "data_mode"]].copy() if "scalar_objective" in sample_df else pd.DataFrame(
-        {"data_mode": [ctx.mode.data_mode]})
-    predictive.to_csv(out / "posterior_predictive.csv", index=False)
-    _plot_posterior(sample_df, summary, plot_dir)
-    return {"samples": sample_df, "summary": summary, "posterior_predictive": predictive, "output_dir": out}
 
+    if "scalar_objective" in sample_df.columns:
+        predictive = sample_df[["scalar_objective", "data_mode"]].copy()
+    else:
+        predictive = pd.DataFrame({"data_mode": [ctx.mode.data_mode]})
+
+    predictive.to_csv(out / "posterior_predictive.csv", index=False)
+
+    _plot_posterior(sample_df, summary, plot_dir)
+
+    return {
+        "samples": sample_df,
+        "summary": summary,
+        "posterior_predictive": predictive,
+        "output_dir": out,
+    }
 
 def _run_single_numpyro_chain_process(
         ctx: InferenceContext,
@@ -967,18 +1150,215 @@ def run_numpyro_posterior_standalone_processes(
         "output_dir": out,
     }
 
+def _safe_plot_name(name: str, max_len: int = 140) -> str:
+    """Make parameter names safe for filenames."""
+    safe = (
+        str(name)
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+        .replace(",", "_")
+        .replace(" ", "_")
+        .replace(":", "_")
+        .replace(";", "_")
+    )
+    return safe[:max_len]
 
-def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
-    numeric = [
-        c for c in samples.columns
-        if pd.api.types.is_numeric_dtype(samples[c])
+
+def _smooth_density_1d(values: np.ndarray, grid_size: int = 256) -> tuple[np.ndarray, np.ndarray]:
+    """Small NumPy-only Gaussian KDE.
+
+    Avoids scipy/seaborn dependency.
+    Returns x_grid, density.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    values = values[np.isfinite(values)]
+
+    if values.size == 0:
+        return np.array([0.0, 1.0]), np.array([0.0, 0.0])
+
+    if values.size == 1 or np.allclose(values, values[0]):
+        center = float(values[0])
+        span = max(abs(center) * 0.05, 1e-3)
+        x_grid = np.linspace(center - span, center + span, grid_size)
+        density = np.exp(-0.5 * ((x_grid - center) / (span / 4.0)) ** 2)
+        density = density / max(float(density.max()), 1e-12)
+        return x_grid, density
+
+    vmin = float(np.min(values))
+    vmax = float(np.max(values))
+    span = vmax - vmin
+
+    pad = 0.1 * span
+    x_grid = np.linspace(vmin - pad, vmax + pad, grid_size)
+
+    sd = float(np.std(values, ddof=1))
+    n = values.size
+
+    # Silverman's rule. Safe fallback for near-zero variance.
+    bandwidth = 1.06 * sd * (n ** (-1.0 / 5.0))
+    bandwidth = max(bandwidth, span / 200.0, 1e-8)
+
+    z = (x_grid[:, None] - values[None, :]) / bandwidth
+    density = np.exp(-0.5 * z * z).mean(axis=1)
+    density = density / (bandwidth * np.sqrt(2.0 * np.pi))
+
+    max_density = float(np.max(density))
+    if max_density > 0:
+        density = density / max_density
+
+    return x_grid, density
+
+
+def _plot_ridgeline_parameter_distributions(
+    samples: pd.DataFrame,
+    summary: pd.DataFrame,
+    plot_dir: Path,
+    *,
+    max_params_per_fig: int = 25,
+    include_sigma: bool = False,
+) -> None:
+    """Plot elegant batched ridgeline posterior distributions.
+
+    Each parameter is normalized to its own posterior range on the x-axis.
+    This makes the plot readable even when parameters have very different scales.
+    Individual density plots still preserve the real parameter scale.
+    """
+    ridge_dir = plot_dir / "ridge"
+    ridge_dir.mkdir(parents=True, exist_ok=True)
+
+    if summary.empty or "parameter" not in summary.columns:
+        logger.warning("[Posterior] Empty summary; skipping ridgeline posterior plot.")
+        return
+
+    params = [
+        str(p)
+        for p in summary["parameter"].astype(str).tolist()
+        if str(p) in samples.columns
+        and pd.api.types.is_numeric_dtype(samples[str(p)])
     ]
 
+    if not include_sigma:
+        params = [p for p in params if p != "sigma"]
+
+    if not params:
+        logger.warning("[Posterior] No numeric parameters available for ridgeline plot.")
+        return
+
+    batches = [
+        params[i:i + max_params_per_fig]
+        for i in range(0, len(params), max_params_per_fig)
+    ]
+
+    for batch_id, batch in enumerate(batches):
+        fig_height = max(6.0, 0.38 * len(batch) + 1.5)
+        fig, ax = plt.subplots(figsize=(11, fig_height))
+
+        y_positions = np.arange(len(batch))[::-1]
+
+        for y, param in zip(y_positions, batch):
+            values = samples[param].to_numpy(dtype=np.float64)
+            values = values[np.isfinite(values)]
+
+            if values.size == 0:
+                continue
+
+            vmin = float(np.min(values))
+            vmax = float(np.max(values))
+
+            if np.isclose(vmin, vmax):
+                x_norm = np.linspace(0.45, 0.55, 256)
+                density = np.exp(-0.5 * ((x_norm - 0.5) / 0.015) ** 2)
+                density = density / max(float(density.max()), 1e-12)
+            else:
+                x_grid, density = _smooth_density_1d(values)
+                x_norm = (x_grid - vmin) / (vmax - vmin)
+                x_norm = np.clip(x_norm, 0.0, 1.0)
+
+            ridge_height = 0.75
+            y_curve = y + ridge_height * density
+
+            ax.fill_between(
+                x_norm,
+                y,
+                y_curve,
+                alpha=0.55,
+                linewidth=0.0,
+            )
+
+            ax.plot(
+                x_norm,
+                y_curve,
+                linewidth=1.0,
+            )
+
+            q05, q50, q95 = np.quantile(values, [0.05, 0.5, 0.95])
+
+            if not np.isclose(vmin, vmax):
+                q05n = (q05 - vmin) / (vmax - vmin)
+                q50n = (q50 - vmin) / (vmax - vmin)
+                q95n = (q95 - vmin) / (vmax - vmin)
+
+                ax.plot(
+                    [q05n, q95n],
+                    [y + 0.05, y + 0.05],
+                    linewidth=2.0,
+                )
+
+                ax.scatter(
+                    [q50n],
+                    [y + 0.05],
+                    s=18,
+                    zorder=3,
+                )
+
+            ax.text(
+                1.03,
+                y + 0.05,
+                f"median={q50:.3g}",
+                va="center",
+                ha="left",
+                fontsize=8,
+            )
+
+        ax.set_yticks(y_positions)
+        ax.set_yticklabels(batch, fontsize=8)
+
+        ax.set_xlim(0.0, 1.22)
+        ax.set_xlabel("Normalized posterior range per parameter")
+        ax.set_title("Posterior parameter distributions")
+        ax.set_frame_on(False)
+
+        ax.tick_params(axis="y", length=0)
+        ax.grid(axis="x", alpha=0.25)
+
+        fig.tight_layout()
+        fig.savefig(
+            ridge_dir / f"posterior_ridge_{batch_id:03d}.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
     density_dir = plot_dir / "density"
     density_dir.mkdir(parents=True, exist_ok=True)
 
-    for col in numeric:
-        values = samples[col].to_numpy()
+    if summary.empty or "parameter" not in summary.columns:
+        logger.warning("[Posterior] Empty posterior summary; skipping posterior plots.")
+        return
+
+    plot_cols = [
+        str(p) for p in summary["parameter"].astype(str).tolist()
+        if str(p) in samples.columns
+        and pd.api.types.is_numeric_dtype(samples[str(p)])
+    ]
+
+    for col in plot_cols:
+        values = samples[col].to_numpy(dtype=np.float64)
 
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.plot(values)
@@ -998,21 +1378,33 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
         fig.savefig(density_dir / f"density_{col}.png", dpi=300)
         plt.close(fig)
 
-    n_params = len(summary)
+    summary_plot = summary[
+        summary["parameter"].astype(str).isin(plot_cols)
+    ].copy()
+
+    if summary_plot.empty:
+        logger.warning("[Posterior] No numeric posterior parameters available for interval plot.")
+        return
+
+    n_params = len(summary_plot)
 
     fig_width = max(10, 0.75 * n_params)
     fig_height = 5
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    x = range(n_params)
+    x = np.arange(n_params)
+
+    median = summary_plot["median"].to_numpy(dtype=np.float64)
+    ci_05 = summary_plot["ci_05"].to_numpy(dtype=np.float64)
+    ci_95 = summary_plot["ci_95"].to_numpy(dtype=np.float64)
 
     ax.errorbar(
         x,
-        summary["median"],
+        median,
         yerr=[
-            summary["median"] - summary["ci_05"],
-            summary["ci_95"] - summary["median"],
+            median - ci_05,
+            ci_95 - median,
         ],
         fmt="o",
         capsize=4,
@@ -1020,7 +1412,7 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(
-        summary["parameter"].astype(str),
+        summary_plot["parameter"].astype(str),
         rotation=60,
         ha="right",
         rotation_mode="anchor",
@@ -1040,3 +1432,11 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
 
     fig.savefig(plot_dir / "credible_intervals.png", dpi=300)
     plt.close(fig)
+
+    _plot_ridgeline_parameter_distributions(
+        samples=samples,
+        summary=summary,
+        plot_dir=plot_dir,
+        max_params_per_fig=25,
+        include_sigma=False,
+    )
