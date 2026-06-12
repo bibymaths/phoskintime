@@ -584,12 +584,37 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     fig.savefig(path, dpi=300)
     plt.close(fig)
 
-def _requires_nonnegative_posterior_support(name: str) -> bool:
-    """Return True for model parameters that are physically non-negative.
+def _np_softplus(x: np.ndarray) -> np.ndarray:
+    """Stable NumPy softplus: log(1 + exp(x))."""
+    x = np.asarray(x, dtype=np.float64)
+    return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0.0)
 
-    These are kinetic/rate/scale parameters. Signed regulatory parameters,
-    if any, are intentionally left unconstrained.
-    """
+
+def _theta_to_unit_interval(theta, lower, upper, *, eps: float = 1e-6) -> np.ndarray:
+    """Map raw theta into unit interval for NumPyro initialization."""
+    theta = np.asarray(theta, dtype=np.float64)
+    lower = np.asarray(lower, dtype=np.float64)
+    upper = np.asarray(upper, dtype=np.float64)
+
+    width = upper - lower
+
+    if np.any(~np.isfinite(lower)) or np.any(~np.isfinite(upper)):
+        bad = np.where(~np.isfinite(lower) | ~np.isfinite(upper))[0].tolist()
+        raise ValueError(
+            f"Posterior raw bounds contain non-finite values at indices: {bad}. "
+            "Check inv_softplus(0.0); use a small positive lower bound such as 1e-8."
+        )
+
+    if np.any(width <= 0):
+        bad = np.where(width <= 0)[0].tolist()
+        raise ValueError(f"Posterior raw bounds have upper <= lower at indices: {bad}")
+
+    unit = (theta - lower) / width
+    return np.clip(unit, eps, 1.0 - eps)
+
+
+def _is_softplus_raw_parameter(name: str) -> bool:
+    """Parameters stored in theta as raw softplus coordinates."""
     name = str(name)
 
     return (
@@ -604,117 +629,42 @@ def _requires_nonnegative_posterior_support(name: str) -> bool:
     )
 
 
-def _sanitize_numpyro_posterior_bounds(
-    lower,
-    upper,
-    names,
-    *,
-    eps: float = 1e-8,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Sanitize posterior bounds before constructing NumPyro priors.
+def _raw_theta_samples_to_physical_df(
+    theta_raw_samples: np.ndarray,
+    names: Sequence[str],
+) -> pd.DataFrame:
+    """Convert raw posterior theta samples to physical parameter samples."""
+    theta_raw_samples = np.asarray(theta_raw_samples, dtype=np.float64)
 
-    NumPyro samples directly from these bounds. Therefore, for parameters that
-    are physically non-negative, the posterior lower bound must be >= 0.
-
-    This function intentionally raises on impossible intervals rather than
-    silently producing invalid posterior samples.
-    """
-    lower = np.asarray(lower, dtype=np.float64).copy()
-    upper = np.asarray(upper, dtype=np.float64).copy()
-    names = list(names)
-
-    if len(names) != len(lower):
-        raise ValueError(
-            f"Parameter name count does not match bounds: "
-            f"len(names)={len(names)}, len(lower)={len(lower)}"
-        )
-
-    if lower.shape != upper.shape:
-        raise ValueError(
-            f"Posterior lower/upper shape mismatch: "
-            f"lower={lower.shape}, upper={upper.shape}"
-        )
-
-    bad_finite = ~np.isfinite(lower) | ~np.isfinite(upper)
-    if np.any(bad_finite):
-        bad_names = [names[i] for i in np.where(bad_finite)[0]]
-        raise ValueError(
-            "Posterior bounds contain non-finite values for parameters: "
-            f"{bad_names}"
-        )
+    out = {}
 
     for i, name in enumerate(names):
-        if _requires_nonnegative_posterior_support(name):
-            if upper[i] <= 0.0:
-                raise ValueError(
-                    f"Invalid posterior bounds for non-negative parameter {name}: "
-                    f"lower={lower[i]}, upper={upper[i]}. "
-                    "The upper bound must be > 0. Fix calculate_bio_bounds() "
-                    "or init_raw_params() upstream."
-                )
+        if _is_softplus_raw_parameter(name):
+            out[name] = _np_softplus(theta_raw_samples[:, i])
+        else:
+            out[name] = theta_raw_samples[:, i]
 
-            lower[i] = max(lower[i], 0.0)
-
-            if upper[i] <= lower[i]:
-                raise ValueError(
-                    f"Invalid posterior interval for non-negative parameter {name}: "
-                    f"lower={lower[i]}, upper={upper[i]}."
-                )
-
-    bad_interval = upper <= lower
-    if np.any(bad_interval):
-        bad_names = [names[i] for i in np.where(bad_interval)[0]]
-        raise ValueError(
-            "Posterior bounds contain invalid intervals with upper <= lower: "
-            f"{bad_names}"
-        )
-
-    too_narrow = (upper - lower) < eps
-    if np.any(too_narrow):
-        bad_names = [names[i] for i in np.where(too_narrow)[0]]
-        raise ValueError(
-            "Posterior bounds are too narrow for stable NUTS initialization: "
-            f"{bad_names}"
-        )
-
-    return lower, upper
+    return pd.DataFrame(out)
 
 
-def _make_interior_initial_value(theta0, lower, upper, *, eps: float = 1e-8) -> np.ndarray:
-    """Clip theta0 safely inside the NumPyro Uniform support."""
-    theta0 = np.asarray(theta0, dtype=np.float64)
-    lower = np.asarray(lower, dtype=np.float64)
-    upper = np.asarray(upper, dtype=np.float64)
-
-    width = upper - lower
-    interior_eps = np.minimum(eps, 0.25 * width)
-
-    return np.clip(
-        theta0,
-        lower + interior_eps,
-        upper - interior_eps,
-    )
-
-
-def _assert_no_negative_nonnegative_samples(sample_df: pd.DataFrame, names: Sequence[str]) -> None:
-    """Fail if NumPyro produced negative samples for non-negative parameters."""
-    nonnegative_cols = [
+def _assert_physical_samples_valid(sample_df: pd.DataFrame, names: Sequence[str]) -> None:
+    """Check that softplus-constrained parameters are non-negative after transform."""
+    cols = [
         name for name in names
-        if name in sample_df.columns and _requires_nonnegative_posterior_support(name)
+        if name in sample_df.columns and _is_softplus_raw_parameter(name)
     ]
 
-    if not nonnegative_cols:
+    if not cols:
         return
 
-    mins = sample_df[nonnegative_cols].min(axis=0)
-    leaked = mins[mins < -1e-10]
+    mins = sample_df[cols].min(axis=0)
+    bad = mins[mins < -1e-12]
 
-    if not leaked.empty:
+    if not bad.empty:
         raise RuntimeError(
-            "Posterior produced negative samples for parameters that should be "
-            f"non-negative: {leaked.to_dict()}"
+            "Physical posterior samples contain negative values after softplus "
+            f"conversion: {bad.to_dict()}"
         )
-
 def run_numpyro_posterior(
         ctx: InferenceContext,
         *,
@@ -743,27 +693,39 @@ def run_numpyro_posterior(
 
     names = _param_names(len(ctx.theta0), ctx.parameter_names)
 
-    lower_np = np.asarray(ctx.lower, dtype=np.float64).copy()
-    upper_np = np.asarray(ctx.upper, dtype=np.float64).copy()
+    lower_raw_np = np.asarray(ctx.lower, dtype=np.float64).copy()
+    upper_raw_np = np.asarray(ctx.upper, dtype=np.float64).copy()
+    theta0_raw_np = np.asarray(ctx.theta0, dtype=np.float64).copy()
 
-    # Critical fix:
-    # NumPyro samples directly from these bounds, so physical non-negativity
-    # must be enforced before constructing the Uniform prior.
-    lower_np, upper_np = _sanitize_numpyro_posterior_bounds(
-        lower_np,
-        upper_np,
-        names,
+    width_raw_np = upper_raw_np - lower_raw_np
+
+    if np.any(~np.isfinite(lower_raw_np)) or np.any(~np.isfinite(upper_raw_np)):
+        bad = np.where(~np.isfinite(lower_raw_np) | ~np.isfinite(upper_raw_np))[0]
+        bad_names = [names[i] for i in bad]
+        raise ValueError(
+            "Posterior raw bounds contain non-finite values for parameters: "
+            f"{bad_names}. "
+            "Likely cause: inv_softplus(0.0). Use lower bound 1e-8 instead of 0.0."
+        )
+
+    if np.any(width_raw_np <= 0):
+        bad = np.where(width_raw_np <= 0)[0]
+        bad_names = [names[i] for i in bad]
+        raise ValueError(
+            f"Posterior raw bounds have upper <= lower for parameters: {bad_names}"
+        )
+
+    theta_unit_center_np = _theta_to_unit_interval(
+        theta0_raw_np,
+        lower_raw_np,
+        upper_raw_np,
     )
 
-    theta_center_np = _make_interior_initial_value(
-        ctx.theta0,
-        lower_np,
-        upper_np,
-    )
+    lower_raw = jnp.asarray(lower_raw_np, dtype=jnp.float64)
+    upper_raw = jnp.asarray(upper_raw_np, dtype=jnp.float64)
+    width_raw = upper_raw - lower_raw
 
-    theta_center = jnp.asarray(theta_center_np, dtype=jnp.float64)
-    lower = jnp.asarray(lower_np, dtype=jnp.float64)
-    upper = jnp.asarray(upper_np, dtype=jnp.float64)
+    theta_unit_center = jnp.asarray(theta_unit_center_np, dtype=jnp.float64)
 
     if ctx.fixed_mask is not None:
         fixed_mask_np = np.asarray(ctx.fixed_mask, dtype=bool)
@@ -771,29 +733,38 @@ def run_numpyro_posterior(
         fixed_mask_np = None
 
     if ctx.fixed_values is not None:
-        fixed_values_np = _make_interior_initial_value(
-            ctx.fixed_values,
-            lower_np,
-            upper_np,
+        fixed_values_raw_np = np.clip(
+            np.asarray(ctx.fixed_values, dtype=np.float64),
+            lower_raw_np,
+            upper_raw_np,
         )
     else:
-        fixed_values_np = None
+        fixed_values_raw_np = None
 
     def model():
-        theta = numpyro.sample(
-            "theta",
-            dist.Uniform(lower, upper).to_event(1),
+        # Sample in unit box, then map into valid raw softplus-theta bounds.
+        theta_unit = numpyro.sample(
+            "theta_unit",
+            dist.Uniform(
+                jnp.zeros_like(lower_raw),
+                jnp.ones_like(upper_raw),
+            ).to_event(1),
         )
 
-        if fixed_mask_np is not None and fixed_values_np is not None:
+        theta_raw = lower_raw + width_raw * theta_unit
+
+        if fixed_mask_np is not None and fixed_values_raw_np is not None:
             fixed_mask = jnp.asarray(fixed_mask_np, dtype=bool)
-            fixed_values = jnp.asarray(fixed_values_np, dtype=jnp.float64)
-            theta = jnp.where(fixed_mask, fixed_values, theta)
+            fixed_values_raw = jnp.asarray(fixed_values_raw_np, dtype=jnp.float64)
+            theta_raw = jnp.where(fixed_mask, fixed_values_raw, theta_raw)
 
         sigma = numpyro.sample("sigma", dist.Exponential(1.0))
 
-        objective = ctx.objective_fun(theta)
+        # Important:
+        # objective_fun expects raw softplus theta, not physical theta.
+        objective = ctx.objective_fun(theta_raw)
 
+        numpyro.deterministic("theta_raw", theta_raw)
         numpyro.deterministic("scalar_objective", objective)
 
         numpyro.factor(
@@ -804,7 +775,7 @@ def run_numpyro_posterior(
     kernel = NUTS(
         model,
         init_strategy=numpyro.infer.init_to_value(
-            values={"theta": theta_center}
+            values={"theta_unit": theta_unit_center}
         ),
     )
 
@@ -832,8 +803,44 @@ def run_numpyro_posterior(
 
     samples = mcmc.get_samples(group_by_chain=False)
 
-    theta_samples = np.asarray(samples["theta"], dtype=np.float64)
-    sample_df = pd.DataFrame(theta_samples, columns=names)
+    if "theta_raw" in samples:
+        theta_raw_samples = np.asarray(samples["theta_raw"], dtype=np.float64)
+    else:
+        theta_unit_samples = np.asarray(samples["theta_unit"], dtype=np.float64)
+        theta_raw_samples = lower_raw_np + width_raw_np * theta_unit_samples
+
+        if fixed_mask_np is not None and fixed_values_raw_np is not None:
+            theta_raw_samples[:, fixed_mask_np] = fixed_values_raw_np[fixed_mask_np]
+
+    # Safety check: raw samples must stay inside raw bounds.
+    theta_raw_min = theta_raw_samples.min(axis=0)
+    theta_raw_max = theta_raw_samples.max(axis=0)
+
+    below = theta_raw_min < (lower_raw_np - 1e-10)
+    above = theta_raw_max > (upper_raw_np + 1e-10)
+
+    if np.any(below) or np.any(above):
+        bad = np.where(below | above)[0]
+        bad_names = [names[i] for i in bad]
+        raise RuntimeError(
+            "Raw posterior samples escaped saved raw bounds for parameters: "
+            f"{bad_names}"
+        )
+
+    raw_sample_df = pd.DataFrame(theta_raw_samples, columns=names)
+    raw_sample_df["sigma"] = np.asarray(samples["sigma"], dtype=np.float64)
+
+    if "scalar_objective" in samples:
+        raw_sample_df["scalar_objective"] = np.asarray(
+            samples["scalar_objective"],
+            dtype=np.float64,
+        )
+
+    raw_sample_df["data_mode"] = ctx.mode.data_mode
+    raw_sample_df.to_csv(out / "posterior_samples_raw.csv", index=False)
+
+    # Main posterior output: physical biological parameter scale.
+    sample_df = _raw_theta_samples_to_physical_df(theta_raw_samples, names)
 
     sample_df["sigma"] = np.asarray(samples["sigma"], dtype=np.float64)
 
@@ -845,8 +852,7 @@ def run_numpyro_posterior(
 
     sample_df["data_mode"] = ctx.mode.data_mode
 
-    # Fail loudly if anything escaped the intended physical support.
-    _assert_no_negative_nonnegative_samples(sample_df, names)
+    _assert_physical_samples_valid(sample_df, names)
 
     sample_df.to_csv(out / "posterior_samples.csv", index=False)
 
@@ -866,11 +872,35 @@ def run_numpyro_posterior(
                 "ess": float(len(vals)),
                 "r_hat": np.nan,
                 "data_mode": ctx.mode.data_mode,
+                "scale": "physical",
             }
         )
 
     summary = pd.DataFrame(summary_rows)
     summary.to_csv(out / "posterior_summary.csv", index=False)
+
+    raw_summary_rows = []
+
+    for col in names + ["sigma"]:
+        vals = raw_sample_df[col].to_numpy(dtype=np.float64)
+
+        raw_summary_rows.append(
+            {
+                "parameter": col,
+                "mean": float(vals.mean()),
+                "median": float(np.median(vals)),
+                "sd": float(vals.std(ddof=0)),
+                "ci_05": float(np.quantile(vals, 0.05)),
+                "ci_95": float(np.quantile(vals, 0.95)),
+                "ess": float(len(vals)),
+                "r_hat": np.nan,
+                "data_mode": ctx.mode.data_mode,
+                "scale": "raw_softplus",
+            }
+        )
+
+    raw_summary = pd.DataFrame(raw_summary_rows)
+    raw_summary.to_csv(out / "posterior_summary_raw.csv", index=False)
 
     if "scalar_objective" in sample_df.columns:
         predictive = sample_df[["scalar_objective", "data_mode"]].copy()
@@ -883,7 +913,9 @@ def run_numpyro_posterior(
 
     return {
         "samples": sample_df,
+        "raw_samples": raw_sample_df,
         "summary": summary,
+        "raw_summary": raw_summary,
         "posterior_predictive": predictive,
         "output_dir": out,
     }
