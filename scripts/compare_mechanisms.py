@@ -288,6 +288,56 @@ def run_sim(sys, idx, mod_params):
     return simulate_and_measure(sys, idx, config.TIME_POINTS_PROTEIN, config.TIME_POINTS_RNA,
                                 config.TIME_POINTS_PHOSPHO)
 
+def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
+    """Extract RNA, total protein, and phospho-site trajectories for one protein."""
+    p_idx = idx.p2i[protein]
+    st_y = idx.offset_y[p_idx]
+
+    rna_vals = Y[:, st_y]
+    prot_vals = Y[:, st_y + 1]
+
+    ns = idx.n_sites[p_idx]
+    site_names = idx.sites[p_idx]
+
+    if ns > 0:
+        psite_vals = Y[:, st_y + 2: st_y + 2 + ns]
+        phos_sum = np.sum(psite_vals, axis=1)
+        total_prot = prot_vals + phos_sum
+    else:
+        psite_vals = np.zeros((len(t), 0))
+        total_prot = prot_vals
+
+    if normalize:
+        rna_base = rna_vals[0] if abs(rna_vals[0]) > 1e-12 else 1.0
+        prot_base = total_prot[0] if abs(total_prot[0]) > 1e-12 else 1.0
+
+        rna_vals = rna_vals / rna_base
+        total_prot = total_prot / prot_base
+
+        if ns > 0:
+            site_base = psite_vals[0, :].copy()
+            site_base[np.abs(site_base) < 1e-12] = 1.0
+            psite_vals = psite_vals / site_base
+
+    df = pd.DataFrame(
+        {
+            "time": t,
+            "rna": rna_vals,
+            "protein": total_prot,
+        }
+    )
+
+    if ns > 0:
+        df_ps = pd.DataFrame(psite_vals, columns=site_names)
+        df_ps["time"] = t
+        df_long = df_ps.melt(
+            id_vars="time",
+            var_name="psite",
+            value_name="psite_value",
+        )
+        df = df.merge(df_long, on="time", how="left")
+
+    return df
 
 # --- UI Setup ---
 st.title("🧪 Global Signaling & Transcriptional Knockout Explorer")
@@ -596,195 +646,207 @@ n_points = st.select_slider(
     options=[250, 500, 1000, 2500, 5000, 10000],
     value=1000,
 )
-
 run_forward_panel = st.button(
     "Run detailed WT/KO forward simulation",
     key="run-forward-simulation-panel",
 )
 
-if not run_forward_panel:
-    st.info("Click the button above to run the detailed forward simulation panel.")
-    st.stop()
+forward_cache_key = (
+    selected_p,
+    float(t_max),
+    int(n_points),
+    str(ko_type),
+    str(target),
+    float(scale) if ko_type != "None" else 1.0,
+)
 
-with st.spinner(f"Running WT forward simulation with {n_points} time points..."):
+if run_forward_panel:
+    with st.spinner(f"Running WT forward simulation with {n_points} time points..."):
+        sys.update(**best_params)
+        t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
+
+    with st.spinner(f"Running KO forward simulation with {n_points} time points..."):
+        sys.update(**ko_params)
+        t_ko, Y_ko = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
+
     sys.update(**best_params)
-    t_fine, Y_wt = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
 
-# Extract per-protein output
-def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
-    """
-    Extracts and processes feature components from a dataset for a given protein.
+    st.session_state["forward_panel_cache_key"] = forward_cache_key
+    st.session_state["forward_panel_results"] = {
+        "t_fine": t_fine,
+        "Y_wt": Y_wt,
+        "t_ko": t_ko,
+        "Y_ko": Y_ko,
+    }
 
-    This function retrieves RNA, protein, and phosphorylation site data associated with 
-    a specified protein from a dataset. It supports normalization of input data and 
-    returns a processed DataFrame containing time-series data for RNA, total protein, 
-    and (if available) phosphorylation site values.
+has_forward_results = (
+    st.session_state.get("forward_panel_cache_key") == forward_cache_key
+    and "forward_panel_results" in st.session_state
+)
 
-    Args:
-        Y: ndarray
-            Input dataset containing RNA, protein, and phosphorylation site measurements.
-            The dimensions of `Y` include time points as rows and feature components as 
-            columns.
-        idx: object
-            An"""
-    p_idx = idx.p2i[protein]
-    st_y = idx.offset_y[p_idx]
-    rna_vals = Y[:, st_y]
-    prot_vals = Y[:, st_y + 1]
-    ns = idx.n_sites[p_idx]
-    site_names = idx.sites[p_idx]
+if not has_forward_results:
+    st.info("Click **Run detailed WT/KO forward simulation** to show the detailed simulation panel.")
+else:
+    cached = st.session_state["forward_panel_results"]
 
-    if ns > 0:
-        psite_vals = Y[:, st_y + 2: st_y + 2 + ns]
-        phos_sum = np.sum(psite_vals, axis=1)
-        total_prot = prot_vals + phos_sum
-    else:
-        psite_vals = np.zeros((len(t), 0))
-        total_prot = prot_vals
+    t_fine = cached["t_fine"]
+    Y_wt = cached["Y_wt"]
+    t_ko = cached["t_ko"]
+    Y_ko = cached["Y_ko"]
 
-    if normalize:
-        rna_vals = rna_vals / rna_vals[0]
-        total_prot = total_prot / total_prot[0]
-        if ns > 0:
-            psite_vals = psite_vals / psite_vals[0, :]  # normalize each site
+    df_wt = extract_fc_from_Y(Y_wt, idx, t_fine, selected_p)
+    df_ko = extract_fc_from_Y(Y_ko, idx, t_ko, selected_p)
 
-    # Base result
-    df = pd.DataFrame({
-        "time": t,
-        "rna": rna_vals,
-        "protein": total_prot,
-    })
+    # --- Plot mRNA
+    col1, col2 = st.columns(2)
 
-    # Add phospho sites in long format
-    if ns > 0:
-        df_ps = pd.DataFrame(psite_vals, columns=site_names)
-        df_ps["time"] = t
-        df_long = df_ps.melt(id_vars="time", var_name="psite", value_name="psite_value")
-        df = df.merge(df_long, on="time", how="left")
-
-    return df
-
-
-# WT values
-df_wt = extract_fc_from_Y(Y_wt, idx, t_fine, selected_p)
-
-with st.spinner(f"Running KO forward simulation with {n_points} time points..."):
-    sys.update(**ko_params)
-    t_ko, Y_ko = simulate_until_steady(sys, t_max=t_max, n_points=n_points)
-
-df_ko = extract_fc_from_Y(Y_ko, idx, t_ko, selected_p)
-
-# Restore baseline after KO simulation.
-sys.update(**best_params)
-
-# --- Plot mRNA
-col1, col2 = st.columns(2)
-
-with col1:
-    fig_fine_r = go.Figure()
-    fig_fine_r.add_trace(go.Scatter(x=df_wt["time"], y=df_wt["rna"], name="WT", line=dict(color="black", dash="dash")))
-    fig_fine_r.add_trace(go.Scatter(x=df_ko["time"], y=df_ko["rna"], name="KO", line=dict(color="red")))
-    fig_fine_r.update_layout(title="mRNA Simulation", xaxis_title="Time", yaxis_title="Fold Change",
-                             template="plotly_white")
-    fig_fine_r.update_xaxes(type="log")
-    st.plotly_chart(fig_fine_r, use_container_width=True)
-
-# --- Plot Protein
-with col2:
-    fig_fine_p = go.Figure()
-    fig_fine_p.add_trace(
-        go.Scatter(x=df_wt["time"], y=df_wt["protein"], name="WT", line=dict(color="black", dash="dash")))
-    fig_fine_p.add_trace(go.Scatter(x=df_ko["time"], y=df_ko["protein"], name="KO", line=dict(color="blue")))
-    fig_fine_p.update_layout(title="Protein Simulation", xaxis_title="Time", yaxis_title="Fold Change",
-                             template="plotly_white")
-    fig_fine_p.update_xaxes(type="log")
-    st.plotly_chart(fig_fine_p, use_container_width=True)
-
-col1, col2 = st.columns(2)
-
-# --- Signaling Drive Panel (Phosphorylation S)
-with col1:
-    if selected_p in idx.p2i:
-        p_idx = idx.p2i[selected_p]
-        ns = idx.n_sites[p_idx]
-
-        # Simulate WT again (ensures S is from WT context)
-        t_S, Y_S = t_ko, Y_ko  # Use already simulated KO values
-        kin_vals = Y_S[:, [idx.k2i[k] for k in idx.kinases]].T  # (n_kinases, time)
-        kin_scaled = kin_vals * sys.c_k[:, None]
-        S_t = sys.W_global @ kin_scaled  # (n_sites, time)
-
-        site_names, site_rows = [], []
-
-        # Recompute correct global site indices for selected_p
-        site_counter = 0
-        for i, p in enumerate(idx.proteins):
-            for j, site in enumerate(idx.sites[i]):
-                if p == selected_p:
-                    site_names.append(site)
-                    site_rows.append(site_counter)
-                site_counter += 1
-
-        fig_s_time = go.Figure()
-
-        for site_name, site_idx in zip(site_names, site_rows):
-            color = px.colors.qualitative.Plotly[hash(site_name) % len(px.colors.qualitative.Plotly)]
-            fig_s_time.add_trace(go.Scatter(
-                x=t_S,
-                y=S_t[site_idx, :],
-                name=site_name,
-                mode="lines",
-                line=dict(dash="solid", color=color),
-                opacity=0.9,
-            ))
-
-        fig_s_time.update_layout(
-            title=f"{selected_p} – Phosphorylation (S)",
-            xaxis_title="Time (min)",
-            yaxis_title="S (Signaling Rate)",
-            template="plotly_white"
+    with col1:
+        fig_fine_r = go.Figure()
+        fig_fine_r.add_trace(
+            go.Scatter(
+                x=df_wt["time"],
+                y=df_wt["rna"],
+                name="WT",
+                line=dict(color="black", dash="dash"),
+            )
         )
-        fig_s_time.update_xaxes(type="log")
-        st.plotly_chart(fig_s_time, use_container_width=True)
-    else:
-        st.warning(f"{selected_p} not found in protein index.")
-
-# Plot Phospho-sites states from simulation
-with col2:
-    fig_sites_fine = go.Figure()
-
-    # Safety check for valid data
-    if "psite" in df_wt.columns and not df_wt["psite"].isna().all():
-        for site in df_wt["psite"].dropna().unique():
-            site_wt = df_wt[df_wt["psite"] == site]
-            site_ko = df_ko[df_ko["psite"] == site]
-            color = px.colors.qualitative.Plotly[hash(site) % len(px.colors.qualitative.Plotly)]
-
-            if not site_wt.empty:
-                fig_sites_fine.add_trace(go.Scatter(
-                    x=site_wt["time"],
-                    y=site_wt["psite_value"],
-                    name=f"WT {site}",
-                    line=dict(dash="dash", color=color)
-                ))
-            if not site_ko.empty:
-                fig_sites_fine.add_trace(go.Scatter(
-                    x=site_ko["time"],
-                    y=site_ko["psite_value"],
-                    name=f"KO {site}",
-                    line=dict(color=color)
-                ))
-
-        fig_sites_fine.update_layout(
-            title=f"{selected_p} Phospho-site State Dynamics",
-            xaxis_title="Time (min)",
-            yaxis_title="Phospho-site Level (a.u.)",
-            template="plotly_white"
+        fig_fine_r.add_trace(
+            go.Scatter(
+                x=df_ko["time"],
+                y=df_ko["rna"],
+                name="KO",
+                line=dict(color="red"),
+            )
         )
-        fig_sites_fine.update_xaxes(type="log")
-        st.plotly_chart(fig_sites_fine, use_container_width=True)
-    else:
-        st.info("No phospho site data available for this protein.")
+        fig_fine_r.update_layout(
+            title="mRNA Simulation",
+            xaxis_title="Time",
+            yaxis_title="Fold Change",
+            template="plotly_white",
+        )
+        fig_fine_r.update_xaxes(type="log")
+        st.plotly_chart(fig_fine_r, use_container_width=True)
+
+    # --- Plot Protein
+    with col2:
+        fig_fine_p = go.Figure()
+        fig_fine_p.add_trace(
+            go.Scatter(
+                x=df_wt["time"],
+                y=df_wt["protein"],
+                name="WT",
+                line=dict(color="black", dash="dash"),
+            )
+        )
+        fig_fine_p.add_trace(
+            go.Scatter(
+                x=df_ko["time"],
+                y=df_ko["protein"],
+                name="KO",
+                line=dict(color="blue"),
+            )
+        )
+        fig_fine_p.update_layout(
+            title="Protein Simulation",
+            xaxis_title="Time",
+            yaxis_title="Fold Change",
+            template="plotly_white",
+        )
+        fig_fine_p.update_xaxes(type="log")
+        st.plotly_chart(fig_fine_p, use_container_width=True)
+
+    col1, col2 = st.columns(2)
+
+    # --- Signaling Drive Panel
+    with col1:
+        if selected_p in idx.p2i:
+            t_S, Y_S = t_ko, Y_ko
+
+            kin_vals = Y_S[:, [idx.k2i[k] for k in idx.kinases]].T
+            kin_scaled = kin_vals * sys.c_k[:, None]
+            S_t = sys.W_global @ kin_scaled
+
+            site_names, site_rows = [], []
+            site_counter = 0
+
+            for i, p in enumerate(idx.proteins):
+                for site in idx.sites[i]:
+                    if p == selected_p:
+                        site_names.append(site)
+                        site_rows.append(site_counter)
+                    site_counter += 1
+
+            fig_s_time = go.Figure()
+
+            for site_name, site_idx in zip(site_names, site_rows):
+                color = px.colors.qualitative.Plotly[
+                    hash(site_name) % len(px.colors.qualitative.Plotly)
+                ]
+                fig_s_time.add_trace(
+                    go.Scatter(
+                        x=t_S,
+                        y=S_t[site_idx, :],
+                        name=site_name,
+                        mode="lines",
+                        line=dict(dash="solid", color=color),
+                        opacity=0.9,
+                    )
+                )
+
+            fig_s_time.update_layout(
+                title=f"{selected_p} – Phosphorylation (S)",
+                xaxis_title="Time (min)",
+                yaxis_title="S (Signaling Rate)",
+                template="plotly_white",
+            )
+            fig_s_time.update_xaxes(type="log")
+            st.plotly_chart(fig_s_time, use_container_width=True)
+        else:
+            st.warning(f"{selected_p} not found in protein index.")
+
+    # --- Phospho-site state panel
+    with col2:
+        fig_sites_fine = go.Figure()
+
+        if "psite" in df_wt.columns and not df_wt["psite"].isna().all():
+            for site in df_wt["psite"].dropna().unique():
+                site_wt = df_wt[df_wt["psite"] == site]
+                site_ko = df_ko[df_ko["psite"] == site]
+
+                color = px.colors.qualitative.Plotly[
+                    hash(site) % len(px.colors.qualitative.Plotly)
+                ]
+
+                if not site_wt.empty:
+                    fig_sites_fine.add_trace(
+                        go.Scatter(
+                            x=site_wt["time"],
+                            y=site_wt["psite_value"],
+                            name=f"WT {site}",
+                            line=dict(dash="dash", color=color),
+                        )
+                    )
+
+                if not site_ko.empty:
+                    fig_sites_fine.add_trace(
+                        go.Scatter(
+                            x=site_ko["time"],
+                            y=site_ko["psite_value"],
+                            name=f"KO {site}",
+                            line=dict(color=color),
+                        )
+                    )
+
+            fig_sites_fine.update_layout(
+                title=f"{selected_p} Phospho-site State Dynamics",
+                xaxis_title="Time (min)",
+                yaxis_title="Phospho-site Level (a.u.)",
+                template="plotly_white",
+            )
+            fig_sites_fine.update_xaxes(type="log")
+            st.plotly_chart(fig_sites_fine, use_container_width=True)
+        else:
+            st.info("No phospho site data available for this protein.")
 
 st.divider()
 
@@ -2120,810 +2182,1124 @@ if st.button("Generate sweep graphs", key="sweep_run_btn"):
             key="sweep_edges_csv",
         )
 
-# # =========================
-# # TIME-RESOLVED ANIMATED NETWORK (pre-steady state)
-# # =========================
+# =========================
+# TIME-RESOLVED ANIMATED NETWORK (pre-steady-state)
+# Button-driven + session-state cached.
+# Does NOT recompute on every Streamlit rerun.
+# =========================
 
-# # -------------------------
-# # SAFE animation export (no kaleido hard-fail)
-# # -------------------------
-# def _export_plotly_animation(fig: go.Figure, fmt: str = "gif", fps: int = 6, scale: int = 2) -> bytes:
-#     """
-#     Render Plotly animation frames -> GIF/MP4 bytes.
-#
-#     Preferred: Plotly+kaleido (fig.to_image).
-#     Fallback: raises a clean RuntimeError with actionable instructions.
-#
-#     Notes:
-#       - GIF: uses imageio.mimsave
-#       - MP4: requires ffmpeg available to imageio (imageio-ffmpeg)
-#     """
-#     frames = list(fig.frames or [])
-#     if not frames:
-#         raise RuntimeError("No frames found in the figure. Nothing to export.")
-#
-#     images = []
-#     for fr in frames:
-#         f = go.Figure(data=fr.data, layout=fig.layout)
-#         try:
-#             png_bytes = f.to_image(format="png", scale=scale, engine="kaleido")
-#         except Exception as e:
-#             raise RuntimeError(
-#                 "Export requires Plotly image export support (kaleido). "
-#                 "If kaleido is installed but Plotly can't see it, ensure you are installing it "
-#                 "inside the SAME environment where Streamlit runs.\n"
-#                 "Conda:  conda install -c conda-forge python-kaleido\n"
-#                 "Pip:    pip install -U kaleido\n"
-#                 f"Original error: {repr(e)}"
-#             )
-#         images.append(imageio.imread(png_bytes))
-#
-#     buf = io.BytesIO()
-#
-#     fmt_l = fmt.lower()
-#     if fmt_l == "gif":
-#         imageio.mimsave(buf, images, format="GIF", fps=fps)
-#         return buf.getvalue()
-#
-#     if fmt_l == "mp4":
-#         # imageio writes mp4 via ffmpeg
-#         writer = imageio.get_writer(buf, format="FFMPEG", mode="I", fps=fps, codec="libx264")
-#         for im in images:
-#             writer.append_data(im)
-#         writer.close()
-#         return buf.getvalue()
-#
-#     raise ValueError("fmt must be 'gif' or 'mp4'")
-#
-#
-# # -------------------------
-# # State extractors
-# # -------------------------
-# def _extract_mrna_vec_from_y(y_row: np.ndarray, idx: Index) -> np.ndarray:
-#     out = np.zeros(len(idx.proteins), dtype=float)
-#     for i in range(len(idx.proteins)):
-#         st_y = idx.offset_y[i]
-#         out[i] = float(y_row[st_y + 0])
-#     return out
-#
-#
-# def _extract_total_protein_vec_from_y(y_row: np.ndarray, idx: Index) -> np.ndarray:
-#     out = np.zeros(len(idx.proteins), dtype=float)
-#     for i in range(len(idx.proteins)):
-#         st_y = idx.offset_y[i]
-#         prot = float(y_row[st_y + 1])
-#         ns = int(idx.n_sites[i])
-#         if ns > 0:
-#             phos_sum = float(np.sum(y_row[st_y + 2 : st_y + 2 + ns]))
-#             out[i] = prot + phos_sum
-#         else:
-#             out[i] = prot
-#     return out
-#
-#
-# def _delta_log2_fc(ko: np.ndarray, wt: np.ndarray, eps: float = 1e-9) -> np.ndarray:
-#     """log2(KO/WT)"""
-#     return np.log2((ko + eps) / (wt + eps))
-#
-#
-# def _total_protein_from_Y_row(y_row: np.ndarray, idx: Index, protein: str) -> float:
-#     p_i = idx.p2i[protein]
-#     st_y = idx.offset_y[p_i]
-#     prot = float(y_row[st_y + 1])
-#     ns = int(idx.n_sites[p_i])
-#     if ns > 0:
-#         return prot + float(np.sum(y_row[st_y + 2 : st_y + 2 + ns]))
-#     return prot
-#
-#
-# # -------------------------
-# # Edges at time t
-# # -------------------------
-# def _edge_tables_at_time(
-#     sys: System,
-#     idx: Index,
-#     df_tf_model: pd.DataFrame | None,
-#     y_row: np.ndarray,
-#     t: float,
-# ) -> tuple[pd.DataFrame, pd.DataFrame]:
-#     """
-#     signaling: kinase -> protein, weight = Σ_sites beta(site,k) * Kt_k(t)
-#     transcription: tf -> target, weight = tf_scale * tf_mat[target,tf] * TF_total(t)
-#     """
-#     # --- signaling ---
-#     Kt = sys.kin.eval(float(t)) * sys.c_k  # (nK,)
-#     W = sys.W_global.tocoo()
-#     edge_contrib = W.data * Kt[W.col]  # per-site contribution
-#
-#     prot_idx = np.searchsorted(idx.offset_s, W.row, side="right") - 1
-#     prot_idx = np.clip(prot_idx, 0, len(idx.proteins) - 1)
-#
-#     df_sig = pd.DataFrame(
-#         {
-#             "src": np.asarray(idx.kinases, dtype=object)[W.col],
-#             "tgt": np.asarray(idx.proteins, dtype=object)[prot_idx],
-#             "weight": edge_contrib.astype(float),
-#         }
-#     )
-#     df_sig = df_sig.groupby(["src", "tgt"], as_index=False).agg(weight=("weight", "sum"))
-#     df_sig["type"] = "signaling"
-#
-#     # --- transcription ---
-#     df_tf_edges = pd.DataFrame(columns=["src", "tgt", "weight", "type"])
-#     if df_tf_model is not None and not df_tf_model.empty:
-#         tf_mat = sys.tf_mat
-#         tf_scale = float(getattr(sys, "tf_scale", 1.0))
-#
-#         rows = []
-#         for r in df_tf_model.itertuples(index=False):
-#             tf = getattr(r, "tf")
-#             tgt = getattr(r, "target")
-#             if tf not in idx.p2i or tgt not in idx.p2i:
-#                 continue
-#
-#             i_tgt = idx.p2i[tgt]
-#             j_tf = idx.p2i[tf]
-#
-#             try:
-#                 coeff = float(tf_mat[i_tgt, j_tf])
-#             except Exception:
-#                 coeff = float(np.asarray(tf_mat[i_tgt, j_tf]).squeeze())
-#
-#             if abs(coeff) < 1e-14:
-#                 continue
-#
-#             tf_level = _total_protein_from_Y_row(y_row, idx, tf)
-#             drive = tf_scale * coeff * tf_level
-#             rows.append((tf, tgt, float(drive)))
-#
-#         if rows:
-#             df_tf_edges = pd.DataFrame(rows, columns=["src", "tgt", "weight"])
-#             df_tf_edges["type"] = "transcription"
-#
-#     return df_sig, df_tf_edges
-#
-#
-# def _filter_edges(
-#     df_sig: pd.DataFrame,
-#     df_tf: pd.DataFrame,
-#     include_tf: bool,
-#     min_abs_w: float,
-#     top_k: int,
-#     edge_scale: float = 1.0,
-# ) -> pd.DataFrame:
-#     df_all = df_sig.copy()
-#     if include_tf and df_tf is not None and not df_tf.empty:
-#         df_all = pd.concat([df_all, df_tf], ignore_index=True)
-#
-#     if df_all.empty:
-#         return df_all
-#
-#     df_all["weight"] = pd.to_numeric(df_all["weight"], errors="coerce") * float(edge_scale)
-#     df_all = df_all.replace([np.inf, -np.inf], np.nan).dropna(subset=["src", "tgt", "weight"])
-#
-#     df_all["absw"] = df_all["weight"].abs()
-#     df_all = df_all[df_all["absw"] >= float(min_abs_w)].copy()
-#     df_all = df_all.sort_values("absw", ascending=False).head(int(top_k)).copy()
-#     return df_all
-#
-#
-# def _build_union_graph(edge_frames: list[pd.DataFrame]) -> nx.DiGraph:
-#     G = nx.DiGraph()
-#     for df in edge_frames:
-#         if df is None or df.empty:
-#             continue
-#         for r in df.itertuples(index=False):
-#             G.add_edge(r.src, r.tgt, etype=r.type)
-#     return G
-#
-#
-# def _node_activity_frames(edge_frames: list[pd.DataFrame], nodes: list[str]) -> list[np.ndarray]:
-#     node2i = {n: i for i, n in enumerate(nodes)}
-#     frames = []
-#     for df in edge_frames:
-#         active = np.zeros(len(nodes), dtype=float)
-#         if df is not None and not df.empty:
-#             act_nodes = pd.unique(pd.concat([df["src"], df["tgt"]], ignore_index=True))
-#             for n in act_nodes:
-#                 j = node2i.get(n)
-#                 if j is not None:
-#                     active[j] = 1.0
-#         frames.append(active)
-#     return frames
-#
-#
-# def _aligned_node_colors_for_frame(
-#     nodes: list[str],
-#     idx: Index,
-#     wt_vec: np.ndarray,
-#     ko_vec: np.ndarray,
-#     eps: float = 1e-9,
-# ) -> np.ndarray:
-#     """
-#     Returns log2(KO/WT) aligned to `nodes`.
-#     Unknown nodes (e.g., kinases not in idx.p2i) get NaN.
-#     """
-#     out = np.full(len(nodes), np.nan, dtype=float)
-#     for i, n in enumerate(nodes):
-#         if n in idx.p2i:
-#             j = idx.p2i[n]
-#             out[i] = float(np.log2((float(ko_vec[j]) + eps) / (float(wt_vec[j]) + eps)))
-#     return out
-#
-#
-# # -------------------------
-# # Plotly animated network (fixed: no array line widths; aligned node colors)
-# # -------------------------
-# def _plotly_animated_network(
-#     edge_frames: list[pd.DataFrame],
-#     times: np.ndarray,
-#     title: str,
-#     node_color_frames: list[np.ndarray] | None = None,
-#     node_cmax: float = 2.0,
-#     highlight_nodes: bool = True,
-# ) -> go.Figure:
-#     G = _build_union_graph(edge_frames)
-#     if G.number_of_nodes() == 0:
-#         return go.Figure()
-#
-#     pos = nx.spring_layout(G, k=0.8, seed=42)
-#     nodes = list(G.nodes())
-#
-#     activity_frames = _node_activity_frames(edge_frames, nodes) if highlight_nodes else None
-#
-#     node_x = [pos[n][0] for n in nodes]
-#     node_y = [pos[n][1] for n in nodes]
-#
-#     base_size = 10.0
-#     boost_size = 18.0
-#
-#     init_act = activity_frames[0] if activity_frames is not None else np.ones(len(nodes), dtype=float)
-#     init_sizes = base_size + boost_size * init_act
-#
-#     init_colors = None
-#     if node_color_frames is not None and len(node_color_frames) > 0:
-#         init_colors = node_color_frames[0]
-#
-#     # IMPORTANT: Plotly does NOT support array-valued marker.line.width. Keep it scalar.
-#     node_trace = go.Scatter(
-#         x=node_x,
-#         y=node_y,
-#         mode="markers+text",
-#         text=nodes,
-#         textposition="top center",
-#         hoverinfo="text",
-#         marker=dict(
-#             size=init_sizes,               # array OK
-#             line=dict(width=1, color="black"),
-#             color=init_colors if init_colors is not None else None,
-#             colorscale="RdBu_r",
-#             cmin=-float(node_cmax),
-#             cmax=float(node_cmax),
-#             colorbar=dict(title="log2(KO/WT)", thickness=15) if init_colors is not None else None,
-#         ),
-#         showlegend=False,
-#     )
-#
-#     union_edges = list(G.edges())
-#     edge_meta = {(u, v): G.edges[u, v].get("etype", "signaling") for (u, v) in union_edges}
-#
-#     def _edge_traces_for_frame(df_edges: pd.DataFrame):
-#         if df_edges is None or df_edges.empty:
-#             return [
-#                 go.Scatter(x=[], y=[], mode="lines", line=dict(width=1, color="#3498db"), opacity=0.2, hoverinfo="none"),
-#                 go.Scatter(x=[], y=[], mode="lines", line=dict(width=1, color="#e67e22"), opacity=0.2, hoverinfo="none"),
-#             ]
-#
-#         wmap = {(r.src, r.tgt): float(r.weight) for r in df_edges.itertuples(index=False)}
-#
-#         # Build per-type traces (performance-first)
-#         traces = []
-#         for etype, color in [("signaling", "#3498db"), ("transcription", "#e67e22")]:
-#             x_e, y_e, widths = [], [], []
-#             for (u, v) in union_edges:
-#                 if edge_meta[(u, v)] != etype:
-#                     continue
-#                 w = wmap.get((u, v), 0.0)
-#                 if abs(w) <= 0:
-#                     continue
-#                 x0, y0 = pos[u]
-#                 x1, y1 = pos[v]
-#                 x_e += [x0, x1, None]
-#                 y_e += [y0, y1, None]
-#                 widths.append(float(np.clip(np.log10(1.0 + abs(w)) * 3.0, 0.2, 6.0)))
-#
-#             w_med = float(np.median(widths)) if widths else 0.2
-#             traces.append(
-#                 go.Scatter(
-#                     x=x_e,
-#                     y=y_e,
-#                     mode="lines",
-#                     line=dict(width=w_med, color=color),
-#                     opacity=0.55,
-#                     hoverinfo="none",
-#                     showlegend=False,
-#                 )
-#             )
-#         return traces
-#
-#     init_edge_traces = _edge_traces_for_frame(edge_frames[0])
-#
-#     frames = []
-#     for i, (df_e, t) in enumerate(zip(edge_frames, times)):
-#         edge_traces_i = _edge_traces_for_frame(df_e)
-#
-#         if activity_frames is not None:
-#             act = activity_frames[i]
-#             sizes_i = base_size + boost_size * act
-#         else:
-#             sizes_i = base_size
-#
-#         if node_color_frames is not None:
-#             colors_i = node_color_frames[i]
-#             node_trace_i = go.Scatter(
-#                 x=node_x,
-#                 y=node_y,
-#                 mode="markers+text",
-#                 text=nodes,
-#                 textposition="top center",
-#                 hoverinfo="text",
-#                 marker=dict(
-#                     size=sizes_i if np.iterable(sizes_i) else float(sizes_i),
-#                     line=dict(width=1, color="black"),
-#                     color=colors_i,
-#                     colorscale="RdBu_r",
-#                     cmin=-float(node_cmax),
-#                     cmax=float(node_cmax),
-#                 ),
-#                 showlegend=False,
-#             )
-#         else:
-#             node_trace_i = go.Scatter(
-#                 x=node_x, y=node_y,
-#                 mode="markers+text",
-#                 text=nodes,
-#                 textposition="top center",
-#                 hoverinfo="text",
-#                 marker=dict(size=sizes_i if np.iterable(sizes_i) else float(sizes_i), line=dict(width=1, color="black")),
-#                 showlegend=False,
-#             )
-#
-#         frames.append(
-#             go.Frame(
-#                 data=edge_traces_i + [node_trace_i],
-#                 name=str(i),
-#                 layout=go.Layout(title=f"{title} (t={float(t):.1f} min)"),
-#             )
-#         )
-#
-#     fig = go.Figure(
-#         data=init_edge_traces + [node_trace],
-#         layout=go.Layout(
-#             title=f"{title} (t={float(times[0]):.1f} min)",
-#             hovermode="closest",
-#             margin=dict(b=0, l=0, r=0, t=50),
-#             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-#             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-#             template="plotly_white",
-#             updatemenus=[
-#                 dict(
-#                     type="buttons",
-#                     showactive=False,
-#                     buttons=[
-#                         dict(label="Play", method="animate",
-#                              args=[None, dict(frame=dict(duration=250, redraw=True), fromcurrent=True)]),
-#                         dict(label="Pause", method="animate",
-#                              args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")]),
-#                     ],
-#                 )
-#             ],
-#             sliders=[
-#                 dict(
-#                     active=0,
-#                     currentvalue=dict(prefix="Frame: "),
-#                     steps=[
-#                         dict(method="animate",
-#                              args=[[str(i)], dict(mode="immediate", frame=dict(duration=0, redraw=True))],
-#                              label=f"{float(t):.0f}")
-#                         for i, t in enumerate(times)
-#                     ],
-#                 )
-#             ],
-#         ),
-#         frames=frames,
-#     )
-#     return fig
-#
-#
-# # =========================
-# # STREAMLIT PANEL
-# # =========================
-# st.divider()
-# st.header("🕸️ Time-Resolved Animated Network (pre-steady-state)")
-#
-# c1, c2, c3, c4 = st.columns(4)
-# with c1:
-#     view_mode = st.selectbox("View", ["WT", "KO", "Δ(KO−WT)"], index=1, key="anim_net_view_mode")
-# with c2:
-#     t_end = st.slider("End time (min)", min_value=120, max_value=24 * 7 * 60, value=120, step=100, key="anim_net_t_end")
-# with c3:
-#     n_frames = st.slider("Frames", min_value=10, max_value=1000, value=30, step=5, key="anim_net_n_frames")
-# with c4:
-#     include_tf_edges = st.checkbox("Include TF edges", value=True, key="anim_net_include_tf_edges")
-#
-# min_abs_w = st.number_input("Min |weight| filter", min_value=0.0, value=0.001, step=0.001,
-#                             format="%.4f", key="anim_net_min_abs_w")
-#
-# top_k = st.slider("Top edges per frame", min_value=50, max_value=800, value=250, step=50, key="anim_net_top_k")
-#
-# node_metric = st.selectbox("Node color metric", ["None", "ΔmRNA (log2 KO/WT)", "ΔProtein (log2 KO/WT)"],
-#                            index=2, key="anim_net_node_metric")
-#
-# node_cmax = st.slider("Node color range (± log2)", min_value=1.1, max_value=10.0, value=2.0, step=0.1,
-#                       key="anim_net_node_cmax")
-#
-# edge_scale = st.slider("Edge weight scaling", min_value=0.1, max_value=100.0, value=1.0, step=0.1,
-#                        key="anim_net_edge_scale")
-#
-#
-# def _simulate_state_series(params: dict, t_end: float, n_points: int):
-#     sys_local, idx_local, _, df_tf_local, _ = load_system()
-#     sys_local.update(**params)
-#
-#     t_grid = np.linspace(0.0, float(t_end), int(n_points))
-#     t_sim, Y = simulate_until_steady(sys_local, t_max=float(t_end), n_points=int(n_points))
-#
-#     if len(t_sim) != len(t_grid):
-#         Yg = np.empty((len(t_grid), Y.shape[1]), dtype=float)
-#         for j in range(Y.shape[1]):
-#             Yg[:, j] = np.interp(t_grid, t_sim, Y[:, j])
-#         Y = Yg
-#         t_sim = t_grid
-#
-#     return sys_local, idx_local, df_tf_local, t_sim, Y
-#
-#
-# # trajectories
-# sys_wt, idx_wt, df_tf_wt, t_wt, Y_wt = _simulate_state_series(best_params, t_end=float(t_end), n_points=int(n_frames))
-# sys_ko, idx_ko, df_tf_ko, t_ko, Y_ko = _simulate_state_series(ko_params,  t_end=float(t_end), n_points=int(n_frames))
-#
-# # edge frames
-# edge_frames: list[pd.DataFrame] = []
-# times = t_wt  # same grid
-#
-# for i, t in enumerate(times):
-#     df_sig_wt, df_tf_e_wt = _edge_tables_at_time(sys_wt, idx_wt, df_tf_wt, Y_wt[i], t)
-#     df_sig_ko, df_tf_e_ko = _edge_tables_at_time(sys_ko, idx_ko, df_tf_ko, Y_ko[i], t)
-#
-#     if view_mode == "WT":
-#         df_e = _filter_edges(df_sig_wt, df_tf_e_wt, include_tf_edges, min_abs_w, top_k, edge_scale)
-#     elif view_mode == "KO":
-#         df_e = _filter_edges(df_sig_ko, df_tf_e_ko, include_tf_edges, min_abs_w, top_k, edge_scale)
-#     else:
-#         # Δ(KO−WT)
-#         df_w = pd.concat([df_sig_wt, df_tf_e_wt], ignore_index=True)
-#         df_k = pd.concat([df_sig_ko, df_tf_e_ko], ignore_index=True)
-#         key = ["src", "tgt", "type"]
-#
-#         df_w = df_w[key + ["weight"]].rename(columns={"weight": "w_wt"})
-#         df_k = df_k[key + ["weight"]].rename(columns={"weight": "w_ko"})
-#
-#         df_d = df_k.merge(df_w, on=key, how="outer")
-#         df_d["w_ko"] = df_d["w_ko"].fillna(0.0)
-#         df_d["w_wt"] = df_d["w_wt"].fillna(0.0)
-#         df_d["weight"] = df_d["w_ko"] - df_d["w_wt"]
-#         df_d = df_d[key + ["weight"]]
-#
-#         df_sig_d = df_d[df_d["type"] == "signaling"].copy()
-#         df_tf_d  = df_d[df_d["type"] == "transcription"].copy()
-#
-#         df_e = _filter_edges(df_sig_d, df_tf_d, include_tf_edges, min_abs_w, top_k, edge_scale)
-#
-#     edge_frames.append(df_e)
-#
-# # build union node list for alignment
-# G_union = _build_union_graph(edge_frames)
-# nodes_union = list(G_union.nodes())
-#
-# # aligned node colors per frame
-# node_color_frames = None
-# if node_metric != "None" and len(nodes_union) > 0:
-#     node_color_frames = []
-#     for i in range(len(times)):
-#         if "mRNA" in node_metric:
-#             wt_vec = _extract_mrna_vec_from_y(Y_wt[i], idx_wt)
-#             ko_vec = _extract_mrna_vec_from_y(Y_ko[i], idx_ko)
-#         else:
-#             wt_vec = _extract_total_protein_vec_from_y(Y_wt[i], idx_wt)
-#             ko_vec = _extract_total_protein_vec_from_y(Y_ko[i], idx_ko)
-#
-#         node_color_frames.append(_aligned_node_colors_for_frame(nodes_union, idx_wt, wt_vec, ko_vec))
-#
-# # edge dynamics long table
-# edge_long = []
-# for i, t in enumerate(times):
-#     df = edge_frames[i].copy()
-#     if df.empty:
-#         continue
-#     df["time"] = float(t)
-#     edge_long.append(df)
-#
-# df_edge_time = (
-#     pd.concat(edge_long, ignore_index=True)
-#     if edge_long
-#     else pd.DataFrame(columns=["src", "tgt", "type", "weight", "absw", "time"])
-# )
-#
-# fig_anim = _plotly_animated_network(
-#     edge_frames=edge_frames,
-#     times=times,
-#     title=f"{view_mode} network (0–{t_end} min)",
-#     node_color_frames=node_color_frames,
-#     node_cmax=node_cmax,
-#     highlight_nodes=True,
-# )
-# st.plotly_chart(fig_anim, use_container_use_container_width=True, key="anim_net_plot")
-#
-# c_dl1, c_dl2 = st.columns(2)
-# with c_dl1:
-#     st.download_button(
-#         "Download edge dynamics CSV",
-#         data=df_edge_time.to_csv(index=False),
-#         file_name=f"edge_dynamics_{view_mode.lower()}_t0-{int(t_end)}_frames{int(n_frames)}.csv",
-#         mime="text/csv",
-#         key="dl_edge_csv",
-#     )
-# with c_dl2:
-#     st.download_button(
-#         "Download edge dynamics JSON",
-#         data=df_edge_time.to_json(orient="records"),
-#         file_name=f"edge_dynamics_{view_mode.lower()}_t0-{int(t_end)}_frames{int(n_frames)}.json",
-#         mime="application/json",
-#         key="dl_edge_json",
-#     )
-#
-# # =========================
-# # Matplotlib-based video export (drop-in)
-# #   - NO kaleido
-# #   - Exports MP4 (ffmpeg) or GIF
-# #   - Input: edge_frames (list[pd.DataFrame]), times (array), node_color_frames (optional)
-# # =========================
-# import io
-# import numpy as np
-# import pandas as pd
-# import networkx as nx
-#
-# def _export_network_animation_matplotlib(
-#     edge_frames: list[pd.DataFrame],
-#     times: np.ndarray,
-#     fmt: str = "mp4",               # "mp4" or "gif"
-#     fps: int = 6,
-#     dpi: int = 160,
-#     node_cmap: str = "RdBu_r",
-#     node_cmax: float = 2.0,
-#     node_color_frames: list[np.ndarray] | None = None,  # aligned to nodes_union ordering
-#     figsize: tuple[float, float] = (9.0, 7.0),
-# ) -> bytes:
-#     """
-#     Matplotlib animation exporter that avoids plotly/kaleido entirely.
-#     Requires:
-#       - matplotlib
-#       - imageio
-#       - for mp4: ffmpeg available via imageio-ffmpeg or system ffmpeg
-#     """
-#     import matplotlib.pyplot as plt
-#     from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter
-#     import imageio.v2 as imageio
-#
-#     if len(edge_frames) == 0:
-#         raise RuntimeError("edge_frames is empty.")
-#     if len(times) != len(edge_frames):
-#         raise RuntimeError(f"times ({len(times)}) != edge_frames ({len(edge_frames)})")
-#
-#     # ---- build stable union graph + layout (fixed for all frames) ----
-#     G_union = nx.DiGraph()
-#     for df in edge_frames:
-#         if df is None or df.empty:
-#             continue
-#         for r in df.itertuples(index=False):
-#             G_union.add_edge(r.src, r.tgt, etype=r.type)
-#
-#     if G_union.number_of_nodes() == 0:
-#         raise RuntimeError("Union graph has no nodes (all frames empty after filtering).")
-#
-#     nodes = list(G_union.nodes())
-#     pos = nx.spring_layout(G_union, k=0.8, seed=42)
-#
-#     # helpers
-#     node_xy = np.array([pos[n] for n in nodes], dtype=float)  # (N,2)
-#     node2i = {n: i for i, n in enumerate(nodes)}
-#
-#     # ---- precompute per-frame edge sets + widths for fast drawing ----
-#     # We draw edges as 2 LineCollections: signaling + transcription
-#     from matplotlib.collections import LineCollection
-#     from matplotlib.colors import Normalize
-#
-#     def _edges_to_segments(df: pd.DataFrame, etype: str):
-#         if df is None or df.empty:
-#             return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
-#         sub = df[df["type"] == etype]
-#         if sub.empty:
-#             return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
-#
-#         segs = []
-#         widths = []
-#         for r in sub.itertuples(index=False):
-#             u, v = r.src, r.tgt
-#             if u not in node2i or v not in node2i:
-#                 continue
-#             x0, y0 = pos[u]
-#             x1, y1 = pos[v]
-#             w = float(r.weight)
-#             segs.append([[x0, y0], [x1, y1]])
-#             # stable width scaling
-#             widths.append(float(np.clip(np.log10(1.0 + abs(w)) * 2.5, 0.3, 4.5)))
-#         if not segs:
-#             return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
-#         return np.asarray(segs, dtype=float), np.asarray(widths, dtype=float)
-#
-#     sig_segments, sig_widths = [], []
-#     tf_segments, tf_widths = [], []
-#     for df in edge_frames:
-#         s_seg, s_w = _edges_to_segments(df, "signaling")
-#         t_seg, t_w = _edges_to_segments(df, "transcription")
-#         sig_segments.append(s_seg); sig_widths.append(s_w)
-#         tf_segments.append(t_seg);  tf_widths.append(t_w)
-#
-#     # ---- node colors ----
-#     use_node_colors = node_color_frames is not None and len(node_color_frames) == len(edge_frames)
-#     norm = Normalize(vmin=-float(node_cmax), vmax=float(node_cmax))
-#
-#     # ---- matplotlib figure ----
-#     fig, ax = plt.subplots(figsize=figsize)
-#     ax.set_axis_off()
-#
-#     # two edge layers
-#     lc_sig = LineCollection([], linewidths=1.0, alpha=0.55)  # color set per-update
-#     lc_tf  = LineCollection([], linewidths=1.0, alpha=0.55)
-#     lc_sig.set_color("#3498db")
-#     lc_tf.set_color("#e67e22")
-#     ax.add_collection(lc_sig)
-#     ax.add_collection(lc_tf)
-#
-#     # nodes
-#     node_sizes = np.full(len(nodes), 60.0, dtype=float)
-#     sc = ax.scatter(node_xy[:, 0], node_xy[:, 1], s=node_sizes, edgecolors="black", linewidths=0.6)
-#
-#     # labels (simple; turn off if too slow)
-#     texts = []
-#     for n in nodes:
-#         x, y = pos[n]
-#         texts.append(ax.text(x, y, str(n), fontsize=7, ha="center", va="bottom"))
-#
-#     title_obj = ax.text(0.01, 0.99, "", transform=ax.transAxes, va="top")
-#
-#     # fit bounds
-#     pad = 0.08
-#     xmin, ymin = node_xy.min(axis=0) - pad
-#     xmax, ymax = node_xy.max(axis=0) + pad
-#     ax.set_xlim(xmin, xmax)
-#     ax.set_ylim(ymin, ymax)
-#
-#     # optional colorbar
-#     if use_node_colors:
-#         import matplotlib.cm as cm
-#         mappable = cm.ScalarMappable(norm=norm, cmap=node_cmap)
-#         cbar = fig.colorbar(mappable, ax=ax, fraction=0.035, pad=0.02)
-#         cbar.set_label("log2(KO/WT)")
-#
-#     def _update(i: int):
-#         # edges
-#         lc_sig.set_segments(sig_segments[i])
-#         lc_sig.set_linewidths(sig_widths[i] if len(sig_widths[i]) else 0.2)
-#
-#         lc_tf.set_segments(tf_segments[i])
-#         lc_tf.set_linewidths(tf_widths[i] if len(tf_widths[i]) else 0.2)
-#
-#         # nodes colors
-#         if use_node_colors:
-#             colors_i = node_color_frames[i]
-#             # ensure aligned length; if not, disable
-#             if isinstance(colors_i, np.ndarray) and colors_i.shape[0] == len(nodes):
-#                 sc.set_array(colors_i.astype(float))
-#                 sc.set_cmap(node_cmap)
-#                 sc.set_norm(norm)
-#
-#         title_obj.set_text(f"Network (t={float(times[i]):.1f} min)")
-#         return (lc_sig, lc_tf, sc, title_obj, *texts)
-#
-#     anim = FuncAnimation(fig, _update, frames=len(edge_frames), interval=1000 / max(1, fps), blit=False)
-#
-#     # ---- write to bytes ----
-#     buf = io.BytesIO()
-#     fmt_l = fmt.lower()
-#
-#     if fmt_l == "mp4":
-#         # Preferred: stream directly to BytesIO using FFMpegWriter (works in many environments).
-#         try:
-#             writer = FFMpegWriter(fps=fps, codec="libx264", bitrate=1800)
-#             anim.save(buf, writer=writer, dpi=dpi)
-#             plt.close(fig)
-#             return buf.getvalue()
-#         except Exception:
-#             # Fallback: write to temp file then read bytes (more robust).
-#             import tempfile, os
-#             with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-#                 tmp_path = tmp.name
-#             try:
-#                 writer = FFMpegWriter(fps=fps, codec="libx264", bitrate=1800)
-#                 anim.save(tmp_path, writer=writer, dpi=dpi)
-#                 with open(tmp_path, "rb") as f:
-#                     data = f.read()
-#             finally:
-#                 try: os.remove(tmp_path)
-#                 except Exception: pass
-#                 plt.close(fig)
-#             return data
-#
-#     if fmt_l == "gif":
-#         try:
-#             writer = PillowWriter(fps=fps)
-#             anim.save(buf, writer=writer, dpi=dpi)
-#             plt.close(fig)
-#             return buf.getvalue()
-#         except Exception:
-#             # fallback: temp file
-#             import tempfile, os
-#             with tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as tmp:
-#                 tmp_path = tmp.name
-#             try:
-#                 writer = PillowWriter(fps=fps)
-#                 anim.save(tmp_path, writer=writer, dpi=dpi)
-#                 with open(tmp_path, "rb") as f:
-#                     data = f.read()
-#             finally:
-#                 try: os.remove(tmp_path)
-#                 except Exception: pass
-#                 plt.close(fig)
-#             return data
-#
-#     plt.close(fig)
-#     raise ValueError("fmt must be 'mp4' or 'gif'")
-#
-#
-# # -------------------------
-# # Streamlit drop-in UI (replace your export block)
-# # -------------------------
-# st.subheader("Export animation (Matplotlib)")
-#
-# cE1, cE2, cE3, cE4 = st.columns(4)
-# with cE1:
-#     export_fmt = st.selectbox("Format", ["mp4", "gif"], index=0, key="mpl_export_fmt")
-# with cE2:
-#     export_fps = st.slider("FPS", min_value=2, max_value=20, value=6, step=1, key="mpl_export_fps")
-# with cE3:
-#     export_dpi = st.slider("DPI", min_value=80, max_value=300, value=160, step=10, key="mpl_export_dpi")
-# with cE4:
-#     export_node_cmax = st.slider("Node color range (± log2)", min_value=1.1, max_value=10.0, value=float(node_cmax),
-#                                  step=0.1, key="mpl_export_node_cmax")
-#
-# if st.button("Render export file (Matplotlib)", key="mpl_export_btn"):
-#     try:
-#         video_bytes = _export_network_animation_matplotlib(
-#             edge_frames=edge_frames,
-#             times=times,
-#             fmt=export_fmt,
-#             fps=int(export_fps),
-#             dpi=int(export_dpi),
-#             node_cmax=float(export_node_cmax),
-#             node_color_frames=node_color_frames,  # can be None
-#         )
-#         st.download_button(
-#             f"Download {export_fmt.upper()}",
-#             data=video_bytes,
-#             file_name=f"network_{view_mode.lower()}_t0-{int(t_end)}_frames{int(n_frames)}.{export_fmt}",
-#             mime=("video/mp4" if export_fmt == "mp4" else "image/gif"),
-#             key="mpl_export_download",
-#         )
-#     except Exception as e:
-#         st.error(str(e))
+st.divider()
+st.header("🕸️ Time-Resolved Animated Network")
+
+# -------------------------
+# State/vector helpers
+# -------------------------
+def _extract_mrna_vec_from_y(y_row: np.ndarray, idx: Index) -> np.ndarray:
+    out = np.zeros(len(idx.proteins), dtype=float)
+    for i in range(len(idx.proteins)):
+        st_y = idx.offset_y[i]
+        out[i] = float(y_row[st_y])
+    return out
+
+
+def _extract_total_protein_vec_from_y(y_row: np.ndarray, idx: Index) -> np.ndarray:
+    out = np.zeros(len(idx.proteins), dtype=float)
+
+    for i in range(len(idx.proteins)):
+        st_y = idx.offset_y[i]
+        prot = float(y_row[st_y + 1])
+        ns = int(idx.n_sites[i])
+
+        if ns > 0:
+            phos_sum = float(np.sum(y_row[st_y + 2: st_y + 2 + ns]))
+            out[i] = prot + phos_sum
+        else:
+            out[i] = prot
+
+    return out
+
+
+def _total_protein_from_Y_row(y_row: np.ndarray, idx: Index, protein: str) -> float:
+    p_i = idx.p2i[protein]
+    st_y = idx.offset_y[p_i]
+
+    prot = float(y_row[st_y + 1])
+    ns = int(idx.n_sites[p_i])
+
+    if ns > 0:
+        return prot + float(np.sum(y_row[st_y + 2: st_y + 2 + ns]))
+
+    return prot
+
+
+def _aligned_log2_ko_wt_for_nodes(
+    nodes: list[str],
+    idx: Index,
+    wt_vec: np.ndarray,
+    ko_vec: np.ndarray,
+    eps: float = 1e-9,
+) -> np.ndarray:
+    """Return log2(KO/WT), aligned to Plotly/NetworkX node order.
+
+    Unknown nodes are set to 0.0 so they appear neutral instead of breaking
+    the color scale.
+    """
+    out = np.zeros(len(nodes), dtype=float)
+
+    for i, node in enumerate(nodes):
+        if node in idx.p2i:
+            j = idx.p2i[node]
+            out[i] = float(np.log2((float(ko_vec[j]) + eps) / (float(wt_vec[j]) + eps)))
+
+    out = np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+    return out
+
+
+# -------------------------
+# Time-resolved simulation
+# -------------------------
+def _simulate_state_series(params: dict, t_end: float, n_points: int):
+    """Simulate one parameterization once and return a regular time grid."""
+    sys_local, idx_local, _, df_tf_local, _ = load_system()
+    sys_local.update(**params)
+
+    t_end = float(t_end)
+    n_points = int(n_points)
+
+    t_target = np.linspace(0.0, t_end, n_points, dtype=float)
+
+    t_sim, Y = simulate_until_steady(
+        sys_local,
+        t_max=t_end,
+        n_points=n_points,
+    )
+
+    t_sim = np.asarray(t_sim, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+
+    if Y.ndim != 2:
+        raise RuntimeError(f"Expected 2D state matrix from simulation, got shape={Y.shape}")
+
+    if len(t_sim) != len(t_target) or not np.allclose(t_sim, t_target):
+        Y_interp = np.empty((len(t_target), Y.shape[1]), dtype=float)
+
+        for j in range(Y.shape[1]):
+            Y_interp[:, j] = np.interp(t_target, t_sim, Y[:, j])
+
+        t_sim = t_target
+        Y = Y_interp
+
+    return sys_local, idx_local, df_tf_local, t_sim, Y
+
+
+# -------------------------
+# Edge construction at one frame
+# -------------------------
+def _edge_tables_from_state_at_time(
+    sys_local: System,
+    idx_local: Index,
+    df_tf_local: pd.DataFrame | None,
+    y_row: np.ndarray,
+    t: float,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build signaling and TF edge tables from an already-simulated state row."""
+    t = float(t)
+
+    # Signaling edges: kinase -> target protein.
+    # Kinase activity is represented through external/interpolated kinase input
+    # multiplied by fitted/scaled c_k.
+    Kt = sys_local.kin.eval(t) * sys_local.c_k
+
+    W = sys_local.W_global.tocoo()
+    edge_contrib = W.data * Kt[W.col]
+
+    prot_idx = np.searchsorted(idx_local.offset_s, W.row, side="right") - 1
+    prot_idx = np.clip(prot_idx, 0, len(idx_local.proteins) - 1)
+
+    df_sig = pd.DataFrame(
+        {
+            "src": np.asarray(idx_local.kinases, dtype=object)[W.col],
+            "tgt": np.asarray(idx_local.proteins, dtype=object)[prot_idx],
+            "weight": edge_contrib.astype(float),
+            "type": "signaling",
+        }
+    )
+
+    if not df_sig.empty:
+        df_sig = (
+            df_sig.groupby(["src", "tgt", "type"], as_index=False)
+            .agg(weight=("weight", "sum"))
+        )
+
+    # Transcription edges: TF protein level -> target.
+    df_tf_edges = pd.DataFrame(columns=["src", "tgt", "weight", "type"])
+
+    if df_tf_local is not None and not df_tf_local.empty:
+        tf_mat = sys_local.tf_mat
+        tf_scale = float(getattr(sys_local, "tf_scale", 1.0))
+
+        rows = []
+
+        for r in df_tf_local.itertuples(index=False):
+            tf = getattr(r, "tf")
+            tgt = getattr(r, "target")
+
+            if tf not in idx_local.p2i or tgt not in idx_local.p2i:
+                continue
+
+            i_tgt = idx_local.p2i[tgt]
+            j_tf = idx_local.p2i[tf]
+
+            try:
+                coeff = float(tf_mat[i_tgt, j_tf])
+            except Exception:
+                coeff = float(np.asarray(tf_mat[i_tgt, j_tf]).squeeze())
+
+            if abs(coeff) < 1e-14:
+                continue
+
+            tf_level = _total_protein_from_Y_row(y_row, idx_local, tf)
+            drive = tf_scale * coeff * tf_level
+
+            rows.append((tf, tgt, float(drive), "transcription"))
+
+        if rows:
+            df_tf_edges = pd.DataFrame(
+                rows,
+                columns=["src", "tgt", "weight", "type"],
+            )
+
+    return df_sig, df_tf_edges
+
+
+def _filter_edges_for_animation(
+    df_sig: pd.DataFrame,
+    df_tf: pd.DataFrame,
+    *,
+    include_tf: bool,
+    min_abs_weight: float,
+    top_k: int,
+    edge_scale: float,
+) -> pd.DataFrame:
+    """Merge, clean, scale, threshold, and rank edges for one frame."""
+    if df_sig is None or df_sig.empty:
+        df_all = pd.DataFrame(columns=["src", "tgt", "weight", "type"])
+    else:
+        df_all = df_sig.copy()
+
+    if include_tf and df_tf is not None and not df_tf.empty:
+        df_all = pd.concat([df_all, df_tf], ignore_index=True)
+
+    if df_all.empty:
+        df_all["absw"] = []
+        return df_all
+
+    df_all["src"] = df_all["src"].astype(str)
+    df_all["tgt"] = df_all["tgt"].astype(str)
+    df_all["type"] = df_all["type"].astype(str)
+    df_all["weight"] = pd.to_numeric(df_all["weight"], errors="coerce")
+
+    df_all = (
+        df_all.replace([np.inf, -np.inf], np.nan)
+        .dropna(subset=["src", "tgt", "type", "weight"])
+        .copy()
+    )
+
+    df_all["weight"] = df_all["weight"] * float(edge_scale)
+    df_all["absw"] = df_all["weight"].abs()
+
+    df_all = df_all[df_all["absw"] >= float(min_abs_weight)].copy()
+    df_all = df_all.sort_values("absw", ascending=False).head(int(top_k)).copy()
+
+    return df_all
+
+
+def _delta_edges_for_frame(df_wt_all: pd.DataFrame, df_ko_all: pd.DataFrame) -> pd.DataFrame:
+    """Align WT and KO edges and compute KO - WT edge weight."""
+    key_cols = ["src", "tgt", "type"]
+
+    if df_wt_all.empty and df_ko_all.empty:
+        return pd.DataFrame(columns=["src", "tgt", "type", "weight"])
+
+    if df_wt_all.empty:
+        df_w = pd.DataFrame(columns=key_cols + ["w_wt"])
+    else:
+        df_w = df_wt_all[key_cols + ["weight"]].rename(columns={"weight": "w_wt"})
+
+    if df_ko_all.empty:
+        df_k = pd.DataFrame(columns=key_cols + ["w_ko"])
+    else:
+        df_k = df_ko_all[key_cols + ["weight"]].rename(columns={"weight": "w_ko"})
+
+    df_d = df_k.merge(df_w, on=key_cols, how="outer")
+    df_d["w_ko"] = df_d["w_ko"].fillna(0.0)
+    df_d["w_wt"] = df_d["w_wt"].fillna(0.0)
+    df_d["weight"] = df_d["w_ko"] - df_d["w_wt"]
+
+    return df_d[key_cols + ["weight"]].copy()
+
+
+def _build_animation_frames(
+    *,
+    view_mode: str,
+    best_params: dict,
+    ko_params: dict,
+    include_tf_edges: bool,
+    min_abs_weight: float,
+    top_k: int,
+    edge_scale: float,
+    t_end: float,
+    n_frames: int,
+    node_metric: str,
+):
+    """Generate all animation data once."""
+    sys_wt, idx_wt, df_tf_wt, t_wt, Y_wt = _simulate_state_series(
+        best_params,
+        t_end=float(t_end),
+        n_points=int(n_frames),
+    )
+
+    sys_ko, idx_ko, df_tf_ko, t_ko, Y_ko = _simulate_state_series(
+        ko_params,
+        t_end=float(t_end),
+        n_points=int(n_frames),
+    )
+
+    times = np.asarray(t_wt, dtype=float)
+
+    if len(t_ko) != len(times) or not np.allclose(t_ko, times):
+        raise RuntimeError("WT and KO simulations produced incompatible time grids.")
+
+    edge_frames = []
+
+    for i, tt in enumerate(times):
+        df_sig_wt, df_tf_e_wt = _edge_tables_from_state_at_time(
+            sys_wt,
+            idx_wt,
+            df_tf_wt,
+            Y_wt[i],
+            float(tt),
+        )
+
+        df_sig_ko, df_tf_e_ko = _edge_tables_from_state_at_time(
+            sys_ko,
+            idx_ko,
+            df_tf_ko,
+            Y_ko[i],
+            float(tt),
+        )
+
+        df_wt_all = _filter_edges_for_animation(
+            df_sig_wt,
+            df_tf_e_wt,
+            include_tf=include_tf_edges,
+            min_abs_weight=0.0,
+            top_k=10_000_000,
+            edge_scale=1.0,
+        )
+
+        df_ko_all = _filter_edges_for_animation(
+            df_sig_ko,
+            df_tf_e_ko,
+            include_tf=include_tf_edges,
+            min_abs_weight=0.0,
+            top_k=10_000_000,
+            edge_scale=1.0,
+        )
+
+        if view_mode == "WT":
+            df_e = _filter_edges_for_animation(
+                df_sig_wt,
+                df_tf_e_wt,
+                include_tf=include_tf_edges,
+                min_abs_weight=min_abs_weight,
+                top_k=top_k,
+                edge_scale=edge_scale,
+            )
+
+        elif view_mode == "KO":
+            df_e = _filter_edges_for_animation(
+                df_sig_ko,
+                df_tf_e_ko,
+                include_tf=include_tf_edges,
+                min_abs_weight=min_abs_weight,
+                top_k=top_k,
+                edge_scale=edge_scale,
+            )
+
+        else:
+            df_d = _delta_edges_for_frame(df_wt_all, df_ko_all)
+
+            df_sig_d = df_d[df_d["type"] == "signaling"].copy()
+            df_tf_d = df_d[df_d["type"] == "transcription"].copy()
+
+            df_e = _filter_edges_for_animation(
+                df_sig_d,
+                df_tf_d,
+                include_tf=include_tf_edges,
+                min_abs_weight=min_abs_weight,
+                top_k=top_k,
+                edge_scale=edge_scale,
+            )
+
+        edge_frames.append(df_e)
+
+    # Build union graph for stable node order.
+    G_union = nx.DiGraph()
+
+    for df in edge_frames:
+        if df is None or df.empty:
+            continue
+
+        for r in df.itertuples(index=False):
+            G_union.add_edge(str(r.src), str(r.tgt), etype=str(r.type))
+
+    nodes_union = list(G_union.nodes())
+
+    node_color_frames = None
+
+    if node_metric != "None" and len(nodes_union) > 0:
+        node_color_frames = []
+
+        for i in range(len(times)):
+            if "mRNA" in node_metric:
+                wt_vec = _extract_mrna_vec_from_y(Y_wt[i], idx_wt)
+                ko_vec = _extract_mrna_vec_from_y(Y_ko[i], idx_ko)
+            else:
+                wt_vec = _extract_total_protein_vec_from_y(Y_wt[i], idx_wt)
+                ko_vec = _extract_total_protein_vec_from_y(Y_ko[i], idx_ko)
+
+            node_color_frames.append(
+                _aligned_log2_ko_wt_for_nodes(
+                    nodes_union,
+                    idx_wt,
+                    wt_vec,
+                    ko_vec,
+                )
+            )
+
+    edge_long = []
+
+    for tt, df in zip(times, edge_frames):
+        if df is None or df.empty:
+            continue
+
+        tmp = df.copy()
+        tmp["time"] = float(tt)
+        edge_long.append(tmp)
+
+    df_edge_time = (
+        pd.concat(edge_long, ignore_index=True)
+        if edge_long
+        else pd.DataFrame(columns=["src", "tgt", "type", "weight", "absw", "time"])
+    )
+
+    return {
+        "edge_frames": edge_frames,
+        "times": times,
+        "nodes_union": nodes_union,
+        "node_color_frames": node_color_frames,
+        "df_edge_time": df_edge_time,
+    }
+
+
+# -------------------------
+# Plotly animated network
+# -------------------------
+def _build_union_graph_from_edge_frames(edge_frames: list[pd.DataFrame]) -> nx.DiGraph:
+    G = nx.DiGraph()
+
+    for df in edge_frames:
+        if df is None or df.empty:
+            continue
+
+        for r in df.itertuples(index=False):
+            G.add_edge(str(r.src), str(r.tgt), etype=str(r.type))
+
+    return G
+
+
+def _node_activity_frames(edge_frames: list[pd.DataFrame], nodes: list[str]) -> list[np.ndarray]:
+    node2i = {n: i for i, n in enumerate(nodes)}
+    frames = []
+
+    for df in edge_frames:
+        active = np.zeros(len(nodes), dtype=float)
+
+        if df is not None and not df.empty:
+            act_nodes = pd.unique(pd.concat([df["src"], df["tgt"]], ignore_index=True).astype(str))
+
+            for n in act_nodes:
+                j = node2i.get(n)
+                if j is not None:
+                    active[j] = 1.0
+
+        frames.append(active)
+
+    return frames
+
+
+def _plotly_animated_network(
+    edge_frames: list[pd.DataFrame],
+    times: np.ndarray,
+    title: str,
+    node_color_frames: list[np.ndarray] | None = None,
+    node_cmax: float = 2.0,
+) -> go.Figure:
+    G = _build_union_graph_from_edge_frames(edge_frames)
+
+    if G.number_of_nodes() == 0:
+        fig = go.Figure()
+        fig.update_layout(
+            title="No edges passed the current filters",
+            template="plotly_white",
+        )
+        return fig
+
+    pos = nx.spring_layout(G, k=0.8, seed=42)
+    nodes = list(G.nodes())
+
+    activity_frames = _node_activity_frames(edge_frames, nodes)
+
+    node_x = [pos[n][0] for n in nodes]
+    node_y = [pos[n][1] for n in nodes]
+
+    base_size = 10.0
+    boost_size = 18.0
+
+    union_edges = list(G.edges())
+    edge_type = {(u, v): G.edges[u, v].get("etype", "signaling") for (u, v) in union_edges}
+
+    def _edge_traces_for_frame(df_edges: pd.DataFrame):
+        traces = []
+
+        if df_edges is None or df_edges.empty:
+            for color in ("#3498db", "#e67e22"):
+                traces.append(
+                    go.Scatter(
+                        x=[],
+                        y=[],
+                        mode="lines",
+                        line=dict(width=1, color=color),
+                        hoverinfo="none",
+                        showlegend=False,
+                    )
+                )
+            return traces
+
+        wmap = {
+            (str(r.src), str(r.tgt)): float(r.weight)
+            for r in df_edges.itertuples(index=False)
+        }
+
+        for etype, color, label in [
+            ("signaling", "#3498db", "Signaling"),
+            ("transcription", "#e67e22", "Transcription"),
+        ]:
+            x_e, y_e, widths = [], [], []
+
+            for u, v in union_edges:
+                if edge_type[(u, v)] != etype:
+                    continue
+
+                w = wmap.get((u, v), 0.0)
+
+                if abs(w) <= 0.0:
+                    continue
+
+                x0, y0 = pos[u]
+                x1, y1 = pos[v]
+
+                x_e += [x0, x1, None]
+                y_e += [y0, y1, None]
+                widths.append(float(np.clip(np.log10(1.0 + abs(w)) * 3.0, 0.5, 6.0)))
+
+            # Plotly cannot assign different line widths within one trace.
+            # Use median width per edge type for stable rendering.
+            line_width = float(np.median(widths)) if widths else 0.5
+
+            traces.append(
+                go.Scatter(
+                    x=x_e,
+                    y=y_e,
+                    mode="lines",
+                    line=dict(width=line_width, color=color),
+                    opacity=0.6,
+                    hoverinfo="none",
+                    name=label,
+                    showlegend=False,
+                )
+            )
+
+        return traces
+
+    def _node_trace_for_frame(i: int):
+        activity = activity_frames[i]
+        sizes = base_size + boost_size * activity
+
+        marker = dict(
+            size=sizes,
+            line=dict(width=1, color="black"),
+        )
+
+        if node_color_frames is not None:
+            colors = np.asarray(node_color_frames[i], dtype=float)
+
+            marker.update(
+                color=colors,
+                colorscale="RdBu_r",
+                cmin=-float(node_cmax),
+                cmax=float(node_cmax),
+                colorbar=dict(title="log2(KO/WT)", thickness=15),
+            )
+
+        return go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers+text",
+            text=nodes,
+            textposition="top center",
+            hovertext=[f"<b>{n}</b>" for n in nodes],
+            hoverinfo="text",
+            marker=marker,
+            showlegend=False,
+        )
+
+    init_data = _edge_traces_for_frame(edge_frames[0]) + [_node_trace_for_frame(0)]
+
+    frames = []
+
+    for i, (df_e, tt) in enumerate(zip(edge_frames, times)):
+        frames.append(
+            go.Frame(
+                data=_edge_traces_for_frame(df_e) + [_node_trace_for_frame(i)],
+                name=str(i),
+                layout=go.Layout(
+                    title=f"{title} — t={float(tt):.1f} min"
+                ),
+            )
+        )
+
+    fig = go.Figure(
+        data=init_data,
+        frames=frames,
+    )
+
+    fig.update_layout(
+        title=f"{title} — t={float(times[0]):.1f} min",
+        hovermode="closest",
+        margin=dict(b=0, l=0, r=0, t=60),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        template="plotly_white",
+        updatemenus=[
+            dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="Play",
+                        method="animate",
+                        args=[
+                            None,
+                            dict(
+                                frame=dict(duration=250, redraw=True),
+                                fromcurrent=True,
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                    ),
+                    dict(
+                        label="Pause",
+                        method="animate",
+                        args=[
+                            [None],
+                            dict(
+                                frame=dict(duration=0, redraw=False),
+                                mode="immediate",
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                    ),
+                ],
+            )
+        ],
+        sliders=[
+            dict(
+                active=0,
+                currentvalue=dict(prefix="Time: ", suffix=" min"),
+                steps=[
+                    dict(
+                        method="animate",
+                        args=[
+                            [str(i)],
+                            dict(
+                                mode="immediate",
+                                frame=dict(duration=0, redraw=True),
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                        label=f"{float(tt):.0f}",
+                    )
+                    for i, tt in enumerate(times)
+                ],
+            )
+        ],
+    )
+
+    return fig
+
+
+# -------------------------
+# Matplotlib export
+# -------------------------
+def _export_network_animation_matplotlib(
+    edge_frames: list[pd.DataFrame],
+    times: np.ndarray,
+    *,
+    fmt: str = "gif",
+    fps: int = 6,
+    dpi: int = 150,
+    node_cmax: float = 2.0,
+    node_color_frames: list[np.ndarray] | None = None,
+    figsize: tuple[float, float] = (9.0, 7.0),
+) -> bytes:
+    import os
+    import tempfile
+
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter
+    from matplotlib.collections import LineCollection
+    from matplotlib.colors import Normalize
+    import matplotlib.cm as cm
+
+    if not edge_frames:
+        raise RuntimeError("No animation frames available. Generate the animated network first.")
+
+    if len(times) != len(edge_frames):
+        raise RuntimeError(f"times length {len(times)} != edge_frames length {len(edge_frames)}")
+
+    G = _build_union_graph_from_edge_frames(edge_frames)
+
+    if G.number_of_nodes() == 0:
+        raise RuntimeError("No nodes available. Lower Min |weight| or increase top edges.")
+
+    nodes = list(G.nodes())
+    pos = nx.spring_layout(G, k=0.8, seed=42)
+
+    node_xy = np.array([pos[n] for n in nodes], dtype=float)
+    node2i = {n: i for i, n in enumerate(nodes)}
+
+    def _segments_for_type(df: pd.DataFrame, etype: str):
+        if df is None or df.empty:
+            return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
+
+        sub = df[df["type"].astype(str) == etype]
+
+        if sub.empty:
+            return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
+
+        segs = []
+        widths = []
+
+        for r in sub.itertuples(index=False):
+            u = str(r.src)
+            v = str(r.tgt)
+
+            if u not in node2i or v not in node2i:
+                continue
+
+            x0, y0 = pos[u]
+            x1, y1 = pos[v]
+            w = float(r.weight)
+
+            segs.append([[x0, y0], [x1, y1]])
+            widths.append(float(np.clip(np.log10(1.0 + abs(w)) * 2.5, 0.3, 4.5)))
+
+        if not segs:
+            return np.zeros((0, 2, 2), dtype=float), np.zeros((0,), dtype=float)
+
+        return np.asarray(segs, dtype=float), np.asarray(widths, dtype=float)
+
+    sig_segments, sig_widths = [], []
+    tf_segments, tf_widths = [], []
+
+    for df in edge_frames:
+        s_seg, s_w = _segments_for_type(df, "signaling")
+        t_seg, t_w = _segments_for_type(df, "transcription")
+
+        sig_segments.append(s_seg)
+        sig_widths.append(s_w)
+        tf_segments.append(t_seg)
+        tf_widths.append(t_w)
+
+    use_node_colors = (
+        node_color_frames is not None
+        and len(node_color_frames) == len(edge_frames)
+    )
+
+    norm = Normalize(vmin=-float(node_cmax), vmax=float(node_cmax))
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_axis_off()
+
+    lc_sig = LineCollection([], linewidths=1.0, alpha=0.60, color="#3498db")
+    lc_tf = LineCollection([], linewidths=1.0, alpha=0.60, color="#e67e22")
+
+    ax.add_collection(lc_sig)
+    ax.add_collection(lc_tf)
+
+    sc = ax.scatter(
+        node_xy[:, 0],
+        node_xy[:, 1],
+        s=np.full(len(nodes), 65.0),
+        edgecolors="black",
+        linewidths=0.6,
+    )
+
+    labels = [
+        ax.text(
+            pos[n][0],
+            pos[n][1],
+            str(n),
+            fontsize=7,
+            ha="center",
+            va="bottom",
+        )
+        for n in nodes
+    ]
+
+    title_obj = ax.text(
+        0.01,
+        0.99,
+        "",
+        transform=ax.transAxes,
+        va="top",
+        fontsize=11,
+    )
+
+    pad = 0.08
+    xmin, ymin = node_xy.min(axis=0) - pad
+    xmax, ymax = node_xy.max(axis=0) + pad
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    if use_node_colors:
+        mappable = cm.ScalarMappable(norm=norm, cmap="RdBu_r")
+        cbar = fig.colorbar(mappable, ax=ax, fraction=0.035, pad=0.02)
+        cbar.set_label("log2(KO/WT)")
+
+    def _update(i: int):
+        lc_sig.set_segments(sig_segments[i])
+        lc_sig.set_linewidths(sig_widths[i] if len(sig_widths[i]) else 0.2)
+
+        lc_tf.set_segments(tf_segments[i])
+        lc_tf.set_linewidths(tf_widths[i] if len(tf_widths[i]) else 0.2)
+
+        if use_node_colors:
+            colors_i = np.asarray(node_color_frames[i], dtype=float)
+
+            if colors_i.shape[0] == len(nodes):
+                sc.set_array(colors_i)
+                sc.set_cmap("RdBu_r")
+                sc.set_norm(norm)
+
+        title_obj.set_text(f"Network at t={float(times[i]):.1f} min")
+
+        return (lc_sig, lc_tf, sc, title_obj, *labels)
+
+    anim = FuncAnimation(
+        fig,
+        _update,
+        frames=len(edge_frames),
+        interval=1000 / max(1, int(fps)),
+        blit=False,
+    )
+
+    fmt = fmt.lower().strip()
+
+    if fmt not in {"gif", "mp4"}:
+        plt.close(fig)
+        raise ValueError("fmt must be 'gif' or 'mp4'")
+
+    suffix = f".{fmt}"
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        if fmt == "gif":
+            writer = PillowWriter(fps=int(fps))
+        else:
+            writer = FFMpegWriter(fps=int(fps), codec="libx264", bitrate=1800)
+
+        anim.save(tmp_path, writer=writer, dpi=int(dpi))
+
+        with open(tmp_path, "rb") as f:
+            data = f.read()
+
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+        plt.close(fig)
+
+    return data
+
+
+# -------------------------
+# Streamlit controls
+# -------------------------
+if target is None:
+    st.info("No KO target is selected. WT view works, but KO/Δ views will be identical or uninformative.")
+
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    anim_view_mode = st.selectbox(
+        "View",
+        ["WT", "KO", "Δ(KO−WT)"],
+        index=1,
+        key="anim_net_view_mode",
+    )
+
+with c2:
+    anim_t_end = st.slider(
+        "End time (min)",
+        min_value=120,
+        max_value=24 * 7 * 60,
+        value=960,
+        step=120,
+        key="anim_net_t_end",
+    )
+
+with c3:
+    anim_n_frames = st.slider(
+        "Frames",
+        min_value=10,
+        max_value=120,
+        value=30,
+        step=5,
+        key="anim_net_n_frames",
+    )
+
+with c4:
+    anim_include_tf = st.checkbox(
+        "Include TF edges",
+        value=True,
+        key="anim_net_include_tf_edges",
+    )
+
+c5, c6, c7, c8 = st.columns(4)
+
+with c5:
+    anim_min_abs_w = st.number_input(
+        "Min |weight| filter",
+        min_value=0.0,
+        value=0.001,
+        step=0.001,
+        format="%.4f",
+        key="anim_net_min_abs_w",
+    )
+
+with c6:
+    anim_top_k = st.slider(
+        "Top edges per frame",
+        min_value=50,
+        max_value=800,
+        value=250,
+        step=50,
+        key="anim_net_top_k",
+    )
+
+with c7:
+    anim_node_metric = st.selectbox(
+        "Node color metric",
+        ["None", "ΔmRNA (log2 KO/WT)", "ΔProtein (log2 KO/WT)"],
+        index=2,
+        key="anim_net_node_metric",
+    )
+
+with c8:
+    anim_node_cmax = st.slider(
+        "Node color range (± log2)",
+        min_value=1.1,
+        max_value=10.0,
+        value=2.0,
+        step=0.1,
+        key="anim_net_node_cmax",
+    )
+
+anim_edge_scale = st.slider(
+    "Edge weight scaling",
+    min_value=0.1,
+    max_value=100.0,
+    value=1.0,
+    step=0.1,
+    key="anim_net_edge_scale",
+)
+
+anim_cache_key = (
+    str(anim_view_mode),
+    float(anim_t_end),
+    int(anim_n_frames),
+    bool(anim_include_tf),
+    float(anim_min_abs_w),
+    int(anim_top_k),
+    str(anim_node_metric),
+    float(anim_node_cmax),
+    float(anim_edge_scale),
+    str(ko_type),
+    str(target),
+    float(scale) if ko_type != "None" else 1.0,
+)
+
+generate_anim = st.button(
+    "Generate animated network",
+    key="anim_net_generate_btn",
+    type="primary",
+)
+
+if generate_anim:
+    with st.spinner("Simulating WT/KO trajectories and building time-resolved network frames..."):
+        anim_payload = _build_animation_frames(
+            view_mode=str(anim_view_mode),
+            best_params=best_params,
+            ko_params=ko_params,
+            include_tf_edges=bool(anim_include_tf),
+            min_abs_weight=float(anim_min_abs_w),
+            top_k=int(anim_top_k),
+            edge_scale=float(anim_edge_scale),
+            t_end=float(anim_t_end),
+            n_frames=int(anim_n_frames),
+            node_metric=str(anim_node_metric),
+        )
+
+    st.session_state["anim_net_cache_key"] = anim_cache_key
+    st.session_state["anim_net_payload"] = anim_payload
+
+has_anim_payload = (
+    st.session_state.get("anim_net_cache_key") == anim_cache_key
+    and "anim_net_payload" in st.session_state
+)
+
+if not has_anim_payload:
+    st.info("Click **Generate animated network** to compute and display this section.")
+else:
+    anim_payload = st.session_state["anim_net_payload"]
+
+    edge_frames = anim_payload["edge_frames"]
+    times = anim_payload["times"]
+    node_color_frames = anim_payload["node_color_frames"]
+    df_edge_time = anim_payload["df_edge_time"]
+
+    fig_anim = _plotly_animated_network(
+        edge_frames=edge_frames,
+        times=times,
+        title=f"{anim_view_mode} network",
+        node_color_frames=node_color_frames,
+        node_cmax=float(anim_node_cmax),
+    )
+
+    st.plotly_chart(fig_anim, use_container_width=True, key="anim_net_plot")
+
+    c_dl1, c_dl2 = st.columns(2)
+
+    with c_dl1:
+        st.download_button(
+            "Download edge dynamics CSV",
+            data=df_edge_time.to_csv(index=False),
+            file_name=(
+                f"edge_dynamics_{str(anim_view_mode).lower()}"
+                f"_t0-{int(anim_t_end)}_frames{int(anim_n_frames)}.csv"
+            ),
+            mime="text/csv",
+            key="anim_net_edge_csv",
+        )
+
+    with c_dl2:
+        st.download_button(
+            "Download edge dynamics JSON",
+            data=df_edge_time.to_json(orient="records"),
+            file_name=(
+                f"edge_dynamics_{str(anim_view_mode).lower()}"
+                f"_t0-{int(anim_t_end)}_frames{int(anim_n_frames)}.json"
+            ),
+            mime="application/json",
+            key="anim_net_edge_json",
+        )
+
+    with st.expander("Preview edge dynamics table"):
+        st.dataframe(df_edge_time.head(500), use_container_width=True)
+
+    st.subheader("Export animation file")
+
+    cE1, cE2, cE3, cE4 = st.columns(4)
+
+    with cE1:
+        export_fmt = st.selectbox(
+            "Format",
+            ["gif", "mp4"],
+            index=0,
+            key="anim_export_fmt",
+        )
+
+    with cE2:
+        export_fps = st.slider(
+            "FPS",
+            min_value=2,
+            max_value=20,
+            value=6,
+            step=1,
+            key="anim_export_fps",
+        )
+
+    with cE3:
+        export_dpi = st.slider(
+            "DPI",
+            min_value=80,
+            max_value=300,
+            value=150,
+            step=10,
+            key="anim_export_dpi",
+        )
+
+    with cE4:
+        export_node_cmax = st.slider(
+            "Export node color range (± log2)",
+            min_value=1.1,
+            max_value=10.0,
+            value=float(anim_node_cmax),
+            step=0.1,
+            key="anim_export_node_cmax",
+        )
+
+    if st.button("Render export file", key="anim_export_btn"):
+        try:
+            with st.spinner("Rendering animation export..."):
+                export_bytes = _export_network_animation_matplotlib(
+                    edge_frames=edge_frames,
+                    times=times,
+                    fmt=str(export_fmt),
+                    fps=int(export_fps),
+                    dpi=int(export_dpi),
+                    node_cmax=float(export_node_cmax),
+                    node_color_frames=node_color_frames,
+                )
+
+            st.download_button(
+                f"Download {str(export_fmt).upper()}",
+                data=export_bytes,
+                file_name=(
+                    f"network_{str(anim_view_mode).lower()}"
+                    f"_t0-{int(anim_t_end)}_frames{int(anim_n_frames)}.{export_fmt}"
+                ),
+                mime=("image/gif" if export_fmt == "gif" else "video/mp4"),
+                key="anim_export_download_btn",
+            )
+
+        except Exception as exc:
+            st.error(f"Animation export failed: {exc}")
