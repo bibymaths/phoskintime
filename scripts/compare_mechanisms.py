@@ -386,6 +386,55 @@ def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
 
     return df
 
+def _safe_min_max(values: np.ndarray) -> tuple[float, float]:
+    """Return finite min/max values for dashboard diagnostics."""
+    arr = np.asarray(values, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return float("nan"), float("nan")
+    return float(np.min(finite)), float(np.max(finite))
+
+
+def extract_phosphosite_states_from_Y(
+        Y: np.ndarray,
+        idx: Index,
+        t: np.ndarray,
+        protein: str,
+        normalize_to_t0: bool = False,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """Extract raw or t0-normalized phosphosite ODE states for one protein.
+
+    This intentionally reads directly from the ODE state vector. It does not use
+    exported fitted predictions, pred_fc, or simulate_and_measure() output.
+    """
+    p_idx = idx.p2i[protein]
+    ns = int(idx.n_sites[p_idx])
+    site_names = list(idx.sites[p_idx])
+
+    if ns <= 0:
+        empty = pd.DataFrame(columns=["time", "psite", "psite_value"])
+        return empty, np.zeros((len(t), 0)), np.zeros((len(t), 0))
+
+    start = int(idx.offset_y[p_idx]) + 2
+    stop = start + ns
+    raw_states = np.asarray(Y[:, start:stop], dtype=float)
+    plotted_states = raw_states.copy()
+
+    if normalize_to_t0:
+        denom = raw_states[0, :].copy()
+        denom[np.abs(denom) < 1e-12] = 1.0
+        plotted_states = raw_states / denom
+
+    df = pd.DataFrame(plotted_states, columns=site_names)
+    df["time"] = t
+    df_long = df.melt(
+        id_vars="time",
+        var_name="psite",
+        value_name="psite_value",
+    )
+    return df_long, raw_states, plotted_states
+
+
 # --- UI Setup ---
 st.title("🧪 Global Signaling & Transcriptional Knockout Explorer")
 st.caption("This dashboard builds the networkmodel system and runs WT/KO simulations on demand.")
@@ -903,6 +952,11 @@ else:
         value=True,
         key="normalize_forward_states",
     )
+    normalize_forward_phosphosite_states = st.checkbox(
+        "Normalize forward phosphosite states to t0",
+        value=False,
+        key="normalize_forward_phosphosite_states",
+    )
 
     df_wt = extract_fc_from_Y(
         Y_wt, idx, t_fine, selected_p,
@@ -914,10 +968,19 @@ else:
         normalize=normalize_forward_states,
     )
 
+    df_wt_phosphosite, raw_wt_phosphosite, plotted_wt_phosphosite = extract_phosphosite_states_from_Y(
+        Y_wt, idx, t_fine, selected_p,
+        normalize_to_t0=normalize_forward_phosphosite_states,
+    )
+    df_ko_phosphosite, raw_ko_phosphosite, plotted_ko_phosphosite = extract_phosphosite_states_from_Y(
+        Y_ko, idx, t_ko, selected_p,
+        normalize_to_t0=normalize_forward_phosphosite_states,
+    )
+
     y_label = (
-        "Phospho-site state normalized to t0"
-        if normalize_forward_states
-        else "Raw phospho-site state"
+        "Phosphosite ODE state normalized to t0"
+        if normalize_forward_phosphosite_states
+        else "Raw phosphosite ODE state"
     )
 
     # --- Plot mRNA
@@ -1031,10 +1094,10 @@ else:
     with col2:
         fig_sites_fine = go.Figure()
 
-        if "psite" in df_wt.columns and not df_wt["psite"].isna().all():
-            for site in df_wt["psite"].dropna().unique():
-                site_wt = df_wt[df_wt["psite"] == site]
-                site_ko = df_ko[df_ko["psite"] == site]
+        if not df_wt_phosphosite.empty:
+            for site in df_wt_phosphosite["psite"].dropna().unique():
+                site_wt = df_wt_phosphosite[df_wt_phosphosite["psite"] == site]
+                site_ko = df_ko_phosphosite[df_ko_phosphosite["psite"] == site]
 
                 color = px.colors.qualitative.Plotly[
                     hash(site) % len(px.colors.qualitative.Plotly)
@@ -1061,13 +1124,32 @@ else:
                     )
 
             fig_sites_fine.update_layout(
-                title=f"{selected_p} Phospho-site State Dynamics",
+                title=f"{selected_p} Phosphosite State Dynamics",
                 xaxis_title="Time (min)",
                 yaxis_title=y_label,
                 template="plotly_white",
             )
             fig_sites_fine.update_xaxes(type="log")
             st.plotly_chart(fig_sites_fine, use_container_width=True)
+
+            raw_wt_min, raw_wt_max = _safe_min_max(raw_wt_phosphosite)
+            raw_ko_min, raw_ko_max = _safe_min_max(raw_ko_phosphosite)
+            plotted_wt_min, plotted_wt_max = _safe_min_max(plotted_wt_phosphosite)
+            plotted_ko_min, plotted_ko_max = _safe_min_max(plotted_ko_phosphosite)
+            debug_df = pd.DataFrame(
+                {
+                    "series": [
+                        "raw WT phosphosite",
+                        "raw KO phosphosite",
+                        "plotted WT phosphosite",
+                        "plotted KO phosphosite",
+                    ],
+                    "min": [raw_wt_min, raw_ko_min, plotted_wt_min, plotted_ko_min],
+                    "max": [raw_wt_max, raw_ko_max, plotted_wt_max, plotted_ko_max],
+                }
+            )
+            with st.expander("Forward phosphosite state debug", expanded=False):
+                st.dataframe(debug_df, use_container_width=True, hide_index=True)
         else:
             st.info("No phospho site data available for this protein.")
 
