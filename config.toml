@@ -273,7 +273,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_network_distributive"  # Output directory
+output_dir = "results_network_sequential"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 # ------------------------------------------------------------
@@ -348,7 +348,7 @@ profile_likelihood = false
 profile_indices = "" # 88, 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
 profile_grid_size = 5
 # --- Posterior Sampling (post-optimization, requires numpyro) ---
-posterior_sampling = true
+posterior_sampling = false
 posterior_num_warmup = 300
 posterior_num_samples = 500
 
@@ -393,7 +393,7 @@ tf_scale = [2.0, 10.0]
 
 [networkmodel.models]
 available_models = ["distributive", "sequential", "combinatorial", "saturation"]
-default_model = "distributive"
+default_model = "sequential"
 
 [networkmodel.solver]
 absolute_tolerance = 1e-8

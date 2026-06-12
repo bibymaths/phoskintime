@@ -7,6 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import json
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -33,7 +34,7 @@ from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.utils import normalize_fc_to_t0
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
-
+RESULTS_DIR_PICKED = Path("./results_network_sequential")
 
 def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
     """
@@ -162,6 +163,69 @@ def _mechanistic_phospho_filter(df_kin: pd.DataFrame, df_pho: pd.DataFrame) -> p
     keep = np.fromiter(((p, s) in kin_site_pairs for (p, s) in pairs), dtype=bool, count=len(pairs))
     return df_pho2.loc[keep].copy()
 
+def _first_existing(*paths: Path) -> Path:
+    for p in paths:
+        if p.exists():
+            return p
+    raise FileNotFoundError("None of these files exist:\n" + "\n".join(str(p) for p in paths))
+
+
+def _load_fitted_params_picked(results_dir: Path, defaults: dict) -> dict:
+    path = _first_existing(
+        results_dir / "fitted_params_picked.json",
+        results_dir / "tables" / "fitted_params_picked.json",
+    )
+
+    with open(path, "r") as f:
+        raw = json.load(f)
+
+    # Handle either flat JSON or nested export JSON.
+    if "params" in raw and isinstance(raw["params"], dict):
+        raw = raw["params"]
+    elif "best_params" in raw and isinstance(raw["best_params"], dict):
+        raw = raw["best_params"]
+    elif "fitted_params" in raw and isinstance(raw["fitted_params"], dict):
+        raw = raw["fitted_params"]
+
+    params = {}
+
+    for key, default_value in defaults.items():
+        if key not in raw:
+            raise KeyError(f"{path} does not contain fitted parameter key: {key}")
+
+        value = raw[key]
+
+        if isinstance(default_value, np.ndarray):
+            arr = np.asarray(value, dtype=float)
+
+            if arr.shape != default_value.shape:
+                raise ValueError(
+                    f"Shape mismatch for {key}: JSON has {arr.shape}, "
+                    f"expected {default_value.shape}"
+                )
+
+            params[key] = arr
+        else:
+            params[key] = float(value)
+
+    return params
+
+def _load_picked_predictions(results_dir: Path):
+    wt_dfp = pd.read_csv(results_dir / "pred_prot_picked.csv")
+    wt_dfr = pd.read_csv(results_dir / "pred_rna_picked.csv")
+    wt_pho = pd.read_csv(results_dir / "pred_phospho_picked.csv")
+
+    for df in (wt_dfp, wt_dfr, wt_pho):
+        if "protein" in df.columns:
+            df["protein"] = df["protein"].astype(str).str.strip().str.upper()
+        if "psite" in df.columns:
+            df["psite"] = df["psite"].astype(str).str.strip()
+        if "time" in df.columns:
+            df["time"] = pd.to_numeric(df["time"], errors="coerce")
+        if "pred_fc" in df.columns:
+            df["pred_fc"] = pd.to_numeric(df["pred_fc"], errors="coerce")
+
+    return wt_dfp, wt_dfr, wt_pho
 
 @st.cache_resource
 def load_system():
@@ -176,9 +240,9 @@ def load_system():
     Returns:
         tuple: A tuple containing the"""
     # IMPORTANT: ensure model selection matches run *before* building System
-    config.MODEL = 0
+    config.MODEL = 1
 
-    results_dir = Path("./results_network_distributive")
+    results_dir = RESULTS_DIR_PICKED
 
     class Args:
         kinase_net, tf_net = config.KINASE_NET_FILE, config.TF_NET_FILE
@@ -187,11 +251,6 @@ def load_system():
         normalize_fc_steady = False
 
     df_kin, df_tf_raw, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(Args())
-
-    # optional (runner has a flag; keep identical default behavior = False)
-    if getattr(Args, "normalize_fc_steady", False):
-        df_prot = normalize_fc_to_t0(df_prot)
-        df_pho = normalize_fc_to_t0(df_pho)
 
     # runner: strict mechanistic phospho filter
     df_pho = _mechanistic_phospho_filter(df_kin, df_pho)
@@ -245,21 +304,9 @@ def load_system():
 
     sys = System(idx, W_global, tf_mat, kin_in, defaults, tf_deg)
 
-    # slices/schema must match the run that produced pareto_X.npy
-    _, slices, _, _ = init_raw_params(defaults)
-
-    X = np.load(results_dir / "pareto_X.npy")
-    theta = X[0].astype(float)
-
-    expected_dim = max(s.stop for s in slices.values())
-    if theta.size != expected_dim:
-        raise ValueError(
-            f"Incompatible pareto_X dimension: got {theta.size}, expected {expected_dim}. "
-            "Dashboard reconstruction does not match optimization run. "
-            "Fix compare_mechanisms reconstruction or re-run optimization."
-        )
-
-    best_params = unpack_params(theta, slices)
+    # Load the exact parameter set used by the pipeline-selected solution.
+    # Do not use pareto_X[0]; it may not be the picked/best solution.
+    best_params = _load_fitted_params_picked(results_dir, defaults)
 
     s_rates_path = results_dir / "S_rates_picked.csv"
     s_rates = pd.read_csv(s_rates_path) if s_rates_path.exists() else pd.DataFrame()
@@ -367,46 +414,205 @@ with st.spinner("Loading data, building network matrices, and reconstructing fit
 
 st.sidebar.header("🕹️ Control Panel")
 
-ko_type = st.sidebar.selectbox("1. Choose Perturbation Type", ["None", "Protein (Synthesis)", "Kinase (Activity)"])
+ko_params = {
+    k: v.copy() if isinstance(v, np.ndarray) else float(v) if np.isscalar(v) else v
+    for k, v in best_params.items()
+}
 
-ko_params = {k: v.copy() if isinstance(v, np.ndarray) else v for k, v in best_params.items()}
+st.sidebar.subheader("Perturbations")
 
-Kmat_backup = None  # default
-
-def restore_Kinase():
-    """No-op retained for old graph code compatibility.
-
-    Do not mutate sys.kin.Kmat in this dashboard. simulate.py now caches the
-    JAX RHS, and the RHS captures kinase input arrays as static topology.
-    Kinase inhibition should therefore be represented through c_k only.
-    """
-    return None
+def _scale_protein_param(param_name: str, proteins: list[str], factor: float) -> None:
+    if param_name not in ko_params or not proteins:
+        return
+    ids = [idx.p2i[p] for p in proteins if p in idx.p2i]
+    if ids:
+        ko_params[param_name][ids] *= float(factor)
 
 
-if ko_type == "Protein (Synthesis)":
-    target = st.sidebar.selectbox("Select Target Protein", idx.proteins)
-    p_idx = idx.p2i[target]
-    scale = st.sidebar.slider("Protein Synthesis Scale (0 = KO, 1 = WT)", 0.0, 1.0, 0.0, 0.05)
+def _scale_kinase_param(param_name: str, kinases: list[str], factor: float) -> None:
+    if param_name not in ko_params or not kinases:
+        return
+    ids = [idx.k2i[k] for k in kinases if k in idx.k2i]
+    if ids:
+        ko_params[param_name][ids] *= float(factor)
 
-    ko_params["A_i"][p_idx] *= scale
 
-elif ko_type == "Kinase (Activity)":
-    target = st.sidebar.selectbox("Select Kinase to Inhibit", idx.kinases)
-    k_idx = idx.k2i[target]
-    scale = st.sidebar.slider("Kinase Activity Scale (0 = KO, 1 = WT)", 0.0, 1.0, 0.0, 0.05)
+def _site_rows_for_proteins(proteins: list[str]) -> list[int]:
+    rows: list[int] = []
+    for p in proteins:
+        if p not in idx.p2i:
+            continue
 
-    # Important: do not mutate sys.kin.Kmat here.
-    # The cached JAX RHS captures kin_Kmat statically.
-    # Use c_k as the dynamic kinase-activity control.
-    ko_params["c_k"][k_idx] *= scale
+        p_i = idx.p2i[p]
+        start = int(idx.offset_s[p_i])
+        stop = start + int(idx.n_sites[p_i])
+        rows.extend(range(start, stop))
 
-else:
-    target = None
+    return rows
 
-# --- Simulation Logic ---
-with st.spinner("Running WT and KO simulations..."):
-    wt_dfp, wt_dfr, wt_pho = run_sim(sys, idx, best_params)
-    ko_dfp, ko_dfr, ko_pho = run_sim(sys, idx, ko_params)
+
+def _scale_site_param_by_protein(param_name: str, proteins: list[str], factor: float) -> None:
+    if param_name not in ko_params or not proteins:
+        return
+    rows = _site_rows_for_proteins(proteins)
+    if rows:
+        ko_params[param_name][rows] *= float(factor)
+
+
+with st.sidebar.expander("Kinase activity", expanded=True):
+    kinase_activity_targets = st.multiselect(
+        "Inhibit kinase activity",
+        options=list(idx.kinases),
+        key="ko_kinase_activity_targets",
+    )
+    kinase_activity_scale = st.slider(
+        "Kinase activity scale",
+        0.0, 1.0, 0.0, 0.05,
+        key="ko_kinase_activity_scale",
+        help="0 = full kinase activity inhibition, 1 = WT",
+    )
+
+with st.sidebar.expander("mRNA kinetics", expanded=False):
+    mrna_synthesis_targets = st.multiselect(
+        "Inhibit mRNA synthesis",
+        options=list(idx.proteins),
+        key="ko_mrna_synthesis_targets",
+    )
+    mrna_synthesis_scale = st.slider(
+        "mRNA synthesis scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_mrna_synthesis_scale",
+    )
+
+    mrna_degradation_targets = st.multiselect(
+        "Inhibit mRNA degradation",
+        options=list(idx.proteins),
+        key="ko_mrna_degradation_targets",
+    )
+    mrna_degradation_scale = st.slider(
+        "mRNA degradation scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_mrna_degradation_scale",
+    )
+
+with st.sidebar.expander("Protein kinetics", expanded=True):
+    protein_synthesis_targets = st.multiselect(
+        "Inhibit protein synthesis / translation",
+        options=list(idx.proteins),
+        key="ko_protein_synthesis_targets",
+    )
+    protein_synthesis_scale = st.slider(
+        "Protein synthesis scale",
+        0.0, 1.0, 0.0, 0.05,
+        key="ko_protein_synthesis_scale",
+        help="0 = full translation/protein synthesis inhibition, 1 = WT",
+    )
+
+    protein_degradation_targets = st.multiselect(
+        "Inhibit protein degradation",
+        options=list(idx.proteins),
+        key="ko_protein_degradation_targets",
+    )
+    protein_degradation_scale = st.slider(
+        "Protein degradation scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_protein_degradation_scale",
+    )
+
+with st.sidebar.expander("Phospho-site turnover", expanded=False):
+    phospho_loss_targets = st.multiselect(
+        "Inhibit dephosphorylation / phosphodegradation for proteins",
+        options=list(idx.proteins),
+        key="ko_phospho_loss_targets",
+    )
+    phospho_loss_scale = st.slider(
+        "Phospho-loss scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_phospho_loss_scale",
+        help="0 = block phospho-site loss, 1 = WT",
+    )
+
+with st.sidebar.expander("Transcriptional regulation", expanded=False):
+    tf_efficacy_targets = st.multiselect(
+        "Inhibit TF/transcriptional efficacy",
+        options=list(idx.proteins),
+        key="ko_tf_efficacy_targets",
+    )
+    tf_efficacy_scale = st.slider(
+        "TF efficacy scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_tf_efficacy_scale",
+    )
+
+    tf_global_scale = st.slider(
+        "Global TF-drive scale",
+        0.0, 1.0, 1.0, 0.05,
+        key="ko_tf_global_scale",
+    )
+
+
+# Apply perturbations.
+# Do not mutate sys.kin.Kmat or W_global.
+# Keep topology fixed; perturb only fitted dynamic parameters.
+
+_scale_kinase_param("c_k", kinase_activity_targets, kinase_activity_scale)
+
+_scale_protein_param("A_i", mrna_synthesis_targets, mrna_synthesis_scale)
+_scale_protein_param("B_i", mrna_degradation_targets, mrna_degradation_scale)
+
+_scale_protein_param("C_i", protein_synthesis_targets, protein_synthesis_scale)
+_scale_protein_param("D_i", protein_degradation_targets, protein_degradation_scale)
+
+_scale_site_param_by_protein("Dp_i", phospho_loss_targets, phospho_loss_scale)
+
+_scale_protein_param("E_i", tf_efficacy_targets, tf_efficacy_scale)
+
+if "tf_scale" in ko_params:
+    ko_params["tf_scale"] = float(ko_params["tf_scale"]) * float(tf_global_scale)
+
+
+all_selected_targets = (
+    list(kinase_activity_targets)
+    + list(mrna_synthesis_targets)
+    + list(mrna_degradation_targets)
+    + list(protein_synthesis_targets)
+    + list(protein_degradation_targets)
+    + list(phospho_loss_targets)
+    + list(tf_efficacy_targets)
+)
+
+has_global_tf_perturbation = abs(float(tf_global_scale) - 1.0) > 1e-12
+has_perturbation = bool(all_selected_targets) or has_global_tf_perturbation
+
+ko_type = "Multi-perturbation" if has_perturbation else "None"
+target = all_selected_targets[0] if all_selected_targets else None
+scale = 1.0
+
+perturbation_signature = {
+    "kinase_activity": (tuple(kinase_activity_targets), float(kinase_activity_scale)),
+    "mrna_synthesis": (tuple(mrna_synthesis_targets), float(mrna_synthesis_scale)),
+    "mrna_degradation": (tuple(mrna_degradation_targets), float(mrna_degradation_scale)),
+    "protein_synthesis": (tuple(protein_synthesis_targets), float(protein_synthesis_scale)),
+    "protein_degradation": (tuple(protein_degradation_targets), float(protein_degradation_scale)),
+    "phospho_loss": (tuple(phospho_loss_targets), float(phospho_loss_scale)),
+    "tf_efficacy": (tuple(tf_efficacy_targets), float(tf_efficacy_scale)),
+    "tf_global": float(tf_global_scale),
+}
+
+with st.spinner("Loading picked WT predictions and running perturbation..."):
+    wt_dfp, wt_dfr, wt_pho = _load_picked_predictions(RESULTS_DIR_PICKED)
+
+    if ko_type == "None":
+        ko_dfp = wt_dfp.copy()
+        ko_dfr = wt_dfr.copy()
+        ko_pho = wt_pho.copy()
+    else:
+        ko_dfp, ko_dfr, _ko_pho_bad_fc = run_sim(sys, idx, ko_params)
+
+        # Do not trust phospho pred_fc from simulate_and_measure here.
+        # It is using a different/too-small FC denominator in this dashboard path.
+        ko_pho = _ko_pho_bad_fc.copy()
+
 
 # Leave the mutable System in a known baseline state after the comparison.
 sys.update(**best_params)
@@ -655,9 +861,7 @@ forward_cache_key = (
     selected_p,
     float(t_max),
     int(n_points),
-    str(ko_type),
-    str(target),
-    float(scale) if ko_type != "None" else 1.0,
+    str(perturbation_signature),
 )
 
 if run_forward_panel:
@@ -694,8 +898,27 @@ else:
     t_ko = cached["t_ko"]
     Y_ko = cached["Y_ko"]
 
-    df_wt = extract_fc_from_Y(Y_wt, idx, t_fine, selected_p)
-    df_ko = extract_fc_from_Y(Y_ko, idx, t_ko, selected_p)
+    normalize_forward_states = st.checkbox(
+        "Normalize forward states to t0",
+        value=True,
+        key="normalize_forward_states",
+    )
+
+    df_wt = extract_fc_from_Y(
+        Y_wt, idx, t_fine, selected_p,
+        normalize=normalize_forward_states,
+    )
+
+    df_ko = extract_fc_from_Y(
+        Y_ko, idx, t_ko, selected_p,
+        normalize=normalize_forward_states,
+    )
+
+    y_label = (
+        "Phospho-site state normalized to t0"
+        if normalize_forward_states
+        else "Raw phospho-site state"
+    )
 
     # --- Plot mRNA
     col1, col2 = st.columns(2)
@@ -763,7 +986,7 @@ else:
             t_S, Y_S = t_ko, Y_ko
 
             kin_vals = Y_S[:, [idx.k2i[k] for k in idx.kinases]].T
-            kin_scaled = kin_vals * sys.c_k[:, None]
+            kin_scaled = kin_vals * ko_params["c_k"][:, None]
             S_t = sys.W_global @ kin_scaled
 
             site_names, site_rows = [], []
@@ -840,7 +1063,7 @@ else:
             fig_sites_fine.update_layout(
                 title=f"{selected_p} Phospho-site State Dynamics",
                 xaxis_title="Time (min)",
-                yaxis_title="Phospho-site Level (a.u.)",
+                yaxis_title=y_label,
                 template="plotly_white",
             )
             fig_sites_fine.update_xaxes(type="log")
@@ -886,67 +1109,6 @@ with col2:
                              yaxis_title="Fold Change", template="plotly_white")
     st.plotly_chart(fig_insp_p, use_container_width=True)
 
-# st.divider()
-# col1, col2 = st.columns(2)
-#
-# # --- Signaling Drive Panel (Phosphorylation S)
-# with col1:
-#     if selected_p in idx.p2i:
-#         p_idx = idx.p2i[selected_p]
-#
-#         # Pre-filter WT S once for the selected protein (faster than filtering per-site)
-#         wt_s = s_rates.loc[s_rates["protein"].astype(str).str.strip() == selected_p, ["psite", "time", "S"]].copy()
-#         wt_s["psite"] = wt_s["psite"].astype(str).str.strip()
-#
-#         # Simulate KO S
-#         kin_vals_ko = Y_ko[:, [idx.k2i[k] for k in idx.kinases]].T
-#         kin_scaled_ko = kin_vals_ko * ko_params["c_k"][:, None]
-#         S_ko = sys.W_global @ kin_scaled_ko
-#
-#         # Get site indices for the selected protein
-#         site_names, site_rows = [], []
-#         site_counter = 0
-#         for i, p in enumerate(idx.proteins):
-#             for j, site in enumerate(idx.sites[i]):
-#                 if p == selected_p:
-#                     site_names.append(site)
-#                     site_rows.append(site_counter)
-#                 site_counter += 1
-#
-#         fig_s_time = go.Figure()
-#
-#         for site_name, site_idx in zip(site_names, site_rows):
-#             color = px.colors.qualitative.Plotly[hash(site_name) % len(px.colors.qualitative.Plotly)]
-#
-#             wt_site = wt_s.loc[wt_s["psite"] == site_name].sort_values("time")
-#             if not wt_site.empty:
-#                 fig_s_time.add_trace(go.Scatter(
-#                     x=wt_site["time"].to_numpy(),
-#                     y=wt_site["S"].to_numpy(),
-#                     name=f"WT {site_name}",
-#                     line=dict(color=color, dash="dash"),
-#                     opacity=0.9,
-#                 ))
-#
-#             fig_s_time.add_trace(go.Scatter(
-#                 x=t_ko,
-#                 y=S_ko[site_idx, :],
-#                 name=f"KO {site_name}",
-#                 line=dict(color=color),
-#                 opacity=0.9,
-#             ))
-#
-#         fig_s_time.update_layout(
-#             title=f"{selected_p} – Phosphorylation (S)",
-#             xaxis_title="Time (min)",
-#             yaxis_title="S (Signaling Rate)",
-#             template="plotly_white"
-#         )
-#         st.plotly_chart(fig_s_time, use_container_width=True)
-#     else:
-#         st.warning(f"{selected_p} not found in protein index.")
-
-
 with col3:
     if wt_pho_data.empty:
         st.info("No phospho-site data available for this protein.")
@@ -987,7 +1149,7 @@ if ko_type != "None" and df_tf_model is not None and not df_tf_model.empty and t
     current_layer_nodes = {target}
     processed_nodes = set()
 
-    final_kin_act = sys.kin.Kmat[:, -1] * sys.c_k
+    final_kin_act = sys.kin.Kmat[:, -1] * ko_params["c_k"]
     S_final = sys.W_global.dot(final_kin_act)
 
     for d in range(depth):
@@ -995,8 +1157,7 @@ if ko_type != "None" and df_tf_model is not None and not df_tf_model.empty and t
         if not current_layer_nodes:
             break
 
-        if ko_type == "Kinase (Activity)" or d > 0:
-            restore_Kinase()
+        if any(k in idx.kinases for k in current_layer_nodes):
             for k_name in current_layer_nodes:
                 if k_name in idx.kinases:
                     k_idx = idx.k2i[k_name]
@@ -3152,9 +3313,7 @@ anim_cache_key = (
     str(anim_node_metric),
     float(anim_node_cmax),
     float(anim_edge_scale),
-    str(ko_type),
-    str(target),
-    float(scale) if ko_type != "None" else 1.0,
+    str(perturbation_signature),
 )
 
 generate_anim = st.button(
