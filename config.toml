@@ -273,7 +273,7 @@ tfopt      = "data/tfopt_results.xlsx"
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_network_sequential"  # Output directory
+output_dir = "results_network_combinatorial"  # Output directory
 cores      = 80                         # 0 or leave out to use all available cores
 seed       = 42
 # ------------------------------------------------------------
@@ -393,7 +393,7 @@ tf_scale = [2.0, 10.0]
 
 [networkmodel.models]
 available_models = ["distributive", "sequential", "combinatorial", "saturation"]
-default_model = "sequential"
+default_model = "combinatorial"
 
 [networkmodel.solver]
 absolute_tolerance = 1e-8

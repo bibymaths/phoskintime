@@ -273,6 +273,17 @@ def make_networkmodel_rhs(sys, slices=None):
             Ai / (1.0 + tf_scale * jnp.abs(u)),
         )
 
+    # Static metadata for compact MODEL == 2 JAX tracing.
+    # Do not use global max_states/max_sites loops inside the jitted RHS.
+    offsets_list = [int(x) for x in np.asarray(idx.offset_y)]
+    site_offsets_list = [int(x) for x in np.asarray(idx.offset_s)]
+    n_sites_list = [int(x) for x in np.asarray(idx.n_sites)]
+    n_states_list = [
+        int(x) for x in np.asarray(
+            getattr(idx, "n_states", np.ones(idx.N, dtype=np.int32))
+        )
+    ]
+
     def rhs(t, y, args):
         par = _params(args)
 
@@ -290,11 +301,9 @@ def make_networkmodel_rhs(sys, slices=None):
             off = offsets[i]
             drv = driver_map[i]
             if model_id == 2:
-                ar = jnp.arange(max_states, dtype=jnp.int32)
-                valid = ar < n_states[i]
-                pos = jnp.minimum(off + 1 + ar, y.shape[0] - 1)
-                vals = jnp.where(valid, y[pos], 0.0)
-                total_p = jnp.sum(vals)
+                p0 = offsets_list[i] + 1
+                nst_i = n_states_list[i]
+                total_p = jnp.sum(y[p0:p0 + nst_i])
             else:
                 ar = jnp.arange(max_sites, dtype=jnp.int32)
                 valid = ar < n_sites[i]
@@ -313,49 +322,99 @@ def make_networkmodel_rhs(sys, slices=None):
             R = y[off]
             synth = _synth(par["A_i"][i], par["tf_scale"], TF_inputs[i])
             dy = dy.at[off].set(synth - par["B_i"][i] * R)
+            # if model_id == 2:
+            #     # Combinatorial model: mirror models.combinatorial_rhs for the
+            #     # Diffrax/JAX path. Translation feeds only mask 0, while explicit
+            #     # phosphorylation transitions and implicit bit dephosphorylation
+            #     # transitions move mass among all 2^n mask states.
+            #     p0 = off + 1
+            #     nst = n_states[i]
+            #     if max_states > 0:
+            #         P0 = y[p0]
+            #         dy = dy.at[p0].add(par["C_i"][i] * R - par["D_i"][i] * P0)
+            #
+            #     # Dephosphorylation and per-site phospho-state decay for masks m > 0.
+            #     for m in range(1, max_states):
+            #         valid_m = m < nst
+            #         pos_m = jnp.minimum(p0 + m, y.shape[0] - 1)
+            #         Pm = jnp.where(valid_m, y[pos_m], 0.0)
+            #         dp_rate = 0.0
+            #         for j in range(max_sites):
+            #             bit_set = ((m >> j) & 1) != 0
+            #             valid_bit = valid_m & (j < ns) & bit_set
+            #             flat_j = jnp.minimum(s_off + j, par["Dp_i"].shape[0] - 1)
+            #             to = m ^ (1 << j)
+            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
+            #             flux = jnp.where(valid_bit, par["E_i"][i] * Pm, 0.0)
+            #             dy = dy.at[pos_m].add(-flux)
+            #             dy = dy.at[pos_to].add(flux)
+            #             dp_rate = dp_rate + jnp.where(valid_bit, par["Dp_i"][flat_j] + par["D_i"][i], 0.0)
+            #         dy = dy.at[pos_m].add(-dp_rate * Pm)
+            #
+            #     # Explicit phosphorylation transitions, generated per protein
+            #     # in the same mask/site order as the historical dense arrays.
+            #     for m in range(max_states):
+            #         valid_m = m < nst
+            #         for j in range(max_sites):
+            #             bit_unset = ((m >> j) & 1) == 0
+            #             valid_tr = valid_m & (j < ns) & bit_unset
+            #             to = m | (1 << j)
+            #             pos_frm = jnp.minimum(p0 + m, y.shape[0] - 1)
+            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
+            #             flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
+            #             flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
+            #             dy = dy.at[pos_frm].add(-flux)
+            #             dy = dy.at[pos_to].add(flux)
             if model_id == 2:
-                # Combinatorial model: mirror models.combinatorial_rhs for the
-                # Diffrax/JAX path. Translation feeds only mask 0, while explicit
-                # phosphorylation transitions and implicit bit dephosphorylation
-                # transitions move mass among all 2^n mask states.
-                p0 = off + 1
-                nst = n_states[i]
-                if max_states > 0:
-                    P0 = y[p0]
-                    dy = dy.at[p0].add(par["C_i"][i] * R - par["D_i"][i] * P0)
+                # Vectorized combinatorial MODEL == 2 RHS.
+                # This avoids Python loops over max_states inside JAX tracing.
+                p0 = offsets_list[i] + 1
+                s_off_i = site_offsets_list[i]
+                ns_i = n_sites_list[i]
+                nst_i = n_states_list[i]
 
-                # Dephosphorylation and per-site phospho-state decay for masks m > 0.
-                for m in range(1, max_states):
-                    valid_m = m < nst
-                    pos_m = jnp.minimum(p0 + m, y.shape[0] - 1)
-                    Pm = jnp.where(valid_m, y[pos_m], 0.0)
-                    dp_rate = 0.0
-                    for j in range(max_sites):
-                        bit_set = ((m >> j) & 1) != 0
-                        valid_bit = valid_m & (j < ns) & bit_set
-                        flat_j = jnp.minimum(s_off + j, par["Dp_i"].shape[0] - 1)
-                        to = m ^ (1 << j)
-                        pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
-                        flux = jnp.where(valid_bit, par["E_i"][i] * Pm, 0.0)
-                        dy = dy.at[pos_m].add(-flux)
-                        dy = dy.at[pos_to].add(flux)
-                        dp_rate = dp_rate + jnp.where(valid_bit, par["Dp_i"][flat_j] + par["D_i"][i], 0.0)
-                    dy = dy.at[pos_m].add(-dp_rate * Pm)
+                P = y[p0:p0 + nst_i]
+                states = jnp.arange(nst_i, dtype=jnp.int32)
 
-                # Explicit phosphorylation transitions, generated per protein
-                # in the same mask/site order as the historical dense arrays.
-                for m in range(max_states):
-                    valid_m = m < nst
-                    for j in range(max_sites):
-                        bit_unset = ((m >> j) & 1) == 0
-                        valid_tr = valid_m & (j < ns) & bit_unset
-                        to = m | (1 << j)
-                        pos_frm = jnp.minimum(p0 + m, y.shape[0] - 1)
-                        pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
-                        flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
-                        flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
-                        dy = dy.at[pos_frm].add(-flux)
-                        dy = dy.at[pos_to].add(flux)
+                dy_block = jnp.zeros_like(P)
+
+                # Translation feeds only mask 0.
+                dy_block = dy_block.at[0].add(
+                    par["C_i"][i] * R - par["D_i"][i] * P[0]
+                )
+
+                # Site-wise vectorized transitions.
+                # Keep loop over sites only; do not loop over states in Python.
+                for j in range(ns_i):
+                    bit = np.int32(1 << j)
+                    flat_j = s_off_i + j
+
+                    bit_set = (states & bit) != 0
+                    bit_unset = ~bit_set
+
+                    # Dephosphorylation transition:
+                    # m -> m ^ bit for states where bit is set.
+                    from_set = jnp.where(bit_set, P, 0.0)
+                    to_clear = states ^ bit
+                    flux_back = par["E_i"][i] * from_set
+
+                    dy_block = dy_block - flux_back
+                    dy_block = dy_block.at[to_clear].add(flux_back)
+
+                    # Per-site phospho-state decay for states where bit is set.
+                    decay = (par["Dp_i"][flat_j] + par["D_i"][i]) * from_set
+                    dy_block = dy_block - decay
+
+                    # Phosphorylation transition:
+                    # m -> m | bit for states where bit is unset.
+                    from_unset = jnp.where(bit_unset, P, 0.0)
+                    to_set = states | bit
+                    flux_fwd = S_all[flat_j] * from_unset
+
+                    dy_block = dy_block - flux_fwd
+                    dy_block = dy_block.at[to_set].add(flux_fwd)
+
+                dy = dy.at[p0:p0 + nst_i].add(dy_block)
             else:
                 P = y[off + 1]
                 ar = jnp.arange(max_sites, dtype=jnp.int32)
@@ -378,7 +437,6 @@ def make_networkmodel_rhs(sys, slices=None):
         return dy
 
     return rhs
-
 
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
     """Solve an ODE trajectory with Diffrax
