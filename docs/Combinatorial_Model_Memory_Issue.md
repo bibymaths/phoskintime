@@ -279,3 +279,24 @@ Implementing the above fixes should dramatically reduce memory usage:
 [\[4\]](https://raw.githubusercontent.com/bibymaths/phoskintime/global/networkmodel/backend.py#:~:text=) raw.githubusercontent.com
 
 <https://raw.githubusercontent.com/bibymaths/phoskintime/global/networkmodel/backend.py>
+
+## 11. Implemented Memory-Safe Behavior
+
+The combinatorial implementation now keeps the same biological equations, objective values, ranking semantics, CLI options, input formats and output tables, while reducing unnecessary materialization:
+
+- `MODEL=2` still has an inherent `2^n_sites` state space. `Index` now validates each protein after computing `n_states = 1 << n_sites` and raises an informative `MemoryError` before simulation when the per-protein or total state dimension is unsafe. The error explains the exponential scaling and recommends reducing sites, choosing sequential/distributive models, or lowering workload.
+- Combinatorial transition order is unchanged: transitions are enumerated by state mask first and site index second, yielding only unset-bit phosphorylation edges. Large proteins no longer require dense `trans_from`, `trans_to` and `trans_site` arrays for RHS evaluation; dense arrays are retained only for small compatibility cases.
+- Combinatorial phosphosite signal extraction no longer builds the dense `ns x n_sites` bit matrix. Each site is aggregated with the equivalent bit-mask vector and temporaries are released immediately after use. This changes only memory materialization, not returned DataFrame columns or values.
+- `S_cache` for combinatorial mode is now a reusable current-site-rate buffer rather than an unconditional site-by-time dense matrix. The RHS receives the same current rates used by the previous time-bucketed calculation.
+- The JAX/Diffrax combinatorial RHS now generates phosphorylation edges per protein from local `n_states`/`n_sites` metadata instead of depending on global dense transition arrays. It still uses JAX-compatible loops and preserves differentiability through kinase scales and site rates.
+- Sensitivity trajectory retention is bounded to the configured top-curve count during simulation collection, so all trajectory DataFrames are not accumulated in memory. Output files and ranking/reporting semantics are preserved.
+- Multistart optimization already stores only bounded summaries and parameter vectors for starts (`summary`, `parameters`, `best` tables) rather than full trajectories or histories; no trajectory retention is introduced.
+
+### Interpreting guard errors
+
+A guard error means the requested combinatorial topology is too large to run safely in this process. Because every additional phosphosite doubles the number of protein state variables, safe settings depend primarily on the maximum number of sites on any single protein and the number of requested output time points. Recommended actions are:
+
+1. reduce the number of phosphosites included for high-degree proteins;
+2. use `MODEL=0` (distributive) or `MODEL=1` (sequential) when combinatorial state occupancy is not required;
+3. reduce workload such as the number of starts, sensitivity trajectories, or output times; and
+4. rerun after checking the combinatorial diagnostics in the log, which report proteins, `n_sites`, `n_states`, estimated total state dimension, estimated trajectory memory and the dense transition memory that is now avoided.

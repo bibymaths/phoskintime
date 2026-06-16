@@ -1052,9 +1052,11 @@ def export_S_rates(sys, idx, output_dir, filename="S_rates_picked.csv", long=Tru
 
     # ---- compute S matrix: shape (total_sites, n_bins) ----
     if MODEL == 2:
-        # Ensure cache matches current optimized c_k
-        build_S_cache_into(sys.S_cache, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
-        S_mat = np.asarray(sys.S_cache, dtype=np.float64)
+        # The combinatorial RHS may use a 1-D current-rate work buffer for
+        # memory safety, but S_rates_picked.csv preserves the historical dense
+        # site-by-time export shape. Build that dense matrix only for export.
+        S_mat = np.empty((int(sys.n_W_rows), int(sys.kin_Kmat.shape[1])), dtype=np.float64)
+        build_S_cache_into(S_mat, sys.W_indptr, sys.W_indices, sys.W_data, sys.kin_Kmat, sys.c_k)
         times = np.asarray(sys.kin_grid, dtype=float)
     else:
         # Dense kinase signal scaled by c_k

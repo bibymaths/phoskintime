@@ -11,6 +11,10 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+COMBINATORIAL_MAX_STATES_PER_PROTEIN = 1 << 16
+COMBINATORIAL_MAX_TOTAL_STATE_DIM = 5_000_000
+
+
 
 class Index:
     """Map proteins, sites, kinases, and state-vector offsets"""
@@ -104,7 +108,19 @@ class Index:
         self.n_sites = np.array([len(s) for s in self.sites], dtype=np.int32)
 
         if MODEL == 2:
-            self.n_states = np.array([1 << int(ns) for ns in self.n_sites], dtype=np.int32)
+            n_states_list = []
+            for protein, ns_raw in zip(self.proteins, self.n_sites):
+                ns = int(ns_raw)
+                nstates = 1 << ns
+                if nstates > COMBINATORIAL_MAX_STATES_PER_PROTEIN:
+                    raise MemoryError(
+                        f"Unsafe combinatorial MODEL=2 state space for protein {protein!r}: "
+                        f"n_sites={ns} requires n_states=2^n_sites={nstates:,}. "
+                        "MODEL=2 scales exponentially as 2^n_sites; reduce the number of sites, "
+                        "use sequential/distributive models, or lower the workload."
+                    )
+                n_states_list.append(nstates)
+            self.n_states = np.asarray(n_states_list, dtype=np.int64)
 
         # Offsets map standard indices to the flattened y-vector
         self.offset_y = np.zeros(self.N, dtype=np.int32)
@@ -126,6 +142,22 @@ class Index:
 
         self.state_dim = curr_y
         self.total_sites = int(curr_s)
+        if MODEL == 2:
+            if self.state_dim > COMBINATORIAL_MAX_TOTAL_STATE_DIM:
+                raise MemoryError(
+                    f"Unsafe combinatorial MODEL=2 total state dimension: {self.state_dim:,} state variables. "
+                    "MODEL=2 scales as 2^n_sites per protein; reduce sites, use sequential/distributive "
+                    "models, or lower workload."
+                )
+            transition_count = int(sum((int(ns) * (1 << (int(ns) - 1))) if int(ns) > 0 else 0 for ns in self.n_sites))
+            dense_transition_mb = transition_count * 3 * np.dtype(np.int32).itemsize / (1024 ** 2)
+            traj_mb = self.state_dim * len(TIME_POINTS_PROTEIN) * np.dtype(np.float64).itemsize / (1024 ** 2)
+            logger.warning(
+                "[Model] Combinatorial MODEL=2 diagnostics: proteins=%d n_sites=%s n_states=%s "
+                "total_state_dim=%d estimated_trajectory=%.2f MiB dense_transition_arrays=%.2f MiB. "
+                "MODEL=2 scales exponentially as 2^n_sites.",
+                self.N, self.n_sites.tolist(), self.n_states.tolist(), self.state_dim, traj_mb, dense_transition_mb
+            )
         self.kinase_indices_in_P = [self.p2i[k] for k in self.kinases if k in self.p2i]
         self.p2k = {k: i for i, k in enumerate(self.kinases)}
 
@@ -269,18 +301,22 @@ class System:
         # MODEL == 2 specific setup
         # ------------------------------------------------------------
         if MODEL == 2:
-            # reusable work buffers (NO allocs in RHS)
+            # reusable work buffers (NO allocs in RHS). S_cache is a one-column
+            # compatibility buffer populated from the current kinase signal, not
+            # a dense site-by-time cache.
             self.P_vec_work = np.zeros(self.n_TF_rows, dtype=np.float64)
             self.TF_in_work = np.zeros(self.n_TF_rows, dtype=np.float64)
-            self.S_cache = np.zeros((self.n_W_rows, self.kin_Kmat.shape[1]), dtype=np.float64)
+            self.S_cache = np.zeros(self.n_W_rows, dtype=np.float64)
 
-            # precomputed transition lists for the combinatorial hypercube graph
+            # Dense transitions are retained only for small compatibility tests;
+            # RHS evaluation streams transitions from n_sites/n_states metadata.
             (
                 self.trans_from,
                 self.trans_to,
                 self.trans_site,
                 self.trans_off,
                 self.trans_n,
+                self.trans_dense_available,
             ) = build_random_transitions(idx)
 
     def update(self, c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale):
@@ -418,22 +454,16 @@ class System:
         elif MODEL == 2:
 
             if self.S_cache is None:
-                raise ValueError("MODEL==2: System.S_cache is None. simulate_diffrax must set it.")
-
-            jb = int(np.searchsorted(self.kin_grid, t, side="right") - 1)
-            if jb < 0:
-                jb = 0
-            elif jb >= self.kin_grid.size:
-                jb = self.kin_grid.size - 1
+                raise ValueError("MODEL==2: System.S_cache is None.")
+            self.S_cache[:] = S_all
 
             combinatorial_rhs(
                 y, dy,
                 self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
                 TF_inputs,
-                self.S_cache, jb,
+                self.S_cache,
                 self.idx.offset_y, self.idx.offset_s,
-                self.idx.n_sites, self.idx.n_states,
-                self.trans_from, self.trans_to, self.trans_site, self.trans_off, self.trans_n
+                self.idx.n_sites, self.idx.n_states
             )
         return dy
 
