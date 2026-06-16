@@ -254,12 +254,6 @@ def make_networkmodel_rhs(sys, slices=None):
     N = int(idx.N)
     max_sites = int(np.max(idx.n_sites)) if idx.N else 0
     max_states = int(np.max(getattr(idx, "n_states", np.ones(idx.N, dtype=np.int32)))) if idx.N else 1
-    trans_from = jnp.asarray(getattr(sys, "trans_from", np.zeros(0, dtype=np.int32)), dtype=jnp.int32)
-    trans_to = jnp.asarray(getattr(sys, "trans_to", np.zeros(0, dtype=np.int32)), dtype=jnp.int32)
-    trans_site = jnp.asarray(getattr(sys, "trans_site", np.zeros(0, dtype=np.int32)), dtype=jnp.int32)
-    trans_off = jnp.asarray(getattr(sys, "trans_off", np.zeros(N, dtype=np.int32)), dtype=jnp.int32)
-    trans_n = jnp.asarray(getattr(sys, "trans_n", np.zeros(N, dtype=np.int32)), dtype=jnp.int32)
-    max_trans = int(np.max(getattr(sys, "trans_n", np.zeros(N, dtype=np.int32)))) if N else 0
 
     def _params(args):
         if isinstance(args, dict):
@@ -348,21 +342,20 @@ def make_networkmodel_rhs(sys, slices=None):
                         dp_rate = dp_rate + jnp.where(valid_bit, par["Dp_i"][flat_j] + par["D_i"][i], 0.0)
                     dy = dy.at[pos_m].add(-dp_rate * Pm)
 
-                # Explicit phosphorylation transitions from the precomputed sparse
-                # hypercube graph. Use S_all at the flattened site index so rates
-                # remain differentiable through kinase scales and site parameters.
-                for k in range(max_trans):
-                    tr_idx = jnp.minimum(trans_off[i] + k, trans_from.shape[0] - 1)
-                    valid_tr = k < trans_n[i]
-                    frm = trans_from[tr_idx]
-                    to = trans_to[tr_idx]
-                    j = trans_site[tr_idx]
-                    pos_frm = jnp.minimum(p0 + frm, y.shape[0] - 1)
-                    pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
-                    flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
-                    flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
-                    dy = dy.at[pos_frm].add(-flux)
-                    dy = dy.at[pos_to].add(flux)
+                # Explicit phosphorylation transitions, generated per protein
+                # in the same mask/site order as the historical dense arrays.
+                for m in range(max_states):
+                    valid_m = m < nst
+                    for j in range(max_sites):
+                        bit_unset = ((m >> j) & 1) == 0
+                        valid_tr = valid_m & (j < ns) & bit_unset
+                        to = m | (1 << j)
+                        pos_frm = jnp.minimum(p0 + m, y.shape[0] - 1)
+                        pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
+                        flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
+                        flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
+                        dy = dy.at[pos_frm].add(-flux)
+                        dy = dy.at[pos_to].add(flux)
             else:
                 P = y[off + 1]
                 ar = jnp.arange(max_sites, dtype=jnp.int32)

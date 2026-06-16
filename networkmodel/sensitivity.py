@@ -447,6 +447,13 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
                             "phos_df": dfph,
                         }
                     )
+                    # Keep only the bounded set needed for identical top-curve
+                    # reporting instead of retaining every trajectory DataFrame.
+                    if len(trajectory_storage) > int(SENSITIVITY_TOP_CURVES):
+                        trajectory_storage = _select_top_trajectories(
+                            trajectory_storage,
+                            max_items=SENSITIVITY_TOP_CURVES,
+                        )
 
             except Exception as exc:
                 failed_rows.append(
