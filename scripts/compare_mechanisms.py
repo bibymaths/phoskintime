@@ -25,14 +25,20 @@ from pathlib import Path
 from networkmodel import config
 import logging
 import networkmodel.network as network_mod
+import networkmodel.simulate as simulate_mod
+import networkmodel.SteadyStateAnalysis as steady_mod
 from networkmodel.network import Index, KinaseInput, System
-from networkmodel.simulate import simulate_and_measure
 from networkmodel.SteadyStateAnalysis import simulate_until_steady
 from networkmodel.io import load_data
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 
+try:
+    import networkmodel.backend as backend_mod
+except Exception:
+    backend_mod = None
+
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
-RESULTS_DIR_PICKED = Path("./results_network_distributive")
+RESULTS_DIR_PICKED = Path("./results_network_combinatorial")
 MODEL_NAMES = {
     0: "distributive",
     1: "sequential",
@@ -40,7 +46,24 @@ MODEL_NAMES = {
     4: "saturating",
 }
 
-INTENDED_MODEL = 0  # change to 2 for combinatorial
+INTENDED_MODEL = 2  # change to 2 for combinatorial
+
+def _force_networkmodel_model(model: int) -> None:
+    """Synchronize model selection across modules that imported MODEL at module scope."""
+    model = int(model)
+
+    config.MODEL = model
+    network_mod.MODEL = model
+    simulate_mod.MODEL = model
+
+    if hasattr(steady_mod, "MODEL"):
+        steady_mod.MODEL = model
+
+    if backend_mod is not None and hasattr(backend_mod, "MODEL"):
+        backend_mod.MODEL = model
+
+
+_force_networkmodel_model(INTENDED_MODEL)
 
 def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
     """
@@ -234,7 +257,7 @@ def _load_picked_predictions(results_dir: Path):
     return wt_dfp, wt_dfr, wt_pho
 
 @st.cache_resource
-def load_system():
+def load_system(model: int):
     """
     Caches and initializes a System object along with associated parameters, indices, and data models.
 
@@ -244,17 +267,17 @@ def load_system():
     parameters derived from an optimization run, reconstructing necessary input for reanalysis or dashboarding.
 
     Returns:
-        tuple: A tuple containing the"""
-    # IMPORTANT: ensure model selection matches run before building Index/System.
-    # networkmodel.network imports MODEL as a module-level value, so update both.
-    config.MODEL = INTENDED_MODEL
-    network_mod.MODEL = INTENDED_MODEL
+        tuple: A tuple containing the
+    """
 
-    model_name = MODEL_NAMES.get(INTENDED_MODEL, f"unknown_MODEL_{INTENDED_MODEL}")
+    # IMPORTANT: ensure model selection matches run before building Index/System.
+    _force_networkmodel_model(model)
+
+    model_name = MODEL_NAMES.get(model, f"unknown_MODEL_{model}")
 
     logging.getLogger(__name__).warning(
         "[Dashboard] Intended networkmodel MODEL=%d (%s); results_dir=%s",
-        INTENDED_MODEL,
+        model,
         model_name,
         RESULTS_DIR_PICKED,
     )
@@ -333,24 +356,17 @@ def load_system():
 
 
 def run_sim(sys, idx, mod_params):
-    """
-    Updates a system with given modification parameters and executes a simulation to return measurements.
+    """Update system parameters and simulate with the intended dashboard model."""
+    _force_networkmodel_model(INTENDED_MODEL)
 
-    This function takes a system object, updates its attributes based on the provided 
-    modification parameters, and runs a simulation. Measurements for protein, RNA, and 
-    phosphorylation levels are taken at predefined time points.
-
-    Args:
-        sys: The system object to be updated and simulated.
-        idx: An integer index specifying which part of the system to simulate.
-        mod_params: A dictionary containing the modification parameters to update 
-            the system with.
-
-    Returns:
-        The measurements obtained from the simulation"""
     sys.update(**mod_params)
-    return simulate_and_measure(sys, idx, config.TIME_POINTS_PROTEIN, config.TIME_POINTS_RNA,
-                                config.TIME_POINTS_PHOSPHO)
+    return simulate_mod.simulate_and_measure(
+        sys,
+        idx,
+        config.TIME_POINTS_PROTEIN,
+        config.TIME_POINTS_RNA,
+        config.TIME_POINTS_PHOSPHO,
+    )
 
 def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
     """Extract RNA, total protein, and phospho-site trajectories for one protein."""
@@ -820,7 +836,7 @@ if not st.session_state.get("compare_mechanisms_started", False):
     st.stop()
 
 with st.spinner("Loading data, building network matrices, and reconstructing fitted parameters..."):
-    sys, idx, best_params, df_tf_model, s_rates = load_system()
+    sys, idx, best_params, df_tf_model, s_rates = load_system(INTENDED_MODEL)
 
 model_name = MODEL_NAMES.get(INTENDED_MODEL, f"unknown_MODEL_{INTENDED_MODEL}")
 
@@ -1495,6 +1511,79 @@ else:
         else "Raw phosphosite ODE state"
     )
 
+    def _picked_points_on_displayed_curve(
+        picked_df: pd.DataFrame,
+        curve_df: pd.DataFrame,
+        y_col: str,
+    ) -> pd.DataFrame:
+        """
+        Return picked-data times placed exactly on the displayed WT curve.
+
+        This is for visual alignment only:
+        - x = picked model/data time
+        - y = interpolated value from the plotted WT curve
+        - picked_pred_fc is kept for hover/debug
+        """
+        if picked_df is None or picked_df.empty:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        if curve_df is None or curve_df.empty or y_col not in curve_df.columns:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        picked = picked_df.copy()
+
+        if "time" not in picked.columns or "pred_fc" not in picked.columns:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        picked["time"] = pd.to_numeric(picked["time"], errors="coerce")
+        picked["pred_fc"] = pd.to_numeric(picked["pred_fc"], errors="coerce")
+        picked = picked.dropna(subset=["time", "pred_fc"]).sort_values("time")
+
+        if picked.empty:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        curve = curve_df[["time", y_col]].copy()
+        curve["time"] = pd.to_numeric(curve["time"], errors="coerce")
+        curve[y_col] = pd.to_numeric(curve[y_col], errors="coerce")
+        curve = curve.dropna(subset=["time", y_col]).sort_values("time")
+
+        if curve.empty:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        x_curve = curve["time"].to_numpy(dtype=float)
+        y_curve = curve[y_col].to_numpy(dtype=float)
+
+        # Keep only picked times inside the plotted WT range.
+        picked = picked[
+            (picked["time"] >= float(np.min(x_curve)))
+            & (picked["time"] <= float(np.max(x_curve)))
+        ].copy()
+
+        if picked.empty:
+            return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
+
+        picked["display_y"] = np.interp(
+            picked["time"].to_numpy(dtype=float),
+            x_curve,
+            y_curve,
+        )
+        picked["picked_pred_fc"] = picked["pred_fc"]
+
+        return picked[["time", "display_y", "picked_pred_fc"]]
+
+
+    picked_wt_rna_on_curve = _picked_points_on_displayed_curve(
+        wt_r_data,
+        df_wt,
+        "rna",
+    )
+
+    picked_wt_protein_on_curve = _picked_points_on_displayed_curve(
+        wt_p_data,
+        df_wt,
+        "protein",
+    )
+
     # --- Plot mRNA and protein
     col1, col2 = st.columns(2)
 
@@ -1516,6 +1605,24 @@ else:
                 line=dict(color="red"),
             )
         )
+        if not picked_wt_rna_on_curve.empty:
+            fig_fine_r.add_trace(
+                go.Scatter(
+                    x=picked_wt_rna_on_curve["time"],
+                    y=picked_wt_rna_on_curve["display_y"],
+                    name="Picked WT model",
+                    mode="markers",
+                    marker=dict(size=6, color="black", symbol="circle-open"),
+                    customdata=picked_wt_rna_on_curve[["picked_pred_fc"]],
+                    hovertemplate=(
+                        "time=%{x}<br>"
+                        "displayed WT y=%{y:.4g}<br>"
+                        "picked pred_fc=%{customdata[0]:.4g}"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                )
+            )
         fig_fine_r.update_layout(
             title="mRNA Simulation",
             xaxis_title="Time",
@@ -1543,6 +1650,24 @@ else:
                 line=dict(color="blue"),
             )
         )
+        if not picked_wt_protein_on_curve.empty:
+            fig_fine_p.add_trace(
+                go.Scatter(
+                    x=picked_wt_protein_on_curve["time"],
+                    y=picked_wt_protein_on_curve["display_y"],
+                    name="Picked WT model",
+                    mode="markers",
+                    marker=dict(size=6, color="black", symbol="circle-open"),
+                    customdata=picked_wt_protein_on_curve[["picked_pred_fc"]],
+                    hovertemplate=(
+                        "time=%{x}<br>"
+                        "displayed WT y=%{y:.4g}<br>"
+                        "picked pred_fc=%{customdata[0]:.4g}"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                )
+            )
         fig_fine_p.update_layout(
             title="Protein Simulation",
             xaxis_title="Time",
@@ -1557,12 +1682,6 @@ else:
     # --- Signaling Drive Panel
     with col1:
         if selected_p in idx.p2i:
-            t_S, Y_S = t_ko, Y_ko_plot
-
-            kin_vals = Y_S[:, [idx.k2i[k] for k in idx.kinases]].T
-            kin_scaled = kin_vals * ko_params["c_k"][:, None]
-            S_t = sys.W_global @ kin_scaled
-
             site_names, site_rows = [], []
             site_counter = 0
 
@@ -1575,20 +1694,139 @@ else:
 
             fig_s_time = go.Figure()
 
+            # Compute displayed WT and KO signaling drive directly from kinase inputs.
+            # This avoids using state-vector columns as kinase indices.
+            K_wt = np.column_stack(
+                [
+                    sys.kin.eval(float(t)) * np.asarray(best_params["c_k"], dtype=float)
+                    for t in np.asarray(t_fine, dtype=float)
+                ]
+            )
+            S_wt_t = sys.W_global @ K_wt
+
+            K_ko = np.column_stack(
+                [
+                    sys.kin.eval(float(t)) * np.asarray(ko_params["c_k"], dtype=float)
+                    for t in np.asarray(t_ko, dtype=float)
+                ]
+            )
+            S_ko_t = sys.W_global @ K_ko
+
+            # Use S_rates only for marker times / hover values.
+            # Marker y-values are interpolated from the displayed WT S curve,
+            # so the spheres sit exactly on the WT line.
+            s_rate_value_col = None
+            s_rate_site_col = None
+
+            if s_rates is not None and not s_rates.empty:
+                for candidate in ("S", "s", "S_rate", "s_rate", "rate", "value", "phospho_drive"):
+                    if candidate in s_rates.columns:
+                        s_rate_value_col = candidate
+                        break
+
+                if s_rate_value_col is None:
+                    excluded_cols = {"protein", "psite", "site", "time"}
+                    numeric_cols = [
+                        c for c in s_rates.columns
+                        if c not in excluded_cols and pd.api.types.is_numeric_dtype(s_rates[c])
+                    ]
+                    s_rate_value_col = numeric_cols[0] if numeric_cols else None
+
+                if "psite" in s_rates.columns:
+                    s_rate_site_col = "psite"
+                elif "site" in s_rates.columns:
+                    s_rate_site_col = "site"
+
             for site_name, site_idx in zip(site_names, site_rows):
                 color = px.colors.qualitative.Plotly[
                     hash(site_name) % len(px.colors.qualitative.Plotly)
-                ]
+                    ]
+
+                wt_s_curve = np.asarray(S_wt_t[site_idx, :], dtype=float)
+                ko_s_curve = np.asarray(S_ko_t[site_idx, :], dtype=float)
+
                 fig_s_time.add_trace(
                     go.Scatter(
-                        x=t_S,
-                        y=S_t[site_idx, :],
-                        name=site_name,
+                        x=t_fine,
+                        y=wt_s_curve,
+                        name=f"WT S {site_name}",
                         mode="lines",
-                        line=dict(dash="solid", color=color),
+                        line=dict(dash="dash", color=color, width=2),
                         opacity=0.9,
                     )
                 )
+
+                fig_s_time.add_trace(
+                    go.Scatter(
+                        x=t_ko,
+                        y=ko_s_curve,
+                        name=f"KO S {site_name}",
+                        mode="lines",
+                        line=dict(dash="solid", color=color, width=3),
+                        opacity=0.9,
+                    )
+                )
+
+                if s_rates is not None and not s_rates.empty and "time" in s_rates.columns:
+                    s_site = s_rates.copy()
+
+                    if "protein" in s_site.columns:
+                        s_site = s_site[
+                            s_site["protein"].astype(str).str.strip().str.upper()
+                            == selected_p.upper()
+                            ]
+
+                    if s_rate_site_col is not None:
+                        s_site = s_site[
+                            s_site[s_rate_site_col].astype(str).str.strip()
+                            == str(site_name)
+                            ]
+
+                    if not s_site.empty:
+                        s_site["time"] = pd.to_numeric(s_site["time"], errors="coerce")
+                        s_site = s_site.dropna(subset=["time"]).sort_values("time")
+
+                        # Keep marker times inside the displayed WT S range.
+                        s_site = s_site[
+                            (s_site["time"] >= float(np.min(t_fine)))
+                            & (s_site["time"] <= float(np.max(t_fine)))
+                            ].copy()
+
+                        if not s_site.empty:
+                            s_marker_y = np.interp(
+                                s_site["time"].to_numpy(dtype=float),
+                                np.asarray(t_fine, dtype=float),
+                                wt_s_curve,
+                            )
+
+                            custom_cols = []
+                            if s_rate_value_col is not None and s_rate_value_col in s_site.columns:
+                                s_site[s_rate_value_col] = pd.to_numeric(
+                                    s_site[s_rate_value_col],
+                                    errors="coerce",
+                                )
+                                custom_cols = [s_rate_value_col]
+
+                            fig_s_time.add_trace(
+                                go.Scatter(
+                                    x=s_site["time"],
+                                    y=s_marker_y,
+                                    name=f"Picked WT S {site_name}",
+                                    mode="markers",
+                                    marker=dict(size=6, color=color, symbol="circle-open"),
+                                    customdata=s_site[custom_cols] if custom_cols else None,
+                                    hovertemplate=(
+                                            "time=%{x}<br>"
+                                            "displayed WT S=%{y:.4g}<br>"
+                                            + (
+                                                f"picked {s_rate_value_col}=%{{customdata[0]:.4g}}<br>"
+                                                if custom_cols else ""
+                                            )
+                                            + "<extra></extra>"
+                                    ),
+                                    showlegend=False,
+                                )
+                            )
 
             fig_s_time.update_layout(
                 title=f"{selected_p} – Phosphorylation (S)",
@@ -2482,7 +2720,7 @@ def _functional_influence_edges(mode: str, seed: str, depth: int, t_eval: float,
         depth (int): Maximum depth of propagation in the network.
         t_eval ("""
     # WT
-    sys_wt, idx_wt, _, df_tf_wt, _ = load_system()
+    sys_wt, idx_wt, _, df_tf_wt, _ = load_system(INTENDED_MODEL)
     df_wt = _cascade_edges_from_seed(
         sys_wt, idx_wt, best_params, df_tf_wt,
         seed=seed, depth=depth, t_eval=t_eval,
@@ -2490,7 +2728,7 @@ def _functional_influence_edges(mode: str, seed: str, depth: int, t_eval: float,
     )
 
     # KO
-    sys_ko, idx_ko, _, df_tf_ko, _ = load_system()
+    sys_ko, idx_ko, _, df_tf_ko, _ = load_system(INTENDED_MODEL)
     df_ko = _cascade_edges_from_seed(
         sys_ko, idx_ko, ko_params, df_tf_ko,
         seed=seed, depth=depth, t_eval=t_eval,
@@ -2600,7 +2838,7 @@ def build_network_from_params(params):
         params: Parameters required to build the network.
     """
     # HARD RESET
-    sys_local, idx_local, _, _, _ = load_system()
+    sys_local, idx_local, _, _, _ = load_system(INTENDED_MODEL)
     return _build_global_edge_tables(
         sys_local, idx_local, params, df_tf_model, t_eval=float(t_eval)
     )
@@ -2747,9 +2985,6 @@ st.caption(
     "or the browser will become heavy."
 )
 
-from networkmodel.simulate import simulate_diffrax
-
-
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):
     """
     Computes the state snapshot for a system over a specified time range.
@@ -2784,7 +3019,7 @@ def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval:
         # Diffrax requires strictly increasing values for this comparison grid
         t_grid.sort()
 
-    Y = simulate_diffrax(sys, t_grid, rtol=1e-6, atol=1e-8, max_steps=50000)
+    Y = simulate_mod.simulate_diffrax(sys, t_grid, rtol=1e-6, atol=1e-8, max_steps=50000)
     y_last = np.asarray(Y[-1], dtype=float)
 
     Kt = sys.kin.eval(t_eval) * sys.c_k
@@ -2885,7 +3120,7 @@ def build_network_from_params_at_time(params, t_eval_local: float):
         The resulting global edge tables after applying the parameters at the 
         specified time.
     """
-    sys_local, idx_local, _, _, _ = load_system()
+    sys_local, idx_local, _, _, _ = load_system(INTENDED_MODEL)
     return _build_global_edge_tables_at_time_sweep(
         sys_local, idx_local, params, df_tf_model, t_eval=float(t_eval_local)
     )
@@ -3079,7 +3314,7 @@ def _aligned_log2_ko_wt_for_nodes(
 # -------------------------
 def _simulate_state_series(params: dict, t_end: float, n_points: int):
     """Simulate one parameterization once and return a regular time grid."""
-    sys_local, idx_local, _, df_tf_local, _ = load_system()
+    sys_local, idx_local, _, df_tf_local, _ = load_system(INTENDED_MODEL)
     sys_local.update(**params)
 
     t_end = float(t_end)

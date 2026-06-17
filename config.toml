@@ -196,7 +196,7 @@ phospho_deg  = 20
 
 # Bootstrap settings
 [ode.bootstrap]
-n = 0
+n = 10
 
 # Time grids (minutes)
 [ode.time]
@@ -218,7 +218,7 @@ l2   = 1.0
 
 # Sensitivity
 [ode.sensitivity]
-enabled      = true
+enabled      = false
 perturbation = 0.5
 
 [ode.sensitivity.morris]
@@ -239,8 +239,8 @@ rna_excel     = "data/tfopt_results.xlsx"
 
 # Output naming (optional)
 [ode.output]
-out_dir_name = "results_protwise_jax"   # if empty, code can use "<ModelType>_results"
-out_xlsx_name = "results_protwise_jax.xlsx"  # if empty, code can use "<ModelType>_results.xlsx"
+out_dir_name = "results_protwise_distributive"   # if empty, code can use "<ModelType>_results"
+out_xlsx_name = "results_protwise_distributive.xlsx"  # if empty, code can use "<ModelType>_results.xlsx"
 
 # ============================================================
 # GLOBAL MODEL (Integrated ODE Optimization)
