@@ -23,6 +23,8 @@ import networkx as nx
 from pathlib import Path
 
 from networkmodel import config
+import logging
+import networkmodel.network as network_mod
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.simulate import simulate_and_measure
 from networkmodel.SteadyStateAnalysis import simulate_until_steady
@@ -30,7 +32,15 @@ from networkmodel.io import load_data
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 
 st.set_page_config(page_title="PhoskinTime Global Knockout", layout="wide")
-RESULTS_DIR_PICKED = Path("./results_network_sequential")
+RESULTS_DIR_PICKED = Path("./results_network_distributive")
+MODEL_NAMES = {
+    0: "distributive",
+    1: "sequential",
+    2: "combinatorial",
+    4: "saturating",
+}
+
+INTENDED_MODEL = 0  # change to 2 for combinatorial
 
 def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
     """
@@ -235,8 +245,19 @@ def load_system():
 
     Returns:
         tuple: A tuple containing the"""
-    # IMPORTANT: ensure model selection matches run *before* building System
-    config.MODEL = 1
+    # IMPORTANT: ensure model selection matches run before building Index/System.
+    # networkmodel.network imports MODEL as a module-level value, so update both.
+    config.MODEL = INTENDED_MODEL
+    network_mod.MODEL = INTENDED_MODEL
+
+    model_name = MODEL_NAMES.get(INTENDED_MODEL, f"unknown_MODEL_{INTENDED_MODEL}")
+
+    logging.getLogger(__name__).warning(
+        "[Dashboard] Intended networkmodel MODEL=%d (%s); results_dir=%s",
+        INTENDED_MODEL,
+        model_name,
+        RESULTS_DIR_PICKED,
+    )
 
     results_dir = RESULTS_DIR_PICKED
 
@@ -800,6 +821,17 @@ if not st.session_state.get("compare_mechanisms_started", False):
 
 with st.spinner("Loading data, building network matrices, and reconstructing fitted parameters..."):
     sys, idx, best_params, df_tf_model, s_rates = load_system()
+
+model_name = MODEL_NAMES.get(INTENDED_MODEL, f"unknown_MODEL_{INTENDED_MODEL}")
+
+if not st.session_state.get("model_banner_shown", False):
+    st.success(
+        f"Loaded intended networkmodel: MODEL={INTENDED_MODEL} ({model_name}); "
+        f"results_dir={RESULTS_DIR_PICKED}"
+    )
+    st.session_state["model_banner_shown"] = True
+
+st.sidebar.info(f"Model: MODEL={INTENDED_MODEL} ({model_name})")
 
 st.sidebar.header("🕹️ Control Panel")
 
