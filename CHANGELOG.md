@@ -712,6 +712,20 @@ Make combinatorial model memory safe
 
 - Made a project presentation using the sample results.
 
+- Changelog, organic testing, publishing workflow for github and zenodo
+
+- Defer ODE input validation until runtime
+
+- Make imports safe with empty output paths
+
+- Merge pull request #70 from bibymaths/codex/fix-import-time-issues-with-empty-config.toml
+
+Defer ODE input validation until ProtWise runtime
+
+- Coverage, update readme with workflow, extension planning for future
+
+- Bump to v0.5.0
+
 
 
 ### Tests
