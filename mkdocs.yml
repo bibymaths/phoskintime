@@ -35,10 +35,10 @@ theme:
 
 nav:
   - Home: index.md
-  - Terms of use: ../TERMS_OF_USE.md
-  - Contributing: ../CONTRIBUTING.md
+  - Terms of use: repository/terms_of_use.md
+  - Contributing: repository/contributing.md
   - API Reference: reference.md
-  - Changelog: ../CHANGELOG.md
+  - Changelog: repository/changelog.md
   - Documentation:
       - Architecture & Data Flow: Documentation/architecture.md
       - Configuration Reference: Documentation/configuration.md

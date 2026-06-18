@@ -10,6 +10,23 @@ permissions:
 
 jobs:
   test:
+    # Skip only this Tests workflow/job when the commit message or PR text contains [skip tests].
+    # Do not use [skip ci], because that skips all push/pull_request workflows.
+    if: >
+      ${{
+        !(
+          github.event_name == 'push' &&
+          contains(github.event.head_commit.message, '[skip tests]')
+        ) &&
+        !(
+          github.event_name == 'pull_request' &&
+          (
+            contains(github.event.pull_request.title, '[skip tests]') ||
+            contains(github.event.pull_request.body, '[skip tests]')
+          )
+        )
+      }}
+
     runs-on: ubuntu-latest
 
     steps:
