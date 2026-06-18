@@ -27,7 +27,12 @@ responses. Understanding these post-translational modifications is critical.
 
 ![Phosphorylation Cascade Concept](docs/assets/images/phoskintime_problem.png)
 
-*Figure 1: Overview of protein post-translational modifications and the phosphorylation cascade mechanism.*
+---
+
+## Workflow
+
+![PhosKinTime Workflow](docs/assets/images/phoskintime_workflow.png)
+
 
 ---
 
