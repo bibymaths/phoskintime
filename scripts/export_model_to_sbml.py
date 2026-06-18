@@ -34,7 +34,7 @@ from xml.etree import ElementTree as ET
 #   legacy kinopt_results.xlsx/tfopt_results.xlsx as dashboard-readable tables.
 
 FAMILIES = ("protwise", "kinopt", "tfopt", "networkmodel")
-SUPPORTED_SUFFIXES = {".csv", ".tsv", ".json", ".pkl", ".pickle", ".npz", ".npy", ".parquet", ".xlsx", ".xls"}
+SUPPORTED_SUFFIXES = {".csv", ".tsv", ".json", ".pkl", ".pickle", ".npz", ".npy", ".parquet", ".xlsx", ".xls", ".tex"}
 SOURCE_HINTS = {
     "protwise": ["protwise/models/protwise.py", "protwise/models/diffrax_solver.py", "protwise/paramest/core.py", "common/utils/display.py", "config/constants.py"],
     "kinopt": ["kinopt/local/objfn/minfn.py", "kinopt/local/utils/params.py", "kinopt/local/optcon/construct.py", "kinopt/local/exporter/sheetutils.py", "app/kinopt.py"],
@@ -52,11 +52,18 @@ SCHEMA_SOURCES = [
     "networkmodel/dashboard_bundle.py::save_dashboard_bundle",
     "dashboard/result_parser.py::discover_result_directory",
 ]
+EQUATION_SOURCES = {
+    "kinopt": ["kinopt/local/objfn/minfn.py::_estimated_series", "kinopt/local/objfn/minfn.py::_objective"],
+    "tfopt": ["tfopt/local/objfn/minfn.py::compute_predictions", "tfopt/local/objfn/minfn.py::objective_"],
+    "protwise": ["protwise/models/diffrax_solver.py::_dist_rhs/_succ_rhs/_rand_rhs", "protwise/models/diffrax_solver.py::make_local_model_rhs", "config/constants.py::get_param_names"],
+    "networkmodel": ["networkmodel/models.py::calculate_synthesis_rate", "networkmodel/models.py::saturating_rhs/distributive_rhs/sequential_rhs/combinatorial_rhs", "networkmodel/LossFunction.py::loss_function_noncomb", "networkmodel/params.py::unpack_params"],
+    "unknown": [],
+}
 EQUATIONS = {
-    "kinopt": ["M_k(t) = sum_s beta_{k,s} K_{k,s}(t)", "P_i(t) = max(0, sum_k alpha_{i,k} M_k(t))"],
-    "tfopt": ["E_g(t) = max(0, sum_r alpha_{g,r} (beta_{r,0} TF_r(t) + sum_s beta_{r,s} PSite_{r,s}(t)))"],
-    "protwise": ["dR_i/dt = transcription_i(t) - degradation_i R_i", "dP_i/dt = translation_i(R_i) - degradation_i P_i - phosphorylation flux + dephosphorylation flux"],
-    "networkmodel": ["dR_i/dt = synthesis_i(TF inputs) - B_i R_i", "dP_i/dt = translation_i(R_i) - D_i P_i - site fluxes", "dS_{i,j}/dt = phosphorylation_{i,j}(P_i) - (D_i + Dp_{i,j})S_{i,j} - dephosphorylation_{i,j}"],
+    "kinopt": ["A_k(t) = \\sum_s beta_{k,s} K_{k,s}(t)", "P_i(t) = max(0, \\sum_k alpha_{i,k} A_k(t))", "Loss is computed from observed minus predicted phosphorylation/protein fold-change with configured robust loss option."],
+    "tfopt": ["TFEffect_r(t) = beta_{r,0} TF_r(t) + \\sum_s beta_{r,s} PSite_{r,s}(t)", "E_g(t) = max(0, \\sum_r alpha_{g,r} TFEffect_r(t))", "Loss is mean residual loss over observed gene-expression fold-change plus optional regularization."],
+    "protwise": ["dist/protwise: dR/dt = A - B R; dP/dt = C R - (D + \\sum_j s_j)P + \\sum_j X_j; dX_j/dt = s_j P - (1+d_j)X_j", "succmod: sequential phosphosite states use upstream phosphorylation and unit dephosphorylation terms as implemented in _succ_rhs.", "randmod: subset-state phosphorylation/dephosphorylation ODEs are implemented in _rand_rhs and aggregated to site-level output."],
+    "networkmodel": ["synthesis_i = calculate_synthesis_rate(A_i, tf_scale, TF_inputs_i)", "dR_i/dt = synthesis_i - B_i R_i", "non-combinatorial dP_i/dt and dS_{i,j}/dt follow saturating/distributive/sequential_rhs; combinatorial_rhs uses mask-state phosphorylation transitions.", "Fitted physical parameters are c_k, A_i, B_i, C_i, D_i, Dp_i, E_i, and tf_scale after softplus unpacking."],
     "unknown": ["Project-style fitted parameter table was detected, but model family was not inferred; pass --model-family for family-specific equations."],
 }
 PARAMETER_SOURCE_PATTERNS = ["parameter", "parameters", "param", "params", "alpha", "beta", "coefficient", "coefficients", "weight", "weights", "fit_params", "fitted_params", "estimated_params"]
@@ -120,6 +127,11 @@ class ModelResult:
     warnings: list[str] = field(default_factory=list)
     parameter_records: list[ParameterRecord] = field(default_factory=list)
     skipped_tables: list[SkippedTable] = field(default_factory=list)
+    equation_source_files: list[Path] = field(default_factory=list)
+    equation_source_functions: list[str] = field(default_factory=list)
+    parameter_source_files: list[Path] = field(default_factory=list)
+    schema_source_functions: list[str] = field(default_factory=list)
+    structure_files: list[Path] = field(default_factory=list)
 
 @dataclass
 class ValidationReport:
@@ -169,6 +181,8 @@ def _as_float(v: Any) -> float | None:
 
 def source_is_non_parameter(source_name: str) -> bool:
     n = _norm(source_name)
+    if any(p in n for p in ("fitted_params", "estimated_params", "model_parameters", "parameters", "alpha", "beta")):
+        return False
     return any(p in n for p in NON_PARAMETER_SOURCE_PATTERNS)
 
 
@@ -236,6 +250,29 @@ def _numeric_records_from_json_like(obj: Any, path: Path, family: str) -> list[P
     return records
 
 
+
+def _numeric_columns(df: Any, exclude: set[str]) -> list[str]:
+    cols = []
+    for c in [str(x) for x in df.columns]:
+        if _norm(c) in exclude:
+            continue
+        if df[c].map(_as_float).notna().any():
+            cols.append(c)
+    return cols
+
+
+def _records_from_value_columns(df: Any, path: Path, sheet: str | None, schema: str, kind: str, value_cols: list[str], id_cols: list[str]) -> list[ParameterRecord]:
+    records: list[ParameterRecord] = []
+    for idx, row in df.iterrows():
+        for c in value_cols:
+            val = _as_float(row.get(c))
+            if val is not None:
+                rid = _param_id(kind if len(value_cols) == 1 else c, row, id_cols, c)
+                if "sol_id" not in [_norm(x) for x in id_cols] and any(_norm(x) == "time" for x in id_cols):
+                    rid += f"__row_{idx}"
+                records.append(ParameterRecord(rid, val, str(path), sheet, schema, {k: row.get(k) for k in [*id_cols, c]}))
+    return records
+
 def parse_parameter_dataframe(df: Any, path: Path, sheet: str | None, family: str) -> tuple[list[ParameterRecord], str | None, str]:
     cols = [str(c) for c in df.columns]
     norm_cols = {_norm(c): c for c in cols}
@@ -245,6 +282,44 @@ def parse_parameter_dataframe(df: Any, path: Path, sheet: str | None, family: st
 
     if source_is_non_parameter(source):
         return [], "trajectory/prediction/metric/residual/diagnostic table, not a fitted parameter table", "non-parameter"
+
+
+    filename_norm = _norm(path.name)
+    stem_norm = _norm(path.stem)
+
+    # Schema source of truth:
+    # - networkmodel/runner.py writes fitted_params_picked.json and model parameter CSVs.
+    # - networkmodel/export.py::export_pareto_front_to_excel writes equivalent named physical parameters.
+    if family == "networkmodel" and stem_norm in {"model_parameters_genes", "model_parameters_genes_psites", "model_parameters_kinases"}:
+        id_cols = [c for c in cols if _norm(c) in {"protein", "gene", "geneid", "psite", "phosphosite", "kinase", "param", "parameter", "name", "sol_id"}]
+        value_cols = _numeric_columns(df, NEVER_PARAMETER_COLUMNS | {"time", "pred_fc", "fc", "obs_fc"})
+        # Prefer canonical long value column if present; otherwise accept named parameter columns in these exact files.
+        if "value" in norm_cols:
+            value_cols = [norm_cols["value"]]
+        elif "c_k" in norm_cols:
+            value_cols = [norm_cols["c_k"]]
+        records = _records_from_value_columns(df, path, sheet, f"networkmodel {path.name} parameter table", stem_norm, value_cols, [c for c in id_cols if c not in value_cols])
+        return records, None if records else f"{path.name} had no numeric fitted parameter values", f"networkmodel {path.name} parameter table"
+
+    # Schema source of truth:
+    # - networkmodel/export.py::save_s_rates_csv / save S rates outputs use protein, psite, time, S columns.
+    if family == "networkmodel" and stem_norm == "s_rates_picked":
+        value_col = norm_cols.get("s") or norm_cols.get("s_rate") or norm_cols.get("rate")
+        if value_col:
+            id_cols = [c for c in cols if c != value_col and _norm(c) not in {"pred_fc", "fc"}]
+            records = _records_from_value_columns(df, path, sheet, "networkmodel selected S/rate table", "S_rate", [value_col], id_cols)
+            return records, None if records else "S_rates_picked had no numeric S/rate values", "networkmodel selected S/rate table"
+
+    # Schema source of truth:
+    # - networkmodel/runner.py selected initial state export initial_conditions_y0.csv.
+    # Initial conditions are model state metadata; include them separately as dimensionless initial-value parameters.
+    if family == "networkmodel" and stem_norm == "initial_conditions_y0":
+        value_cols = [norm_cols[c] for c in ("y0", "initial_value", "value") if c in norm_cols]
+        if not value_cols:
+            value_cols = _numeric_columns(df, NEVER_PARAMETER_COLUMNS - {"id", "index"})[:1]
+        id_cols = [c for c in cols if c not in value_cols]
+        records = _records_from_value_columns(df, path, sheet, "networkmodel initial_conditions_y0 state table", "initial_condition", value_cols, id_cols)
+        return records, None if records else "initial_conditions_y0 had no numeric initial values", "networkmodel initial_conditions_y0 state table"
 
     # Exact alpha schemas: KinOpt Alpha Values = Gene/Psite/Kinase/Alpha;
     # TFOpt Alpha Values = mRNA/TF/Value (app/tfopt.py loader normalization).
@@ -364,7 +439,23 @@ def load_model_result(path: Path, requested_model_family: str | None = None, ver
                     if verbose:
                         logging.info("Skipped non-parameter table:\n- file: %s\n- sheet: %s\n- reason: %s", path, sheet, reason)
         elif suf == ".json":
-            records = _numeric_records_from_json_like(json.loads(path.read_text(encoding="utf-8")), path, family)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if family == "networkmodel" and path.name == "fitted_params_picked.json":
+                # Schema source of truth: networkmodel selected fitted-parameter JSON named fitted_params_picked.json.
+                def walk(prefix, val):
+                    if isinstance(val, dict):
+                        for k, v in val.items(): walk(f"{prefix}_{k}" if prefix else str(k), v)
+                    elif isinstance(val, (list, tuple)):
+                        for i, v in enumerate(val): walk(f"{prefix}_{i}", v)
+                    else:
+                        f = _as_float(val)
+                        if f is not None and prefix:
+                            records.append(ParameterRecord(_safe_id(prefix), f, str(path), None, "networkmodel fitted_params_picked.json", {"path": prefix}))
+                walk("", payload)
+            else:
+                records = _numeric_records_from_json_like(payload, path, family)
+        elif suf == ".tex":
+            skipped.append(SkippedTable(str(path), None, "LaTeX equation/model file used for documentation grounding, not a parameter table"))
         elif suf in {".pkl", ".pickle"}:
             # Do not parse arbitrary dashboard/result pickles as parameters except strict parameter-like names.
             if source_is_parameter_like(path.stem) and not source_is_non_parameter(path.stem):
@@ -387,7 +478,18 @@ def load_model_result(path: Path, requested_model_family: str | None = None, ver
     params = {r.parameter_id: r.value for r in records}
     if not records and not skipped:
         skipped.append(SkippedTable(str(path), None, "no fitted parameter schema matched"))
-    return ModelResult(family, path, params, {"result_file": str(path), "result_files": [str(path)], "schemas": sorted({r.schema for r in records}), "family_source": family_source}, EQUATIONS.get(family, EQUATIONS["unknown"]), warnings, records, skipped)
+    eq_funcs = EQUATION_SOURCES.get(family, [])
+    eq_files = [Path(x.split("::", 1)[0]) for x in eq_funcs if "::" in x]
+    return ModelResult(
+        family, path, params,
+        {"result_file": str(path), "result_files": [str(path)], "schemas": sorted({r.schema for r in records}), "family_source": family_source},
+        EQUATIONS.get(family, EQUATIONS["unknown"]), warnings, records, skipped,
+        equation_source_files=eq_files,
+        equation_source_functions=eq_funcs,
+        parameter_source_files=[Path(r.source_file) for r in records],
+        schema_source_functions=SCHEMA_SOURCES,
+        structure_files=[],
+    )
 
 
 def discover_model_outputs(results_dir: Path, model_family: str | None = None, run_id: str | None = None, verbose: bool = False) -> list[ModelResult]:
@@ -400,13 +502,34 @@ def discover_model_outputs(results_dir: Path, model_family: str | None = None, r
     for r in loaded:
         if not r.parameters and not r.skipped_tables:
             continue
-        m = merged.setdefault(r.model_family, ModelResult(r.model_family, r.source_path, {}, {"result_files": [], "schemas": [], "family_source": r.metadata.get("family_source")}, EQUATIONS.get(r.model_family, EQUATIONS["unknown"]), [], [], []))
+        m = merged.setdefault(r.model_family, ModelResult(r.model_family, r.source_path, {}, {"result_files": [], "schemas": [], "family_source": r.metadata.get("family_source")}, EQUATIONS.get(r.model_family, EQUATIONS["unknown"]), [], [], [], [], [], [], []))
         m.metadata["result_files"].extend(r.metadata.get("result_files", [str(r.source_path)]))
         m.metadata["schemas"] = sorted(set(m.metadata.get("schemas", [])) | set(r.metadata.get("schemas", [])))
         m.parameters.update(r.parameters)
         m.parameter_records.extend(r.parameter_records)
         m.skipped_tables.extend(r.skipped_tables)
         m.warnings.extend(r.warnings)
+        m.equation_source_files = sorted(set(m.equation_source_files + r.equation_source_files), key=str)
+        m.equation_source_functions = sorted(set(m.equation_source_functions + r.equation_source_functions))
+        m.parameter_source_files = sorted(set(m.parameter_source_files + r.parameter_source_files), key=str)
+        m.schema_source_functions = sorted(set(m.schema_source_functions + r.schema_source_functions))
+    # Attach existing ProtWise LaTeX equation files and network structure metadata discovered in the run directory.
+    for fam, m in merged.items():
+        for tex in root.rglob("*_model_latex.tex"):
+            if fam in {"protwise", "unknown"}:
+                m.equation_source_files.append(tex)
+                m.metadata.setdefault("equation_files", []).append(str(tex))
+                try:
+                    text = tex.read_text(encoding="utf-8", errors="replace").strip()
+                    if text:
+                        m.equations.append(text[:2000])
+                except OSError:
+                    pass
+        if fam == "networkmodel":
+            for name in ("network_W_global.csv", "network_kinase_inputs.csv", "network_tf_mat.csv", "optimized_entities.json", "metadata.json", "mode_metadata.json", "config_resolved.yaml"):
+                f = root / name
+                if f.exists():
+                    m.structure_files.append(f)
     return list(merged.values())
 
 
@@ -419,7 +542,8 @@ def build_sbml_document(model_result: ModelResult):
     model = doc.createModel(); model.setId(_safe_id(model_result.model_family + "_model")); model.setName(model_result.model_family)
     model.setTimeUnits("dimensionless"); model.setExtentUnits("dimensionless"); model.setSubstanceUnits("dimensionless")
     comp = model.createCompartment(); comp.setId("unitless_compartment"); comp.setConstant(True); comp.setSize(1.0); comp.setSpatialDimensions(0); comp.setUnits("dimensionless")
-    notes = """<body xmlns='http://www.w3.org/1999/xhtml'><p>This SBML model was exported from fitted phoskintime-family results. The fitted observables are fold-change or otherwise unitless measurements. Species and parameters corresponding to these observables are represented as dimensionless quantities. The model is a mathematical regulatory/phosphorylation model, not an absolute concentration-based biochemical model unless additional calibration information is supplied. Time is represented using a dimensionless convention because source result units may be unknown.</p></body>"""
+    grounding = "; ".join(model_result.equation_source_functions + model_result.schema_source_functions[:4])
+    notes = f"""<body xmlns='http://www.w3.org/1999/xhtml'><p>This SBML model was exported from fitted phoskintime-family results. The fitted observables are fold-change or otherwise unitless measurements. Species and parameters corresponding to these observables are represented as dimensionless quantities. The model is a mathematical regulatory/phosphorylation model, not an absolute concentration-based biochemical model unless additional calibration information is supplied. Time is represented using a dimensionless convention because source result units may be unknown.</p><p>Implementation grounding: {escape(grounding)}</p><p>SBML mapping note: implemented regulatory or ODE equations are represented by dimensionless parameters and a placeholder assignment rule where exact repository-specific simulation state reconstruction is unavailable from result tables alone.</p></body>"""
     model.setNotes(notes)
     obs = model.createSpecies(); obs.setId("unitless_observable"); obs.setCompartment("unitless_compartment"); obs.setInitialAmount(0.0); obs.setSubstanceUnits("dimensionless"); obs.setBoundaryCondition(False); obs.setHasOnlySubstanceUnits(False); obs.setConstant(False)
     for record in sorted(model_result.parameter_records, key=lambda r: r.parameter_id):
@@ -488,16 +612,22 @@ def main(argv=None) -> int:
         write_sbml(build_sbml_document(r), r, out); exported.append(out)
         rep = validate_sbml(out) if a.validate else ValidationReport(out, 0, 0, ["Validation not requested; pass --validate."]); reports.append(rep)
         print(f"{out}: {rep.errors} errors, {rep.warnings} warnings"); [print(f"  - {m}") for m in rep.messages[:20]]
-    print("Fixed parameter extraction:")
-    print("- studied existing protwise/common/networkmodel export functions")
-    print("- matched actual alpha/beta/parameter table schemas")
-    print("- removed generic numeric-column extraction from *_results.* files")
-    print("- added sheet-level filtering for workbook results")
-    print("- skipped trajectories, residuals, metrics, predictions, and diagnostics")
+    print("Fixed implementation grounding:")
+    print("- inspected networkmodel/protwise/common/KinOpt/TFOpt equation and export functions")
+    print("- recorded schema and equation source files/functions")
+    print("- imported existing functions where safe, otherwise mirrored schemas from implementation")
+    print("Fixed result parsing:")
+    print("- supported results_network_combinatorial layout")
+    print("- supported old_results/results_kinopt/kinopt/kinopt_results.xlsx")
+    print("- supported old_results/results_tfopt/tfopt/tfopt_results.xlsx")
+    print("- supported old_results/results_model/Distributive_results protwise layout")
+    print("- removed generic numeric parsing from *_results.* files")
+    print("- added workbook sheet-level filtering")
     print("Fixed model-family handling:")
-    print("- --model-family is now an authoritative fallback")
-    print("- generic run folders such as results/<run_id>/tables/alpha_values.csv are supported")
-    print("- unknown-family valid parameter tables are no longer silently dropped")
+    print("- --model-family is now authoritative when paths are generic")
+    print("- valid alpha/beta/parameter tables are not silently dropped")
+    print("Outputs:")
+    print("- SBML files written and validated where possible")
     print("Discovered model families:"); [print(f"- {fam}: {'exported SBML' if any(p.name.startswith(fam) for p in exported) else 'skipped'}") for fam in [*FAMILIES, 'unknown'] if (not a.model_family or fam == a.model_family) and (fam in found or fam in FAMILIES)]
     print("Outputs:"); [print(f"- {p}") for p in exported]
     return 0

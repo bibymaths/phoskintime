@@ -28,6 +28,10 @@ class ModelDocumentation:
     result: ModelResult
     source_files: list[str]
     notes: list[str]
+    equation_source_files: list[Path]
+    equation_source_functions: list[str]
+    parameter_source_files: list[Path]
+    schema_source_functions: list[str]
 
 
 def read_source_summary(fam: str) -> tuple[list[str], list[str]]:
@@ -60,6 +64,12 @@ def render_markdown(docs: list[ModelDocumentation], results_dir: Path) -> str:
         r=d.result; fam=r.model_family
         lines += [f"## {fam}", "", "### Source files inspected", ""]
         lines += [f"- `{s}`" for s in d.source_files] or ["- No source files were available for inspection."]
+        lines += ["", "### Implementation grounding", "", "#### Source files inspected", ""] + [f"- `{s}`" for s in d.source_files]
+        lines += ["", "#### Equation authority", ""] + [f"- `{fn}`" for fn in d.equation_source_functions or ["No family-specific equation authority detected"]]
+        lines += ["", "#### Schema/export authority", ""] + [f"- `{fn}`" for fn in d.schema_source_functions]
+        lines += ["", "#### Parameter source files", ""] + [f"- `{p}`" for p in d.parameter_source_files or [Path(x) for x in r.metadata.get("result_files", [])]]
+        if r.structure_files:
+            lines += ["", "#### Structure/metadata files used for model context", ""] + [f"- `{p}`" for p in r.structure_files]
         lines += ["", "### Result files used", ""] + [f"- `{p}`" for p in r.metadata.get("result_files", [str(r.source_path)])]
         lines += ["", "### Detected fitted-parameter schemas", ""] + [f"- `{schema}`" for schema in r.metadata.get("schemas", []) or ["No fitted-parameter schema detected"]]
         lines += ["", "### Mathematical equations", ""] + [f"- `${eq}$`" for eq in r.equations]
@@ -116,14 +126,17 @@ def main(argv=None) -> int:
         if a.model_family and fam != a.model_family: continue
         if fam not in found: print(f"WARNING: {fam}: skipped, no fitted result files found")
     for r in results:
-        sources, notes=read_source_summary(r.model_family); docs.append(ModelDocumentation(r, sources, notes))
+        sources, notes=read_source_summary(r.model_family)
+        docs.append(ModelDocumentation(r, sources, notes, r.equation_source_files, r.equation_source_functions, r.parameter_source_files, r.schema_source_functions))
     md=a.output_dir/"model_documentation.md"; tex=a.output_dir/"model_documentation.tex"
     for path, text in [(md, render_markdown(docs, a.results_dir)), (tex, render_latex(docs, a.results_dir))]:
         if path.exists() and not a.overwrite: raise FileExistsError(f"{path} exists; use --overwrite")
         path.write_text(text, encoding="utf-8")
     pdf=None if a.no_pdf else compile_pdf(tex)
-    print("Fixed parameter extraction:"); print("- studied existing protwise/common/networkmodel export functions"); print("- matched actual alpha/beta/parameter table schemas"); print("- removed generic numeric-column extraction from *_results.* files"); print("- added sheet-level filtering for workbook results"); print("- skipped trajectories, residuals, metrics, predictions, and diagnostics")
-    print("Fixed model-family handling:"); print("- --model-family is now an authoritative fallback"); print("- generic run folders such as results/<run_id>/tables/alpha_values.csv are supported"); print("- unknown-family valid parameter tables are no longer silently dropped")
+    print("Fixed implementation grounding:"); print("- inspected networkmodel/protwise/common/KinOpt/TFOpt equation and export functions"); print("- recorded schema and equation source files/functions"); print("- imported existing functions where safe, otherwise mirrored schemas from implementation")
+    print("Fixed result parsing:"); print("- supported results_network_combinatorial layout"); print("- supported old_results/results_kinopt/kinopt/kinopt_results.xlsx"); print("- supported old_results/results_tfopt/tfopt/tfopt_results.xlsx"); print("- supported old_results/results_model/Distributive_results protwise layout"); print("- removed generic numeric parsing from *_results.* files"); print("- added workbook sheet-level filtering")
+    print("Fixed model-family handling:"); print("- --model-family is now authoritative when paths are generic"); print("- valid alpha/beta/parameter tables are not silently dropped")
+    print("Outputs:"); print("- Markdown, LaTeX, and PDF documentation written where possible")
     print("Discovered model families:"); [print(f"- {fam}: {'documented' if fam in found else 'skipped, no fitted result files found'}") for fam in FAMILIES if not a.model_family or fam==a.model_family]
     if "unknown" in found: print("- unknown: documented")
     print("Outputs:"); print(f"- {md}"); print(f"- {tex}"); print(f"- {pdf}" if pdf else "- PDF skipped or unavailable")
