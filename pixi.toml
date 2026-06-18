@@ -1,6 +1,6 @@
 [workspace]
 name = "phoskintime"
-version = "0.4.0"
+version = "0.5.0"
 description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
