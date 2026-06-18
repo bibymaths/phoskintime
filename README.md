@@ -47,15 +47,6 @@ In cellular signaling pathways, a series of proteins are phosphorylated in an ac
 
 ---
 
-## Features & Analysis
-PhosKinTime allows you to visualize network topology, track protein signal loss/propagation over time, and evaluate model convergence. 
-
-![PhosKinTime Analysis Outputs](docs/assets/images/phoskintime_analysis.png)
-
-*Figure 2: PhosKinTime outputs including network graphing, kinetic time-series modeling, and residual analysis.* 
-
---- 
-
 <details>
 <summary>Acknowledgements (Click to expand) </summary>
 
