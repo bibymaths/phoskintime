@@ -58,12 +58,20 @@ All notable changes to this project are documented here.
 
 - Phosphosite dynamics 4th panel in forward simulation & data fit inspector
 
+- Combinatorial model state phase explosion down to O(1) runtime, no memory explosion in for loop, vectorized RHS for combinatorial model.
+
+- Ambiguity in model loading for forward simulation-KO/WT dashboard
+
 
 
 ### Maintenance
 
 
 - Add community, governance, citation, and repository-maintenance files
+
+- Update changelog and docs config file
+
+- Chore and fix: cleanup config file, fix mrna modality missing scenario, tested all scenarios, works!
 
 
 
@@ -691,6 +699,18 @@ Standardize dashboard-ready output contract
 - Merge pull request #68 from bibymaths/codex/fix-phosphosite-state-dynamics-panel
 
 Fix forward phosphosite ODE panel
+
+- Memory issue fixing
+
+- Make combinatorial model memory safe
+
+- Fix combinatorial S-rate export cache shape
+
+- Merge pull request #69 from bibymaths/codex/implement-memory-safe-fixes-for-combinatorial-model
+
+Make combinatorial model memory safe
+
+- Made a project presentation using the sample results.
 
 
 
