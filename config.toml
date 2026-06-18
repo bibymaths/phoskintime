@@ -996,7 +996,7 @@ sensitivity_metric = "l2_norm"
 #
 # Recommended:
 #   Use n_starts > 1 for non-convex ODE models.
-n_starts = 10
+n_starts = 1
 
 
 # ------------------------------------------------------------
@@ -1035,10 +1035,10 @@ profile_grid_size = 5
 posterior_sampling = false
 
 # Number of warmup/adaptation samples for posterior sampling.
-posterior_num_warmup = 300
+posterior_num_warmup = 20
 
 # Number of retained posterior samples.
-posterior_num_samples = 500
+posterior_num_samples = 30
 
 
 # ------------------------------------------------------------

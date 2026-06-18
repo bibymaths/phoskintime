@@ -76,7 +76,9 @@ def save_dashboard_bundle(
         "df_pho_obs": df_pho,
     }
 
-    bundle_path = out / "artifacts" / "dashboard_bundle.pkl"
+    artifacts_dir = out / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    bundle_path = artifacts_dir / "dashboard_bundle.pkl"
     with bundle_path.open("wb") as f:
         pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
 
