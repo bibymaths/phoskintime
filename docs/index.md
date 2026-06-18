@@ -17,48 +17,25 @@ project.
 ---
 ## Acknowledgments
 
-This project originated as part of my master's thesis work at Theoretical Biophysics group (
-now, [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/)), Humboldt Universität zu Berlin.
+This project began from my master's thesis work in the Theoretical Biophysics group, now
+the [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/), at Humboldt-Universität zu Berlin. The
+submitted thesis focused on `kinopt`, while related components of the broader modelling framework were developed in
+parallel during that period and continued afterwards.
 
-- **Conceptual framework and mathematical modeling** were developed under the supervision of **[Prof. Dr. Dr. H.C. Edda Klipp](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/52-klipp)**.
-- **Experimental datasets** were provided by the **[(Retd. Prof.) Dr. Rune Linding](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/51-people/head/278-rune-linding)**.
-- The subpackage `tfopt` is an optimized and efficient derivative
-  of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my colleague **[Julius Normann](https://github.com/Normann-BPh)**, adapted with permission.
+The implemented version of `kinopt` was developed as the core thesis-stage component. The `tfopt` and `protwise`
+components were developed by me during the same broader project period and subsequent continuation of the work. The
+`networkmodel` component was later designed and implemented independently after that period as an extension of the
+original modelling framework.
 
-I am especially grateful
-to [Ivo Maintz](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/54-people/6-staff/60-maintz) for his generous
-technical support, enabling seamless experimentation with packages and server setups.
+The initial distributive, successive, and combinatorial ODE formulations came from the thesis-stage modelling framework,
+while the saturation model was added independently at a later stage as an extension of the system.
 
-- The package is built on the shoulders of giants, leveraging the power
-  of [NumPy](https://numpy.org/), [SciPy](https://www.scipy.org/), [Matplotlib](https://matplotlib.org/),
-  and [Pandas](https://pandas.pydata.org/) for numerical computations and data handling.
-- The package also utilizes [Numba](https://numba.pydata.org/) for JIT compilation, enhancing performance for
-  computationally intensive tasks.
-- The package is designed to be compatible with **Python >=3.10,<3.14** and is tested on
-  various platforms, including Windows, macOS, and Linux.
+The subpackage `tfopt` is an optimized and extended derivative
+of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my
+colleague [Julius Normann](https://github.com/Normann-BPh), adapted with permission.
 
----
-
-## Overview
-
-PhosKinTime integrates:
-
-- Parameter estimation 
-- Mechanistic ODE models (distributive, successive, random)
-- Steady-state computation
-- Morris sensitivity analysis
-- Static and interactive visualization
-- Modular design for extensibility
-
-PhosKinTime uses ordinary differential equations (ODEs) to model phosphorylation kinetics and supports multiple
-mechanistic hypotheses, including:
-
-- **Distributive Model:** Phosphorylation events occur independently.
-- **Successive Model:** Phosphorylation events occur sequentially.
-- **Random Model:** Phosphorylation events occur in a random manner.
-
----
-
+I am grateful to [Ivo Maintz](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/people/54-people/6-staff/60-maintz)
+for generous technical support with server access, package experimentation, and computational setup.
 
 ---
 
