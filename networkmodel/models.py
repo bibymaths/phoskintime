@@ -316,10 +316,9 @@ def _bit_index_from_lsb(lsb):
 def combinatorial_rhs(
         y, dy,
         A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale,
-        TF_inputs, S_cache, jb,
+        TF_inputs, S_rates,
         offset_y, offset_s,
-        n_sites, n_states,
-        trans_from, trans_to, trans_site, trans_off, trans_n
+        n_sites, n_states
 ):
     """Evaluate the combinatorial topology right-hand side
     
@@ -334,21 +333,13 @@ def combinatorial_rhs(
         E_i: Input value used by this routine.
         tf_scale: Input value used by this routine.
         TF_inputs: Input value used by this routine.
-        S_cache: Input value used by this routine.
-        jb: Input value used by this routine.
+        S_rates: Current per-site kinase signal vector.
         offset_y: Input value used by this routine.
         offset_s: Input value used by this routine.
         n_sites: Input value used by this routine.
         n_states: Input value used by this routine.
-        trans_from: Input value used by this routine.
-        trans_to: Input value used by this routine.
-        trans_site: Input value used by this routine.
-        trans_off: Input value used by this routine.
-        trans_n: Input value used by this routine.
     """
     N = A_i.shape[0]
-    jb_loc = jb  # local binding helps Numba
-
     for i in range(N):
         y_start = offset_y[i]
         s_start = offset_s[i]
@@ -421,59 +412,70 @@ def combinatorial_rhs(
             dy[base + m] -= dp_rate * Pm
 
         # --- Phosphorylation Loop (Forward Transitions) ---
-        # Uses pre-calculated sparse graph structure
-        off = trans_off[i]
-        ntr = trans_n[i]
-        for k in range(ntr):
-            frm = trans_from[off + k]
-            to = trans_to[off + k]
-            j = trans_site[off + k]
+        # Enumerate the same hypercube edges in the same order as the former
+        # dense transition arrays, but do not materialize O(2^n_sites*n_sites)
+        # arrays.
+        for m in range(nstates):
+            for j in range(ns):
+                bit = 1 << j
+                if (m & bit) == 0:
+                    to = m | bit
+                    rate = S_rates[s_start + j]
+                    flux = rate * y[base + m]
 
-            # Rate depends on time bucket 'jb_loc'
-            rate = S_cache[s_start + j, jb_loc]
-            flux = rate * y[base + frm]
-
-            dy[base + frm] -= flux
-            dy[base + to] += flux
+                    dy[base + m] -= flux
+                    dy[base + to] += flux
 
 
-def build_random_transitions(idx):
-    """Build transition arrays for combinatorial topology
-    
-    Args:
-        idx: Input value used by this routine.
-    
-    Returns:
-        Computed result from this routine.
+def iter_random_transitions_for_sites(n_sites):
+    """Yield combinatorial forward transitions for one protein lazily.
+
+    The order is identical to the historical dense implementation: state mask
+    first, then site index, yielding only unset-bit phosphorylation edges.
+    """
+    ns = int(n_sites)
+    if ns <= 0:
+        return
+    nstates = 1 << ns
+    for m in range(nstates):
+        for j in range(ns):
+            if (m & (1 << j)) == 0:
+                yield m, m | (1 << j), j
+
+
+def count_random_transitions_for_sites(n_sites):
+    """Return the number of combinatorial forward transitions for n sites."""
+    ns = int(n_sites)
+    return 0 if ns <= 0 else ns * (1 << (ns - 1))
+
+
+def build_random_transitions(idx, *, dense_threshold_sites=4):
+    """Build small dense transition arrays for compatibility.
+
+    Large proteins are represented by metadata only; callers that need all
+    transitions should use :func:`iter_random_transitions_for_sites` instead.
     """
     trans_from = []
     trans_to = []
     trans_site = []
     trans_off = np.zeros(idx.N, dtype=np.int32)
     trans_n = np.zeros(idx.N, dtype=np.int32)
+    dense_available = np.zeros(idx.N, dtype=np.bool_)
 
     cur = 0
     for i in range(idx.N):
         ns = int(idx.n_sites[i])
         trans_off[i] = cur
-
-        if ns == 0:
-            trans_n[i] = 0
-            continue
-
-        nstates = 1 << ns
-        for m in range(nstates):
-            for j in range(ns):
-                # If bit j is NOT set in m, we can transition to m | (1<<j)
-                if (m & (1 << j)) == 0:
-                    mp = m | (1 << j)
-                    trans_from.append(m)
-                    trans_to.append(mp)
-                    trans_site.append(j)
-
-        n_i = len(trans_from) - cur
-        trans_n[i] = n_i
-        cur += n_i
+        trans_n[i] = count_random_transitions_for_sites(ns)
+        if ns <= int(dense_threshold_sites):
+            dense_available[i] = True
+            for frm, to, site in iter_random_transitions_for_sites(ns):
+                trans_from.append(frm)
+                trans_to.append(to)
+                trans_site.append(site)
+            cur = len(trans_from)
+        else:
+            dense_available[i] = False
 
     return (
         np.asarray(trans_from, dtype=np.int32),
@@ -481,4 +483,5 @@ def build_random_transitions(idx):
         np.asarray(trans_site, dtype=np.int32),
         trans_off,
         trans_n,
+        dense_available,
     )

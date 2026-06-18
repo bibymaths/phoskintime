@@ -1,7 +1,5 @@
-import shutil
-
 from config.helpers import location
-from tfopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
+from tfopt.local.config.constants import parse_args, OUT_FILE, INPUT1, INPUT3, INPUT4, _CFG
 from tfopt.local.config.logconf import setup_logger
 from tfopt.local.utils.iodata import organize_output_files, create_report
 from tfopt.local.exporter.plotout import plot_estimated_vs_observed, plot_multistart_summary_runtime_overlay
@@ -13,6 +11,10 @@ from tfopt.local.optcon.filter import load_and_filter_data, prepare_data
 from tfopt.local.utils.params import get_optimization_parameters, postprocess_results
 from tfopt.fitanalysis.helper import Plotter
 from common.utils import latexit
+from common.results import (
+    attach_file_console_logger, ensure_result_dir, populate_standard_subdirs,
+    write_command, write_metadata, write_resolved_config,
+)
 
 logger = setup_logger()
 
@@ -24,7 +26,19 @@ def main():
     logger.info("[Local Optimization] mRNA-TF Optimization Problem Started")
 
     # STEP 0: Parse command line arguments.
-    lb, ub, loss_type = parse_args()
+    lb, ub, loss_type, out_dir = parse_args()
+    result_dirs = ensure_result_dir(out_dir)
+    out_dir = result_dirs["root"]
+    out_file = out_dir / OUT_FILE.name
+    attach_file_console_logger(logger, out_dir)
+    write_command(out_dir)
+    write_resolved_config(out_dir, _CFG)
+    write_metadata(
+        out_dir,
+        workflow="tfopt.local",
+        args={"lower_bound": lb, "upper_bound": ub, "loss_type": loss_type},
+        inputs=[INPUT1, INPUT3, INPUT4],
+    )
 
     # STEP 1: Load and filter the data.
     gene_ids, expr_matrix, expr_time_cols, tf_ids, tf_protein, tf_psite_data, tf_psite_labels, tf_time_cols, reg_map = \
@@ -78,18 +92,18 @@ def main():
                 f"cv={_get_constraint_violation(result)} start_id={getattr(result, 'start_id', None)}")
 
     # Save multistart results to CSV.
-    export_multistart_results(all_results).to_csv(OUT_DIR / "multistart_summary.csv", index=False)
+    export_multistart_results(all_results).to_csv(out_dir / "multistart_summary.csv", index=False)
 
     # Save multistart solutions to NPZ.
     save_multistart_solutions_npz(
         all_results,
-        OUT_DIR / "multistart_params.npz",
+        out_dir / "multistart_params.npz",
     )
 
     # Save waterfall plot.
     plot_multistart_summary_runtime_overlay(
-        OUT_DIR / "multistart_summary.csv",
-        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        out_dir / "multistart_summary.csv",
+        out_path=out_dir / "multistart_fun_vs_rank_runtime.png",
         figsize=(8, 8),
     )
 
@@ -104,14 +118,14 @@ def main():
     predictions = compute_predictions(final_x, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use, n_genes,
                                       beta_start_indices, num_psites)
     plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, expr_time_cols, regulators,
-                               tf_protein_matrix, tf_ids, num_targets=n_genes)
+                               tf_protein_matrix, tf_ids, num_targets=n_genes, save_path=out_dir)
 
     # Save results to Excel.
     save_results_to_excel(gene_ids, tf_ids, final_alpha, final_beta, psite_labels_arr, expression_matrix,
-                          predictions, result.fun, reg_map)
+                          predictions, result.fun, reg_map, filename=out_file)
 
     # Generate plots.
-    plotter = Plotter(OUT_FILE, OUT_DIR)
+    plotter = Plotter(out_file, out_dir)
     plotter.plot_alpha_distribution()
     plotter.plot_beta_barplots()
     plotter.plot_heatmap_abs_residuals()
@@ -124,21 +138,21 @@ def main():
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
 
-    # Copy output file to the ODE_DATA_DIR.
-    shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
 
     # LateX the results
-    latexit.main(OUT_DIR)
+    latexit.main(out_dir)
 
     # Organize output files and create a report.
-    organize_output_files(OUT_DIR)
-    create_report(OUT_DIR)
+    organize_output_files(out_dir)
+    create_report(out_dir)
 
-    logger.info(f'[Local] Report & Results {location(str(OUT_DIR))}')
+    logger.info(f'[Local] Report & Results {location(str(out_dir))}')
 
     # Click to open the report in a web browser.
-    for fpath in [OUT_DIR / 'report.html']:
+    for fpath in [out_dir / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
+    populate_standard_subdirs(out_dir)
 
 
 if __name__ == "__main__":

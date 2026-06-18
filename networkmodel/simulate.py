@@ -11,6 +11,22 @@ from networkmodel.config import MODEL, ODE_ABS_TOL, ODE_REL_TOL, ODE_MAX_STEPS
 from networkmodel.backend import DiffraxSolverConfig, make_networkmodel_rhs, solve_diffrax
 
 
+def combinatorial_site_signals_streaming(states, n_sites):
+    """Return per-site combinatorial signals without building an ns x n_sites bit matrix."""
+    state_view = np.asarray(states, dtype=np.float64)
+    if state_view.ndim != 2:
+        raise ValueError("states must be a two-dimensional time-by-state array")
+    ns = state_view.shape[1]
+    n_sites = int(n_sites)
+    out = np.empty((state_view.shape[0], n_sites), dtype=np.float64)
+    masks = np.arange(ns, dtype=np.uint64)
+    for site in range(n_sites):
+        weights = ((masks >> np.uint64(site)) & np.uint64(1)).astype(np.float64, copy=False)
+        out[:, site] = state_view @ weights
+        del weights
+    return out
+
+
 def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):
     """Simulate a System over requested time points with Diffrax
     
@@ -35,9 +51,19 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
     )
     params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i,
               np.asarray([sys.tf_scale], dtype=np.float64))
+    rhs = getattr(sys, "_cached_jax_rhs", None)
+    if rhs is None:
+        rhs = make_networkmodel_rhs(sys)
+        sys._cached_jax_rhs = rhs
+
     return np.asarray(
-        solve_diffrax(y0, np.asarray(t_eval, dtype=np.float64), params=params, rhs=make_networkmodel_rhs(sys),
-                      config=cfg),
+        solve_diffrax(
+            y0,
+            np.asarray(t_eval, dtype=np.float64),
+            params=params,
+            rhs=rhs,
+            config=cfg,
+        ),
         dtype=np.float64,
     )
 
@@ -93,20 +119,20 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
             fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
-            # Phospho Sites: Bitwise aggregation
-            # We map states to sites using a matrix multiplication (State x Bitmask)
+            # Phospho Sites: Bitwise aggregation, streamed one site at a time
+            # to avoid an ns x n_sites dense bit matrix.
             if n_sites > 0:
-                m = np.arange(ns, dtype=np.uint32)[:, None]
-                j = np.arange(n_sites, dtype=np.uint32)[None, :]
-                bits = ((m >> j) & 1).astype(np.float64)  # (ns, n_sites)
-                pho_sites = states @ bits  # (T, n_sites)
-
+                masks = np.arange(ns, dtype=np.uint64)
                 for s_idx, psite in enumerate(idx.sites[i]):
-                    sig = pho_sites[:, s_idx]
+                    weights = ((masks >> np.uint64(s_idx)) & np.uint64(1)).astype(np.float64, copy=False)
+                    sig = states @ weights
                     fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
                     rows_pho.append(pd.DataFrame({
                         "protein": gene, "psite": psite, "time": times, "pred_fc": fc
                     }))
+                    del weights, sig
+                del masks
+            del states
 
         else:
             # --- Standard Model Extraction (Distributive/Sequential) ---

@@ -36,7 +36,7 @@ def format_timepoints(tp, tol=1e-9):
             labels.append(f"{x:.1f}")
     return labels
 
-def plot_fits_for_gene(gene, gene_data, real_timepoints):
+def plot_fits_for_gene(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
     Function to plot the observed and estimated phosphorylation levels for each psite of a gene.
 
@@ -86,7 +86,7 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints):
     axs[1].set_xticklabels(format_timepoints(xt))
 
     plt.tight_layout()
-    filename = f"{OUT_DIR}/{gene}_fit_.png"
+    filename = Path(out_dir) / f"{gene}_fit_.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -120,7 +120,7 @@ def export_outcomes_to_csv(outcomes, csv_path):
         writer.writeheader()
         writer.writerows(rows)
 
-def plot_cumulative_residuals(gene, gene_data, real_timepoints):
+def plot_cumulative_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
     Function to plot the cumulative residuals for each psite of a gene.
 
@@ -142,12 +142,12 @@ def plot_cumulative_residuals(gene, gene_data, real_timepoints):
     plt.grid(True, alpha=0.2)
     plt.legend(title="Residue_Position")
     plt.tight_layout()
-    filename = f"{OUT_DIR}/{gene}_cumulative_residuals_.png"
+    filename = Path(out_dir) / f"{gene}_cumulative_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
     plt.close()
 
 
-def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
+def plot_autocorrelation_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
     Function to plot the autocorrelation of residuals for each psite of a gene.
 
@@ -164,12 +164,12 @@ def plot_autocorrelation_residuals(gene, gene_data, real_timepoints):
     plt.xlabel("Lags")
     plt.ylabel("Autocorrelation")
     plt.tight_layout()
-    filename = f"{OUT_DIR}/{gene}_autocorrelation_residuals_.png"
+    filename = Path(out_dir) / f"{gene}_autocorrelation_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
     plt.close()
 
 
-def plot_histogram_residuals(gene, gene_data, real_timepoints):
+def plot_histogram_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
     Function to plot histograms of residuals for each psite of a gene.
 
@@ -190,12 +190,12 @@ def plot_histogram_residuals(gene, gene_data, real_timepoints):
     plt.grid(True, alpha=0.2)
     plt.legend(title="Residue_Position")
     plt.tight_layout()
-    filename = f"{OUT_DIR}/{gene}_histogram_residuals_.png"
+    filename = Path(out_dir) / f"{gene}_histogram_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
     plt.close()
 
 
-def plot_qqplot_residuals(gene, gene_data, real_timepoints):
+def plot_qqplot_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
     Function to plot QQ plots of residuals for each psite of a gene.
 
@@ -209,7 +209,7 @@ def plot_qqplot_residuals(gene, gene_data, real_timepoints):
         qqplot(gene_data["residuals"][i], line='s', ax=plt.gca())
     plt.title(f"{gene}")
     plt.tight_layout()
-    filename = f"{OUT_DIR}/{gene}_qqplot_residuals_.png"
+    filename = Path(out_dir) / f"{gene}_qqplot_residuals_.png"
     plt.savefig(filename, format='png', dpi=300)
     plt.close('all')
 

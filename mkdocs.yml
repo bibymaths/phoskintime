@@ -35,8 +35,10 @@ theme:
 
 nav:
   - Home: index.md
-  - Reference: reference.md
-  - Changelog: Documentation/CHANGELOG.md
+  - Terms of use: ../TERMS_OF_USE.md
+  - Contributing: ../CONTRIBUTING.md
+  - API Reference: reference.md
+  - Changelog: ../CHANGELOG.md
   - Documentation:
       - Architecture & Data Flow: Documentation/architecture.md
       - Configuration Reference: Documentation/configuration.md
@@ -54,6 +56,12 @@ nav:
       - Plotting: Documentation/plotting/README.md
       - Utils: Documentation/utils/README.md
       - Dashboard: Documentation/dashboard.md
+      - Dashboard Quickstart: dashboard_quickstart.md
+      - Dashboard User Guide: dashboard_user_guide.md
+      - Dashboard Developer Guide: dashboard_developer_guide.md
+      - Dashboard Troubleshooting: dashboard_troubleshooting.md
+      - Result Directory Contract: result_directory_contract.md
+      - Workflow CLI Reference: workflow_cli_reference.md
       - Scripts: Documentation/scripts.md
       - Docker: Documentation/docker.md
       - Testing: Documentation/testing.md

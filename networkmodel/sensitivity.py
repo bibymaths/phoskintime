@@ -424,7 +424,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
 
     mp_ctx = _get_process_context()
 
-    with ProcessPoolExecutor(max_workers=n_workers, mp_context=mp_ctx) as executor:
+    with ProcessPoolExecutor(max_workers=n_workers, mp_context=mp_ctx, max_tasks_per_child=1) as executor:
         futures = {
             executor.submit(_worker_simulation, task): task[0]
             for task in tasks
@@ -447,6 +447,13 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
                             "phos_df": dfph,
                         }
                     )
+                    # Keep only the bounded set needed for identical top-curve
+                    # reporting instead of retaining every trajectory DataFrame.
+                    if len(trajectory_storage) > int(SENSITIVITY_TOP_CURVES):
+                        trajectory_storage = _select_top_trajectories(
+                            trajectory_storage,
+                            max_items=SENSITIVITY_TOP_CURVES,
+                        )
 
             except Exception as exc:
                 failed_rows.append(

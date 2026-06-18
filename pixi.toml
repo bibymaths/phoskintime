@@ -1,6 +1,6 @@
 [workspace]
 name = "phoskintime"
-version = "0.4.0"
+version = "0.5.0"
 description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
 authors = ["Abhinav Mishra <mishraabhinav36@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
@@ -26,6 +26,7 @@ plotly = "*"
 openpyxl = "*"
 xlsxwriter = "*"
 adjusttext = "*"
+ansi2html = "*"
 
 # Optimization, sensitivity analysis, and modeling utilities
 pymoo = "*"
@@ -42,6 +43,8 @@ graphviz = "*"
 python-graphviz = "*"
 pydot = "*"
 networkx = "*"
+gravis = "*"
+imageio = "*"
 
 # Bioinformatics / annotation utilities
 mygene = "*"
@@ -50,6 +53,7 @@ mygene = "*"
 tqdm = "*"
 python-dotenv = "*"
 typer = "*"
+streamlit = "*"
 jinja2 = "*"
 tomli = "*"
 git-cliff = ">=2.13.1,<3"
@@ -128,6 +132,8 @@ phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
 phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
+dashboard = "PYTHONPATH=. streamlit run dashboard/app.py"
+dashboard-dev = "PYTHONPATH=. streamlit run dashboard/app.py --server.runOnSave=true"
 
 docs-serve = "zensical serve"
 docs-build = "zensical build"

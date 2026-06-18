@@ -161,3 +161,9 @@ The dashboard includes an **Inference** tab when optional inference files are pr
 - plots from `plots/multistart/`, `plots/profile_likelihood/`, and `plots/posterior/`
 
 These are diagnostic scalar-objective summaries, not true multi-objective optimizer fronts.
+
+---
+
+## Unified no-code dashboard
+
+The newer unified dashboard lives in `dashboard/app.py` and can browse existing result directories, launch registered CLI/Pixi workflows, preview uploads, and show workflow-specific panels. See [No-code PhosKinTime dashboard](no_code_dashboard.md) for launch commands, supported workflows, result-directory contract details, upload behavior, examples, and troubleshooting.

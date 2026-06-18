@@ -38,12 +38,40 @@ All notable changes to this project are documented here.
 
 - Workers in sensitivity simulations
 
+- Equations in notebooks
+
+- Console display, posterior log, workflow testing for frontend
+
+- Fixed the frontend no code dashboard, testing networmodel and protwise done
+
+- Cached rhs in model ode solving, and forward simulation script
+
+- Formatting python code
+
+- Directories path
+
+- Posterior params conversion fix
+
+- Network sweep and forward simulation
+
+- Phosphosite dynamics 4th panel in forward simulation
+
+- Phosphosite dynamics 4th panel in forward simulation & data fit inspector
+
+- Combinatorial model state phase explosion down to O(1) runtime, no memory explosion in for loop, vectorized RHS for combinatorial model.
+
+- Ambiguity in model loading for forward simulation-KO/WT dashboard
+
 
 
 ### Maintenance
 
 
 - Add community, governance, citation, and repository-maintenance files
+
+- Update changelog and docs config file
+
+- Chore and fix: cleanup config file, fix mrna modality missing scenario, tested all scenarios, works!
 
 
 
@@ -594,6 +622,110 @@ Migrate networkmodel scalar path to JAX/Diffrax/JAXopt and update docs/CLI
 
 - Figures dpi set to 300
 
+- Update changelog and documentation
+
+- Update README.md
+
+- Add notebook readiness tests across modules
+
+- Revert KinOpt and TFOpt notebook refactor
+
+- Validate networkmodel slice layouts exactly
+
+- Merge pull request #63 from bibymaths/codex/fix-failing-tests-and-increase-coverage
+
+Introduce notebook-safe projected finite-difference optimizers, lightweight LinearConstraint, tests and docs updates
+
+- Added coverage badge, fixed slice bounds tests, removed old pypi README.md
+
+- Dead scripts for thermal extension
+
+- Add executable educational notebooks
+
+- Add SALib to CI test dependencies
+
+- Merge pull request #64 from bibymaths/codex/create-educational-jupyter-notebooks-for-modules
+
+Add executable educational notebooks and CI/tests for KinOpt, TFOpt, protwise, and networkmodel
+
+- Pixi and README.md
+
+- Merge pull request #65 from bibymaths/missing-data-scenarios
+
+Missing data scenarios
+
+- Frontend plan
+
+- Frontend plan renamed
+
+- Standardize dashboard-ready output contract
+
+- Add dashboard result browser
+
+- Add dashboard CLI launcher
+
+- Add dashboard upload and configuration UI
+
+- Integrate workflow-specific dashboard panels
+
+- Add dashboard tests and documentation
+
+- Fix networkmodel custom config handling
+
+- Fix dashboard input extension validation
+
+- Fix ProtWise custom config handling
+
+- Add dashboard user, developer, and troubleshooting guides
+
+- Fix dashboard result discovery for reports and child runs
+
+- Restrict dashboard config inputs to TOML
+
+- Serialize run metadata with JSON-safe arrays
+
+- Fix advanced analysis dashboard commands
+
+- Merge pull request #67 from bibymaths/codex/standardize-dashboard-ready-output-contract
+
+Standardize dashboard-ready output contract
+
+- Add backward alias for old pymooo results to display in legacy mode and added imageio and gravis libs, module levelling for scripts
+
+- Density plots for posterior with gaussian smoothing
+
+- Fix forward phosphosite ODE panel
+
+- Merge pull request #68 from bibymaths/codex/fix-phosphosite-state-dynamics-panel
+
+Fix forward phosphosite ODE panel
+
+- Memory issue fixing
+
+- Make combinatorial model memory safe
+
+- Fix combinatorial S-rate export cache shape
+
+- Merge pull request #69 from bibymaths/codex/implement-memory-safe-fixes-for-combinatorial-model
+
+Make combinatorial model memory safe
+
+- Made a project presentation using the sample results.
+
+- Changelog, organic testing, publishing workflow for github and zenodo
+
+- Defer ODE input validation until runtime
+
+- Make imports safe with empty output paths
+
+- Merge pull request #70 from bibymaths/codex/fix-import-time-issues-with-empty-config.toml
+
+Defer ODE input validation until ProtWise runtime
+
+- Coverage, update readme with workflow, extension planning for future
+
+- Bump to v0.5.0
+
 
 
 ### Tests
@@ -604,6 +736,8 @@ Migrate networkmodel scalar path to JAX/Diffrax/JAXopt and update docs/CLI
 - Testing network model with posterior sampling, added logger and progress bar to MCMC NUTS
 
 - Testing network model with posterior sampling, removed history video
+
+- Notebooks are working
 
 
 ## [0.4.0] - 2025-05-06

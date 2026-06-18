@@ -57,10 +57,10 @@ def _cleanup_after_grid_step(*objs) -> None:
 
 
 def run_one_parameter_profile(
-    *,
-    run_config_path: str | Path,
-    parameter_index: int,
-    grid_size: int,
+        *,
+        run_config_path: str | Path,
+        parameter_index: int,
+        grid_size: int,
 ) -> dict:
     run_config_path = Path(run_config_path)
 
@@ -213,7 +213,7 @@ def run_one_parameter_profile(
             if not finite.empty:
                 finite_min = finite["objective_value"].min()
                 partial_df["delta_objective"] = (
-                    partial_df["objective_value"] - finite_min
+                        partial_df["objective_value"] - finite_min
                 )
             else:
                 partial_df["delta_objective"] = np.inf

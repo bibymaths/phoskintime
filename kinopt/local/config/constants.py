@@ -45,6 +45,7 @@ def parse_args():
         description="PhosKinTime - SLSQP/TRUST-CONSTR Kinase Phosphorylation Optimization Problem prior to ODE Modelling."
     )
 
+    parser.add_argument("--conf", default=None, help="Compatibility option; configuration is loaded before argument parsing.")
     parser.add_argument("--lower_bound", type=float, default=float(_CFG.get("lower_bound", -4.0)))
     parser.add_argument("--upper_bound", type=float, default=float(_CFG.get("upper_bound", 4.0)))
 
@@ -92,6 +93,13 @@ def parse_args():
         default=str(_CFG.get("method", "slsqp")),
         help="Optimization method.",
     )
+    parser.add_argument(
+        "--outdir", "--output-dir",
+        dest="outdir",
+        type=Path,
+        default=OUT_DIR,
+        help="Directory where all run outputs and provenance files are written.",
+    )
 
     args = parser.parse_args()
 
@@ -107,4 +115,5 @@ def parse_args():
         args.split_point,
         seg_points,
         args.method,
+        args.outdir,
     )

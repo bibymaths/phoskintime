@@ -41,6 +41,7 @@ Author: Abhinav Mishra
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -313,5 +314,20 @@ def main(
     print(" -", out_dir / "frechet_kinopt.csv")
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments for dashboard and terminal execution."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tfopt-xlsx", default="data/tfopt_results.xlsx", help="Path to TFOpt result workbook.")
+    parser.add_argument("--kinopt-xlsx", default="data/kinopt_results.xlsx", help="Path to KinOpt result workbook.")
+    parser.add_argument("--out-dir", default="results_scripts", help="Directory where analysis outputs are written.")
+    return parser.parse_args(argv)
+
+
+def cli(argv: list[str] | None = None) -> None:
+    """CLI entry point that forwards parsed arguments to the analysis function."""
+    args = parse_args(argv)
+    main(tfopt_xlsx=args.tfopt_xlsx, kinopt_xlsx=args.kinopt_xlsx, out_dir=args.out_dir)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -7,12 +8,32 @@ from pathlib import Path
 from config.helpers import *
 from config_loader import load
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib
+
 # -------------------------------------------------------------------------------------------------
-# Load configuration (ODE section) from config.toml
+# Load configuration (ODE section) from config.toml or the runner-selected custom file.
 # This module must not import tfopt/kinopt constants to avoid hard coupling / circular dependencies.
 # -------------------------------------------------------------------------------------------------
-_CFG = load("local", "ode")  # mode is optional for ODE, but keeps a consistent API
-_ROOT = Path(_CFG["_root"])
+CONFIG_ENV_VAR = "PHOSKINTIME_ODE_CONFIG"
+_CONFIG_PATH = Path(os.environ[CONFIG_ENV_VAR]).expanduser().resolve() if os.environ.get(CONFIG_ENV_VAR) else None
+
+if _CONFIG_PATH is None:
+    _CFG = load("local", "ode")  # mode is optional for ODE, but keeps a consistent API
+    _ROOT = Path(_CFG["_root"])
+else:
+    with _CONFIG_PATH.open("rb") as _fh:
+        _RAW_CFG = tomllib.load(_fh)
+    _ODE_BASE = (_RAW_CFG.get("ode", {}) or {})
+    _ODE_MODES = (_ODE_BASE.get("modes", {}) or {})
+    _CFG = {**_ODE_BASE, **(_ODE_MODES.get("local", {}) or {})}
+    _PATHS = _RAW_CFG.get("paths", {}) or {}
+    _ROOT = Path(__file__).resolve().parents[1]
+    _CFG["_paths"] = _PATHS
+    _CFG["_root"] = str(_ROOT)
+
 _PATHS = _CFG.get("_paths", {}) or {}
 
 # Flag to indicate if the code is in development mode.
@@ -125,17 +146,53 @@ LOG_DIR = LOGS_DIR / f"{model_type}_logs"
 _inputs = _CFG.get("inputs", {}) or {}
 
 
-def _req_path(key: str) -> Path:
+def _optional_path(key: str) -> Path | str:
+    """Return a configured ODE input path, or "" when it is intentionally absent.
+
+    Importing this module is part of many non-ODE code paths (logging, network model
+    tests, pytest collection).  Required ODE input validation therefore happens in
+    ``validate_ode_inputs`` at workflow execution time rather than at import time.
+    """
     v = _inputs.get(key)
     if not v:
-        raise KeyError(f"[ode.inputs] is missing required key '{key}' in config.toml")
+        return ""
     return _ROOT / str(v)
 
 
-# These MUST be explicit in [ode.inputs] (no tfopt imports)
-INPUT_EXCEL_PROTEIN = _req_path("protein_excel")
-INPUT_EXCEL_PSITE = _req_path("psite_excel")
-INPUT_EXCEL_RNA = _req_path("rna_excel")
+def _validate_path_value(key: str, value, require_existing: bool) -> Path:
+    if not value:
+        raise KeyError(f"[ode.inputs] is missing required key '{key}' in config.toml")
+    path = Path(value).expanduser()
+    if require_existing and not path.exists():
+        raise ValueError(f"[ode.inputs] path for '{key}' does not exist: {path}")
+    return path
+
+
+def validate_ode_inputs(config: dict | None = None, require_existing: bool = False) -> dict[str, Path]:
+    """Validate required ODE input paths for an actual ProtWise/ODE run."""
+    if config is None:
+        values = {
+            "protein_excel": INPUT_EXCEL_PROTEIN,
+            "psite_excel": INPUT_EXCEL_PSITE,
+            "rna_excel": INPUT_EXCEL_RNA,
+        }
+    else:
+        values = {
+            "protein_excel": config.get("input_excel_protein"),
+            "psite_excel": config.get("input_excel_psite"),
+            "rna_excel": config.get("input_excel_rna"),
+        }
+    return {
+        key: _validate_path_value(key, value, require_existing)
+        for key, value in values.items()
+    }
+
+
+# These are intentionally default-safe for generic imports.  Call
+# validate_ode_inputs() before executing workflows that consume them.
+INPUT_EXCEL_PROTEIN = _optional_path("protein_excel")
+INPUT_EXCEL_PSITE = _optional_path("psite_excel")
+INPUT_EXCEL_RNA = _optional_path("rna_excel")
 
 # Ensure dirs exist
 OUT_DIR.mkdir(parents=True, exist_ok=True)

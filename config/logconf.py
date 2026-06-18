@@ -112,7 +112,7 @@ def setup_logger(
         - "per_process": file logging in each process
     :return: logger
     """
-    if not os.path.exists(log_dir):
+    if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
     if name is None:
@@ -141,7 +141,7 @@ def setup_logger(
         is_worker = False
 
     # Decide file logging policy
-    enable_file = True
+    enable_file = bool(log_dir)
     if mp_file_logging == "off":
         enable_file = False
     elif mp_file_logging == "main_only" and is_worker:

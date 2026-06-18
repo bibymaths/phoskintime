@@ -1,7 +1,6 @@
-import shutil
 from functools import partial
 
-from kinopt.local.config.constants import parse_args, OUT_DIR, OUT_FILE, ODE_DATA_DIR
+from kinopt.local.config.constants import parse_args, OUT_FILE, INPUT1, INPUT2, _CFG
 from kinopt.local.config.helpers import location
 from kinopt.local.exporter.plotout import export_outcomes_to_csv, plot_multistart_summary_runtime_overlay
 from kinopt.local.exporter.sheetutils import output_results, export_params_npz
@@ -16,6 +15,10 @@ from kinopt.local.config.logconf import setup_logger
 from kinopt.optimality.KKT import post_optimization_results
 from kinopt.fitanalysis import optimization_performance
 from common.utils import latexit
+from common.results import (
+    attach_file_console_logger, ensure_result_dir, populate_standard_subdirs,
+    write_command, write_metadata, write_resolved_config,
+)
 
 logger = setup_logger()
 
@@ -33,7 +36,23 @@ def main():
     check_kinases()
 
     # Parse arguments.
-    lb, ub, loss_type, estimate_missing, scaling_method, split_point, seg_points, opt_method = parse_args()
+    lb, ub, loss_type, estimate_missing, scaling_method, split_point, seg_points, opt_method, out_dir = parse_args()
+    result_dirs = ensure_result_dir(out_dir)
+    out_dir = result_dirs["root"]
+    out_file = out_dir / OUT_FILE.name
+    attach_file_console_logger(logger, out_dir)
+    write_command(out_dir)
+    write_resolved_config(out_dir, _CFG)
+    write_metadata(
+        out_dir,
+        workflow="kinopt.local",
+        args={
+            "lower_bound": lb, "upper_bound": ub, "loss_type": loss_type,
+            "estimate_missing_kinases": estimate_missing, "scaling_method": scaling_method,
+            "split_point": split_point, "segment_points": seg_points, "method": opt_method,
+        },
+        inputs=[INPUT1, INPUT2],
+    )
 
     # Load and scale data.
     full_df, interact_df, _ = load_and_scale_data(estimate_missing, scaling_method, split_point, seg_points)
@@ -107,16 +126,16 @@ def main():
     # Save outcomes
     export_outcomes_to_csv(
         outcomes,
-        OUT_DIR / "multistart_summary.csv"
+        out_dir / "multistart_summary.csv"
     )
 
     # Save optimized parameters for each start
-    export_params_npz(outcomes, OUT_DIR / "multistart_params.npz")
+    export_params_npz(outcomes, out_dir / "multistart_params.npz")
 
     # Save runtime vs objective function value plot
     plot_multistart_summary_runtime_overlay(
-        OUT_DIR / "multistart_summary.csv",
-        out_path=OUT_DIR / "multistart_fun_vs_rank_runtime.png",
+        out_dir / "multistart_summary.csv",
+        out_path=out_dir / "multistart_fun_vs_rank_runtime.png",
         figsize=(8, 8),
     )
 
@@ -133,27 +152,35 @@ def main():
 
     # Output results.
     output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
-                   result, mse, rmse, mae, mape, r_squared)
+                   result, mse, rmse, mae, mape, r_squared, filename=out_file, out_dir=out_dir)
 
-    # Copy output file to ODE data directory.
-    shutil.copy(OUT_FILE, ODE_DATA_DIR / OUT_FILE.name)
 
-    # Analyze optimization performance.
+    # Analyze optimization performance using the selected result directory.
+    import kinopt.optimality.KKT as kkt_module
+    import kinopt.fitanalysis.__main__ as fitanalysis_module
+    import kinopt.fitanalysis.helpers.postfit as postfit_module
+    kkt_module.OUT_FILE = out_file
+    kkt_module.OUT_DIR = out_dir
+    fitanalysis_module.OUT_FILE = out_file
+    fitanalysis_module.OUT_DIR = out_dir
+    postfit_module.OUT_DIR = out_dir
     post_optimization_results()
     optimization_performance()
 
     # LateX the results.
-    latexit.main(OUT_DIR)
+    latexit.main(out_dir)
 
     # Organize output files and create a report.
-    organize_output_files(OUT_DIR)
-    create_report(OUT_DIR)
+    organize_output_files(out_dir)
+    create_report(out_dir)
 
-    logger.info(f'Report & Results {location(str(OUT_DIR))}')
+    logger.info(f'Report & Results {location(str(out_dir))}')
 
     # Click to open the report in a web browser.
-    for fpath in [OUT_DIR / 'report.html']:
+    for fpath in [out_dir / 'report.html']:
         logger.info(f"{fpath.as_uri()}")
+
+    populate_standard_subdirs(out_dir)
 
 
 if __name__ == "__main__":

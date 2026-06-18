@@ -1,115 +1,212 @@
 # ============================================================
-# Global project paths and settings
+# GLOBAL PROJECT PATHS
 # ============================================================
-
-# Update these directory names for the different commmands to write data and results
-# for each mode to separate folders.
-# Otherwise, results may be overwritten when running different modes.
-# Example, for running let's say kinopt in local mode:
-# Command - python phoskintime kinopt --mode local
-# Directories can be named accordingly, e.g., results_kinopt_local
-# Updating both, results_dir and logs_dir is recommended.
+# Shared directory configuration used across PhosKinTime workflows.
+#
+# Update these paths for each major run mode to avoid overwriting results.
+# For example:
+#
+#   python phoskintime kinopt --mode local
+#
+# can write to:
+#
+#   results_dir = "results_kinopt_local"
+#   logs_dir    = "results_kinopt_local/logs"
+#
+# Recommended:
+#   - Use one results_dir per workflow/mode/scenario.
+#   - Keep logs_dir inside the matching results_dir.
+#   - Keep data_dir stable unless running on a separate prepared dataset.
+# ============================================================
 
 [paths]
-data_dir      = "data"
-results_dir   = "results_model_jax"
-logs_dir      = "results_model_jax/logs"
-ode_data_dir  = "data"
+
+# Directory containing input data files.
+# Most workflow-specific input paths are resolved relative to this directory.
+data_dir = ""
+
+# Main output directory for result tables, plots, fitted parameters,
+# diagnostic files, and workflow metadata.
+results_dir = ""
+
+# Directory for log files.
+# Keep this inside results_dir so logs stay attached to the corresponding run.
+logs_dir = ""
+
+# Input directory used specifically by the downstream ODE/protwise pipeline.
+# Usually this is the same as data_dir unless ODE inputs are stored separately.
+ode_data_dir = ""
 
 
 # ============================================================
-# TF OPTIMIZATION (mRNA → TF)
+# TF OPTIMIZATION
+# ============================================================
+# TFOpt estimates regulatory weights for the mRNA -> TF / TF -> target layer.
+#
 # Used by:
 #   - tfopt.local.config.constants
 #   - tfopt.evol.config.constants
+#
+# Input paths are resolved relative to [paths].data_dir.
+# Output is written under [paths].results_dir unless overridden by the runner.
 # ============================================================
 
 [tfopt]
 
-# --------------------
-# Input files
-# --------------------
-input1 = "input1.csv"     # expression / mRNA
-input3 = "input3.csv"     # TF activity / Rout-Limma
-input4 = "input4.csv"     # TF metadata / network
 
-# --------------------
-# Output
-# --------------------
-out_file = "tfopt_results.xlsx"
+# ------------------------------------------------------------
+# INPUT FILES
+# ------------------------------------------------------------
 
-# --------------------
-# Time grid (minutes)
-# --------------------
+# mRNA / expression time-course data.
+# Expected to contain gene identifiers and expression values across RNA time points.
+input1 = ""
+
+# TF activity table, for example Rout-Limma or equivalent TF activity estimates.
+# Used as the regulatory input layer for TFOpt.
+input3 = ""
+
+# TF-target network or metadata table.
+# Expected to define TF -> target relationships.
+input4 = ""
+
+
+# ------------------------------------------------------------
+# OUTPUT FILE
+# ------------------------------------------------------------
+
+# Excel output containing optimized TF alpha/beta values and diagnostics.
+out_file = ""
+
+
+# ------------------------------------------------------------
+# TIME GRID
+# ------------------------------------------------------------
+# RNA / expression time points in minutes.
+# These must match the columns or inferred sampling structure of input1.
 time_points = [
   4, 8, 15, 30, 60,
   120, 240, 480, 960
 ]
 
-# --------------------
-# Default optimization parameters
-# (used unless overridden by CLI or mode)
-# --------------------
+
+# ------------------------------------------------------------
+# DEFAULT OPTIMIZATION SETTINGS
+# ------------------------------------------------------------
+# Default parameter bounds used unless overridden by a mode-specific section.
+#
+# Bounds define the feasible range for TF regulatory effects.
+# Negative values allow repression; positive values allow activation.
 lower_bound = -4.0
 upper_bound =  4.0
 
-# Loss types (integer, matches tfopt code)
-# 0: MSE
-# 1: MAE
-# 2: soft L1
-# 3: Cauchy
-# 4: Arctan
-# 5: Elastic Net
-# 6: Tikhonov
+# Loss function used by TFOpt.
+#
+# Integer codes must match the TFOpt implementation:
+#
+#   0 = MSE
+#   1 = MAE
+#   2 = Soft L1
+#   3 = Cauchy
+#   4 = Arctan
+#   5 = Elastic Net
+#   6 = Tikhonov
+#
+# Recommended:
+#   Use robust or regularized losses for noisy transcriptomics data.
 loss_type = 5
 
-# --------------------
-# Mode-specific overrides
-# --------------------
 
+# ------------------------------------------------------------
+# LOCAL MODE OVERRIDES
+# ------------------------------------------------------------
+# Settings used when running:
+#
+#   python phoskintime tfopt --mode local
+#
+# Intended for deterministic local optimization / refinement.
 [tfopt.modes.local]
-# SLSQP / TRUST-CONSTR defaults
-# (keep wide bounds for local refinement)
+
+# Local optimizer parameter bounds.
+# Keep these consistent with global defaults unless a narrower local search
+# region is intentionally required.
 lower_bound = -4.0
 upper_bound =  4.0
-loss_type   = 5
 
+# Loss function used in local TFOpt mode.
+loss_type = 5
+
+
+# ------------------------------------------------------------
+# EVOLUTIONARY MODE OVERRIDES
+# ------------------------------------------------------------
+# Legacy/global evolutionary TFOpt settings.
+#
+# Use only if the evolutionary backend is still supported in the current codebase.
+# If TFOpt has been migrated to JAX/JAXopt-only local optimization, this section
+# should be retained only for backward compatibility or removed entirely.
 [tfopt.modes.evol]
-# Global evolutionary search defaults
+
+# Evolutionary search parameter bounds.
 lower_bound = -4.0
 upper_bound =  4.0
-loss_type   = 5
 
-# Optimizer choices:
-# 0: NSGA-II
-# 1: SMSEMOA
-# 2: AGEMOEA
+# Loss function used in evolutionary TFOpt mode.
+loss_type = 5
+
+# Evolutionary optimizer backend.
+#
+# Integer codes must match the TFOpt implementation:
+#
+#   0 = NSGA-II
+#   1 = SMSEMOA
+#   2 = AGEMOEA
 optimizer = 0
 
 
 # ============================================================
-# KINASE OPTIMIZATION (Kinase → Phosphosite)
+# KINASE OPTIMIZATION
+# ============================================================
+# KinOpt estimates kinase -> phosphosite regulatory weights.
+#
 # Used by:
 #   - kinopt.local.config.constants
 #   - kinopt.evol.config.constants
+#
+# Input paths are resolved relative to [paths].data_dir.
+# Output is written under [paths].results_dir unless overridden by the runner.
 # ============================================================
 
 [kinopt]
 
-# --------------------
-# Input files (relative to data_dir)
-# --------------------
-input1 = "input1.csv"   # kinase / protein abundance
-input2 = "input2.csv"   # phosphosite data
 
-# --------------------
-# Output
-# --------------------
-out_file = "kinopt_results.xlsx"
+# ------------------------------------------------------------
+# INPUT FILES
+# ------------------------------------------------------------
 
-# --------------------
-# Time grid (minutes)
-# --------------------
+# Protein / kinase abundance time-course data.
+# Typically contains protein-level measurements used as kinase activity proxies.
+input1 = ""
+
+# Phosphosite input table or kinase-substrate network input.
+# Expected to contain phosphosite-level measurements and/or kinase-site mappings,
+# depending on the KinOpt implementation.
+input2 = ""
+
+
+# ------------------------------------------------------------
+# OUTPUT FILE
+# ------------------------------------------------------------
+
+# Excel output containing optimized kinase alpha/beta values and diagnostics.
+out_file = ""
+
+
+# ------------------------------------------------------------
+# TIME GRID
+# ------------------------------------------------------------
+# Protein/phosphoproteomics time points in minutes.
+# These must match the MS time-course structure of the input files.
 time_points = [
   0.0, 0.5, 0.75, 1.0,
   2.0, 4.0, 8.0, 16.0,
@@ -117,133 +214,369 @@ time_points = [
   240.0, 480.0, 960.0
 ]
 
-# --------------------
-# Default optimization parameters
-# --------------------
+
+# ------------------------------------------------------------
+# DEFAULT OPTIMIZATION SETTINGS
+# ------------------------------------------------------------
+
+# Default bounds for kinase-phosphosite regulatory effects.
+# Negative values allow inhibitory effects; positive values allow activating effects.
 lower_bound = -4.0
 upper_bound =  4.0
 
-# Loss types (string, matches kinopt code)
-# base | weighted | softl1 | cauchy | arctan
+# KinOpt loss function.
+#
+# String values must match the KinOpt implementation:
+#
+#   "base"     = unweighted base loss
+#   "weighted" = time- or data-weighted loss
+#   "softl1"   = robust Soft L1 loss
+#   "cauchy"   = robust Cauchy loss
+#   "arctan"   = robust Arctan loss
 loss_type = "weighted"
 
-# Estimate missing kinase–psite pairs?
+# Estimate missing kinase-phosphosite relationships when direct evidence is absent.
+#
+# true:
+#   Infer missing kinase-site effects where allowed by the model.
+#
+# false:
+#   Use only observed/provided kinase-site relationships.
 estimate_missing_kinases = true
 
-# Scaling options:
-# min_max | log | temporal | segmented | slope | cumulative | none
+# Scaling method for kinase/protein/phosphosite time-course values.
+#
+# Options:
+#   "min_max"    = scale values to a min-max range
+#   "log"        = log-transform values
+#   "temporal"   = apply temporal scaling around split_point
+#   "segmented"  = scale by predefined time segments
+#   "slope"      = emphasize trajectory slopes
+#   "cumulative" = emphasize cumulative signal
+#   "none"       = no scaling
 scaling_method = "none"
 
-# Used for temporal scaling
+# Split index used by temporal scaling.
+# Only relevant when scaling_method = "temporal".
 split_point = 9
 
-# Used for segmented scaling
+# Segment boundaries used by segmented scaling.
+# Only relevant when scaling_method = "segmented".
 segment_points = [0, 3, 6, 9, 14]
 
-# Optimization method (local)
-# slsqp | trust-constr
+# Local optimization method.
+#
+# Options:
+#   "slsqp"       = constrained gradient-based local optimization
+#   "trust-constr" = trust-region constrained optimization
+#
+# Use only if the current KinOpt backend still supports these SciPy methods.
+# If KinOpt has been migrated to JAXopt, this field should be mapped to the
+# corresponding JAXopt solver or kept only for backward compatibility.
 method = "slsqp"
 
 
-# --------------------
-# Mode-specific overrides
-# --------------------
-
+# ------------------------------------------------------------
+# LOCAL MODE OVERRIDES
+# ------------------------------------------------------------
+# Settings used when running:
+#
+#   python phoskintime kinopt --mode local
+#
+# Intended for deterministic local optimization.
 [kinopt.modes.local]
-# Trust the defaults; override if needed
+
+# Local optimizer method.
+# Keep consistent with the default method unless testing an alternative backend.
 method = "slsqp"
 
+
+# ------------------------------------------------------------
+# EVOLUTIONARY MODE OVERRIDES
+# ------------------------------------------------------------
+# Legacy/global evolutionary KinOpt settings.
+#
+# Use only if the evolutionary backend is still supported.
+# If KinOpt is now JAX/JAXopt-only, this section should be retained only for
+# backward compatibility or removed.
 [kinopt.modes.evol]
-# Narrower bounds for global search
+
+# Evolutionary search bounds.
 lower_bound = -4.0
 upper_bound =  4.0
 
-# Loss choices for evol
-# base | autocorrelation | huber | mape | weighted
+# Loss function used in evolutionary KinOpt mode.
+#
+# Supported values depend on the evol implementation:
+#
+#   "base"
+#   "autocorrelation"
+#   "huber"
+#   "mape"
+#   "weighted"
 loss_type = "base"
 
-# Regularization (used only in evol)
+# Apply regularization during evolutionary optimization.
+#
+# false:
+#   Fit only the selected loss.
+#
+# true:
+#   Add regularization penalty if implemented by the backend.
 regularization = false
 
-# Evolutionary optimizer backend
-# DE | NSGA-II (string)
+# Evolutionary optimizer backend.
+#
+# Supported values depend on implementation:
+#   "DE"
+#   "NSGA-II"
 method = "NSGA-II"
 
 # ============================================================
-# ODE PIPELINE (downstream of kinopt + tfopt)
-# Used by:
-#   - config.constants
+# PROTWISE ODE PIPELINE CONFIGURATION
+# ============================================================
+# Configuration block used by protwise.runner.main.
+#
+# This pipeline runs the downstream ODE model after KinOpt and TFOpt outputs
+# are available. It fits protein, RNA, and phosphosite dynamics using the
+# configured model type, parameter bounds, time grids, and input files.
 # ============================================================
 
 [ode]
 
-# Which ODE model
-# distmod | succmod | randmod
-
-# After setting the results_dir and logs_dir globally above,
-# you can set the model type here to have separate output folders
-# for each model type.
+# ODE model variant to run.
+#
+# Supported options:
+#   distmod = distributive phosphorylation model
+#   succmod = successive / sequential phosphorylation model
+#   randmod = random / non-ordered phosphorylation model
+#
+# The selected model can be used by the runner to create model-specific
+# output folders and filenames.
 model = "distmod"
 
-# Upper bounds used in parameter fitting / priors
+
+# ------------------------------------------------------------
+# PARAMETER BOUNDS
+# ------------------------------------------------------------
+# Upper bounds for fitted ODE parameters.
+#
+# These bounds constrain the search space during parameter estimation.
+# Keep them broad enough to allow fitting, but not so broad that the
+# optimizer can produce biologically implausible rates.
 [ode.bounds]
-mRNA_prod    = 20
-mRNA_deg     = 20
+
+# Maximum mRNA production rate.
+mRNA_prod = 20
+
+# Maximum mRNA degradation rate.
+mRNA_deg = 20
+
+# Maximum protein production / translation rate.
 protein_prod = 20
-protein_deg  = 20
+
+# Maximum protein degradation / turnover rate.
+protein_deg = 20
+
+# Maximum phosphorylation production / activation rate.
 phospho_prod = 20
-phospho_deg  = 20
 
-# Bootstrap settings
+# Maximum phosphosite dephosphorylation / decay rate.
+phospho_deg = 20
+
+
+# ------------------------------------------------------------
+# BOOTSTRAP SETTINGS
+# ------------------------------------------------------------
+# Number of bootstrap replicates used for uncertainty estimation.
+#
+# Higher values improve uncertainty estimates but increase runtime.
+# Use small values for testing and larger values for final analyses.
 [ode.bootstrap]
-n = 0
+n = 10
 
-# Time grids (minutes)
+
+# ------------------------------------------------------------
+# TIME GRIDS
+# ------------------------------------------------------------
+# Experimental sampling times in minutes.
+#
+# These must match the time points present in the input data after
+# preprocessing. Protein and phosphosite measurements usually share the
+# MS time grid. RNA can have a different time grid.
 [ode.time]
+
+# Protein / proteomics time points.
 protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
-rna     = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
-# Fit controls
+# RNA / transcriptomics time points.
+rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
+
+
+# ------------------------------------------------------------
+# FIT CONTROLS
+# ------------------------------------------------------------
+# Controls how model predictions are compared against observed data.
 [ode.fit]
+
+# Normalize model predictions before computing the fitting loss.
+#
+# false:
+#   Compare model output directly to processed input values.
+#
+# true:
+#   Normalize predictions before scoring. Use only when the data and
+#   model outputs are intended to be compared on a normalized scale.
 normalize_model_output = false
-use_custom_weights     = false
-use_regularization     = true
 
+# Use custom time-point or modality weights during fitting.
+#
+# false:
+#   Use default/uniform weighting.
+#
+# true:
+#   Use custom weights if implemented by the protwise fitting routine.
+use_custom_weights = false
+
+# Apply regularization during parameter fitting.
+#
+# true:
+#   Penalize unstable or implausible parameter solutions.
+#
+# false:
+#   Fit only to data without regularization penalty.
+use_regularization = true
+
+
+# ------------------------------------------------------------
+# COMPOSITE LOSS WEIGHTS
+# ------------------------------------------------------------
+# Weights for different error summaries used in the composite objective.
+#
+# Increase a weight to make that error metric contribute more strongly.
+# Set a weight to 0.0 to disable that component.
 [ode.fit.composite_weights]
-rmse = 1.0
-mae  = 1.0
-var  = 1.0
-mse  = 1.0
-l2   = 1.0
 
-# Sensitivity
+# Root mean squared error weight.
+rmse = 1.0
+
+# Mean absolute error weight.
+mae = 1.0
+
+# Variance-based error weight.
+var = 1.0
+
+# Mean squared error weight.
+mse = 1.0
+
+# L2 norm error weight.
+l2 = 1.0
+
+
+# ------------------------------------------------------------
+# SENSITIVITY ANALYSIS
+# ------------------------------------------------------------
+# Optional post-fit sensitivity analysis.
 [ode.sensitivity]
-enabled      = true
+
+# Enable or disable sensitivity analysis.
+#
+# false:
+#   Skip sensitivity analysis.
+#
+# true:
+#   Run sensitivity analysis after fitting.
+enabled = false
+
+# Relative parameter perturbation used for sensitivity calculations.
+#
+# Example:
+#   0.5 = 50% perturbation.
+#
+# Use smaller values for local sensitivity and larger values for broader
+# robustness checks.
 perturbation = 0.5
 
-[ode.sensitivity.morris]
-num_trajectories = 1000
-num_levels       = 400
 
-# Plot
+# ------------------------------------------------------------
+# MORRIS SENSITIVITY SETTINGS
+# ------------------------------------------------------------
+# Settings for Morris-style global sensitivity analysis.
+[ode.sensitivity.morris]
+
+# Number of Morris trajectories.
+#
+# Higher values improve sampling coverage but increase runtime.
+num_trajectories = 1000
+
+# Number of grid levels used for parameter perturbation.
+#
+# Higher values provide finer perturbation resolution but increase cost.
+num_levels = 400
+
+
+# ------------------------------------------------------------
+# PLOTTING SETTINGS
+# ------------------------------------------------------------
+# Controls visualization of sensitivity or perturbation traces.
 [ode.plot]
+
+# Opacity for individual perturbed trajectories in plots.
+#
+# Low values reduce overplotting when many trajectories are drawn.
 perturb_trace_opacity = 0.02
 
-# Inputs to the ODE pipeline.
-# Make these explicit and stable (no importing from other modules).
-[ode.inputs]
-# These are paths relative to PROJECT ROOT. You can also make them relative to data_dir if you prefer.
-protein_excel = "data/input1.csv"
-psite_excel   = "data/kinopt_results.xlsx"
-rna_excel     = "data/tfopt_results.xlsx"
 
-# Output naming (optional)
+# ------------------------------------------------------------
+# INPUT FILES
+# ------------------------------------------------------------
+# Input paths consumed by the protwise ODE pipeline.
+#
+# Paths are relative to the project root unless the runner resolves them
+# relative to another configured base directory.
+#
+# Keep these paths explicit. Do not rely on imports from unrelated modules.
+[ode.inputs]
+
+# Protein / proteomics input table.
+#
+# This should contain protein-level time-course observations used by the
+# ODE fitting routine.
+protein_excel = ""
+
+# KinOpt output file.
+#
+# Expected to contain phosphosite-level kinase-substrate optimization results,
+# priors, or interaction weights used by the ODE model.
+psite_excel = ""
+
+# TFOpt output file.
+#
+# Expected to contain TF-target optimization results, priors, or regulatory
+# weights used by the ODE model.
+rna_excel = ""
+
+
+# ------------------------------------------------------------
+# OUTPUT FILE NAMING
+# ------------------------------------------------------------
+# Optional output directory and result file names.
+#
+# Leave empty only if protwise.runner.main has fallback naming logic,
+# such as "<model>_results" and "<model>_results.xlsx".
 [ode.output]
-out_dir_name = "results_protwise_jax"   # if empty, code can use "<ModelType>_results"
-out_xlsx_name = "results_protwise_jax.xlsx"  # if empty, code can use "<ModelType>_results.xlsx"
+
+# Directory name for this protwise run.
+#
+# Use model- and scenario-specific names to avoid overwriting previous runs.
+out_dir_name = ""
+
+# Main Excel output filename for fitted parameters, predictions,
+# diagnostics, and summary tables.
+out_xlsx_name = ""
 
 # ============================================================
-# GLOBAL MODEL (Integrated ODE Optimization)
+# NETWORK MODEL
 # Used by: networkmodel.runner
 # ============================================================
 
@@ -251,151 +584,589 @@ out_xlsx_name = "results_protwise_jax.xlsx"  # if empty, code can use "<ModelTyp
 app_name = "Phoskintime-Global"
 version = "0.4.0"
 parent_package = "phoskintime"
-citation = "Abhinav Mishra. (2025). bibymaths/phoskintime: v0.4.0. Zenodo."
+citation = "Abhinav Mishra. (2025). bibymaths/phoskintime: v0.5.0. Zenodo."
 doi = "https://10.5281/zenodo.15351017"
 github_url = "https://github.com/bibymaths/phoskintime"
 docs_url = "https://bibymaths.github.io/phoskintime/"
 
 # ------------------------------------------------------------
-# INPUT FILES (Required by runner)
-# Paths are relative to the project root
+# INPUT FILES
 # ------------------------------------------------------------
-kinase_net = "data/input2.csv"         # Kinase-Substrate Network (or similar)
-tf_net     = "data/input4.csv"         # TF-Gene Network
-ms         = "data/input1.csv"         # Mass Spec (Protein) Data
-rna        = "data/input3.csv"         # RNA (Transcriptomics) Data
-phospho    = "data/input1.csv"         # Phospho Data (Optional, can be same as ms if mixed)
+# Paths are relative to the project root.
+#
+# Modality convention used by networkmodel.io.load_data():
+#
+#   - Rows with empty Psite      -> protein-level MS observations
+#   - Rows with non-empty Psite  -> phosphosite-level MS observations
+#   - Empty string ""            -> modality intentionally absent
+#
+# Therefore:
+#   - A mixed MS file can contain both protein rows and phospho rows.
+#   - A protein-only file should contain only rows where Psite is empty.
+#   - A phospho-only file should contain only rows where Psite is non-empty.
+#   - RNA can be left as "" if transcriptomics data are not available.
+#
+# Current implementation note:
+#   In the current load_data() shown earlier, `phospho` is not read separately.
+#   Phospho data are extracted from `ms` by checking non-empty Psite values.
+#   Keep `phospho = ""` unless you add explicit separate phospho-file loading.
+# ------------------------------------------------------------
 
-# Previous optimization results (Priors)
-kinopt     = "data/kinopt_results.xlsx"
-tfopt      = "data/tfopt_results.xlsx"
+# Kinase-substrate network.
+# Required.
+# Expected to contain columns such as GeneID/protein/gene, Psite/site, and Kinase/K.
+# Used to build the kinase -> phosphosite mechanistic topology.
+kinase_net = ""
+
+# TF-gene regulatory network.
+# Required if transcriptional regulation is part of the model.
+# Expected to contain source/TF and target/gene columns.
+# If no TF network is available, use a valid empty TF network file with headers,
+# not an empty string, unless load_data() is explicitly modified to allow missing TF input.
+tf_net = ""
+
+# Mass-spec input table.
+# This is the main MS observation file consumed by load_data().
+#
+# Scenario A: mixed protein + phospho MS file
+#   ms = "data/input1.csv"
+#   - protein rows: Psite empty
+#   - phospho rows: Psite non-empty
+#
+# Scenario B: protein-only MS file
+#   ms = "data/input1_protein_only.csv"
+#   - all retained rows have empty Psite
+#   - df_prot is populated
+#   - df_pho is empty
+#
+# Scenario C: phospho-only MS file
+#   ms = "data/input1_phospho_only.csv"
+#   - all retained rows have non-empty Psite
+#   - df_pho is populated
+#   - df_prot is empty
+#
+# Do not label a phospho-only file as protein MS data.
+ms = ""
+
+# RNA / transcriptomics input table.
+#
+# Scenario A: RNA available
+#   rna = "data/rna.csv"
+#   - file should contain gene/mRNA/protein identifiers and time-series columns
+#   - contributes to RNA loss if lambda_rna > 0
+#
+# Scenario B: RNA unavailable
+#   rna = ""
+#   - load_data() should create an empty dataframe with columns: protein, time, fc
+#   - recommended: set regularization_rna = 0.0 for this run
+#
+# Requires the missing-RNA guard in load_data(); otherwise pandas will try to read "" as a filename.
+rna = ""
+
+# Separate phospho input table.
+#
+# Current behavior:
+#   This option is currently unused by the shown load_data().
+#   Phospho observations are taken from `ms` using non-empty Psite rows.
+#
+# Recommended current setting:
+#   phospho = ""
+#
+# Future behavior, only if separate loading is implemented:
+#   phospho = "data/input1_phospho_only.csv"
+#   ms      = "data/input1_protein_only.csv"
+#
+# Do not set this expecting it to work unless load_data() explicitly reads args.phospho.
+phospho = ""
+
+# ------------------------------------------------------------
+# PRIOR OPTIMIZATION RESULTS
+# ------------------------------------------------------------
+# Optional Excel files from previous KinOpt / TFOpt runs.
+# These are used as fixed prior weights if available:
+#
+#   kinopt:
+#     - Alpha Values: kinase-substrate interaction strengths
+#     - Beta Values : kinase-level or kinase-site priors
+#
+#   tfopt:
+#     - Alpha Values: TF-target interaction strengths
+#     - Beta Values : TF-level priors
+#
+# Leave as "" if no prior optimization results are available.
+# In that case, the model should fall back to default weights, usually 1.0.
+kinopt = ""
+tfopt  = ""
+
 
 # ------------------------------------------------------------
 # RUN SETTINGS
 # ------------------------------------------------------------
-output_dir = "results_model_global_distributive_jax"  # Output directory
-cores      = 80                         # 0 or leave out to use all available cores
-seed       = 42
+# Directory where all outputs, logs, plots, fitted parameters,
+# diagnostics, and dashboard files will be written.
+#
+# Use a scenario-specific name to avoid overwriting previous runs.
+output_dir = ""
+
+# Number of CPU cores/workers used for parallel parts of the workflow.
+#
+# Recommended:
+#   - Use a positive integer for controlled runs.
+#   - Avoid using all system cores if JAX/XLA, BLAS, or multiprocessing
+#     are also active, because oversubscription can slow the run down.
+#
+# Example:
+#   cores = 8      # conservative local run
+#   cores = 32     # HPC / large server run
+#   cores = 80     # high-core node, only if available
+cores = 80
+
+# Random seed used for reproducible initialization, multistart sampling,
+# posterior sampling, and other stochastic components where applicable.
+seed = 42
+
+
 # ------------------------------------------------------------
-# OPTIMIZATION PARAMETERS (JAXopt)
+# OPTIMIZATION SETTINGS
 # ------------------------------------------------------------
-n_gen      = 30                       # Maximum local optimizer iterations (runner arg: --n-gen)
+# Maximum number of local optimizer iterations.
+#
+# Historical name:
+#   n_gen
+#
+# Current meaning:
+#   maximum JAXopt local-optimization iterations
+#
+# This is not an evolutionary generation count anymore.
+n_gen = 100
+
+
+# ------------------------------------------------------------
+# LOSS FUNCTION
+# ------------------------------------------------------------
+# Loss function used to compare predicted and observed trajectories.
+#
+# Available options:
+#
+#   -1 = Charbonnier loss
+#    0 = Mean squared error (MSE)
+#    1 = Huber loss
+#    2 = Pseudo-Huber loss
+#    3 = Log-cosh loss
+#    4 = Cauchy loss
+#    5 = Poisson loss
+#    6 = Geman-McClure loss
+#
+# Recommended defaults:
+#
+#   loss = 0
+#     Use when data are clean and you want strong penalty for large residuals.
+#
+#   loss = 1 or 2
+#     Use for noisy omics data where outliers should not dominate the fit.
+#     Pseudo-Huber is smooth and usually safer for JAX-based optimization.
+#
+#   loss = 3
+#     Smooth robust alternative; often stable for continuous fold-change data.
+#
+#   loss = 4 or 6
+#     Strongly robust losses; useful when outliers are severe, but they may
+#     downweight large residuals aggressively.
+#
+#   loss = 5
+#     Use only for count-like non-negative data. Usually not appropriate for
+#     scaled log-fold-change proteomics/transcriptomics data.
 loss = 2
-# Loss type (0: MSE, 1:Huber, 2:Psuedo-Huber, 3:Log-Cosh, 4:Cauchy, 5:Poisson, 6:Geman-McClure)
-# -1 for Charbonnier Loss
 
 # ------------------------------------------------------------
-# LOSS WEIGHTS (Regularization)
+# LOSS WEIGHTS
 # ------------------------------------------------------------
-lambda_prior   = 0.1                  # Weight for prior adherence (runner arg: --lambda-prior)
-lambda_protein = 1.0                   # Weight for protein error (runner arg: --lambda-protein)
-lambda_rna     = 1.0                   # Weight for RNA error (runner arg: --lambda-rna)
-lambda_phospho = 1.0                   # Weight for Phospho error (runner arg: --lambda-phospho)
+# These weights control how strongly each loss component contributes
+# to the final scalar objective optimized by JAXopt.
+#
+# General rule:
+#   - Set weight > 0 when the modality is present and should guide fitting.
+#   - Set weight = 0.0 when the modality is absent or should be ignored.
+#
+# Scenario examples:
+#   Protein-only run:
+#     lambda_protein = 1.0
+#     lambda_rna     = 0.0
+#     lambda_phospho = 0.0
+#
+#   Phospho-only run:
+#     lambda_protein = 0.0
+#     lambda_rna     = 0.0
+#     lambda_phospho = 1.0
+#
+#   Protein + phospho run:
+#     lambda_protein = 1.0
+#     lambda_rna     = 0.0
+#     lambda_phospho = 1.0
+#
+#   Full multi-modal run:
+#     lambda_protein = 1.0
+#     lambda_rna     = 1.0
+#     lambda_phospho = 1.0
+#
+# lambda_prior penalizes deviation from prior/default parameter values.
+# Increase it for stronger regularization; decrease it for more data-driven fitting.
+lambda_prior   = 0.1
+lambda_protein = 1.0
+lambda_rna     = 1.0
+lambda_phospho = 1.0
+
 
 # ------------------------------------------------------------
-# HYPERPARAMETERS SCAN OPTIONS
+# HYPERPARAMETER SCAN
 # ------------------------------------------------------------
-hyperparam_scan = false              # Enable hyperparameter scan
+# Enable automatic scanning of loss weights / regularization settings.
+#
+# false:
+#   Use the manually specified lambda_* values above.
+#
+# true:
+#   Run the hyperparameter scan before final optimization.
+#   This is slower and should be used only when scanning logic is active
+#   and maintained in the current JAXopt workflow.
+hyperparam_scan = false
+
 
 # ------------------------------------------------------------
 # DATA INFERENCE FLAGS
 # ------------------------------------------------------------
-normalize_fc_steady = false             # Normalize data to t=0 (runner arg: --normalize-fc-steady)
-use_initial_condition_from_data = true  # Use data for t=0 state (runner arg: --use-initial-condition-from-data)
+# Normalize fold-change trajectories relative to the baseline time point.
+#
+# false:
+#   Use the values produced by the selected scaling_method.
+#
+# true:
+#   Re-normalize protein/phospho trajectories to t = 0 after loading.
+#   Use only when baseline-relative comparison is required.
+normalize_fc_steady = false
+
+# Use observed baseline data to initialize model states.
+#
+# true:
+#   Initial conditions are inferred from available t=0 / baseline observations.
+#
+# false:
+#   Initial conditions use model defaults.
+#
+# Recommended:
+#   true when baseline observations are reliable.
+#   false when baseline data are missing, sparse, or noisy.
+use_initial_condition_from_data = true
+
 
 # ------------------------------------------------------------
-# DATA SCALING OPTIONS
+# DATA SCALING
 # ------------------------------------------------------------
-#            - 'raw' / 'none': No scaling. Returns raw intensities/counts in tidy format.
-#            - 'fc_start': Standard Fold-Change (x_t / x_0).
-#            - 'robust_fc': Fold-Change with noise of floor value (x_t / (x_0 + eps)).
-#            - 'max_scale': Normalizes to [0, 1] range (x_t / x_max).
-#            - 'mean_scale': Centers data around 1.0 (x_t / x_mean).
-#            - 'l2_norm': Unit vector scaling (x_t / ||x||).
-scaling_method = "raw"   # Data scaling method
-
-# ------------------------------------------------------------
-# DATA WEIGHTING OPTIONS
-# ------------------------------------------------------------
+# Scaling method applied during input preprocessing.
+#
 # Options:
-# 'uniform', 'linear_early', 'linear_late', 'exp_early',
-# 'exp_late', 'quad_early', 'quad_late', 'log_early', 'inv_time',
-# 'inv_sqrt_time', 'piecewise_early_boost', 'gaussian_center', 'logistic_center',
-# 'distance_from_baseline'
+#
+#   "raw" / "none"
+#     No scaling. Use raw intensities/counts as provided.
+#     Suitable only if input values are already normalized and comparable.
+#
+#   "fc_start"
+#     Standard fold-change relative to the first time point:
+#       x_t / x_0
+#     Useful for time-course proteomics/phosphoproteomics.
+#
+#   "robust_fc"
+#     Fold-change with a small denominator floor:
+#       x_t / (x_0 + eps)
+#     Safer when baseline values can be near zero.
+#
+#   "max_scale"
+#     Scale each trajectory by its maximum:
+#       x_t / x_max
+#     Produces values roughly in [0, 1].
+#
+#   "mean_scale"
+#     Scale each trajectory by its mean:
+#       x_t / x_mean
+#     Centers each trajectory around 1.0.
+#
+#   "l2_norm"
+#     Normalize each trajectory by its vector norm:
+#       x_t / ||x||
+#     Useful when trajectory shape matters more than absolute scale.
+#
+# Recommended:
+#   - Use "raw" only if preprocessing was already done externally.
+#   - Use "fc_start" or "robust_fc" for most fold-change time-course runs.
+scaling_method = "raw"
 
-weighting_method_protein = "uniform"   # Weighting for protein data
-weighting_method_rna     = "uniform"   # Weighting for RNA data
-weighting_method_phospho = "uniform"   # Weighting for phospho data
+
+# ------------------------------------------------------------
+# DATA WEIGHTING
+# ------------------------------------------------------------
+# Time-point weighting schemes for each modality.
+#
+# These control whether early, late, baseline-proximal, or central time points
+# contribute more strongly to the loss.
+#
+# Options:
+#   "uniform"
+#     All time points receive equal weight.
+#
+#   "linear_early", "exp_early", "quad_early", "log_early"
+#     Earlier time points receive more weight.
+#
+#   "linear_late", "exp_late", "quad_late"
+#     Later time points receive more weight.
+#
+#   "inv_time", "inv_sqrt_time"
+#     Earlier time points receive stronger inverse-time weighting.
+#
+#   "piecewise_early_boost"
+#     Early phase receives a fixed boost.
+#
+#   "gaussian_center", "logistic_center"
+#     Middle/transition-region time points receive more weight.
+#
+#   "distance_from_baseline"
+#     Weights depend on distance from baseline.
+#
+# Recommended default:
+#   "uniform"
+#
+# Note:
+#   In the runner code shown earlier, protein and RNA weighting are passed
+#   into build_weight_functions(). Confirm that phospho weighting is also
+#   wired into the objective before relying on weighting_method_phospho.
+weighting_method_protein = "uniform"
+weighting_method_rna     = "uniform"
+weighting_method_phospho = "uniform"
+
 
 # ------------------------------------------------------------
 # SENSITIVITY ANALYSIS
 # ------------------------------------------------------------
-sensitivity_analysis = false          # Enable sensitivity analysis (runner arg: --sensitivity-analysis)
-sensitivity_perturbation = 0.05        # Perturbation for sensitivity analysis
-sensitivity_trajectories = 100       # Number of trajectories for Morris method
-sensitivity_levels = 40              # Number of levels for Morris method
-sensitivity_top_curves = 20              # Number of top curves to plot in sensitivity analysis
-sensitivity_metric = "l2_norm"          #  ["total_signal", "mean", "variance", "l2_norm"]
-# ------------------------------------------------------------
+# Enable post-optimization sensitivity analysis.
+#
+# false:
+#   Skip sensitivity analysis.
+#
+# true:
+#   Run sensitivity analysis after fitting the model.
+sensitivity_analysis = false
+
+# Relative perturbation size used for local sensitivity calculations.
+# Example:
+#   0.05 = ±5% perturbation.
+sensitivity_perturbation = 0.05
+
+# Number of sampled trajectories for Morris/global sensitivity analysis.
+# Higher values improve coverage but increase runtime.
+sensitivity_trajectories = 100
+
+# Number of discretization levels for Morris sensitivity sampling.
+# Higher values give finer parameter perturbation resolution.
+sensitivity_levels = 40
+
+# Number of highest-sensitivity curves to include in plots/reports.
+sensitivity_top_curves = 20
+
+# Metric used to summarize trajectory sensitivity.
+#
+# Options:
+#   "total_signal" = integrated total response
+#   "mean"         = mean trajectory value
+#   "variance"     = trajectory variability
+#   "l2_norm"      = Euclidean trajectory magnitude
+sensitivity_metric = "l2_norm"
+
 
 # ------------------------------------------------------------
 # INFERENCE / POST-OPTIMIZATION ANALYSES
 # ------------------------------------------------------------
-# --- Inference / Multistart ---
-n_starts = 1               # int: restarts; 1 = single-start (current behaviour)
-# --- Profile Likelihood (post-optimization) ---
+
+# Number of optimization restarts.
+#
+# 1:
+#   Single-start local optimization.
+#
+# >1:
+#   Multistart local optimization. Runs multiple initializations and keeps
+#   the best solution according to the scalar objective.
+#
+# Recommended:
+#   Use n_starts > 1 for non-convex ODE models.
+n_starts = 1
+
+
+# ------------------------------------------------------------
+# PROFILE LIKELIHOOD
+# ------------------------------------------------------------
+# Enable profile likelihood after optimization.
+#
+# false:
+#   Skip profile likelihood.
+#
+# true:
+#   Profile selected parameters listed in profile_indices.
 profile_likelihood = false
-profile_indices = "88" # , 93, 95, 103, 108, 69, 78, 80, 116, 125, 135, 136, 139"       # comma-separated parameter indices e.g. "0,1,5"
+
+# Comma-separated parameter indices to profile.
+#
+# Example:
+#   profile_indices = "0,1,5,10"
+#
+# Leave empty to disable profiling even if profile_likelihood is true.
+profile_indices = ""
+
+# Number of grid points per profiled parameter.
+# Higher values give smoother profiles but increase runtime.
 profile_grid_size = 5
-# --- Posterior Sampling (post-optimization, requires numpyro) ---
+
+
+# ------------------------------------------------------------
+# POSTERIOR SAMPLING
+# ------------------------------------------------------------
+# Enable posterior sampling after optimization.
+#
+# Requires NumPyro and a working posterior objective.
+# This is useful for uncertainty quantification, but is substantially slower
+# than deterministic optimization.
 posterior_sampling = false
+
+# Number of warmup/adaptation samples for posterior sampling.
 posterior_num_warmup = 20
+
+# Number of retained posterior samples.
 posterior_num_samples = 30
 
-# MODEL & BOUNDS CONFIGURATION
-# ------------------------------------------------------------
 
+# ------------------------------------------------------------
+# MODEL TIME POINTS
+# ------------------------------------------------------------
+# Time grids used by the model and loss mapping.
+#
+# These must match the experimental sampling times after preprocessing.
+# Units must be consistent across protein, phospho, and RNA data.
+#
+# protein:
+#   Time points for protein-level MS observations.
+#
+# phospho_protein:
+#   Time points for phosphosite-level observations.
+#
+# rna:
+#   Time points for RNA/transcriptomics observations.
+#
+# If a modality is absent, its time grid can remain defined, but the
+# corresponding input table should be empty and its lambda should usually be 0.0.
 [networkmodel.timepoints]
 protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 phospho_protein = [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 
+
+# ------------------------------------------------------------
+# PARAMETER BOUNDS
+# ------------------------------------------------------------
+# Bounds define the feasible range for each optimized parameter group.
+#
+# Keep bounds biologically plausible but not so tight that the optimizer
+# cannot fit real dynamics.
+#
+# Format:
+#   parameter = [lower_bound, upper_bound]
 [networkmodel.bounds]
-# Kinase Activity Multiplier: Keep as is, 4.0 is a reasonable max fold-change
+
+# Kinase activity multiplier.
+# Scales kinase input/activity relative to the prior/default.
+#
+# Recommended:
+#   Lower bound > 0 to avoid inactive or numerically unstable kinase drivers.
+#   Upper bound around 4.0 allows strong but not extreme activation.
 c_k = [1e-3, 4.0]
 
-# Basal mRNA Transcription: Keep wide to allow for low-abundance genes
+# Basal transcription rate.
+# Controls mRNA production.
+#
+# Wide range allows both low- and high-expression genes.
 A_i = [1e-6, 10.0]
 
-# mRNA Degradation: 0.1 is ~7min half-life, 0.001 is ~11 hours.
+# mRNA degradation rate.
+# Controls RNA decay.
+#
+# Approximate interpretation:
+#   1e-3 = slow degradation
+#   1.0  = fast degradation
 B_i = [1e-3, 1.0]
 
-# Translation Rate (The "Balloon" Variable):
-# Lower the max significantly. Proteins rarely translate at 100x basal speed.
+# Translation rate.
+# Controls protein production from mRNA.
+#
+# Keep the upper bound moderate to avoid unrealistic protein blow-up.
 C_i = [1e-3, 2.0]
 
-# Protein Deactivation (State reset):
-# Increase the floor. 1e-6 is essentially "never turns off."
+# Protein degradation/deactivation rate.
+# Controls decay/reset of protein-level state.
+#
+# Avoid extremely small lower bounds if long-term simulations show runaway
+# or non-decaying protein trajectories.
 D_i = [0.1, 0.5]
 
-# Phospho-site Dephosphorylation:
-# Usually faster than total protein deactivation.
+# Phosphosite dephosphorylation rate.
+# Usually faster than total protein degradation/deactivation.
 Dp_i = [0.05, 5.0]
 
-# Transcriptional Efficacy (Alpha):
-# 10.0 is a strong regulator.
+# Initial condition / state scaling parameter.
+# Allows protein-specific adjustment of initial state magnitude.
+#
+# Use a positive lower bound to avoid zero-state collapse.
 E_i = [1e-4, 10.0]
 
-# TF Scaling (The "Sensitivity" exponent):
-# If using Exponential coupling, +/- 4.0 is very high (e^4 = 54x).
-# +/- 2.0 (e^2 = 7x) is often more stable for global models.
+# Global TF scaling parameter.
+# Controls the strength of transcriptional regulatory coupling.
+#
+# Current bounds allow positive amplification only.
+# If signed TF scaling is intended, use symmetric bounds such as [-2.0, 2.0]
+# and confirm the model equations support negative values.
 tf_scale = [2.0, 10.0]
 
+
+# ------------------------------------------------------------
+# MODEL SELECTION
+# ------------------------------------------------------------
+# Available mechanistic phosphorylation models.
+#
+# default_model selects which model is used for the current run.
+#
+# Options:
+#   "distributive"
+#   "sequential"
+#   "combinatorial"
+#   "saturation"
 [networkmodel.models]
 available_models = ["distributive", "sequential", "combinatorial", "saturation"]
 default_model = "distributive"
 
+
+# ------------------------------------------------------------
+# ODE SOLVER SETTINGS
+# ------------------------------------------------------------
+# Numerical tolerances for ODE integration.
+#
+# Lower tolerance values increase accuracy but also increase runtime.
+# For stiff biological ODE systems, tight tolerances can be expensive.
+#
+# Recommended starting point:
+#   absolute_tolerance = 1e-8
+#   relative_tolerance = 1e-8
+#
+# If simulations are slow or fail frequently, relax to 1e-6.
 [networkmodel.solver]
 absolute_tolerance = 1e-8
 relative_tolerance = 1e-8
+
+# Maximum number of solver internal time steps.
+# Increase this if the solver stops early due to step-limit errors.
+# Decrease only if runaway trajectories should fail faster.
 max_timesteps = 200000

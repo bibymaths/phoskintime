@@ -2,11 +2,16 @@
 import os
 from config_loader import load_config_toml
 
-# cfg: PhosKinConfig loaded from ./config.toml; no default because import requires the file.
-if os.path.exists("config.toml"):
-    cfg = load_config_toml("config.toml")
+CONFIG_ENV_VAR = "PHOSKINTIME_NETWORKMODEL_CONFIG"
+CONFIG_PATH = os.environ.get(CONFIG_ENV_VAR, "config.toml")
+
+# cfg: PhosKinConfig loaded from the selected TOML. networkmodel.runner sets
+# PHOSKINTIME_NETWORKMODEL_CONFIG after parsing --conf and before importing
+# modules that rely on this compatibility constants surface.
+if os.path.exists(CONFIG_PATH):
+    cfg = load_config_toml(CONFIG_PATH)
 else:
-    raise FileNotFoundError("config.toml not found in current directory.")
+    raise FileNotFoundError(f"networkmodel config not found: {CONFIG_PATH}")
 
 
 def _as_bool(x):

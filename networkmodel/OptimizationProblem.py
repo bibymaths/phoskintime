@@ -18,6 +18,7 @@ from networkmodel.config import RESULTS_DIR
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
 def _validate_slice_layout_covers_bounds(slices, bounds_size: int) -> int:
     """Validate that non-empty theta slices cover [0, bounds_size) exactly once."""
     bounds_size = int(bounds_size)
@@ -86,6 +87,7 @@ def _validate_slice_layout_covers_bounds(slices, bounds_size: int) -> int:
         raise ValueError(f"Slice layout has a gap at bounds index {first}.")
 
     return bounds_size
+
 
 def build_weight_functions(method_protein="uniform", method_rna="uniform", time_grid=None):
     """Build placeholder weight functions for scalar optimization

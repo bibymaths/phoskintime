@@ -9,6 +9,23 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+_MISSING_INPUT_VALUES = {"", "none", "null", "na", "n/a", "nan", "-"}
+
+
+def _is_missing_input_path(path) -> bool:
+    """Return True when an optional input path is intentionally absent."""
+    if path is None:
+        return True
+    return str(path).strip().lower() in _MISSING_INPUT_VALUES
+
+
+def _empty_tidy_rna() -> pd.DataFrame:
+    """Return an empty RNA observation table with the downstream-required schema."""
+    return pd.DataFrame({
+        "protein": pd.Series(dtype="object"),
+        "time": pd.Series(dtype="float64"),
+        "fc": pd.Series(dtype="float64"),
+    })
 
 def load_data(args):
     """Load configured networkmodel input tables
@@ -229,26 +246,60 @@ def load_data(args):
     # =========================================================================
     logger.info(f"[Data] Loading RNA: {args.rna}")
 
-    # 1. Read and Clean Headers
-    df_rna_raw = pd.read_csv(args.rna)
-    df_rna_raw = _normcols(df_rna_raw)
+    if _is_missing_input_path(getattr(args, "rna", None)):
+        logger.info("[Data] RNA input not provided; continuing with empty RNA modality.")
+        df_rna = _empty_tidy_rna()
 
-    # 2. Identify the Gene/Protein ID column
-    gcol = _find_col(df_rna_raw, ["geneid", "mrna", "gene"])
+    else:
+        rna_path = str(args.rna).strip()
 
-    # 3. Rename it to 'protein' so the rest of the pipeline understands it
-    df_rna_raw = df_rna_raw.rename(columns={gcol: "protein"})
+        if not os.path.exists(rna_path):
+            raise FileNotFoundError(
+                f"RNA input path does not exist: {rna_path!r}. "
+                "Use an empty string, None, 'NA', or '-' only when RNA is intentionally absent."
+            )
 
-    # 4. Process (Scale -> Map Time -> Melt)
-    # The function returns the final tidy dataframe directly.
-    df_rna = process_and_scale_raw_data(
-        df_rna_raw,
-        time_points=TIME_POINTS_RNA,
-        id_cols=["protein"],
-        scale_method=SCALING_METHOD
-    )
+        # 1. Read and clean headers
+        df_rna_raw = pd.read_csv(rna_path)
+        df_rna_raw = _normcols(df_rna_raw)
 
-    # df_rna is now ready. It has columns: ["protein", "time", "fc"]
+        # 2. Identify the Gene/Protein ID column
+        gcol = _find_col(df_rna_raw, ["geneid", "mrna", "gene", "protein"])
+
+        if gcol is None:
+            raise ValueError(
+                f"Could not find RNA gene identifier column in {rna_path!r}. "
+                f"Expected one of: geneid, mrna, gene, protein. "
+                f"Found columns: {list(df_rna_raw.columns)}"
+            )
+
+        # 3. Rename it to 'protein' so the rest of the pipeline understands it
+        df_rna_raw = df_rna_raw.rename(columns={gcol: "protein"})
+
+        # 4. Process: scale -> map time -> melt
+        df_rna = process_and_scale_raw_data(
+            df_rna_raw,
+            time_points=TIME_POINTS_RNA,
+            id_cols=["protein"],
+            scale_method=SCALING_METHOD
+        )
+
+        df_rna = _normcols(df_rna)
+
+        required_cols = {"protein", "time", "fc"}
+        missing_cols = required_cols - set(df_rna.columns)
+        if missing_cols:
+            raise ValueError(
+                f"Processed RNA table is missing required columns: {missing_cols}. "
+                f"Found columns: {list(df_rna.columns)}"
+            )
+
+        df_rna = df_rna[["protein", "time", "fc"]].copy()
+        df_rna["protein"] = df_rna["protein"].astype(str).str.strip().str.upper()
+        df_rna["time"] = pd.to_numeric(df_rna["time"], errors="coerce")
+        df_rna["fc"] = pd.to_numeric(df_rna["fc"], errors="coerce")
+        df_rna = df_rna.dropna(subset=["protein", "time", "fc"]).reset_index(drop=True)
+
     logger.info(f"[Data] Loaded {len(df_rna)} RNA points.")
 
     return df_kin_clean, df_tf_clean, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map
