@@ -103,6 +103,7 @@ def main(argv: list[str] | None = None):
         PARAMETER_SPACE,
         PERTURBATIONS_VALUE,
         Y_METRIC_DESCRIPTIONS,
+        validate_ode_inputs,
     )
     from config.logconf import setup_logger
     from protwise.paramest.core import process_gene_wrapper
@@ -118,6 +119,7 @@ def main(argv: list[str] | None = None):
         logger.error("Invalid configuration. Exiting.")
         return
 
+    validate_ode_inputs(config)
     out_dir, out_results_dir = initialize_run_contract(config, args, logger)
 
     # Set up the logger
