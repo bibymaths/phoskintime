@@ -43,6 +43,31 @@ def test_motif_detection_correctness():
     assert set(map(int, res.motifs.motif_type.tolist())) == {1}
 
 
+def test_motif_detection_uses_common_node_namespace_false_positive_regression():
+    kin = pd.DataFrame({
+        "protein": ["C", "D", "D"],
+        "psite": ["S1", "S2", "S3"],
+        "kinase": ["A", "X", "A"],
+        "alpha": [1.0, 1.0, 1.0],
+    })
+    res = preprocess_network(kin, config=NetworkPreprocessingConfig(prune_self_loops=False))
+    assert res.summary["n_motifs"] == 0
+
+
+def test_motif_detection_uses_common_node_namespace_positive_control():
+    kin = pd.DataFrame({
+        "protein": ["X", "D", "D"],
+        "psite": ["S1", "S2", "S3"],
+        "kinase": ["A", "X", "A"],
+        "alpha": [1.0, 1.0, 1.0],
+    })
+    res = preprocess_network(kin, config=NetworkPreprocessingConfig(prune_self_loops=False))
+    assert res.summary["n_motifs"] == 1
+    motif = res.motifs
+    labels = motif.node_labels
+    assert (labels[int(motif.node_a[0])], labels[int(motif.node_b[0])], labels[int(motif.node_c[0])]) == ("A", "X", "D")
+
+
 def test_identifiability_and_outputs(tmp_path):
     kin,pho,prot=frames()
     res=preprocess_network(kin, phospho_observations=pho, protein_observations=prot, output_dir=tmp_path, config=NetworkPreprocessingConfig(prune_self_loops=False))

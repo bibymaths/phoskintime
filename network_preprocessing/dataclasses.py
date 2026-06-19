@@ -68,6 +68,7 @@ class SparseThetaTensor:
 class MotifTable:
     motif_type: jax.Array; node_a: jax.Array; node_b: jax.Array; node_c: jax.Array
     edge_mask: jax.Array; score: jax.Array
+    node_labels: tuple[str, ...] = ()
 
 @dataclass(frozen=True)
 class IdentifiabilityDiagnostics:

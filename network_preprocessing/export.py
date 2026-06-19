@@ -24,7 +24,15 @@ def export_preprocessing_result(result, output_dir, *, labels=None, output_subdi
         p=root/"sparse_theta_indices_values.csv"; trip_df(result.pruned).assign(theta_value=np.asarray(result.theta.values)).to_csv(p,index=False); paths["theta_csv"]=p
         p=root/"sparse_theta.npz"; np.savez_compressed(p, indices=np.asarray(result.theta.indices), values=np.asarray(result.theta.values), shape=np.asarray(result.theta.shape)); paths["theta_npz"]=p
     if include_csv and result.motifs is not None:
-        m=result.motifs; p=root/"motif_table.csv"; pd.DataFrame({"motif_type":np.asarray(m.motif_type),"node_a":np.asarray(m.node_a),"node_b":np.asarray(m.node_b),"node_c":np.asarray(m.node_c),"edge_mask":np.asarray(m.edge_mask),"score":np.asarray(m.score)}).to_csv(p,index=False); paths["motifs"]=p
+        m=result.motifs; p=root/"motif_table.csv"
+        motif_data={"motif_type":np.asarray(m.motif_type),"node_a":np.asarray(m.node_a),"node_b":np.asarray(m.node_b),"node_c":np.asarray(m.node_c),"edge_mask":np.asarray(m.edge_mask),"score":np.asarray(m.score)}
+        if getattr(m, "node_labels", ()):
+            motif_data.update({
+                "node_a_label":[m.node_labels[int(i)] for i in np.asarray(m.node_a)],
+                "node_b_label":[m.node_labels[int(i)] for i in np.asarray(m.node_b)],
+                "node_c_label":[m.node_labels[int(i)] for i in np.asarray(m.node_c)],
+            })
+        pd.DataFrame(motif_data).to_csv(p,index=False); paths["motifs"]=p
     if include_csv and result.identifiability is not None:
         d=result.identifiability; p=root/"identifiability_diagnostics.csv"; pd.DataFrame({"retained_param_mask":np.asarray(d.retained_param_mask),"group_id":np.asarray(d.group_id),"redundancy_score":np.asarray(d.redundancy_score),"design_column_norm":np.asarray(d.design_column_norm)}).to_csv(p,index=False); paths["identifiability"]=p
     if include_csv:

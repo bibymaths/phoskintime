@@ -26,9 +26,22 @@ def build_sparse_theta(triplets: TripletTable, shape: tuple[int,int,int]) -> Spa
     idx,val=sparse_indices_values(triplets.kinase_ids, triplets.site_ids, triplets.substrate_ids, triplets.score)
     return SparseThetaTensor(idx,val,shape)
 
-def detect_motifs(triplets: TripletTable, config: NetworkPreprocessingConfig) -> MotifTable:
+def _common_node_edges(triplets: TripletTable, encoded: EncodedNetwork) -> tuple[list[int], list[int], list[float], tuple[str, ...]]:
+    """Map motif edges from independent kinase/substrate IDs into one protein namespace."""
+    node_labels = tuple(sorted(set(encoded.kinase_labels) | set(encoded.substrate_labels)))
+    node_id = {label: i for i, label in enumerate(node_labels)}
+    src = [node_id[encoded.kinase_labels[int(k)]] for k in jnp.asarray(triplets.kinase_ids)]
+    dst = [node_id[encoded.substrate_labels[int(s)]] for s in jnp.asarray(triplets.substrate_ids)]
+    score = list(map(float, jnp.asarray(triplets.score)))
+    return src, dst, score, node_labels
+
+def detect_motifs(triplets: TripletTable, config: NetworkPreprocessingConfig, encoded: EncodedNetwork | None = None) -> MotifTable:
     # bounded host orchestration, core edge testing array based; no dense n^3 enumeration
-    src=list(map(int, jnp.asarray(triplets.kinase_ids))); dst=list(map(int, jnp.asarray(triplets.substrate_ids))); sc=list(map(float, jnp.asarray(triplets.score)))
+    if encoded is None:
+        src=list(map(int, jnp.asarray(triplets.kinase_ids))); dst=list(map(int, jnp.asarray(triplets.substrate_ids))); node_labels=()
+    else:
+        src,dst,_,node_labels=_common_node_edges(triplets, encoded)
+    sc=list(map(float, jnp.asarray(triplets.score)))
     edge={(a,b):s for a,b,s in zip(src,dst,sc) if a!=b}; rows=[]
     for (a,b),sab in edge.items():
         for (bb,c),sbc in edge.items():
@@ -38,9 +51,9 @@ def detect_motifs(triplets: TripletTable, config: NetworkPreprocessingConfig) ->
                 if len(rows)>=config.max_motifs: break
         if len(rows)>=config.max_motifs: break
     if not rows:
-        return MotifTable(jnp.empty(0,jnp.int16),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.uint8),jnp.empty(0,jnp.float64))
+        return MotifTable(jnp.empty(0,jnp.int16),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.uint8),jnp.empty(0,jnp.float64),node_labels)
     arr=jnp.asarray(rows)
-    return MotifTable(arr[:,0].astype(jnp.int16),arr[:,1].astype(jnp.int32),arr[:,2].astype(jnp.int32),arr[:,3].astype(jnp.int32),arr[:,4].astype(jnp.uint8),arr[:,5].astype(jnp.float64))
+    return MotifTable(arr[:,0].astype(jnp.int16),arr[:,1].astype(jnp.int32),arr[:,2].astype(jnp.int32),arr[:,3].astype(jnp.int32),arr[:,4].astype(jnp.uint8),arr[:,5].astype(jnp.float64),node_labels)
 
 def preprocess_identifiability(theta: SparseThetaTensor, config: NetworkPreprocessingConfig) -> IdentifiabilityDiagnostics:
     from .jax_kernels import identifiability_kernel
@@ -53,7 +66,7 @@ def preprocess_network(kinase_network: pd.DataFrame, *, phospho_observations=Non
     encoded, grouped=encode_kinase_network(kinase_network, phospho_observations, protein_observations)
     discovered=discover_hyperedges(encoded, config); pruned=prune_triplets(discovered, encoded, config)
     theta=build_sparse_theta(pruned, (len(encoded.kinase_labels), len(encoded.site_labels), len(encoded.substrate_labels)))
-    motifs=detect_motifs(pruned, config) if config.enable_motifs else None
+    motifs=detect_motifs(pruned, config, encoded) if config.enable_motifs else None
     ident=preprocess_identifiability(theta, config) if config.enable_identifiability else None
     summary={"n_discovered": int(discovered.score.size), "n_retained": int(pruned.score.size), "n_pruned": int(discovered.score.size-pruned.score.size), "n_motifs": int(0 if motifs is None else motifs.score.size), "tensor_nnz": int(theta.values.size)}
     res=NetworkPreprocessingResult(encoded, discovered, pruned, theta, motifs, ident, summary)
