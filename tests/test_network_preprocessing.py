@@ -2,7 +2,7 @@ from pathlib import Path
 import jax
 import jax.numpy as jnp
 import pandas as pd
-from network_preprocessing import NetworkPreprocessingConfig, preprocess_network
+from network_preprocessing import NetworkPreprocessingConfig, preprocess_network, preprocess_networkmodel_frames
 from network_preprocessing.jax_kernels import score_triplets
 
 
@@ -109,6 +109,72 @@ def test_identifiability_and_outputs(tmp_path):
     assert (tmp_path/"tables"/"network_preprocessing"/"sparse_theta_indices_values.csv").is_file()
     assert (tmp_path/"plots"/"network_preprocessing"/"hyperedge_score_distribution.png").is_file()
     assert (tmp_path/"plots"/"network_preprocessing"/"identifiability_diagnostics.png").is_file()
+
+
+def test_networkmodel_preprocessing_collapses_duplicate_retained_triplets():
+    kin = pd.DataFrame({
+        "protein": ["B", "B", "C"],
+        "psite": ["S1", "S1", "S2"],
+        "kinase": ["A", "A", "X"],
+        "alpha": [0.2, 0.9, 0.5],
+    })
+    pruned_df, res = preprocess_networkmodel_frames(
+        kin, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+        config=NetworkPreprocessingConfig(prune_self_loops=False, enable_motifs=False),
+    )
+
+    dup = pruned_df[(pruned_df["kinase"] == "A") & (pruned_df["protein"] == "B") & (pruned_df["psite"] == "S1")]
+    assert len(dup) == 1
+    assert dup["alpha"].iloc[0] == 0.9
+    assert dup["support_count"].iloc[0] == 2
+    assert pruned_df[["kinase", "protein", "psite"]].duplicated().sum() == 0
+    assert int(res.pruned.support_count.max()) == 2
+
+
+def test_pruned_worker_csv_matches_retained_triplet_diagnostics(tmp_path):
+    kin = pd.DataFrame({
+        "protein": ["B", "B", "C"],
+        "psite": ["S1", "S1", "S2"],
+        "kinase": ["A", "A", "X"],
+        "alpha": [0.2, 0.9, 0.5],
+    })
+    pruned_df, _ = preprocess_networkmodel_frames(
+        kin, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+        config=NetworkPreprocessingConfig(prune_self_loops=False, enable_motifs=False),
+        output_dir=tmp_path,
+    )
+    worker_csv = tmp_path / "network_preprocessing" / "pruned_network_for_workers.csv"
+    worker_csv.parent.mkdir(parents=True)
+    pruned_df.to_csv(worker_csv, index=False)
+
+    retained = pd.read_csv(tmp_path / "tables" / "network_preprocessing" / "retained_triplets.csv")
+    retained_keys = retained.assign(
+        protein=retained["site"].str.split(":", n=1).str[0],
+        psite=retained["site"].str.split(":", n=1).str[1],
+    )[["kinase", "protein", "psite", "alpha"]].sort_values(["kinase", "protein", "psite"]).reset_index(drop=True)
+    worker_keys = pd.read_csv(worker_csv)[["kinase", "protein", "psite", "alpha"]].sort_values(["kinase", "protein", "psite"]).reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(worker_keys, retained_keys)
+
+
+def test_networkmodel_preprocessing_nonduplicate_input_preserves_rows():
+    kin = pd.DataFrame({
+        "protein": ["B", "C"],
+        "psite": ["S1", "S2"],
+        "kinase": ["A", "X"],
+        "alpha": [0.2, 0.5],
+    })
+    pruned_df, _ = preprocess_networkmodel_frames(
+        kin, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
+        config=NetworkPreprocessingConfig(prune_self_loops=False, enable_motifs=False),
+    )
+
+    expected = kin.assign(support_count=1)
+    pd.testing.assert_frame_equal(
+        pruned_df.sort_values(["kinase", "protein", "psite"]).reset_index(drop=True),
+        expected.sort_values(["kinase", "protein", "psite"]).reset_index(drop=True),
+        check_dtype=False,
+    )
 
 
 def test_runner_parser_disabled_by_default():

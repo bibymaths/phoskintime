@@ -83,9 +83,31 @@ def preprocess_network(kinase_network: pd.DataFrame, *, phospho_observations=Non
         logger.info("[NetworkPreprocessing] outputs saved under %s", Path(output_dir)/config.output_subdir)
     return res
 
+def _pruned_networkmodel_frame(result: NetworkPreprocessingResult) -> pd.DataFrame:
+    enc = result.encoded
+    retained = {
+        (int(k), int(s), int(sub))
+        for k, s, sub in zip(result.pruned.kinase_ids, result.pruned.site_ids, result.pruned.substrate_ids)
+    }
+    rows = []
+    for k, s, sub, alpha, support in zip(
+        enc.kinase_ids, enc.site_ids, enc.substrate_ids, enc.edge_weight, enc.support_count
+    ):
+        key = (int(k), int(s), int(sub))
+        if key not in retained:
+            continue
+        site_label = enc.site_labels[key[1]]
+        protein, psite = site_label.split(":", 1)
+        rows.append({
+            "protein": protein,
+            "psite": psite,
+            "kinase": enc.kinase_labels[key[0]],
+            "alpha": float(alpha),
+            "support_count": int(support),
+        })
+    return pd.DataFrame(rows, columns=["protein", "psite", "kinase", "alpha", "support_count"])
+
+
 def preprocess_networkmodel_frames(df_kin, df_tf, df_prot, df_pho, df_rna, *, config=None, output_dir=None, logger=None):
     res=preprocess_network(df_kin, phospho_observations=df_pho, protein_observations=df_prot, rna_observations=df_rna, tf_network=df_tf, config=config, output_dir=output_dir, logger=logger)
-    enc=res.encoded
-    retained={(enc.kinase_labels[int(k)], enc.site_labels[int(s)].split(":",1)[0], enc.site_labels[int(s)].split(":",1)[1]) for k,s in zip(res.pruned.kinase_ids, res.pruned.site_ids)}
-    out=df_kin.copy(); mask=[(str(r.kinase).strip().upper(), str(r.protein).strip().upper(), str(r.psite).strip()) in retained for r in out.itertuples()]
-    return out.loc[mask].copy(), res
+    return _pruned_networkmodel_frame(res), res

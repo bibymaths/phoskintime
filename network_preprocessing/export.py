@@ -16,7 +16,8 @@ def _base(output_dir, subdir="network_preprocessing"):
 def export_preprocessing_result(result, output_dir, *, labels=None, output_subdir="network_preprocessing", include_csv=True, include_sparse_tensor=True):
     root=_base(output_dir, output_subdir); enc=result.encoded; paths={}
     def trip_df(t):
-        return pd.DataFrame({"kinase_id":np.asarray(t.kinase_ids),"site_id":np.asarray(t.site_ids),"substrate_id":np.asarray(t.substrate_ids),"kinase":[enc.kinase_labels[int(i)] for i in np.asarray(t.kinase_ids)],"site":[enc.site_labels[int(i)] for i in np.asarray(t.site_ids)],"substrate":[enc.substrate_labels[int(i)] for i in np.asarray(t.substrate_ids)],"score":np.asarray(t.score),"support_count":np.asarray(t.support_count),"flags":np.asarray(t.flags)})
+        alpha_by_key={(int(k),int(s),int(sub)):float(a) for k,s,sub,a in zip(enc.kinase_ids,enc.site_ids,enc.substrate_ids,enc.edge_weight)}
+        return pd.DataFrame({"kinase_id":np.asarray(t.kinase_ids),"site_id":np.asarray(t.site_ids),"substrate_id":np.asarray(t.substrate_ids),"kinase":[enc.kinase_labels[int(i)] for i in np.asarray(t.kinase_ids)],"site":[enc.site_labels[int(i)] for i in np.asarray(t.site_ids)],"substrate":[enc.substrate_labels[int(i)] for i in np.asarray(t.substrate_ids)],"alpha":[alpha_by_key[(int(k),int(s),int(sub))] for k,s,sub in zip(np.asarray(t.kinase_ids),np.asarray(t.site_ids),np.asarray(t.substrate_ids))],"score":np.asarray(t.score),"support_count":np.asarray(t.support_count),"flags":np.asarray(t.flags)})
     if include_csv:
         for name,t in [("discovered_hyperedges",result.discovered),("retained_triplets",result.pruned)]:
             p=root/f"{name}.csv"; trip_df(t).to_csv(p,index=False); paths[name]=p
