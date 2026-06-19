@@ -10,11 +10,11 @@ from .io_adapters import encode_kinase_network
 from .jax_kernels import score_triplets, pruning_flags, sparse_indices_values
 
 def discover_hyperedges(encoded: EncodedNetwork, config: NetworkPreprocessingConfig) -> TripletTable:
-    score=score_triplets(encoded.edge_weight, encoded.support_count, encoded.site_observed, encoded.kinase_observed, encoded.kinase_ids, encoded.substrate_ids)
+    score=score_triplets(encoded.edge_weight, encoded.support_count, encoded.site_observed, encoded.kinase_observed, encoded.kinase_node_ids, encoded.substrate_node_ids)
     return TripletTable(encoded.kinase_ids, encoded.site_ids, encoded.substrate_ids, score, encoded.support_count, jnp.zeros_like(encoded.support_count, dtype=jnp.uint32))
 
 def prune_triplets(triplets: TripletTable, encoded: EncodedNetwork, config: NetworkPreprocessingConfig) -> TripletTable:
-    flags=pruning_flags(triplets.score, triplets.support_count, encoded.site_observed, encoded.kinase_observed, triplets.kinase_ids, triplets.substrate_ids, float(max(config.discovery_threshold, config.min_triplet_score)), int(config.min_support_count), bool(config.prune_self_loops), bool(config.prune_missing_observations))
+    flags=pruning_flags(triplets.score, triplets.support_count, encoded.site_observed, encoded.kinase_observed, encoded.kinase_node_ids, encoded.substrate_node_ids, float(max(config.discovery_threshold, config.min_triplet_score)), int(config.min_support_count), bool(config.prune_self_loops), bool(config.prune_missing_observations))
     keep=flags==0
     if config.max_triplets is not None and int(keep.sum())>config.max_triplets:
         kept_idx=jnp.where(keep, size=triplets.score.size, fill_value=-1)[0]

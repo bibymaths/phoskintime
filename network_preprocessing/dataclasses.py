@@ -30,7 +30,7 @@ class NetworkPreprocessingConfig:
             min_triplet_score=float(getattr(args, "network_preprocessing_min_score", 0.0)),
             discovery_threshold=float(getattr(args, "network_preprocessing_discovery_threshold", 0.0)),
             min_support_count=int(getattr(args, "network_preprocessing_min_support", 1)),
-            max_triplets=getattr(args, "network_preprocessing_max_triplets", None),
+            max_triplets=(None if getattr(args, "network_preprocessing_max_triplets", None) == 0 else getattr(args, "network_preprocessing_max_triplets", None)),
             batch_size=int(getattr(args, "network_preprocessing_batch_size", 65536)),
             enable_motifs=bool(getattr(args, "network_preprocessing_enable_motifs", True)),
             enable_identifiability=bool(getattr(args, "network_preprocessing_enable_identifiability", True)),
@@ -46,6 +46,8 @@ class NetworkPreprocessingConfig:
 class EncodedNetwork:
     kinase_ids: jax.Array
     substrate_ids: jax.Array
+    kinase_node_ids: jax.Array
+    substrate_node_ids: jax.Array
     site_ids: jax.Array
     edge_weight: jax.Array
     support_count: jax.Array

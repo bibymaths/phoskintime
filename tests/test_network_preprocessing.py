@@ -18,7 +18,7 @@ def test_hyperedge_discovery_and_float64_jit():
     res=preprocess_network(kin, phospho_observations=pho, protein_observations=prot, config=NetworkPreprocessingConfig(prune_self_loops=False))
     assert res.summary["n_discovered"] == 5
     assert res.discovered.score.dtype == jnp.float64
-    lowered=score_triplets.lower(res.encoded.edge_weight, res.encoded.support_count, res.encoded.site_observed, res.encoded.kinase_observed, res.encoded.kinase_ids, res.encoded.substrate_ids)
+    lowered=score_triplets.lower(res.encoded.edge_weight, res.encoded.support_count, res.encoded.site_observed, res.encoded.kinase_observed, res.encoded.kinase_node_ids, res.encoded.substrate_node_ids)
     assert lowered.compile() is not None
     assert jax.config.jax_enable_x64
 
@@ -34,6 +34,38 @@ def test_pruning_behavior_and_sparse_tensor_validity():
         assert int(res.theta.indices[:,0].max()) < res.theta.shape[0]
         assert int(res.theta.indices[:,1].max()) < res.theta.shape[1]
         assert int(res.theta.indices[:,2].max()) < res.theta.shape[2]
+
+
+def test_self_loop_penalty_uses_common_node_namespace():
+    non_loop = pd.DataFrame({
+        "protein": ["B", "C"],
+        "psite": ["S1", "S2"],
+        "kinase": ["A", "X"],
+        "alpha": [1.0, 1.0],
+    })
+    non_loop_res = preprocess_network(non_loop, config=NetworkPreprocessingConfig(prune_self_loops=False, enable_motifs=False))
+    expected_without_penalty = jnp.log1p(jnp.float64(1.0)) + 0.5 * jnp.log1p(jnp.float64(1.0))
+    assert float(non_loop_res.discovered.score[0]) == float(expected_without_penalty)
+
+    true_loop = pd.DataFrame({
+        "protein": ["A"],
+        "psite": ["S1"],
+        "kinase": ["A"],
+        "alpha": [1.0],
+    })
+    loop_res = preprocess_network(true_loop, config=NetworkPreprocessingConfig(prune_self_loops=False, enable_motifs=False))
+    assert float(loop_res.discovered.score[0]) == float(expected_without_penalty - 0.5)
+
+
+def test_cli_max_triplets_zero_normalizes_to_none():
+    from argparse import Namespace
+
+    cfg = NetworkPreprocessingConfig.from_args(Namespace(network_preprocessing_max_triplets=0))
+    assert cfg.max_triplets is None
+
+    kin, pho, prot = frames()
+    res = preprocess_network(kin, phospho_observations=pho, protein_observations=prot, config=cfg)
+    assert res.summary["n_retained"] > 0
 
 
 def test_motif_detection_correctness():
