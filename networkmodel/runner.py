@@ -198,6 +198,18 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
                         default=config_defaults["sensitivity"])
     parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"],
                         help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
+    parser.add_argument("--enable-network-preprocessing", action="store_true", default=False,
+                        help="Enable optional pure-JAX hyperedge/network preprocessing before model construction.")
+    parser.add_argument("--network-preprocessing-min-score", type=float, default=0.0,
+                        help="Minimum hyperedge score retained when network preprocessing is enabled.")
+    parser.add_argument("--network-preprocessing-min-support", type=int, default=1,
+                        help="Minimum duplicate/source support retained when network preprocessing is enabled.")
+    parser.add_argument("--network-preprocessing-max-triplets", type=int, default=None,
+                        help="Optional maximum retained triplet count when network preprocessing is enabled.")
+    parser.add_argument("--network-preprocessing-prune-missing-observations", action="store_true", default=False,
+                        help="Prune triplets missing phosphosite or kinase observation support when preprocessing is enabled.")
+    parser.add_argument("--network-preprocessing-keep-self-loops", action="store_true", default=False,
+                        help="Keep kinase self-loop triplets during optional network preprocessing.")
     return parser
 
 
@@ -386,6 +398,7 @@ def main():
     logger.info(f"[Args] Lambda protein: {args.lambda_protein}")
     logger.info(f"[Args] Lambda RNA: {args.lambda_rna}")
     logger.info(f"[Args] Lambda phospho: {args.lambda_phospho}")
+    logger.info(f"[Args] Network preprocessing enabled: {args.enable_network_preprocessing}")
 
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
@@ -417,6 +430,27 @@ def main():
     df_pho = df_pho.loc[keep].copy()
 
     logger.info(f"[Phospho] Mechanistic site filter: {n_before} → {len(df_pho)} (dropped {n_before - len(df_pho)})")
+
+    if args.enable_network_preprocessing:
+        from network_preprocessing import NetworkPreprocessingConfig, preprocess_networkmodel_frames
+        prep_config = NetworkPreprocessingConfig.from_args(args)
+        if getattr(args, "network_preprocessing_keep_self_loops", False):
+            prep_config = NetworkPreprocessingConfig(
+                min_triplet_score=prep_config.min_triplet_score,
+                min_support_count=prep_config.min_support_count,
+                max_triplets=prep_config.max_triplets,
+                prune_self_loops=False,
+                prune_missing_observations=prep_config.prune_missing_observations,
+            )
+        n_kin_before = len(df_kin)
+        df_kin, network_preprocessing_result = preprocess_networkmodel_frames(
+            df_kin, df_tf, df_prot, df_pho, df_rna,
+            config=prep_config, output_dir=args.output_dir, logger=logger,
+        )
+        logger.info(
+            "[NetworkPreprocessing] Kinase triplets retained: %d → %d",
+            n_kin_before, len(df_kin),
+        )
 
     # -------------------------------------------------------------------------
     # Keep ONLY proteins that are observed in at least one modality (prot/rna/phospho)

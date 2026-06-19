@@ -1,0 +1,72 @@
+from __future__ import annotations
+from pathlib import Path
+import logging
+import jax
+jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
+import pandas as pd
+from .dataclasses import *
+from .io_adapters import encode_kinase_network
+from .jax_kernels import score_triplets, pruning_flags, sparse_indices_values
+
+def discover_hyperedges(encoded: EncodedNetwork, config: NetworkPreprocessingConfig) -> TripletTable:
+    score=score_triplets(encoded.edge_weight, encoded.support_count, encoded.site_observed, encoded.kinase_observed, encoded.kinase_ids, encoded.substrate_ids)
+    return TripletTable(encoded.kinase_ids, encoded.site_ids, encoded.substrate_ids, score, encoded.support_count, jnp.zeros_like(encoded.support_count, dtype=jnp.uint32))
+
+def prune_triplets(triplets: TripletTable, encoded: EncodedNetwork, config: NetworkPreprocessingConfig) -> TripletTable:
+    flags=pruning_flags(triplets.score, triplets.support_count, encoded.site_observed, encoded.kinase_observed, triplets.kinase_ids, triplets.substrate_ids, float(config.min_triplet_score), int(config.min_support_count), bool(config.prune_self_loops), bool(config.prune_missing_observations))
+    keep=flags==0
+    if config.max_triplets is not None and int(keep.sum())>config.max_triplets:
+        kept_idx=jnp.where(keep, size=triplets.score.size, fill_value=-1)[0]
+        order=jnp.argsort(jnp.where(keep, -triplets.score, jnp.inf))[:config.max_triplets]
+        mask=jnp.zeros_like(keep).at[order].set(True); keep=keep & mask
+    return TripletTable(triplets.kinase_ids[keep], triplets.site_ids[keep], triplets.substrate_ids[keep], triplets.score[keep], triplets.support_count[keep], flags[keep])
+
+def build_sparse_theta(triplets: TripletTable, shape: tuple[int,int,int]) -> SparseThetaTensor:
+    idx,val=sparse_indices_values(triplets.kinase_ids, triplets.site_ids, triplets.substrate_ids, triplets.score)
+    return SparseThetaTensor(idx,val,shape)
+
+def detect_motifs(triplets: TripletTable, config: NetworkPreprocessingConfig) -> MotifTable:
+    # bounded host orchestration, core edge testing array based; no dense n^3 enumeration
+    src=list(map(int, jnp.asarray(triplets.kinase_ids))); dst=list(map(int, jnp.asarray(triplets.substrate_ids))); sc=list(map(float, jnp.asarray(triplets.score)))
+    edge={(a,b):s for a,b,s in zip(src,dst,sc) if a!=b}; rows=[]
+    for (a,b),sab in edge.items():
+        for (bb,c),sbc in edge.items():
+            if bb!=b or c in (a,b): continue
+            if (a,c) in edge:
+                rows.append((1,a,b,c,0b111,(sab*sbc*edge[(a,c)])**(1/3)))
+                if len(rows)>=config.max_motifs: break
+        if len(rows)>=config.max_motifs: break
+    if not rows:
+        return MotifTable(jnp.empty(0,jnp.int16),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.int32),jnp.empty(0,jnp.uint8),jnp.empty(0,jnp.float64))
+    arr=jnp.asarray(rows)
+    return MotifTable(arr[:,0].astype(jnp.int16),arr[:,1].astype(jnp.int32),arr[:,2].astype(jnp.int32),arr[:,3].astype(jnp.int32),arr[:,4].astype(jnp.uint8),arr[:,5].astype(jnp.float64))
+
+def preprocess_identifiability(theta: SparseThetaTensor, config: NetworkPreprocessingConfig) -> IdentifiabilityDiagnostics:
+    from .jax_kernels import identifiability_kernel
+    retained,gid,norms,red=identifiability_kernel(theta.indices, theta.values)
+    rank=int(jnp.unique(gid, size=gid.size, fill_value=-1).size) if gid.size else 0
+    return IdentifiabilityDiagnostics(retained,gid,rank,red,norms)
+
+def preprocess_network(kinase_network: pd.DataFrame, *, phospho_observations=None, protein_observations=None, rna_observations=None, tf_network=None, config=None, output_dir=None, logger=None):
+    config=config or NetworkPreprocessingConfig(); logger=logger or logging.getLogger(__name__)
+    encoded, grouped=encode_kinase_network(kinase_network, phospho_observations, protein_observations)
+    discovered=discover_hyperedges(encoded, config); pruned=prune_triplets(discovered, encoded, config)
+    theta=build_sparse_theta(pruned, (len(encoded.kinase_labels), len(encoded.site_labels), len(encoded.substrate_labels)))
+    motifs=detect_motifs(pruned, config) if config.enable_motifs else None
+    ident=preprocess_identifiability(theta, config) if config.enable_identifiability else None
+    summary={"n_discovered": int(discovered.score.size), "n_retained": int(pruned.score.size), "n_pruned": int(discovered.score.size-pruned.score.size), "n_motifs": int(0 if motifs is None else motifs.score.size), "tensor_nnz": int(theta.values.size)}
+    res=NetworkPreprocessingResult(encoded, discovered, pruned, theta, motifs, ident, summary)
+    if output_dir is not None:
+        from .export import export_preprocessing_result
+        from .plotting import plot_preprocessing_result
+        export_preprocessing_result(res, output_dir); plot_preprocessing_result(res, output_dir)
+        logger.info("[NetworkPreprocessing] outputs saved under %s", Path(output_dir)/config.output_subdir)
+    return res
+
+def preprocess_networkmodel_frames(df_kin, df_tf, df_prot, df_pho, df_rna, *, config=None, output_dir=None, logger=None):
+    res=preprocess_network(df_kin, phospho_observations=df_pho, protein_observations=df_prot, rna_observations=df_rna, tf_network=df_tf, config=config, output_dir=output_dir, logger=logger)
+    enc=res.encoded
+    retained={(enc.kinase_labels[int(k)], enc.site_labels[int(s)].split(":",1)[0], enc.site_labels[int(s)].split(":",1)[1]) for k,s in zip(res.pruned.kinase_ids, res.pruned.site_ids)}
+    out=df_kin.copy(); mask=[(str(r.kinase).strip().upper(), str(r.protein).strip().upper(), str(r.psite).strip()) in retained for r in out.itertuples()]
+    return out.loc[mask].copy(), res
