@@ -86,7 +86,8 @@ def prep():
 @app.command()
 def tfopt(
         mode: str = typer.Option("local", help="local | evol"),
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
+                                           help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to TOML/YAML config. Uses defaults if omitted."
@@ -108,7 +109,8 @@ def tfopt(
 @app.command()
 def kinopt(
         mode: str = typer.Option("local", help="local | evol"),
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
+                                           help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to TOML/YAML config. Uses defaults if omitted."
@@ -129,7 +131,8 @@ def kinopt(
 
 @app.command()
 def model(
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
+                                           help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             None, "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to model config file. Uses defaults if omitted."
@@ -148,7 +151,8 @@ def model(
 
 @app.command()
 def networkmodel(
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Directory for workflow outputs."),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
+                                           help="Directory for workflow outputs."),
         conf: Path | None = typer.Option(
             "config.toml", "--conf", file_okay=True, dir_okay=False, writable=False,
             help="Path to global model config file. Uses config.toml by default."
@@ -207,7 +211,8 @@ def all(
         tf_conf: Path | None = typer.Option(None, help="tfopt config file"),
         kin_conf: Path | None = typer.Option(None, help="kinopt config file"),
         model_conf: Path | None = typer.Option(None, help="model config file"),
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True, help="Base directory for workflow outputs."),
+        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
+                                           help="Base directory for workflow outputs."),
 ):
     """
     Run every stage in sequence.

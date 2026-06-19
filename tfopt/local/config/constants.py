@@ -6,12 +6,10 @@ import numpy as np
 
 from config_loader import load
 
-
 # ---- Config load ----
 _CFG = load("local", "tfopt")
 _PATHS = _CFG.get("_paths", {}) or {}
 PROJECT_ROOT = Path(_CFG["_root"])
-
 
 # ---- Directories ----
 DATA_DIR = PROJECT_ROOT / _PATHS.get("data_dir", "data")
@@ -22,14 +20,12 @@ ODE_DATA_DIR = PROJECT_ROOT / _PATHS.get("ode_data_dir", "data/ode")
 for d in (DATA_DIR, OUT_DIR, LOG_DIR, ODE_DATA_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
-
 # ---- Inputs / outputs ----
 INPUT1 = DATA_DIR / _CFG.get("input1", "input1.csv")
 INPUT3 = DATA_DIR / _CFG.get("input3", "input3.csv")
 INPUT4 = DATA_DIR / _CFG.get("input4", "input4.csv")
 
 OUT_FILE = OUT_DIR / _CFG.get("out_file", "tfopt_results.xlsx")
-
 
 # ---- Time points ----
 TIME_POINTS = np.asarray(
@@ -46,7 +42,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="PhosKinTime - SLSQP mRNA-TF Optimization Problem."
     )
-    parser.add_argument("--conf", default=None, help="Compatibility option; configuration is loaded before argument parsing.")
+    parser.add_argument("--conf", default=None,
+                        help="Compatibility option; configuration is loaded before argument parsing.")
     parser.add_argument("--lower_bound", type=float, default=float(_CFG.get("lower_bound", -4.0)))
     parser.add_argument("--upper_bound", type=float, default=float(_CFG.get("upper_bound", 4.0)))
     parser.add_argument(

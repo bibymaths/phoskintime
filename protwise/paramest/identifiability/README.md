@@ -1,7 +1,7 @@
 # Parameter Identifiability
 
 This module provides a function to compute **confidence intervals (CIs)** and **significance statistics** for model
-parameters using **linear approximation** based on the covariance matrix from a nonlinear least squares fit, commonly 
+parameters using **linear approximation** based on the covariance matrix from a nonlinear least squares fit, commonly
 known as also **Wald Intervals**.
 
 ---
@@ -33,7 +33,8 @@ $$
 \text{SE}(\beta_i) = \sqrt{ \text{Var}(\beta_i) } = \sqrt{ \text{diag}(\text{pcov})_i }
 $$
 
-Where `pcov` is a covariance-style diagnostic matrix when an uncertainty estimator provides one; the active protwise parameter path uses JAXopt rather than curve-fitting.
+Where `pcov` is a covariance-style diagnostic matrix when an uncertainty estimator provides one; the active protwise
+parameter path uses JAXopt rather than curve-fitting.
 
 ---
 

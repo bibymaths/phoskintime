@@ -1,4 +1,5 @@
 import os
+
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -27,9 +28,9 @@ def _select_config_for_runtime(argv: list[str] | None = None) -> None:
         os.environ[ODE_CONFIG_ENV] = str(conf_path)
         for module_name in list(sys.modules):
             if module_name in {"config.constants", "config.config"} or module_name.startswith((
-                "protwise.paramest",
-                "protwise.plotting",
-                "protwise.models",
+                    "protwise.paramest",
+                    "protwise.plotting",
+                    "protwise.models",
             )):
                 sys.modules.pop(module_name, None)
 
@@ -62,7 +63,6 @@ def _metadata_extra(config: dict) -> dict:
     }
 
 
-
 def initialize_run_contract(config: dict, args, logger):
     from common.results import (
         attach_file_console_logger,
@@ -88,6 +88,7 @@ def initialize_run_contract(config: dict, args, logger):
     )
     return out_dir, out_results_dir
 
+
 def main(argv: list[str] | None = None):
     """
     Main function to run the phosphorylation modelling process.
@@ -110,7 +111,8 @@ def main(argv: list[str] | None = None):
     from protwise.plotting import Plotter
     from common.utils import latexit
     from common.results import populate_standard_subdirs
-    from common.utils.display import ensure_output_directory, save_result, organize_output_files, create_report, merge_obs_est
+    from common.utils.display import ensure_output_directory, save_result, organize_output_files, create_report, \
+        merge_obs_est
 
     logger = setup_logger()
     args = parse_args(argv)
@@ -173,7 +175,8 @@ def main(argv: list[str] | None = None):
         return
 
     required_columns = ["Gene", "Psite"] + [f"x{i}" for i in range(1, 15)]
-    missing_columns = [col for col in required_columns if col not in kinase_data.columns and col not in protein_data.columns]
+    missing_columns = [col for col in required_columns if
+                       col not in kinase_data.columns and col not in protein_data.columns]
     if missing_columns:
         logger.error(f"Missing columns in the phosphorylation data: {', '.join(missing_columns)}")
         return

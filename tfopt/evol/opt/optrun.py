@@ -11,6 +11,7 @@ from tfopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def _choose_partitions(n_obj: int) -> int:
     """
     Determine the number of partitions for Das-Dennis reference directions.
@@ -37,6 +38,7 @@ def _choose_partitions(n_obj: int) -> int:
     if n_obj == 5:
         return 6
     return 4
+
 
 def run_optimization(problem, total_dim, optimizer):
     """

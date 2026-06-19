@@ -29,7 +29,8 @@ def test_discovers_standard_result_contract(tmp_path):
     assert inventory.command == root.resolve() / "command.txt"
     assert inventory.console_log == root.resolve() / "console.log"
     assert inventory.config == root.resolve() / "config_resolved.yaml"
-    assert {item.relative_path for item in inventory.tables} == {"tables/summary.csv", "tables/summary.tsv", "tables/workbook.xlsx"}
+    assert {item.relative_path for item in inventory.tables} == {"tables/summary.csv", "tables/summary.tsv",
+                                                                 "tables/workbook.xlsx"}
     assert {item.relative_path for item in inventory.plots} == {"plots/fit.png", "plots/interactive.html"}
     assert {item.relative_path for item in inventory.logs} == {"console.log", "logs/worker.log"}
     assert {item.relative_path for item in inventory.reports} == {"reports/report.md", "reports/report.pdf"}
@@ -40,7 +41,8 @@ def test_discovers_standard_result_contract(tmp_path):
 def test_discovers_legacy_networkmodel_outputs(tmp_path):
     root = tmp_path / "legacy"
     root.mkdir()
-    for name in ("scalar_objective.csv", "convergence_history.csv", "pred_prot_picked.csv", "pred_rna_picked.csv", "pred_phospho_picked.csv"):
+    for name in ("scalar_objective.csv", "convergence_history.csv", "pred_prot_picked.csv", "pred_rna_picked.csv",
+                 "pred_phospho_picked.csv"):
         (root / name).write_text("value\n1\n", encoding="utf-8")
     (root / "optimization").mkdir()
     (root / "optimization" / "multistart_summary.csv").write_text("x\n", encoding="utf-8")

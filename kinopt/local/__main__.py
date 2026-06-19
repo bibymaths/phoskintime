@@ -103,7 +103,6 @@ def main():
         loss_type=loss_type
     )
 
-
     # Deprecated single start
     # result, optimized_params = run_optimization(obj_fun, params_initial, opt_method, bounds, constraints)
 
@@ -153,7 +152,6 @@ def main():
     # Output results.
     output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values, beta_values,
                    result, mse, rmse, mae, mape, r_squared, filename=out_file, out_dir=out_dir)
-
 
     # Analyze optimization performance using the selected result directory.
     import kinopt.optimality.KKT as kkt_module

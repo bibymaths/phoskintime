@@ -1,8 +1,8 @@
-
 import numpy as np
 from numba import njit
 from config.constants import NORMALIZE_MODEL_OUTPUT
 from functools import lru_cache
+
 
 @lru_cache(maxsize=None)
 def _precompute_indices(num_sites):
@@ -83,6 +83,7 @@ def _precompute_indices(num_sites):
     # Return all precomputed arrays for reuse in ODE integration
     return mono_idx, forward, drop, fcounts, dcounts
 
+
 @njit(cache=True)
 def unpack_params(params, num_sites):
     """
@@ -116,6 +117,7 @@ def unpack_params(params, num_sites):
     for i in range(m):
         Ddeg[i] = params[4 + n + i]
     return A, B, C, D, S, Ddeg
+
 
 @njit(cache=True)
 def ode_system(y, t,
@@ -244,6 +246,7 @@ def ode_system(y, t,
 
     # Return full derivative vector
     return out
+
 
 def solve_ode(params, init_cond, num_psites, t, **kwargs):
     """Solve this mechanism with the centralized Diffrax Kvaerno backend."""

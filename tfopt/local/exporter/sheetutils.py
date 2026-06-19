@@ -109,6 +109,7 @@ def export_multistart_results(results):
         })
     return pd.DataFrame(rows)
 
+
 def save_multistart_solutions_npz(all_results, out_path):
     """
     Saves multistart optimization solutions to a compressed .npz file format.

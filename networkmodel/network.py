@@ -15,7 +15,6 @@ COMBINATORIAL_MAX_STATES_PER_PROTEIN = 1 << 16
 COMBINATORIAL_MAX_TOTAL_STATE_DIM = 5_000_000
 
 
-
 class Index:
     """Map proteins, sites, kinases, and state-vector offsets"""
 

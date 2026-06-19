@@ -48,8 +48,8 @@ def test_resolve_directory_rejects_missing_path(tmp_path):
     with pytest.raises(FileNotFoundError):
         resolve_directory(tmp_path / "missing")
 
-from io import BytesIO
 
+from io import BytesIO
 
 from dashboard.file_utils import (
     create_upload_dir,

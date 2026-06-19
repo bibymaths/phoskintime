@@ -82,7 +82,8 @@ def test_stream_command_can_report_cancelled(monkeypatch, tmp_path):
         calls["checks"] += 1
         return True
 
-    events = list(stream_command(["python"], cwd=tmp_path, outdir=tmp_path / "run", cancel_check=cancel_after_first_line))
+    events = list(
+        stream_command(["python"], cwd=tmp_path, outdir=tmp_path / "run", cancel_check=cancel_after_first_line))
 
     assert calls["terminated"] is True
     assert events[-1].status == "cancelled"

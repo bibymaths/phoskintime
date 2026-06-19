@@ -38,7 +38,6 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
 
     # Adjust protein dynamics by phosphorylation/dephosphorylation of the first site if exists
     if num_psites > 0:
-
         # Subtract phosphorylation contribution from the protein at site 0
         dP_dt -= S_rates[0] * P
 
@@ -106,9 +105,10 @@ def unpack_params(params, num_psites):
     B = params[1]
     C = params[2]
     D = params[3]
-    S_rates = params[4 : 4 + num_psites]
-    D_rates = params[4 + num_psites : 4 + 2 * num_psites]
+    S_rates = params[4: 4 + num_psites]
+    D_rates = params[4 + num_psites: 4 + 2 * num_psites]
     return A, B, C, D, S_rates, D_rates
+
 
 def solve_ode(params, init_cond, num_psites, t, **kwargs):
     """Solve this mechanism with the centralized Diffrax Kvaerno backend."""

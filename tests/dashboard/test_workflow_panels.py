@@ -135,8 +135,6 @@ def test_advanced_analysis_commands_match_supported_cli_flags(tmp_path):
     assert str(root) in mechanistic
 
 
-
-
 def _script_argparse_flags(script: str) -> set[str]:
     tree = ast.parse(Path(script).read_text(encoding="utf-8"))
     flags: set[str] = set()

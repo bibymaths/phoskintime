@@ -41,12 +41,12 @@ def _alpha_violation_sq(x: np.ndarray, n_mRNA: int, n_reg: int) -> float:
 
 @njit(cache=True, nogil=True)
 def _beta_violation_sq(
-    x: np.ndarray,
-    n_TF: int,
-    n_alpha: int,
-    beta_starts: np.ndarray,
-    beta_lens: np.ndarray,
-    no_psite_tf: np.ndarray
+        x: np.ndarray,
+        n_TF: int,
+        n_alpha: int,
+        beta_starts: np.ndarray,
+        beta_lens: np.ndarray,
+        no_psite_tf: np.ndarray
 ) -> float:
     """
     Computes the squared violation of beta constraint conditions for a given set of transcription factors (TFs).
@@ -87,21 +87,21 @@ def _beta_violation_sq(
 
 @njit(cache=True, fastmath=False, nogil=True)
 def _loss_single_inplace(
-    x: np.ndarray,
-    mRNA_mat: np.ndarray,
-    regulators: np.ndarray,
-    protein_mat: np.ndarray,
-    psite_tensor: np.ndarray,
-    n_reg: int,
-    T_use: int,
-    n_mRNA: int,
-    n_alpha: int,
-    beta_starts: np.ndarray,
-    num_psites: np.ndarray,
-    loss_type: int,
-    lam1: float,
-    lam2: float,
-    R_pred: np.ndarray,  # scratch length T_use
+        x: np.ndarray,
+        mRNA_mat: np.ndarray,
+        regulators: np.ndarray,
+        protein_mat: np.ndarray,
+        psite_tensor: np.ndarray,
+        n_reg: int,
+        T_use: int,
+        n_mRNA: int,
+        n_alpha: int,
+        beta_starts: np.ndarray,
+        num_psites: np.ndarray,
+        loss_type: int,
+        lam1: float,
+        lam2: float,
+        R_pred: np.ndarray,  # scratch length T_use
 ) -> float:
     """
     Calculates the loss for a single mRNA sequence and updates the result in-place
@@ -194,15 +194,15 @@ def _loss_single_inplace(
         for t in range(T_use):
             e = mRNA_mat[i, t] - R_pred[t]
 
-            if loss_type == 0:      # MSE
+            if loss_type == 0:  # MSE
                 total_loss += e * e
-            elif loss_type == 1:    # MAE
+            elif loss_type == 1:  # MAE
                 total_loss += abs(e)
-            elif loss_type == 2:    # soft L1
+            elif loss_type == 2:  # soft L1
                 total_loss += 2.0 * (np.sqrt(1.0 + e * e) - 1.0)
-            elif loss_type == 3:    # Cauchy
+            elif loss_type == 3:  # Cauchy
                 total_loss += np.log(1.0 + e * e)
-            elif loss_type == 4:    # Arctan
+            elif loss_type == 4:  # Arctan
                 total_loss += np.arctan(e * e)
             else:
                 total_loss += e * e
@@ -232,25 +232,25 @@ def _loss_single_inplace(
 
 @njit(cache=True, fastmath=False, nogil=True)
 def _evaluate_population_slice(
-    X: np.ndarray,
-    F: np.ndarray,
-    p0: int,
-    p1: int,
-    mRNA_mat: np.ndarray,
-    regulators: np.ndarray,
-    protein_mat: np.ndarray,
-    psite_tensor: np.ndarray,
-    n_reg: int,
-    T_use: int,
-    n_mRNA: int,
-    n_TF: int,
-    n_alpha: int,
-    beta_starts: np.ndarray,
-    num_psites: np.ndarray,
-    no_psite_tf: np.ndarray,
-    loss_type: int,
-    lam1: float,
-    lam2: float
+        X: np.ndarray,
+        F: np.ndarray,
+        p0: int,
+        p1: int,
+        mRNA_mat: np.ndarray,
+        regulators: np.ndarray,
+        protein_mat: np.ndarray,
+        psite_tensor: np.ndarray,
+        n_reg: int,
+        T_use: int,
+        n_mRNA: int,
+        n_TF: int,
+        n_alpha: int,
+        beta_starts: np.ndarray,
+        num_psites: np.ndarray,
+        no_psite_tf: np.ndarray,
+        loss_type: int,
+        lam1: float,
+        lam2: float
 ) -> None:
     """
     Evaluates a slice of the population to compute various loss components.
@@ -373,24 +373,24 @@ class TFOptimizationMultiObjectiveProblem(Problem):
     """
 
     def __init__(
-        self,
-        n_var: int,
-        n_mRNA: int,
-        n_TF: int,
-        n_reg: int,
-        n_psite_max: int,
-        n_alpha: int,
-        mRNA_mat: np.ndarray,
-        regulators: np.ndarray,
-        protein_mat: np.ndarray,
-        psite_tensor: np.ndarray,
-        T_use: int,
-        beta_start_indices: np.ndarray,
-        num_psites: np.ndarray,
-        no_psite_tf: np.ndarray,
-        xl: Optional[np.ndarray] = None,
-        xu: Optional[np.ndarray] = None,
-        **kwargs
+            self,
+            n_var: int,
+            n_mRNA: int,
+            n_TF: int,
+            n_reg: int,
+            n_psite_max: int,
+            n_alpha: int,
+            mRNA_mat: np.ndarray,
+            regulators: np.ndarray,
+            protein_mat: np.ndarray,
+            psite_tensor: np.ndarray,
+            T_use: int,
+            beta_start_indices: np.ndarray,
+            num_psites: np.ndarray,
+            no_psite_tf: np.ndarray,
+            xl: Optional[np.ndarray] = None,
+            xu: Optional[np.ndarray] = None,
+            **kwargs
     ):
         """
         Initializes the class with various parameters required for computational evaluation.

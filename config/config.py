@@ -87,7 +87,6 @@ def ensure_output_directory(directory):
     os.makedirs(directory, exist_ok=True)
 
 
-
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     out = dict(base)
     for key, value in (override or {}).items():
@@ -173,8 +172,11 @@ def _defaults_from_loaded_config(loaded_config: dict[str, Any]) -> dict[str, Any
         "input_excel_rna": _path_from_config(root, inputs["rna_excel"]) if inputs.get("rna_excel") else "",
         "outdir": out_dir,
         "out_results_dir": out_dir / (out_xlsx_name or f"{model_type}_results.xlsx"),
-        "time_points": np.asarray(time.get("protein", [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]), dtype=float),
-        "time_points_rna": np.asarray(time.get("rna", [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]), dtype=float),
+        "time_points": np.asarray(
+            time.get("protein", [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]),
+            dtype=float),
+        "time_points_rna": np.asarray(time.get("rna", [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]),
+                                      dtype=float),
         "model": model,
         "model_type": model_type,
         "dev_test": bool(loaded_config.get("dev_test", False)),
@@ -209,10 +211,14 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=defaults["Ssite_bound"])
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=defaults["Dsite_bound"])
     parser.add_argument("--bootstraps", type=int, default=defaults["bootstraps"])
-    parser.add_argument("--input-excel-protein", type=str, default=str(defaults["input_excel_protein"]), help="Path to the original protein data file")
-    parser.add_argument("--input-excel-psite", type=str, default=str(defaults["input_excel_psite"]), help="Path to the estimated optimized phosphorylation-residue file")
-    parser.add_argument("--input-excel-rna", type=str, default=str(defaults["input_excel_rna"]), help="Path to the estimated optimized mRNA-TF file")
-    parser.add_argument("--outdir", "--output-dir", dest="outdir", type=str, default=str(defaults["outdir"]), help="Directory where all run outputs and provenance files are written.")
+    parser.add_argument("--input-excel-protein", type=str, default=str(defaults["input_excel_protein"]),
+                        help="Path to the original protein data file")
+    parser.add_argument("--input-excel-psite", type=str, default=str(defaults["input_excel_psite"]),
+                        help="Path to the estimated optimized phosphorylation-residue file")
+    parser.add_argument("--input-excel-rna", type=str, default=str(defaults["input_excel_rna"]),
+                        help="Path to the estimated optimized mRNA-TF file")
+    parser.add_argument("--outdir", "--output-dir", dest="outdir", type=str, default=str(defaults["outdir"]),
+                        help="Directory where all run outputs and provenance files are written.")
     return parser
 
 
@@ -238,6 +244,7 @@ def parse_args(argv: list[str] | None = None):
     args.sensitivity = defaults["sensitivity"]
     return args
 
+
 def log_config(logger, bounds, args):
     """
     Log the configuration settings for the PhosKinTime script.
@@ -258,7 +265,6 @@ def log_config(logger, bounds, args):
     logger.info(f"      Bootstrapping Iterations: {args.bootstraps}")
     logger.info("           --------------------------------")
     np.set_printoptions(suppress=True)
-
 
 
 def extract_config(args, loaded_config: dict[str, Any] | None = None):

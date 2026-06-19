@@ -584,6 +584,7 @@ def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     fig.savefig(path, dpi=300)
     plt.close(fig)
 
+
 def _np_softplus(x: np.ndarray) -> np.ndarray:
     """Stable NumPy softplus: log(1 + exp(x))."""
     x = np.asarray(x, dtype=np.float64)
@@ -618,20 +619,20 @@ def _is_softplus_raw_parameter(name: str) -> bool:
     name = str(name)
 
     return (
-        name.startswith("c_k[")
-        or name.startswith("A_i[")
-        or name.startswith("B_i[")
-        or name.startswith("C_i[")
-        or name.startswith("D_i[")
-        or name.startswith("Dp_i[")
-        or name.startswith("E_i[")
-        or name == "tf_scale"
+            name.startswith("c_k[")
+            or name.startswith("A_i[")
+            or name.startswith("B_i[")
+            or name.startswith("C_i[")
+            or name.startswith("D_i[")
+            or name.startswith("Dp_i[")
+            or name.startswith("E_i[")
+            or name == "tf_scale"
     )
 
 
 def _raw_theta_samples_to_physical_df(
-    theta_raw_samples: np.ndarray,
-    names: Sequence[str],
+        theta_raw_samples: np.ndarray,
+        names: Sequence[str],
 ) -> pd.DataFrame:
     """Convert raw posterior theta samples to physical parameter samples."""
     theta_raw_samples = np.asarray(theta_raw_samples, dtype=np.float64)
@@ -665,6 +666,8 @@ def _assert_physical_samples_valid(sample_df: pd.DataFrame, names: Sequence[str]
             "Physical posterior samples contain negative values after softplus "
             f"conversion: {bad.to_dict()}"
         )
+
+
 def run_numpyro_posterior(
         ctx: InferenceContext,
         *,
@@ -919,6 +922,7 @@ def run_numpyro_posterior(
         "posterior_predictive": predictive,
         "output_dir": out,
     }
+
 
 def _run_single_numpyro_chain_process(
         ctx: InferenceContext,
@@ -1182,6 +1186,7 @@ def run_numpyro_posterior_standalone_processes(
         "output_dir": out,
     }
 
+
 def _safe_plot_name(name: str, max_len: int = 140) -> str:
     """Make parameter names safe for filenames."""
     safe = (
@@ -1246,12 +1251,12 @@ def _smooth_density_1d(values: np.ndarray, grid_size: int = 256) -> tuple[np.nda
 
 
 def _plot_ridgeline_parameter_distributions(
-    samples: pd.DataFrame,
-    summary: pd.DataFrame,
-    plot_dir: Path,
-    *,
-    max_params_per_fig: int = 25,
-    include_sigma: bool = False,
+        samples: pd.DataFrame,
+        summary: pd.DataFrame,
+        plot_dir: Path,
+        *,
+        max_params_per_fig: int = 25,
+        include_sigma: bool = False,
 ) -> None:
     """Plot elegant batched ridgeline posterior distributions.
 
@@ -1270,7 +1275,7 @@ def _plot_ridgeline_parameter_distributions(
         str(p)
         for p in summary["parameter"].astype(str).tolist()
         if str(p) in samples.columns
-        and pd.api.types.is_numeric_dtype(samples[str(p)])
+           and pd.api.types.is_numeric_dtype(samples[str(p)])
     ]
 
     if not include_sigma:
@@ -1375,6 +1380,7 @@ def _plot_ridgeline_parameter_distributions(
         )
         plt.close(fig)
 
+
 def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path) -> None:
     density_dir = plot_dir / "density"
     density_dir.mkdir(parents=True, exist_ok=True)
@@ -1386,7 +1392,7 @@ def _plot_posterior(samples: pd.DataFrame, summary: pd.DataFrame, plot_dir: Path
     plot_cols = [
         str(p) for p in summary["parameter"].astype(str).tolist()
         if str(p) in samples.columns
-        and pd.api.types.is_numeric_dtype(samples[str(p)])
+           and pd.api.types.is_numeric_dtype(samples[str(p)])
     ]
 
     for col in plot_cols:

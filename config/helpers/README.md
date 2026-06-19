@@ -54,9 +54,9 @@ clickable links in supported terminals.
 
 - **`get_bounds_rand(num_psites: int, ub: float = 0, lower: float = 0) -> list`**  
   Generates a list of bounds for the ODE parameters for the random model.
-**Format:**  
-    `[(lower, ub), (lower, ub), ..., (lower, ub)]`  
-    where the number of bounds is equal to the total number of parameters.
+  **Format:**  
+  `[(lower, ub), (lower, ub), ..., (lower, ub)]`  
+  where the number of bounds is equal to the total number of parameters.
 
 ## How It Fits in the Package
 

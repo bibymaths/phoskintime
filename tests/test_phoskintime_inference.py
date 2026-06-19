@@ -121,10 +121,14 @@ def test_dashboard_imports_inference_outputs(tmp_path, monkeypatch):
     (tmp_path / "profiles").mkdir()
     (tmp_path / "posterior").mkdir()
     pd.DataFrame({"final_objective": [0.1]}).to_csv(tmp_path / "optimization" / "multistart_summary.csv", index=False)
-    pd.DataFrame({"parameter_name": ["k"], "objective_value": [0.1]}).to_csv(tmp_path / "profiles" / "profile_likelihood_summary.csv", index=False)
-    pd.DataFrame({"parameter": ["k"], "mean": [0.2]}).to_csv(tmp_path / "posterior" / "posterior_summary.csv", index=False)
-    fake_streamlit = types.SimpleNamespace(image=lambda *a, **k: None, video=lambda *a, **k: None, markdown=lambda *a, **k: None)
-    fake_px = types.SimpleNamespace(scatter=lambda *a, **k: types.SimpleNamespace(add_trace=lambda *a, **k: None, update_layout=lambda *a, **k: None))
+    pd.DataFrame({"parameter_name": ["k"], "objective_value": [0.1]}).to_csv(
+        tmp_path / "profiles" / "profile_likelihood_summary.csv", index=False)
+    pd.DataFrame({"parameter": ["k"], "mean": [0.2]}).to_csv(tmp_path / "posterior" / "posterior_summary.csv",
+                                                             index=False)
+    fake_streamlit = types.SimpleNamespace(image=lambda *a, **k: None, video=lambda *a, **k: None,
+                                           markdown=lambda *a, **k: None)
+    fake_px = types.SimpleNamespace(scatter=lambda *a, **k: types.SimpleNamespace(add_trace=lambda *a, **k: None,
+                                                                                  update_layout=lambda *a, **k: None))
     fake_go = types.SimpleNamespace(Scatter=lambda *a, **k: object())
     monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
     monkeypatch.setitem(sys.modules, "plotly", types.SimpleNamespace(express=fake_px, graph_objects=fake_go))

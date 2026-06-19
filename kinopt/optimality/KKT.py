@@ -7,6 +7,7 @@ from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def generate_latex_table(summary_dict, table_caption, table=None):
     """
     Function to generate a LaTeX table from a summary dictionary.

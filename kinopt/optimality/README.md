@@ -1,6 +1,7 @@
 # Optimality Module
 
-The **Optimality** module is an integral component of the **kinopt** framework and is used by both the *evol* and *local*
+The **Optimality** module is an integral component of the **kinopt** framework and is used by both the *evol* and
+*local*
 submodules. It provides a suite of tools for post-optimization analysis, including feasibility assessments, sensitivity
 analysis, and diagnostic plotting. The module is designed to help users evaluate the quality of the optimization results
 and ensure that the solutions meet the necessary constraints.

@@ -6,7 +6,6 @@ from kinopt.evol.optcon import n
 
 from numba import njit
 
-
 # -----------------------------
 # 1) Loss type -> integer id
 # -----------------------------
@@ -319,8 +318,8 @@ def _loss_from_residuals(residuals, P_obs, params, loss_id, include_reg, n_scala
 
 @njit(cache=True)
 def _evaluate_loss_and_constraints(params, P_obs, gp_offsets, gp_kinase_ids,
-                                  k_offsets, k_psite_rows, K_array,
-                                  eps_eq, loss_id, include_reg, n_scalar):
+                                   k_offsets, k_psite_rows, K_array,
+                                   eps_eq, loss_id, include_reg, n_scalar):
     """
     Evaluate objective function and constraint violations for optimization.
 
@@ -501,7 +500,7 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         n_ieq = 2 * (n_alpha_groups + n_beta_groups)
 
         xl = np.concatenate([np.zeros(self.num_alpha), np.full(self.num_beta, lb)], axis=0)
-        xu = np.concatenate([np.ones(self.num_alpha),  np.full(self.num_beta, ub)], axis=0)
+        xu = np.concatenate([np.ones(self.num_alpha), np.full(self.num_beta, ub)], axis=0)
 
         super().__init__(
             n_var=self.num_alpha + self.num_beta,

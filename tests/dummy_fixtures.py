@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
 PROTWISE_TIME_POINTS = np.asarray([0.0, 0.5, 1.0, 2.0, 4.0, 8.0], dtype=float)
 NETWORK_TIME_POINTS = np.asarray([0.0, 1.0, 2.0], dtype=float)
 

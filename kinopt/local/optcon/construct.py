@@ -265,6 +265,7 @@ def _eq_constraint(s, c):
         s (int): Start index for the constraint
         c (int): Count of parameters for the constraint
     """
+
     def f(p):
         """
         Function to compute the equality constraint for optimization.
@@ -275,6 +276,7 @@ def _eq_constraint(s, c):
             float: Computed equality constraint value
         """
         return np.sum(p[s: s + c]) - 1
+
     return f
 
 
@@ -330,6 +332,7 @@ def _build_constraints(opt_method, gene_kinase_counts, unique_kinases, total_alp
             beta_start += bc
 
         return cons
+
 
 def load_geneid_to_psites(input1_path=INPUT1):
     """

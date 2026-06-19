@@ -438,6 +438,7 @@ def make_networkmodel_rhs(sys, slices=None):
 
     return rhs
 
+
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
     """Solve an ODE trajectory with Diffrax
     

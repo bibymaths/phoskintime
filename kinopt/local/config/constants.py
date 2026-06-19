@@ -6,11 +6,9 @@ import numpy as np
 
 from config_loader import load
 
-
 _CFG = load("local", "kinopt")
 _PATHS = _CFG.get("_paths", {}) or {}
 PROJECT_ROOT = Path(_CFG["_root"])
-
 
 DATA_DIR = PROJECT_ROOT / _PATHS.get("data_dir", "data")
 OUT_DIR = PROJECT_ROOT / _PATHS.get("results_dir", "results")
@@ -20,12 +18,10 @@ ODE_DATA_DIR = PROJECT_ROOT / _PATHS.get("ode_data_dir", "data/ode")
 for d in (DATA_DIR, OUT_DIR, LOG_DIR, ODE_DATA_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
-
 INPUT1 = DATA_DIR / _CFG.get("input1", "input1.csv")
 INPUT2 = DATA_DIR / _CFG.get("input2", "input2.csv")
 
 OUT_FILE = OUT_DIR / _CFG.get("out_file", "kinopt_results.xlsx")
-
 
 TIME_POINTS = np.asarray(
     _CFG.get(
@@ -45,7 +41,8 @@ def parse_args():
         description="PhosKinTime - SLSQP/TRUST-CONSTR Kinase Phosphorylation Optimization Problem prior to ODE Modelling."
     )
 
-    parser.add_argument("--conf", default=None, help="Compatibility option; configuration is loaded before argument parsing.")
+    parser.add_argument("--conf", default=None,
+                        help="Compatibility option; configuration is loaded before argument parsing.")
     parser.add_argument("--lower_bound", type=float, default=float(_CFG.get("lower_bound", -4.0)))
     parser.add_argument("--upper_bound", type=float, default=float(_CFG.get("upper_bound", 4.0)))
 

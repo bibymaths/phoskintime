@@ -63,7 +63,6 @@ def table_md(df: pd.DataFrame, max_rows: Optional[int] = None) -> str:
     return text
 
 
-
 def fmt_number(value: Any) -> str:
     """Compact, stable formatting for fitted numeric values in documentation."""
     try:
@@ -133,9 +132,9 @@ def read_labeled_matrix(results_dir: Path, filename: str) -> Optional[dict[str, 
     first = df.columns[0]
     first_name = str(first).strip().lower()
     first_is_label = (
-        first_name.startswith("unnamed")
-        or first_name in {"gene", "protein", "target", "source", "site", "psite", "index", "id"}
-        or not pd.api.types.is_numeric_dtype(df[first])
+            first_name.startswith("unnamed")
+            or first_name in {"gene", "protein", "target", "source", "site", "psite", "index", "id"}
+            or not pd.api.types.is_numeric_dtype(df[first])
     )
     if first_is_label:
         rows = [str(x).strip() for x in df[first].tolist()]
@@ -152,10 +151,12 @@ def read_labeled_matrix(results_dir: Path, filename: str) -> Optional[dict[str, 
     if not numeric_cols:
         return None
     data = data[numeric_cols]
-    return {"path": path, "rows": rows, "cols": [str(c).strip() for c in numeric_cols], "data": data.reset_index(drop=True)}
+    return {"path": path, "rows": rows, "cols": [str(c).strip() for c in numeric_cols],
+            "data": data.reset_index(drop=True)}
 
 
-def matrix_row_index(matrix: Optional[dict[str, Any]], target: str, fallback_index: Optional[int] = None) -> Optional[int]:
+def matrix_row_index(matrix: Optional[dict[str, Any]], target: str, fallback_index: Optional[int] = None) -> Optional[
+    int]:
     if matrix is None:
         return None
     rows = matrix.get("rows") or []
@@ -192,7 +193,8 @@ def matrix_terms(matrix: Optional[dict[str, Any]], row_idx: Optional[int], symbo
     return terms
 
 
-def site_matrix_row_index(matrix: Optional[dict[str, Any]], gene: str, site: str, fallback_index: Optional[int] = None) -> Optional[int]:
+def site_matrix_row_index(matrix: Optional[dict[str, Any]], gene: str, site: str,
+                          fallback_index: Optional[int] = None) -> Optional[int]:
     if matrix is None:
         return None
     rows = matrix.get("rows") or []
@@ -220,7 +222,8 @@ def tf_input_equation(gene_name: str, gene_index: int, tf_matrix: Optional[dict[
     return f"{t_id}(t) = TF_input_{safe_id(gene_name, 'gene')}(t)  # no explicit TF matrix row found in result directory"
 
 
-def s_drive_equation(gene_name: str, site: str, site_index: int, s_value: float, w_matrix: Optional[dict[str, Any]]) -> str:
+def s_drive_equation(gene_name: str, site: str, site_index: int, s_value: float,
+                     w_matrix: Optional[dict[str, Any]]) -> str:
     s_id = plain_label("S", gene_name, site)
     row_idx = site_matrix_row_index(w_matrix, gene_name, site, site_index)
     terms = matrix_terms(w_matrix, row_idx, "K")
@@ -334,7 +337,8 @@ def explicit_successive_gene_equations(g: Any) -> str:
 
 
 def network_model_topology(model_id: int) -> str:
-    return {0: "distributive", 1: "successive/sequential", 2: "combinatorial", 4: "saturated"}.get(model_id, "unknown-standard")
+    return {0: "distributive", 1: "successive/sequential", 2: "combinatorial", 4: "saturated"}.get(model_id,
+                                                                                                   "unknown-standard")
 
 
 def explicit_combinatorial_gene_equations(g: Any) -> str:
@@ -395,13 +399,16 @@ def network_equations_markdown(results_dir: Path, parsed: dict[str, Any], genes:
     successive = model_id == 1
     distributive = model_id == 0
     lines: list[str] = []
-    lines.append(f"The networkmodel equations below are expanded from the implemented backend topology selected by `MODEL={model_id}` ({topology}). `MODEL=0` is distributive, `MODEL=1` is successive/sequential, `MODEL=2` is combinatorial, and `MODEL=4` is the saturated branch. This section intentionally avoids index-only placeholder equations: every gene, site, mask and fitted parameter label is written explicitly.")
+    lines.append(
+        f"The networkmodel equations below are expanded from the implemented backend topology selected by `MODEL={model_id}` ({topology}). `MODEL=0` is distributive, `MODEL=1` is successive/sequential, `MODEL=2` is combinatorial, and `MODEL=4` is the saturated branch. This section intentionally avoids index-only placeholder equations: every gene, site, mask and fitted parameter label is written explicitly.")
     lines.append("")
     lines.append("### Backend construction shared by the expanded equations")
     lines.append("")
-    lines.append("For each listed gene, the mRNA equation uses the backend TF-regulated synthesis function. If `network_tf_mat.csv` is present, each `T_<gene>(t)` line is expanded from the non-zero entries in that matrix. If it is absent, the line is kept as a labelled `TF_input_<gene>(t)` placeholder because the result directory does not contain the TF adjacency values.")
+    lines.append(
+        "For each listed gene, the mRNA equation uses the backend TF-regulated synthesis function. If `network_tf_mat.csv` is present, each `T_<gene>(t)` line is expanded from the non-zero entries in that matrix. If it is absent, the line is kept as a labelled `TF_input_<gene>(t)` placeholder because the result directory does not contain the TF adjacency values.")
     lines.append("")
-    lines.append("For each phosphosite, `S_<gene>_<site>(t)` is expanded from `network_W_global.csv` when that matrix is present and row labels can be matched. Otherwise it is written as the fitted/selected value parsed from `S_rates_picked.csv`, or `0` when absent.")
+    lines.append(
+        "For each phosphosite, `S_<gene>_<site>(t)` is expanded from `network_W_global.csv` when that matrix is present and row labels can be matched. Otherwise it is written as the fitted/selected value parsed from `S_rates_picked.csv`, or `0` when absent.")
     lines.append("")
     if tf_matrix is not None:
         lines.append(f"TF matrix parsed for labelled TF-input expansion: `{tf_matrix['path']}`")
@@ -422,17 +429,20 @@ def network_equations_markdown(results_dir: Path, parsed: dict[str, Any], genes:
         state_items = [f"mRNA state: {code_label('R', gene)}"]
         if combinatorial:
             n_masks = 2 ** len(g.sites) if g.sites else 1
-            state_items.append("protein mask states: " + ", ".join(code_label('P', gene, f'mask{m}') for m in range(n_masks)))
+            state_items.append(
+                "protein mask states: " + ", ".join(code_label('P', gene, f'mask{m}') for m in range(n_masks)))
         else:
             if successive:
                 state_items.append(f"unphosphorylated protein / chain state P0: {code_label('P', gene)}")
                 if g.sites:
-                    ordered = [f"{code_label('X', gene, site)} = ordered chain state P{k}" for k, site in enumerate(g.sites, start=1)]
+                    ordered = [f"{code_label('X', gene, site)} = ordered chain state P{k}" for k, site in
+                               enumerate(g.sites, start=1)]
                     state_items.append("successive phospho-chain states: " + ", ".join(ordered))
             else:
                 state_items.append(f"protein state: {code_label('P', gene)}")
                 if g.sites:
-                    state_items.append("distributive/saturated phosphosite states: " + ", ".join(code_label('X', gene, site) for site in g.sites))
+                    state_items.append("distributive/saturated phosphosite states: " + ", ".join(
+                        code_label('X', gene, site) for site in g.sites))
         lines.extend([f"- {item}" for item in state_items])
         lines.append("")
         param_rows = [
@@ -446,8 +456,10 @@ def network_equations_markdown(results_dir: Path, parsed: dict[str, Any], genes:
         for pid, value, meaning in param_rows:
             lines.append(f"- `{pid}` = {fmt_number(value)}  ({meaning})")
         for site_idx, site in enumerate(g.sites):
-            lines.append(f"- `{plain_label('Dp', gene, site)}` = {fmt_number(g.Dp.get(site, 0.0))}  (phospho-state degradation for `{site}`)")
-            lines.append(f"- `{plain_label('S', gene, site)}` = {fmt_number(g.S.get(site, 0.0))}  (selected site phosphorylation input for `{site}`)")
+            lines.append(
+                f"- `{plain_label('Dp', gene, site)}` = {fmt_number(g.Dp.get(site, 0.0))}  (phospho-state degradation for `{site}`)")
+            lines.append(
+                f"- `{plain_label('S', gene, site)}` = {fmt_number(g.S.get(site, 0.0))}  (selected site phosphorylation input for `{site}`)")
         lines.append("")
         # Explicit input definitions.
         input_lines = [tf_input_equation(gene, gi, tf_matrix)]
@@ -478,26 +490,32 @@ def network_equations_markdown(results_dir: Path, parsed: dict[str, Any], genes:
         obs_lines.append(f"obs_mRNA_{safe_id(gene, 'gene')}(t) = {R}(t)/{R}(t0)")
         if combinatorial:
             masks = [plain_label("P", gene, f"mask{m}") for m in range(2 ** len(g.sites) if g.sites else 1)]
-            obs_lines.append(f"obs_protein_{safe_id(gene, 'gene')}(t) = ({' + '.join(m + '(t)' for m in masks)})/({' + '.join(m + '(t0)' for m in masks)})")
+            obs_lines.append(
+                f"obs_protein_{safe_id(gene, 'gene')}(t) = ({' + '.join(m + '(t)' for m in masks)})/({' + '.join(m + '(t0)' for m in masks)})")
             for j, site in enumerate(g.sites):
                 masks_with_site = [plain_label("P", gene, f"mask{m}") for m in range(2 ** len(g.sites)) if m & (1 << j)]
                 if masks_with_site:
-                    obs_lines.append(f"obs_phospho_{safe_id(gene, 'gene')}_{safe_id(site, 'site')}(t) = ({' + '.join(m + '(t)' for m in masks_with_site)})/({' + '.join(m + '(t0)' for m in masks_with_site)})")
+                    obs_lines.append(
+                        f"obs_phospho_{safe_id(gene, 'gene')}_{safe_id(site, 'site')}(t) = ({' + '.join(m + '(t)' for m in masks_with_site)})/({' + '.join(m + '(t0)' for m in masks_with_site)})")
         else:
             states = [plain_label("P", gene)] + [plain_label("X", gene, site) for site in g.sites]
-            obs_lines.append(f"obs_protein_{safe_id(gene, 'gene')}(t) = ({' + '.join(s + '(t)' for s in states)})/({' + '.join(s + '(t0)' for s in states)})")
+            obs_lines.append(
+                f"obs_protein_{safe_id(gene, 'gene')}(t) = ({' + '.join(s + '(t)' for s in states)})/({' + '.join(s + '(t0)' for s in states)})")
             for site in g.sites:
                 X = plain_label("X", gene, site)
                 obs_lines.append(f"obs_phospho_{safe_id(gene, 'gene')}_{safe_id(site, 'site')}(t) = {X}(t)/{X}(t0)")
     lines.append(equation_block(obs_lines))
     lines.append("")
     if successive:
-        lines.append("For `MODEL=1`, `X_<gene>_<site>` labels are ordered successive chain states, not independent distributive site pools. The order is the row/order parsed from `model_parameters_genes_psites.csv`; `S_<gene>_<site_j>` drives the transition from the previous chain state into that site state.")
+        lines.append(
+            "For `MODEL=1`, `X_<gene>_<site>` labels are ordered successive chain states, not independent distributive site pools. The order is the row/order parsed from `model_parameters_genes_psites.csv`; `S_<gene>_<site_j>` drives the transition from the previous chain state into that site state.")
         lines.append("")
     if distributive:
-        lines.append("For `MODEL=0`, every `X_<gene>_<site>` is a distributive site pool fed directly from the unphosphorylated protein state `P_<gene>` and returned by the de-phosphorylation flux `E_<gene>*X_<gene>_<site>`.")
+        lines.append(
+            "For `MODEL=0`, every `X_<gene>_<site>` is a distributive site pool fed directly from the unphosphorylated protein state `P_<gene>` and returned by the de-phosphorylation flux `E_<gene>*X_<gene>_<site>`.")
         lines.append("")
-    lines.append("The scalar objective is the weighted sum of the available labelled residuals only: `L_total = lambda_mRNA*L_mRNA + lambda_protein*L_protein + lambda_phospho*L_phospho`, with unavailable layers omitted exactly as in `detect_data_mode` and `multimodal_loss_from_trajectory`.")
+    lines.append(
+        "The scalar objective is the weighted sum of the available labelled residuals only: `L_total = lambda_mRNA*L_mRNA + lambda_protein*L_protein + lambda_phospho*L_phospho`, with unavailable layers omitted exactly as in `detect_data_mode` and `multimodal_loss_from_trajectory`.")
     lines.append("")
     lines.append(f"Expanded dynamic equation count written in this section: `{equation_count}`.")
     return "\n".join(lines)
@@ -508,9 +526,9 @@ def protwise_equations_markdown(latex_files: list[Path]) -> str:
         try:
             content = latex_files[0].read_text(errors="ignore")
             return (
-                "Existing LaTeX model equations were found and are used as the preferred equation reference:\n\n"
-                f"`{latex_files[0]}`\n\n"
-                "```tex\n" + content[:6000] + "\n```"
+                    "Existing LaTeX model equations were found and are used as the preferred equation reference:\n\n"
+                    f"`{latex_files[0]}`\n\n"
+                    "```tex\n" + content[:6000] + "\n```"
             )
         except Exception:
             pass
@@ -551,7 +569,6 @@ def kin_tf_equations_markdown(family: str) -> str:
     )
 
 
-
 def network_metadata_and_tables(results_dir: Path) -> tuple[dict[str, Any], list[tuple[str, pd.DataFrame]], str]:
     parsed = parse_networkmodel_tables(results_dir)
     genes = build_network_genes(parsed)
@@ -579,22 +596,30 @@ def network_metadata_and_tables(results_dir: Path) -> tuple[dict[str, Any], list
     parsed_sources = [str(p) for p in parsed["files_parsed"]]
     metadata = {
         "equation_source_files": ["networkmodel/backend.py"],
-        "equation_source_functions": ["make_networkmodel_rhs", "multimodal_loss_from_trajectory", "_global_networkmodel_observable"],
-        "parameter_source_files": [str(p) for p in parsed["files_parsed"] if Path(p).name.startswith("model_parameters") or Path(p).name == "S_rates_picked.csv"],
-        "structure_source_files": [p for p in parsed_sources if Path(p).name in {"network_tf_mat.csv", "network_W_global.csv", "network_kinase_inputs.csv", "initial_conditions_y0.csv", "optimized_entities.json", "metadata.json", "mode_metadata.json"}],
-        "schema_source_functions": ["networkmodel/backend.py::_unpack_theta_jax", "networkmodel/backend.py::make_networkmodel_rhs"],
+        "equation_source_functions": ["make_networkmodel_rhs", "multimodal_loss_from_trajectory",
+                                      "_global_networkmodel_observable"],
+        "parameter_source_files": [str(p) for p in parsed["files_parsed"] if
+                                   Path(p).name.startswith("model_parameters") or Path(p).name == "S_rates_picked.csv"],
+        "structure_source_files": [p for p in parsed_sources if
+                                   Path(p).name in {"network_tf_mat.csv", "network_W_global.csv",
+                                                    "network_kinase_inputs.csv", "initial_conditions_y0.csv",
+                                                    "optimized_entities.json", "metadata.json", "mode_metadata.json"}],
+        "schema_source_functions": ["networkmodel/backend.py::_unpack_theta_jax",
+                                    "networkmodel/backend.py::make_networkmodel_rhs"],
         "skipped_files": [str(p) for p in parsed["files_skipped"]],
         "warnings": parsed.get("warnings", []),
         "networkmodel_model_id": model_id,
         "networkmodel_n_genes": len(genes),
         "networkmodel_n_sites": sum(len(g.sites) for g in genes),
         "networkmodel_topology": network_model_topology(model_id),
-        "networkmodel_expanded_equations": sum((1 + (2 ** len(g.sites) if g.sites else 1)) if model_id == 2 else (2 + len(g.sites)) for g in genes),
+        "networkmodel_expanded_equations": sum(
+            (1 + (2 ** len(g.sites) if g.sites else 1)) if model_id == 2 else (2 + len(g.sites)) for g in genes),
     }
     tables = [("Networkmodel fitted gene parameters", table)]
     if not site_table.empty:
         tables.append(("Networkmodel labelled site parameters used in explicit equations", site_table))
     return metadata, tables, network_equations_markdown(results_dir, parsed, genes, model_id)
+
 
 def protwise_model_kind(entry: dict[str, Any]) -> str:
     """Infer protwise model kind from path plus fitted parameter names."""
@@ -604,6 +629,7 @@ def protwise_model_kind(entry: dict[str, Any]) -> str:
     if "rand" in path_text or "random" in path_text:
         return "randmod"
     return detect_protwise_model(entry["params"])
+
 
 def protwise_metadata_and_tables(results_dir: Path) -> tuple[dict[str, Any], list[tuple[str, pd.DataFrame]], str]:
     parsed = parse_protwise_parameters(results_dir)
@@ -649,7 +675,9 @@ def protwise_metadata_and_tables(results_dir: Path) -> tuple[dict[str, Any], lis
 
     return metadata, [("Protwise fitted parameters", table)], equations
 
-def kin_tf_metadata_and_tables(results_dir: Path, family: str) -> tuple[dict[str, Any], list[tuple[str, pd.DataFrame]], str]:
+
+def kin_tf_metadata_and_tables(results_dir: Path, family: str) -> tuple[
+    dict[str, Any], list[tuple[str, pd.DataFrame]], str]:
     wb_name = "kinopt_results.xlsx" if family == "kinopt" else "tfopt_results.xlsx"
     wb = first_existing(results_dir, (wb_name,))
     if wb is None:
@@ -665,7 +693,8 @@ def kin_tf_metadata_and_tables(results_dir: Path, family: str) -> tuple[dict[str
         "skipped_files": [],
         "warnings": [],
     }
-    return metadata, [("Alpha fitted parameters", alpha), ("Beta fitted parameters", beta)], kin_tf_equations_markdown(family)
+    return metadata, [("Alpha fitted parameters", alpha), ("Beta fitted parameters", beta)], kin_tf_equations_markdown(
+        family)
 
 
 def sbml_mapping_table(tables: list[tuple[str, pd.DataFrame]]) -> pd.DataFrame:
@@ -676,7 +705,8 @@ def sbml_mapping_table(tables: list[tuple[str, pd.DataFrame]]) -> pd.DataFrame:
     return pd.DataFrame(rows).drop_duplicates()
 
 
-def build_markdown(results_dir: Path, family: str, metadata: dict[str, Any], tables: list[tuple[str, pd.DataFrame]], equations: str) -> str:
+def build_markdown(results_dir: Path, family: str, metadata: dict[str, Any], tables: list[tuple[str, pd.DataFrame]],
+                   equations: str) -> str:
     lines: list[str] = []
     lines.append(f"# Model Documentation ({family})")
     lines.append("")
@@ -685,7 +715,8 @@ def build_markdown(results_dir: Path, family: str, metadata: dict[str, Any], tab
     lines.append("")
     lines.append("## Implementation grounding")
     lines.append("")
-    lines.append("The documentation is grounded in the implementation files/functions listed in the metadata block. Networkmodel equations are written directly from `networkmodel/backend.py::make_networkmodel_rhs`; no placeholder ODE text is used.")
+    lines.append(
+        "The documentation is grounded in the implementation files/functions listed in the metadata block. Networkmodel equations are written directly from `networkmodel/backend.py::make_networkmodel_rhs`; no placeholder ODE text is used.")
     lines.append("")
     lines.append("## Source files and functions")
     lines.append("")
@@ -734,28 +765,35 @@ def build_markdown(results_dir: Path, family: str, metadata: dict[str, Any], tab
     lines.append("## Term explanations")
     lines.append("")
     lines.append("- `R`/`R_i`: mRNA/transcript state.")
-    lines.append("- `P`/`P_i`: unphosphorylated protein state for MODEL 0/1/4; mask state for MODEL 2 when suffixed by `mask*`.")
+    lines.append(
+        "- `P`/`P_i`: unphosphorylated protein state for MODEL 0/1/4; mask state for MODEL 2 when suffixed by `mask*`.")
     lines.append("- `X_i`/`X_ij`: MODEL 0/4 distributive site-level state; MODEL 1 ordered successive chain state.")
     lines.append("- `A`, `B`, `C`, `D`: synthesis, mRNA degradation, translation and protein degradation parameters.")
     lines.append("- `S_i`/`S_ij`: phosphorylation input/rate for site `i` or gene-site pair `(i,j)`.")
     lines.append("- `D_i`/`D^p_ij`: phospho-state dephosphorylation/degradation parameter.")
     lines.append("- `E`: de-phosphorylation return flux parameter.")
-    lines.append("- `TF`, `W`, `K`: transcription-factor matrix, kinase-site network matrix and kinase input trajectory/matrix.")
+    lines.append(
+        "- `TF`, `W`, `K`: transcription-factor matrix, kinase-site network matrix and kinase input trajectory/matrix.")
     lines.append("")
     lines.append("## Constraints and assumptions")
     lines.append("")
-    lines.append("- All fitted values are exported as dimensionless, because the data are fold-change/unitless measurements.")
+    lines.append(
+        "- All fitted values are exported as dimensionless, because the data are fold-change/unitless measurements.")
     lines.append("- No concentration units or mass-action units are invented.")
-    lines.append("- Prediction, residual, trajectory, objective, Pareto, metric, diagnostic, plot and pickle outputs are skipped as fitted parameter sources.")
-    lines.append("- For networkmodel SBML, `S_rates_picked.csv` is preferred for finite exported `S_ij` values. If it is absent or incomplete, missing `S_ij` values are exported as zero-valued constants so the file remains explicit and valid.")
-    lines.append("- The full backend time-varying kinase interpolation and sparse matrix construction remain documented as provenance. The SBML encodes a finite ODE system with fitted result values available in the result directory.")
+    lines.append(
+        "- Prediction, residual, trajectory, objective, Pareto, metric, diagnostic, plot and pickle outputs are skipped as fitted parameter sources.")
+    lines.append(
+        "- For networkmodel SBML, `S_rates_picked.csv` is preferred for finite exported `S_ij` values. If it is absent or incomplete, missing `S_ij` values are exported as zero-valued constants so the file remains explicit and valid.")
+    lines.append(
+        "- The full backend time-varying kinase interpolation and sparse matrix construction remain documented as provenance. The SBML encodes a finite ODE system with fitted result values available in the result directory.")
     lines.append("")
     lines.append("## SBML mapping notes")
     lines.append("")
     lines.append("- SBML IDs are sanitized versions of the original biological identifiers.")
     lines.append("- Original names are preserved in SBML `name` fields and model notes where possible.")
     lines.append("- Compartments, species and parameters use `dimensionless` units.")
-    lines.append("- Regulatory/algebraic quantities are represented with assignment rules; dynamic states use rate rules.")
+    lines.append(
+        "- Regulatory/algebraic quantities are represented with assignment rules; dynamic states use rate rules.")
     lines.append("")
     lines.append("## Internal metadata")
     lines.append("")
@@ -866,8 +904,8 @@ def latex_longtable(title: str, df: pd.DataFrame) -> str:
 
     title_l = title.lower()
     tiny_table = (
-        "fitted gene parameters" in title_l
-        or "labelled site parameters" in title_l
+            "fitted gene parameters" in title_l
+            or "labelled site parameters" in title_l
     )
 
     out: list[str] = []
@@ -944,6 +982,7 @@ def tex_label(prefix: str, *parts: Any, time: Optional[str] = None) -> str:
     if time is None:
         return base
     return base + f"({time})"
+
 
 def tex_join_signed(terms: list[tuple[str, str]]) -> list[str]:
     """Return aligned RHS lines from signed LaTeX terms."""
@@ -1040,7 +1079,8 @@ def latex_successive_gene(out: list[str], g: Any) -> None:
     first = sites[0]
     S1 = tex_label("S", gene, first, time="t")
     X1 = tex_label("X", gene, first, time="t")
-    append_aligned_equation(out, rf"\frac{{d\,{P0}}}{{dt}}", [("+", rf"{C}\,{R}"), ("-", rf"{D}\,{P}"), ("-", rf"{S1}\,{P}"), ("+", rf"{E}\,{X1}")])
+    append_aligned_equation(out, rf"\frac{{d\,{P0}}}{{dt}}",
+                            [("+", rf"{C}\,{R}"), ("-", rf"{D}\,{P}"), ("-", rf"{S1}\,{P}"), ("+", rf"{E}\,{X1}")])
     for j, site in enumerate(sites):
         X = tex_label("X", gene, site, time="t")
         X0 = tex_label("X", gene, site)
@@ -1110,6 +1150,7 @@ def latex_network_equations(results_dir: Path, model_id: int) -> str:
             latex_distributive_gene(out, g, saturated=False)
     return "\n".join(out)
 
+
 def latex_sym(text: Any) -> str:
     return r"\mathrm{" + latex_escape(text) + r"}"
 
@@ -1121,7 +1162,8 @@ def latex_sub(base: str, sub: Any) -> str:
 def protwise_param_names(params: dict[str, float], prefix: str) -> list[str]:
     def key(name: str) -> tuple[int, str]:
         rest = str(name)[len(prefix):]
-        return (int(rest), str(name)) if rest.isdigit() else (10**9, str(name))
+        return (int(rest), str(name)) if rest.isdigit() else (10 ** 9, str(name))
+
     return sorted(
         [str(k) for k in params if str(k).startswith(prefix) and str(k)[len(prefix):].isdigit()],
         key=key,
@@ -1184,11 +1226,11 @@ def latex_protwise_equations(results_dir: Path) -> str:
                     Si = protwise_value(params, s_name)
                     Di = protwise_value(params, f"D{i}")
 
-                    upstream = Pt if i == 1 else latex_sub(f"X{i-1}", gene) + "(t)"
+                    upstream = Pt if i == 1 else latex_sub(f"X{i - 1}", gene) + "(t)"
 
                     if i < n_sites:
-                        Xnext = latex_sub(f"X{i+1}", gene) + "(t)"
-                        Snext = protwise_value(params, f"S{i+1}")
+                        Xnext = latex_sub(f"X{i + 1}", gene) + "(t)"
+                        Snext = protwise_value(params, f"S{i + 1}")
                         out.append(
                             rf"\frac{{d\,{Xi}}}{{dt}} &= {Si}\,{upstream} + {Xnext} "
                             rf"- \left({Snext} + 1 + {Di} + {D}\right){Xit} \\"
@@ -1326,6 +1368,7 @@ def latex_tfopt_equations(results_dir: Path) -> str:
 
     return "\n".join(out)
 
+
 def latex_metadata_section(results_dir: Path, family: str, metadata: dict[str, Any]) -> str:
     lines = [
         r"\section{Run metadata}",
@@ -1339,7 +1382,8 @@ def latex_metadata_section(results_dir: Path, family: str, metadata: dict[str, A
     return "\n".join(lines)
 
 
-def build_latex(results_dir: Path, family: str, metadata: dict[str, Any], tables: list[tuple[str, pd.DataFrame]], equations: str) -> str:
+def build_latex(results_dir: Path, family: str, metadata: dict[str, Any], tables: list[tuple[str, pd.DataFrame]],
+                equations: str) -> str:
     """Build a real LaTeX document: full landscape tables plus rendered equations."""
     parts: list[str] = [
         r"\documentclass[10pt]{article}",
@@ -1395,6 +1439,7 @@ def build_latex(results_dir: Path, family: str, metadata: dict[str, Any], tables
 
     return "\n".join(parts)
 
+
 def compile_pdf(tex_path: Path, output_dir: Path) -> Optional[Path]:
     engine = shutil.which("tectonic")
     if engine:
@@ -1403,7 +1448,8 @@ def compile_pdf(tex_path: Path, output_dir: Path) -> Optional[Path]:
         engine = shutil.which("pdflatex")
         if not engine:
             return None
-        cmd = [engine, "-interaction=nonstopmode", "-halt-on-error", "-output-directory", str(output_dir), str(tex_path)]
+        cmd = [engine, "-interaction=nonstopmode", "-halt-on-error", "-output-directory", str(output_dir),
+               str(tex_path)]
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception:
@@ -1412,7 +1458,8 @@ def compile_pdf(tex_path: Path, output_dir: Path) -> Optional[Path]:
     return pdf if pdf.is_file() else None
 
 
-def generate_documentation(results_dir: Path, output_dir: Path, family: str, verbose: bool = False) -> dict[str, Optional[Path]]:
+def generate_documentation(results_dir: Path, output_dir: Path, family: str, verbose: bool = False) -> dict[
+    str, Optional[Path]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     if family == "networkmodel":
         metadata, tables, equations = network_metadata_and_tables(results_dir)
@@ -1461,7 +1508,8 @@ def main() -> None:
         print("- networkmodel equations grounded in networkmodel/backend.py::make_networkmodel_rhs")
         print("- networkmodel objective/observables grounded in multimodal_loss_from_trajectory")
     elif family == "protwise":
-        print("- protwise equations grounded in actual ODE/Diffrax implementations and existing LaTeX files when present")
+        print(
+            "- protwise equations grounded in actual ODE/Diffrax implementations and existing LaTeX files when present")
     else:
         print("- KinOpt/TFOpt schemas grounded in actual workbook export sheets")
     print("\nOutputs:")

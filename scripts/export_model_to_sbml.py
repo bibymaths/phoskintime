@@ -247,7 +247,8 @@ def strict_parameter_csv(path: Path) -> pd.DataFrame:
     if not any(k in stem for k in accepted) or any(k in stem for k in rejected):
         return pd.DataFrame()
     df = pd.read_csv(path)
-    bad_cols = {"time", "replicate", "observed", "estimated", "predicted", "residual", "rmse", "mae", "r2", "score", "loss", "objective", "metric", "index", "id"}
+    bad_cols = {"time", "replicate", "observed", "estimated", "predicted", "residual", "rmse", "mae", "r2", "score",
+                "loss", "objective", "metric", "index", "id"}
     numeric = [c for c in df.columns if c.lower() not in bad_cols and pd.api.types.is_numeric_dtype(df[c])]
     if not numeric:
         return pd.DataFrame()
@@ -343,16 +344,19 @@ def parse_protwise_parameters(results_dir: Path) -> dict[str, Any]:
         except Exception as exc:
             parsed["warnings"].append(f"Could not read {path}: {exc}")
             continue
-        parameter_cols = [c for c in df.columns if str(c) not in {"Time", "Regularization"} and pd.api.types.is_numeric_dtype(df[c])]
+        parameter_cols = [c for c in df.columns if
+                          str(c) not in {"Time", "Regularization"} and pd.api.types.is_numeric_dtype(df[c])]
         if not parameter_cols:
             parsed["warnings"].append(f"No numeric fitted parameter columns found in {path}")
             continue
         row = df[parameter_cols].iloc[-1]
-        parsed["gene_params"].append({"gene": path.name.replace("_parameters.xlsx", ""), "path": path, "params": {c: finite_float(row[c]) for c in parameter_cols}})
+        parsed["gene_params"].append({"gene": path.name.replace("_parameters.xlsx", ""), "path": path,
+                                      "params": {c: finite_float(row[c]) for c in parameter_cols}})
         parsed["files_parsed"].append(path)
     for path in sorted(results_dir.rglob("*confidence_intervals.csv")):
         parsed["files_skipped"].append(path)
-    for path in sorted(results_dir.rglob("*.png")) + sorted(results_dir.rglob("*.jpg")) + sorted(results_dir.rglob("*.pdf")):
+    for path in sorted(results_dir.rglob("*.png")) + sorted(results_dir.rglob("*.jpg")) + sorted(
+            results_dir.rglob("*.pdf")):
         parsed["files_skipped"].append(path)
     for path in sorted(results_dir.rglob("*model_latex.tex")):
         parsed["latex_files"].append(path)
@@ -508,6 +512,7 @@ def infer_network_model_id(results_dir: Path) -> int:
     Do not infer from available_models, because that field lists all supported
     models and commonly contains "combinatorial" even for distributive runs.
     """
+
     def normalize_model_value(value: Any) -> Optional[int]:
         if value is None or isinstance(value, bool):
             return None
@@ -564,9 +569,9 @@ def infer_network_model_id(results_dir: Path) -> int:
     if cfg.is_file():
         text = cfg.read_text(errors="ignore")
         for pattern in (
-            r"(?im)^\s*model_code\s*:\s*([0-9]+)\s*$",
-            r"(?im)^\s*model_id\s*:\s*([0-9]+)\s*$",
-            r"(?im)^\s*MODEL\s*:\s*([0-9]+)\s*$",
+                r"(?im)^\s*model_code\s*:\s*([0-9]+)\s*$",
+                r"(?im)^\s*model_id\s*:\s*([0-9]+)\s*$",
+                r"(?im)^\s*MODEL\s*:\s*([0-9]+)\s*$",
         ):
             m = re.search(pattern, text)
             if m:
@@ -574,8 +579,8 @@ def infer_network_model_id(results_dir: Path) -> int:
                 if mid is not None:
                     return mid
         for pattern in (
-            r"(?im)^\s*model\s*:\s*([A-Za-z0-9_\-]+)\s*$",
-            r"(?im)^\s*state_layout\s*:\s*([A-Za-z0-9_\-]+)\s*$",
+                r"(?im)^\s*model\s*:\s*([A-Za-z0-9_\-]+)\s*$",
+                r"(?im)^\s*state_layout\s*:\s*([A-Za-z0-9_\-]+)\s*$",
         ):
             m = re.search(pattern, text)
             if m:
@@ -651,7 +656,7 @@ def export_kin_tf_to_sbml(results_dir: Path, output_dir: Path, family: str, vali
     workbook_name = "kinopt_results.xlsx" if family == "kinopt" else "tfopt_results.xlsx"
     wb = first_existing(results_dir, (workbook_name,))
     if wb is None:
-        raise FileNotFoundError(f"Could not find {workbook_name} in {results_dir} or {results_dir/'tables'}")
+        raise FileNotFoundError(f"Could not find {workbook_name} in {results_dir} or {results_dir / 'tables'}")
     alpha, beta = parse_kinopt_xlsx(wb) if family == "kinopt" else parse_tfopt_xlsx(wb)
     doc, model = make_document(family, family)
     add_notes(model, [

@@ -12,6 +12,7 @@ from matplotlib.animation import FuncAnimation
 from pymoo.visualization.radar import Radar
 from kinopt.evol.config.constants import OUT_DIR, TIME_POINTS
 
+
 def plot_residuals_for_gene(gene, gene_data):
     """
     Generates and saves combined residual-related plots for one gene with all psites in the legend.
@@ -370,6 +371,7 @@ def opt_analyze_nsga(problem, result, F, pairs, approx_ideal,
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/convergence.png", dpi=300)
     plt.close()
+
 
 def opt_analyze_de(long_df, convergence_df, ordered_optimizer_runs,
                    x_values, y_values, val):

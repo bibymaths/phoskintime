@@ -48,6 +48,7 @@ MODEL_NAMES = {
 
 INTENDED_MODEL = 2  # change to 2 for combinatorial
 
+
 def _force_networkmodel_model(model: int) -> None:
     """Synchronize model selection across modules that imported MODEL at module scope."""
     model = int(model)
@@ -64,6 +65,7 @@ def _force_networkmodel_model(model: int) -> None:
 
 
 _force_networkmodel_model(INTENDED_MODEL)
+
 
 def _standardize_tf_columns(df_tf: pd.DataFrame) -> pd.DataFrame:
     """
@@ -192,6 +194,7 @@ def _mechanistic_phospho_filter(df_kin: pd.DataFrame, df_pho: pd.DataFrame) -> p
     keep = np.fromiter(((p, s) in kin_site_pairs for (p, s) in pairs), dtype=bool, count=len(pairs))
     return df_pho2.loc[keep].copy()
 
+
 def _first_existing(*paths: Path) -> Path:
     for p in paths:
         if p.exists():
@@ -239,6 +242,7 @@ def _load_fitted_params_picked(results_dir: Path, defaults: dict) -> dict:
 
     return params
 
+
 def _load_picked_predictions(results_dir: Path):
     wt_dfp = pd.read_csv(results_dir / "pred_prot_picked.csv")
     wt_dfr = pd.read_csv(results_dir / "pred_rna_picked.csv")
@@ -255,6 +259,7 @@ def _load_picked_predictions(results_dir: Path):
             df["pred_fc"] = pd.to_numeric(df["pred_fc"], errors="coerce")
 
     return wt_dfp, wt_dfr, wt_pho
+
 
 @st.cache_resource
 def load_system(model: int):
@@ -368,6 +373,7 @@ def run_sim(sys, idx, mod_params):
         config.TIME_POINTS_PHOSPHO,
     )
 
+
 def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
     """Extract RNA, total protein, and phospho-site trajectories for one protein."""
     p_idx = idx.p2i[protein]
@@ -418,6 +424,8 @@ def extract_fc_from_Y(Y, idx, t, protein, normalize=True):
         df = df.merge(df_long, on="time", how="left")
 
     return df
+
+
 def _safe_min_max(values: np.ndarray) -> tuple[float, float]:
     """Return finite min/max values for dashboard diagnostics."""
     arr = np.asarray(values, dtype=float)
@@ -454,9 +462,9 @@ def _simulate_until_steady_optional_y0(sys_obj, t_max: float, n_points: int, y0:
 
 
 def _align_Y_to_reference_initial(
-    Y: np.ndarray,
-    Y_ref: np.ndarray,
-    eps: float = 1e-12,
+        Y: np.ndarray,
+        Y_ref: np.ndarray,
+        eps: float = 1e-12,
 ) -> np.ndarray:
     """
     Align a trajectory to the reference initial state.
@@ -499,11 +507,11 @@ def _align_Y_to_reference_initial(
 
 
 def _run_forward_wt_ko_for_display(
-    sys_obj,
-    best_params: dict,
-    ko_params: dict,
-    t_max: float,
-    n_points: int,
+        sys_obj,
+        best_params: dict,
+        ko_params: dict,
+        t_max: float,
+        n_points: int,
 ):
     """
     Run WT and KO forward simulations for the dashboard.
@@ -556,12 +564,12 @@ def _run_forward_wt_ko_for_display(
 
 
 def extract_phosphosite_states_from_Y(
-    Y: np.ndarray,
-    idx: Index,
-    t: np.ndarray,
-    protein: str,
-    normalize_to_t0: bool = False,
-    reference_raw_states: np.ndarray | None = None,
+        Y: np.ndarray,
+        idx: Index,
+        t: np.ndarray,
+        protein: str,
+        normalize_to_t0: bool = False,
+        reference_raw_states: np.ndarray | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     """
     Extract raw or reference-normalized phosphosite ODE states for one protein.
@@ -610,10 +618,11 @@ def extract_phosphosite_states_from_Y(
 
     return df_long, raw_states, plotted_states
 
+
 def _extract_raw_phosphosite_matrix(
-    Y: np.ndarray,
-    idx: Index,
-    protein: str,
+        Y: np.ndarray,
+        idx: Index,
+        protein: str,
 ) -> tuple[list[str], np.ndarray]:
     """Return raw phosphosite ODE states for one protein as (site_names, matrix)."""
     p_idx = idx.p2i[protein]
@@ -630,9 +639,9 @@ def _extract_raw_phosphosite_matrix(
 
 
 def _interp_state_matrix(
-    t_src: np.ndarray,
-    values_src: np.ndarray,
-    t_target: np.ndarray,
+        t_src: np.ndarray,
+        values_src: np.ndarray,
+        t_target: np.ndarray,
 ) -> np.ndarray:
     """Interpolate each state column onto requested target times."""
     t_src = np.asarray(t_src, dtype=float)
@@ -655,13 +664,13 @@ def _interp_state_matrix(
 
 
 def _build_inspector_ko_phosphosite_intervention_df(
-    sys_obj,
-    idx: Index,
-    best_params: dict,
-    ko_params: dict,
-    protein: str,
-    wt_pho_data: pd.DataFrame,
-    n_points: int = 1000,
+        sys_obj,
+        idx: Index,
+        best_params: dict,
+        ko_params: dict,
+        protein: str,
+        wt_pho_data: pd.DataFrame,
+        n_points: int = 1000,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Build KO phosphosite inspector values on the same scale as WT picked pred_fc.
@@ -812,6 +821,7 @@ def _build_inspector_ko_phosphosite_intervention_df(
 
     return ko_long, debug
 
+
 # --- UI Setup ---
 st.title("🧪 Global Signaling & Transcriptional Knockout Explorer")
 st.caption("This dashboard builds the networkmodel system and runs WT/KO simulations on demand.")
@@ -857,6 +867,7 @@ ko_params = {
 }
 
 st.sidebar.subheader("Perturbations")
+
 
 def _scale_protein_param(param_name: str, proteins: list[str], factor: float) -> None:
     if param_name not in ko_params or not proteins:
@@ -987,7 +998,6 @@ with st.sidebar.expander("Transcriptional regulation", expanded=False):
         key="ko_tf_global_scale",
     )
 
-
 # Apply perturbations.
 # Do not mutate sys.kin.Kmat or W_global.
 # Keep topology fixed; perturb only fitted dynamic parameters.
@@ -1007,15 +1017,14 @@ _scale_protein_param("E_i", tf_efficacy_targets, tf_efficacy_scale)
 if "tf_scale" in ko_params:
     ko_params["tf_scale"] = float(ko_params["tf_scale"]) * float(tf_global_scale)
 
-
 all_selected_targets = (
-    list(kinase_activity_targets)
-    + list(mrna_synthesis_targets)
-    + list(mrna_degradation_targets)
-    + list(protein_synthesis_targets)
-    + list(protein_degradation_targets)
-    + list(phospho_loss_targets)
-    + list(tf_efficacy_targets)
+        list(kinase_activity_targets)
+        + list(mrna_synthesis_targets)
+        + list(mrna_degradation_targets)
+        + list(protein_synthesis_targets)
+        + list(protein_degradation_targets)
+        + list(phospho_loss_targets)
+        + list(tf_efficacy_targets)
 )
 
 has_global_tf_perturbation = abs(float(tf_global_scale) - 1.0) > 1e-12
@@ -1049,7 +1058,6 @@ with st.spinner("Loading picked WT predictions and running perturbation..."):
         # Do not trust phospho pred_fc from simulate_and_measure here.
         # It is using a different/too-small FC denominator in this dashboard path.
         ko_pho = _ko_pho_bad_fc.copy()
-
 
 # Leave the mutable System in a known baseline state after the comparison.
 sys.update(**best_params)
@@ -1336,7 +1344,7 @@ with col3:
         for site in wt_pho_data["psite"].dropna().unique():
             color = px.colors.qualitative.Plotly[
                 hash(site) % len(px.colors.qualitative.Plotly)
-            ]
+                ]
 
             site_wt = wt_pho_data[wt_pho_data["psite"] == site]
 
@@ -1353,7 +1361,7 @@ with col3:
             if ko_type != "None":
                 site_ko = ko_phosphosite_inspector_df[
                     ko_phosphosite_inspector_df["psite"] == site
-                ]
+                    ]
 
                 if not site_ko.empty:
                     fig_sites.add_trace(
@@ -1438,8 +1446,8 @@ if run_forward_panel:
     st.session_state["forward_panel_results"] = forward_results
 
 has_forward_results = (
-    st.session_state.get("forward_panel_cache_key") == forward_cache_key
-    and "forward_panel_results" in st.session_state
+        st.session_state.get("forward_panel_cache_key") == forward_cache_key
+        and "forward_panel_results" in st.session_state
 )
 
 if not has_forward_results:
@@ -1511,10 +1519,11 @@ else:
         else "Raw phosphosite ODE state"
     )
 
+
     def _picked_points_on_displayed_curve(
-        picked_df: pd.DataFrame,
-        curve_df: pd.DataFrame,
-        y_col: str,
+            picked_df: pd.DataFrame,
+            curve_df: pd.DataFrame,
+            y_col: str,
     ) -> pd.DataFrame:
         """
         Return picked-data times placed exactly on the displayed WT curve.
@@ -1557,7 +1566,7 @@ else:
         picked = picked[
             (picked["time"] >= float(np.min(x_curve)))
             & (picked["time"] <= float(np.max(x_curve)))
-        ].copy()
+            ].copy()
 
         if picked.empty:
             return pd.DataFrame(columns=["time", "display_y", "picked_pred_fc"])
@@ -1861,7 +1870,7 @@ else:
             for j, site in enumerate(site_order):
                 site_wt_picked = wt_pho_forward_data[
                     wt_pho_forward_data["psite"].astype(str) == str(site)
-                ].copy()
+                    ].copy()
 
                 if site_wt_picked.empty:
                     continue
@@ -1894,9 +1903,9 @@ else:
                 )
 
                 valid = (
-                    np.isfinite(wt_raw_at_picked_t)
-                    & np.isfinite(picked_fc)
-                    & (np.abs(wt_raw_at_picked_t) > eps)
+                        np.isfinite(wt_raw_at_picked_t)
+                        & np.isfinite(picked_fc)
+                        & (np.abs(wt_raw_at_picked_t) > eps)
                 )
 
                 if np.any(valid):
@@ -1923,7 +1932,7 @@ else:
 
                 color = px.colors.qualitative.Plotly[
                     hash(site) % len(px.colors.qualitative.Plotly)
-                ]
+                    ]
 
                 fig_sites_fine.add_trace(
                     go.Scatter(
@@ -2985,6 +2994,7 @@ st.caption(
     "or the browser will become heavy."
 )
 
+
 def _compute_state_snapshot_sweep(sys: System, idx: Index, params: dict, t_eval: float):
     """
     Computes the state snapshot for a system over a specified time range.
@@ -3245,6 +3255,7 @@ if st.button("Generate sweep graphs", key="sweep_run_btn"):
 st.divider()
 st.header("🕸️ Time-Resolved Animated Network")
 
+
 # -------------------------
 # State/vector helpers
 # -------------------------
@@ -3287,11 +3298,11 @@ def _total_protein_from_Y_row(y_row: np.ndarray, idx: Index, protein: str) -> fl
 
 
 def _aligned_log2_ko_wt_for_nodes(
-    nodes: list[str],
-    idx: Index,
-    wt_vec: np.ndarray,
-    ko_vec: np.ndarray,
-    eps: float = 1e-9,
+        nodes: list[str],
+        idx: Index,
+        wt_vec: np.ndarray,
+        ko_vec: np.ndarray,
+        eps: float = 1e-9,
 ) -> np.ndarray:
     """Return log2(KO/WT), aligned to Plotly/NetworkX node order.
 
@@ -3350,11 +3361,11 @@ def _simulate_state_series(params: dict, t_end: float, n_points: int):
 # Edge construction at one frame
 # -------------------------
 def _edge_tables_from_state_at_time(
-    sys_local: System,
-    idx_local: Index,
-    df_tf_local: pd.DataFrame | None,
-    y_row: np.ndarray,
-    t: float,
+        sys_local: System,
+        idx_local: Index,
+        df_tf_local: pd.DataFrame | None,
+        y_row: np.ndarray,
+        t: float,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Build signaling and TF edge tables from an already-simulated state row."""
     t = float(t)
@@ -3427,13 +3438,13 @@ def _edge_tables_from_state_at_time(
 
 
 def _filter_edges_for_animation(
-    df_sig: pd.DataFrame,
-    df_tf: pd.DataFrame,
-    *,
-    include_tf: bool,
-    min_abs_weight: float,
-    top_k: int,
-    edge_scale: float,
+        df_sig: pd.DataFrame,
+        df_tf: pd.DataFrame,
+        *,
+        include_tf: bool,
+        min_abs_weight: float,
+        top_k: int,
+        edge_scale: float,
 ) -> pd.DataFrame:
     """Merge, clean, scale, threshold, and rank edges for one frame."""
     if df_sig is None or df_sig.empty:
@@ -3494,17 +3505,17 @@ def _delta_edges_for_frame(df_wt_all: pd.DataFrame, df_ko_all: pd.DataFrame) -> 
 
 
 def _build_animation_frames(
-    *,
-    view_mode: str,
-    best_params: dict,
-    ko_params: dict,
-    include_tf_edges: bool,
-    min_abs_weight: float,
-    top_k: int,
-    edge_scale: float,
-    t_end: float,
-    n_frames: int,
-    node_metric: str,
+        *,
+        view_mode: str,
+        best_params: dict,
+        ko_params: dict,
+        include_tf_edges: bool,
+        min_abs_weight: float,
+        top_k: int,
+        edge_scale: float,
+        t_end: float,
+        n_frames: int,
+        node_metric: str,
 ):
     """Generate all animation data once."""
     sys_wt, idx_wt, df_tf_wt, t_wt, Y_wt = _simulate_state_series(
@@ -3694,11 +3705,11 @@ def _node_activity_frames(edge_frames: list[pd.DataFrame], nodes: list[str]) -> 
 
 
 def _plotly_animated_network(
-    edge_frames: list[pd.DataFrame],
-    times: np.ndarray,
-    title: str,
-    node_color_frames: list[np.ndarray] | None = None,
-    node_cmax: float = 2.0,
+        edge_frames: list[pd.DataFrame],
+        times: np.ndarray,
+        title: str,
+        node_color_frames: list[np.ndarray] | None = None,
+        node_cmax: float = 2.0,
 ) -> go.Figure:
     G = _build_union_graph_from_edge_frames(edge_frames)
 
@@ -3908,15 +3919,15 @@ def _plotly_animated_network(
 # Matplotlib export
 # -------------------------
 def _export_network_animation_matplotlib(
-    edge_frames: list[pd.DataFrame],
-    times: np.ndarray,
-    *,
-    fmt: str = "gif",
-    fps: int = 6,
-    dpi: int = 150,
-    node_cmax: float = 2.0,
-    node_color_frames: list[np.ndarray] | None = None,
-    figsize: tuple[float, float] = (9.0, 7.0),
+        edge_frames: list[pd.DataFrame],
+        times: np.ndarray,
+        *,
+        fmt: str = "gif",
+        fps: int = 6,
+        dpi: int = 150,
+        node_cmax: float = 2.0,
+        node_color_frames: list[np.ndarray] | None = None,
+        figsize: tuple[float, float] = (9.0, 7.0),
 ) -> bytes:
     import os
     import tempfile
@@ -3988,8 +3999,8 @@ def _export_network_animation_matplotlib(
         tf_widths.append(t_w)
 
     use_node_colors = (
-        node_color_frames is not None
-        and len(node_color_frames) == len(edge_frames)
+            node_color_frames is not None
+            and len(node_color_frames) == len(edge_frames)
     )
 
     norm = Normalize(vmin=-float(node_cmax), vmax=float(node_cmax))
@@ -4234,8 +4245,8 @@ if generate_anim:
     st.session_state["anim_net_payload"] = anim_payload
 
 has_anim_payload = (
-    st.session_state.get("anim_net_cache_key") == anim_cache_key
-    and "anim_net_payload" in st.session_state
+        st.session_state.get("anim_net_cache_key") == anim_cache_key
+        and "anim_net_payload" in st.session_state
 )
 
 if not has_anim_payload:

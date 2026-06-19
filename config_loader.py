@@ -179,7 +179,7 @@ class PhosKinConfig:
 
     # Optional pure-JAX hyperedge/network preprocessing
     enable_hyperedge_preprocessing: bool = False
-    hyperedge_preprocessing_output_subdir: str = "network_preprocessing"
+    hyperedge_preprocessing_output_subdir: str = "networkpruning"
     hyperedge_discovery_threshold: float = 0.0
     hyperedge_pruning_threshold: float = 0.0
     hyperedge_motif_detection: bool = True
@@ -224,7 +224,7 @@ def _parse_hyperedge_preprocessing_config(cfg: dict[str, Any]) -> dict[str, Any]
             raise ValueError(f"networkmodel.hyperedge_preprocessing.{name} must be positive, got {value}")
         return value
 
-    output_subdir = str(prep.get("output_subdir", "network_preprocessing")).strip()
+    output_subdir = str(prep.get("output_subdir", "networkpruning")).strip()
     if not output_subdir:
         raise ValueError("networkmodel.hyperedge_preprocessing.output_subdir must be a non-empty string")
 

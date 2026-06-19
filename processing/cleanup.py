@@ -1,4 +1,4 @@
-import os 
+import os
 import shutil
 import pandas as pd
 import numpy as np
@@ -8,11 +8,10 @@ from pathlib import Path
 from config.logconf import setup_logger
 
 logger = setup_logger()
- 
 
 ROOT = Path(__file__).resolve().parent.parent  # …/phoskintime
 BASE = Path(__file__).parent  # …/processing
-os.chdir(BASE) 
+os.chdir(BASE)
 
 # Directory where the raw data files should be located
 base_dir = BASE / "raw"
@@ -203,7 +202,6 @@ def process_routlimma():
 
     # Convert each value in x1 to x9 as 2^(value)
     for col in rename_mapping.values():
-
         # FC
         df_new[col] = 2 ** df_new[col]
 

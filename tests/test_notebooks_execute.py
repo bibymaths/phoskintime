@@ -6,7 +6,6 @@ import nbformat
 import pytest
 from nbclient import NotebookClient
 
-
 NOTEBOOKS = [
     Path("notebooks/01_kinopt_educational_workflow.ipynb"),
     Path("notebooks/02_tfopt_educational_workflow.ipynb"),

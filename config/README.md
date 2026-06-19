@@ -57,7 +57,7 @@ The config module is composed of several submodules:
 ### Global Configuration
 
 The constants defined in `constants.py` control major aspects of the modeling and estimation processes. For example, to
-switch between different kinetic models, update the `ODE_MODEL` value. 
+switch between different kinetic models, update the `ODE_MODEL` value.
 
 ### Logging
 

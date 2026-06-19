@@ -9,6 +9,7 @@ from tfopt.local.config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def run_optimizer(x0, bounds, lin_cons, expression_matrix, regulators, tf_protein_matrix, psite_tensor, n_reg, T_use,
                   n_genes, beta_start_indices, num_psites, loss_type):
     """
@@ -115,6 +116,7 @@ def _result_sort_key(res: Any) -> Tuple[int, float, float, int]:
     # Sort with negatives where we want "True first"
     return (-feasible, fun, cv, -success)
 
+
 def _clip_to_bounds(x: np.ndarray, bounds: Sequence[Tuple[float, float]]) -> np.ndarray:
     """
     Clips the values of an array to be within specified bounds.
@@ -137,12 +139,12 @@ def _clip_to_bounds(x: np.ndarray, bounds: Sequence[Tuple[float, float]]) -> np.
 
 
 def generate_multistart_x0(
-    x0: np.ndarray,
-    bounds: Sequence[Tuple[float, float]],
-    n_starts: int,
-    seed: int = 0,
-    jitter_frac: float = 0.05,
-    p_random: float = 0.3,
+        x0: np.ndarray,
+        bounds: Sequence[Tuple[float, float]],
+        n_starts: int,
+        seed: int = 0,
+        jitter_frac: float = 0.05,
+        p_random: float = 0.3,
 ) -> List[np.ndarray]:
     """
     Generates multiple starting points for multi-start optimization.
@@ -181,31 +183,31 @@ def generate_multistart_x0(
 @dataclass(frozen=True)
 class MultiStartConfig:
     n_starts: int = 32
-    n_jobs: int = -1           # all cores
+    n_jobs: int = -1  # all cores
     seed: int = 0
     jitter_frac: float = 0.05
     p_random: float = 0.3
-    backend: str = "loky"      # process-based; safer for heavy NumPy
+    backend: str = "loky"  # process-based; safer for heavy NumPy
     prefer: str = "processes"  # explicit
 
 
 def _run_single_start(
-    start_id: int,
-    x0_i: np.ndarray,
-    bounds,
-    lin_cons,
-    expression_matrix,
-    regulators,
-    tf_protein_matrix,
-    psite_tensor,
-    n_reg,
-    T_use,
-    n_genes,
-    beta_start_indices,
-    num_psites,
-    loss_type,
-    run_optimizer_func,
-    base_seed: int,
+        start_id: int,
+        x0_i: np.ndarray,
+        bounds,
+        lin_cons,
+        expression_matrix,
+        regulators,
+        tf_protein_matrix,
+        psite_tensor,
+        n_reg,
+        T_use,
+        n_genes,
+        beta_start_indices,
+        num_psites,
+        loss_type,
+        run_optimizer_func,
+        base_seed: int,
 ):
     """
     Executes a single optimization start for a specific set of parameters and attaches metadata
@@ -249,8 +251,9 @@ def _run_single_start(
         res.start_x0 = x0_i
         res.seed = base_seed + start_id
 
-        logger.info(f"Start {start_id}: fun={getattr(res, 'fun', np.nan):.4f}, success={getattr(res, 'success', False)}, "
-                    f"cv={_get_constraint_violation(res):.2e}")
+        logger.info(
+            f"Start {start_id}: fun={getattr(res, 'fun', np.nan):.4f}, success={getattr(res, 'success', False)}, "
+            f"cv={_get_constraint_violation(res):.2e}")
 
     except Exception:
         pass
@@ -259,22 +262,22 @@ def _run_single_start(
 
 
 def run_optimizer_multistart(
-    x0: np.ndarray,
-    bounds,
-    lin_cons,
-    expression_matrix,
-    regulators,
-    tf_protein_matrix,
-    psite_tensor,
-    n_reg,
-    T_use,
-    n_genes,
-    beta_start_indices,
-    num_psites,
-    loss_type,
-    run_optimizer_func,
-    cfg: Optional[MultiStartConfig] = None,
-    polish: bool = True,
+        x0: np.ndarray,
+        bounds,
+        lin_cons,
+        expression_matrix,
+        regulators,
+        tf_protein_matrix,
+        psite_tensor,
+        n_reg,
+        T_use,
+        n_genes,
+        beta_start_indices,
+        num_psites,
+        loss_type,
+        run_optimizer_func,
+        cfg: Optional[MultiStartConfig] = None,
+        polish: bool = True,
 ):
     """
     Executes a multistart optimization loop with parallelization and optional polishing

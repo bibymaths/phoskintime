@@ -133,16 +133,17 @@ def plot_estimated_vs_observed(predictions, expression_matrix, gene_ids, time_po
         )
         fig.write_html(f"{save_path}/{gene_ids[i]}_model_fit_.html")
 
+
 def plot_multistart_summary_runtime_overlay(
-    summary_csv,
-    out_path=None,
-    figsize=(8, 8),
-    x_col="rank",
-    y_col="fun",
-    c_col="runtime_s",
-    success_col="success",
-    cv_col="constr_violation",
-    annotate_best=True,
+        summary_csv,
+        out_path=None,
+        figsize=(8, 8),
+        x_col="rank",
+        y_col="fun",
+        c_col="runtime_s",
+        success_col="success",
+        cv_col="constr_violation",
+        annotate_best=True,
 ):
     """
     Creates a scatter plot visualizing multi-start optimization results with runtime overlay.

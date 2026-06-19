@@ -1,5 +1,6 @@
 from __future__ import annotations
 import jax
+
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
@@ -10,12 +11,14 @@ FLAG_MISSING_SITE_OBS = jnp.uint32(1 << 3)
 FLAG_MISSING_KINASE_OBS = jnp.uint32(1 << 4)
 FLAG_OVER_BUDGET = jnp.uint32(1 << 5)
 
+
 @jax.jit
 def score_triplets(edge_weight, support_count, site_observed, kinase_observed, kinase_ids, substrate_ids):
-    score = jnp.log1p(edge_weight.astype(jnp.float64)) + 0.5*jnp.log1p(support_count.astype(jnp.float64))
-    score = score + 0.25*site_observed.astype(jnp.float64) + 0.25*kinase_observed.astype(jnp.float64)
-    score = score - 0.5*(kinase_ids == substrate_ids).astype(jnp.float64)
+    score = jnp.log1p(edge_weight.astype(jnp.float64)) + 0.5 * jnp.log1p(support_count.astype(jnp.float64))
+    score = score + 0.25 * site_observed.astype(jnp.float64) + 0.25 * kinase_observed.astype(jnp.float64)
+    score = score - 0.5 * (kinase_ids == substrate_ids).astype(jnp.float64)
     return score.astype(jnp.float64)
+
 
 @jax.jit
 def pruning_flags(score, support_count, site_observed, kinase_observed, kinase_ids, substrate_ids,
@@ -28,9 +31,11 @@ def pruning_flags(score, support_count, site_observed, kinase_observed, kinase_i
     flags = jnp.where((~kinase_observed) & prune_missing_observations, flags | FLAG_MISSING_KINASE_OBS, flags)
     return flags
 
+
 @jax.jit
 def sparse_indices_values(kinase_ids, site_ids, substrate_ids, score):
     return jnp.stack([kinase_ids, site_ids, substrate_ids], axis=1).astype(jnp.int32), score.astype(jnp.float64)
+
 
 @jax.jit
 def identifiability_kernel(indices, values):

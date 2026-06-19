@@ -12,16 +12,17 @@ from config.helpers import randmod_subset_masks
 
 def _canonical_model_name(model_name: str | None) -> str:
     model = str(model_name or "protwise").strip().lower()
-    aliases = {"dist": "distmod", "distributive": "distmod", "succ": "succmod", "successive": "succmod", "random": "randmod"}
+    aliases = {"dist": "distmod", "distributive": "distmod", "succ": "succmod", "successive": "succmod",
+               "random": "randmod"}
     return aliases.get(model, model)
 
 
 def _dist_rhs(t, y, params, num_psites: int):
     A, B, C, D = params[0], params[1], params[2], params[3]
-    s = params[4 : 4 + num_psites]
-    d = params[4 + num_psites : 4 + 2 * num_psites]
+    s = params[4: 4 + num_psites]
+    d = params[4 + num_psites: 4 + 2 * num_psites]
     R, P = y[0], y[1]
-    X = y[2 : 2 + num_psites]
+    X = y[2: 2 + num_psites]
     dR = A - B * R
     dP = C * R - (D + jnp.sum(s)) * P + jnp.sum(X)
     dX = s * P - (1.0 + d) * X
@@ -30,10 +31,10 @@ def _dist_rhs(t, y, params, num_psites: int):
 
 def _succ_rhs(t, y, params, num_psites: int):
     A, B, C, D = params[0], params[1], params[2], params[3]
-    s = params[4 : 4 + num_psites]
-    d = params[4 + num_psites : 4 + 2 * num_psites]
+    s = params[4: 4 + num_psites]
+    d = params[4 + num_psites: 4 + 2 * num_psites]
     R, P = y[0], y[1]
-    X = y[2 : 2 + num_psites]
+    X = y[2: 2 + num_psites]
     dR = A - B * R
     dP = C * R - (D + s[0]) * P + X[0] if num_psites else C * R - D * P
     vals = []
@@ -49,10 +50,10 @@ def _rand_rhs(t, y, params, num_psites: int, subset_masks: tuple[int, ...], mask
     A, B, C, D = params[0], params[1], params[2], params[3]
     n = int(num_psites)
     m = len(subset_masks)
-    s = params[4 : 4 + n]
-    ddeg = params[4 + n : 4 + n + m]
+    s = params[4: 4 + n]
+    ddeg = params[4 + n: 4 + n + m]
     R, P = y[0], y[1]
-    X = y[2 : 2 + m]
+    X = y[2: 2 + m]
     dR = A - B * R
     dP = C * R - D * P
     dX = jnp.zeros((m,), dtype=y.dtype)
@@ -90,7 +91,6 @@ def _rand_rhs(t, y, params, num_psites: int, subset_masks: tuple[int, ...], mask
     return jnp.concatenate([jnp.asarray([dR, dP], dtype=y.dtype), dX])
 
 
-
 def aggregate_randmod_site_phospho(sol, num_psites: int):
     """Return randmod site-level phospho curves from subset-level states.
 
@@ -103,13 +103,14 @@ def aggregate_randmod_site_phospho(sol, num_psites: int):
         return np.zeros((0, arr.shape[0]), dtype=arr.dtype)
     subset_masks = randmod_subset_masks(n)
     m = len(subset_masks)
-    subset_states = arr[:, 2 : 2 + m]
+    subset_states = arr[:, 2: 2 + m]
     ph_site = np.zeros((n, arr.shape[0]), dtype=arr.dtype)
     for site_idx in range(n):
         containing = [idx for idx, mask in enumerate(subset_masks) if mask & (1 << site_idx)]
         if containing:
             ph_site[site_idx, :] = np.sum(subset_states[:, containing], axis=1)
     return ph_site
+
 
 def make_local_model_rhs(model_name: str | None, num_psites: int):
     """Return a Diffrax-compatible RHS matching the selected local ODE model."""

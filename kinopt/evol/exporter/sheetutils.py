@@ -84,7 +84,7 @@ def output_results(P_initial, P_init_dense, P_estimated, residuals, alpha_values
         observed_data = []
         for i, ((gene, psite), data) in enumerate(P_initial.items()):
             observed_row = {'Gene': gene, 'Psite': psite}
-            observed_row.update({time: P_init_dense[i,t] for t, time in enumerate(timepoints)})
+            observed_row.update({time: P_init_dense[i, t] for t, time in enumerate(timepoints)})
             observed_data.append(observed_row)
         observed_df = pd.DataFrame(observed_data)
         observed_df.to_excel(writer, sheet_name="Observed", index=False)

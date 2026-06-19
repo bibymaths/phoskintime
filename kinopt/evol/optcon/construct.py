@@ -166,7 +166,7 @@ def _build_k_array(
         # rows for this kinase
         kinase_psite_data = full_hgnc_df[
             full_hgnc_df['GeneID'] == kinase
-        ][['Psite'] + time]
+            ][['Psite'] + time]
 
         if not kinase_psite_data.empty:
             for _, row in kinase_psite_data.iterrows():
@@ -188,7 +188,7 @@ def _build_k_array(
 
             protein_level_df = full_hgnc_df[
                 (full_hgnc_df['GeneID'] == kinase) & (full_hgnc_df['Psite'].isna())
-            ]
+                ]
 
             if not protein_level_df.empty:
                 synthetic_ts = np.array(protein_level_df.iloc[0][time].values, dtype=np.float64)
@@ -206,6 +206,7 @@ def _build_k_array(
 
     K_array = np.asarray(K_array, dtype=np.float64)
     return K_index, K_array, beta_counts
+
 
 def pipeline(
         input1_path: str,

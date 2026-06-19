@@ -131,11 +131,11 @@ def write_command(outdir: str | Path, argv: Iterable[str] | None = None) -> Path
 
 
 def write_metadata(
-    outdir: str | Path,
-    workflow: str,
-    args: Any | None = None,
-    inputs: Iterable[str | Path | None] = (),
-    extra: dict[str, Any] | None = None,
+        outdir: str | Path,
+        workflow: str,
+        args: Any | None = None,
+        inputs: Iterable[str | Path | None] = (),
+        extra: dict[str, Any] | None = None,
 ) -> Path:
     root = ensure_result_dir(outdir)["root"]
     metadata = {
@@ -175,15 +175,20 @@ def write_resolved_config(outdir: str | Path, config: Any | None) -> Path | None
 def tee_console_log(outdir: str | Path):
     root = ensure_result_dir(outdir)["root"]
     log_path = root / "console.log"
+
     class Tee:
         def __init__(self, stream, fh):
             self.stream = stream
             self.fh = fh
+
         def write(self, data):
             self.stream.write(data)
             self.fh.write(data)
+
         def flush(self):
-            self.stream.flush(); self.fh.flush()
+            self.stream.flush();
+            self.fh.flush()
+
     with log_path.open("a", encoding="utf-8") as fh:
         old_out, old_err = sys.stdout, sys.stderr
         sys.stdout, sys.stderr = Tee(old_out, fh), Tee(old_err, fh)

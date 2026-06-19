@@ -46,7 +46,7 @@ Controls the TF → mRNA optimization. Consumed by `tfopt.local` and `tfopt.evol
 | `input3` | string | `"input3.csv"` | TF activity / Rout-Limma data |
 | `input4` | string | `"input4.csv"` | TF-gene network file |
 | `out_file` | string | `"tfopt_results.xlsx"` | Output Excel file |
-| `time_points` | list[float] | `[4,8,15,30,60,120,240,480,960]` | Time grid (minutes) |
+| `time_points` | list | `[4,8,15,30,60,120,240,480,960]` | Time grid (minutes) |
 | `lower_bound` | float | `-4.0` | Lower bound for TF coefficients |
 | `upper_bound` | float | `4.0` | Upper bound for TF coefficients |
 | `loss_type` | int | `5` | Loss function (see below) |

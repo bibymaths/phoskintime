@@ -16,20 +16,22 @@ def test_parameter_names_match_counts_for_all_local_models():
 
 
 def test_dict_bounds_expand_in_parameter_order_without_resize():
-    bounds = {"A": (0.1, 1.0), "B": (0.2, 2.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.5, 5.0), "D(i)": (0.6, 6.0)}
+    bounds = {"A": (0.1, 1.0), "B": (0.2, 2.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.5, 5.0),
+              "D(i)": (0.6, 6.0)}
     lower, upper = _normalize_bounds(bounds, "protwise", 2)
     assert lower.tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.6, 0.6])
     assert upper.tolist() == pytest.approx([1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 6.0, 6.0])
 
 
-
 def test_bounds_preserve_zero_fixed_and_map_infinite_upper():
-    bounds = {"A": (0.0, np.inf), "B": (0.0, 0.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.0, 0.0), "D(i)": (0.6, 6.0)}
+    bounds = {"A": (0.0, np.inf), "B": (0.0, 0.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.0, 0.0),
+              "D(i)": (0.6, 6.0)}
     lower, upper = _normalize_bounds(bounds, "protwise", 1)
     assert lower[0] == pytest.approx(0.0)
     assert upper[0] > 1e5
     assert (lower[1], upper[1]) == pytest.approx((0.0, 0.0))
     assert (lower[4], upper[4]) == pytest.approx((0.0, 0.0))
+
 
 def test_optimizer_space_is_physical_space_for_projected_gradient():
     params = [0.2, 0.3, 0.4]
@@ -42,7 +44,8 @@ def test_randmod_three_site_canonical_subset_and_parameter_order():
     assert generate_randmod_subsets(3) == ((1,), (2,), (3,), (1, 2), (1, 3), (2, 3), (1, 2, 3))
     assert randmod_subset_masks(3) == (1, 2, 4, 3, 5, 6, 7)
     assert get_param_names(3, "randmod")[-7:] == ["D1", "D2", "D3", "D12", "D13", "D23", "D123"]
-    bounds = {"A": (0.1, 1.0), "B": (0.2, 2.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.5, 5.0), "D(i)": (0.6, 6.0)}
+    bounds = {"A": (0.1, 1.0), "B": (0.2, 2.0), "C": (0.3, 3.0), "D": (0.4, 4.0), "S(i)": (0.5, 5.0),
+              "D(i)": (0.6, 6.0)}
     lower, _ = _normalize_bounds(bounds, "randmod", 3)
     assert lower[7:].tolist() == pytest.approx([0.6] * 7)
 
@@ -80,7 +83,8 @@ def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
 
     monkeypatch.setattr(dfs, "NORMALIZE_MODEL_OUTPUT", True)
     monkeypatch.setattr(dfs, "solve_diffrax", lambda *args, **kwargs: raw_sol)
-    sol_site, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0], model_name="randmod")
+    sol_site, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0],
+                                            model_name="randmod")
     # r has 2 points, protein has 2 points, then 3 site-level phospho curves.
     phospho_flat = flat[4:]
     expected = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
@@ -96,6 +100,7 @@ def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
         rtol=1e-8,
         atol=1e-10,
     )
+
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):
     calls = []

@@ -165,12 +165,14 @@ def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path
         "posterior_num_warmup": int(getattr(config, "posterior_num_warmup", 20)),
         "posterior_num_samples": int(getattr(config, "posterior_num_samples", 30)),
         "enable_hyperedge_preprocessing": _as_bool(getattr(config, "enable_hyperedge_preprocessing", False)),
-        "hyperedge_preprocessing_output_subdir": str(getattr(config, "hyperedge_preprocessing_output_subdir", "network_preprocessing")),
+        "hyperedge_preprocessing_output_subdir": str(
+            getattr(config, "hyperedge_preprocessing_output_subdir", "networkpruning")),
         "hyperedge_discovery_threshold": float(getattr(config, "hyperedge_discovery_threshold", 0.0)),
         "hyperedge_pruning_threshold": float(getattr(config, "hyperedge_pruning_threshold", 0.0)),
         "hyperedge_motif_detection": _as_bool(getattr(config, "hyperedge_motif_detection", True)),
         "hyperedge_sparse_tensor_export": _as_bool(getattr(config, "hyperedge_sparse_tensor_export", True)),
-        "hyperedge_identifiability_preprocessing": _as_bool(getattr(config, "hyperedge_identifiability_preprocessing", True)),
+        "hyperedge_identifiability_preprocessing": _as_bool(
+            getattr(config, "hyperedge_identifiability_preprocessing", True)),
         "hyperedge_max_triplets": getattr(config, "hyperedge_max_triplets", None),
         "hyperedge_batch_size": int(getattr(config, "hyperedge_batch_size", 65536)),
         "hyperedge_plot_generation": _as_bool(getattr(config, "hyperedge_plot_generation", True)),
@@ -213,7 +215,8 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
                         dest="enable_network_preprocessing", action="store_true",
                         default=config_defaults["enable_hyperedge_preprocessing"],
                         help="Enable optional pure-JAX hyperedge/network preprocessing before model construction.")
-    parser.add_argument("--network-preprocessing-output-subdir", default=config_defaults["hyperedge_preprocessing_output_subdir"],
+    parser.add_argument("--network-preprocessing-output-subdir",
+                        default=config_defaults["hyperedge_preprocessing_output_subdir"],
                         help="Output subdirectory for optional network preprocessing tables and plots.")
     parser.add_argument("--network-preprocessing-discovery-threshold", type=float,
                         default=config_defaults["hyperedge_discovery_threshold"],
@@ -224,17 +227,20 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
                         help="Minimum hyperedge score retained when network preprocessing is enabled.")
     parser.add_argument("--network-preprocessing-min-support", type=int, default=1,
                         help="Minimum duplicate/source support retained when network preprocessing is enabled.")
-    parser.add_argument("--network-preprocessing-max-triplets", type=int, default=config_defaults["hyperedge_max_triplets"],
+    parser.add_argument("--network-preprocessing-max-triplets", type=int,
+                        default=config_defaults["hyperedge_max_triplets"],
                         help="Optional maximum retained triplet count when network preprocessing is enabled.")
     parser.add_argument("--network-preprocessing-batch-size", type=int, default=config_defaults["hyperedge_batch_size"],
                         help="Batch size for optional preprocessing kernels.")
     parser.add_argument("--disable-network-preprocessing-motifs", dest="network_preprocessing_enable_motifs",
                         action="store_false", default=config_defaults["hyperedge_motif_detection"],
                         help="Disable motif detection in optional network preprocessing.")
-    parser.add_argument("--disable-network-preprocessing-identifiability", dest="network_preprocessing_enable_identifiability",
+    parser.add_argument("--disable-network-preprocessing-identifiability",
+                        dest="network_preprocessing_enable_identifiability",
                         action="store_false", default=config_defaults["hyperedge_identifiability_preprocessing"],
                         help="Disable identifiability preprocessing diagnostics.")
-    parser.add_argument("--disable-network-preprocessing-sparse-export", dest="network_preprocessing_export_sparse_tensor",
+    parser.add_argument("--disable-network-preprocessing-sparse-export",
+                        dest="network_preprocessing_export_sparse_tensor",
                         action="store_false", default=config_defaults["hyperedge_sparse_tensor_export"],
                         help="Disable sparse tensor CSV/NPZ export.")
     parser.add_argument("--disable-network-preprocessing-plots", dest="network_preprocessing_generate_plots",
@@ -503,7 +509,7 @@ def main():
             df_kin, df_tf, df_prot, df_pho, df_rna,
             config=prep_config, output_dir=args.output_dir, logger=logger,
         )
-        worker_net_dir = Path(args.output_dir) / "network_preprocessing"
+        worker_net_dir = Path(args.output_dir) / "networkpruning"
         worker_net_dir.mkdir(parents=True, exist_ok=True)
         worker_net_path = worker_net_dir / "pruned_network_for_workers.csv"
         df_kin.to_csv(worker_net_path, index=False)

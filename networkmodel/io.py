@@ -27,6 +27,7 @@ def _empty_tidy_rna() -> pd.DataFrame:
         "fc": pd.Series(dtype="float64"),
     })
 
+
 def load_data(args):
     """Load configured networkmodel input tables
     

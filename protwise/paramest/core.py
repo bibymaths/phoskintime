@@ -14,6 +14,7 @@ from config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def process_gene(
         gene,
         protein_data,
@@ -211,7 +212,8 @@ def process_gene(
     if SENSITIVITY_ANALYSIS:
         # Perform Sensitivity Analysis
         # Perturbation of parameters around the estimated values
-        perturbation_analysis, trajectories_w_params = sensitivity_analysis(Pr_data, P_data, R_data, final_params, time_points,
+        perturbation_analysis, trajectories_w_params = sensitivity_analysis(Pr_data, P_data, R_data, final_params,
+                                                                            time_points,
                                                                             num_psites, psite_values, labels, init_cond,
                                                                             gene)
 

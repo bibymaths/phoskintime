@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import numpy as np
 import jax
+
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
@@ -23,7 +24,8 @@ _UNBOUNDED_UPPER_CAP = 1e6
 
 def _canonical_model_name(model_name: str | None) -> str:
     model = str(model_name or ODE_MODEL).strip().lower()
-    aliases = {"dist": "distmod", "distributive": "distmod", "succ": "succmod", "successive": "succmod", "random": "randmod"}
+    aliases = {"dist": "distmod", "distributive": "distmod", "succ": "succmod", "successive": "succmod",
+               "random": "randmod"}
     return aliases.get(model, model)
 
 
@@ -133,7 +135,7 @@ def aggregate_randmod_phospho(sol, num_psites):
     to every site they contain.
     """
     m = (1 << int(num_psites)) - 1
-    subset_states = sol[:, 2 : 2 + m]
+    subset_states = sol[:, 2: 2 + m]
     subset_masks = randmod_subset_masks(num_psites)
     if num_psites == 3:
         assert subset_masks == (1, 2, 4, 3, 5, 6, 7)
@@ -185,7 +187,8 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     model = _canonical_model_name(ODE_MODEL)
     expected_state = 2 + ((1 << int(num_psites)) - 1 if model == "randmod" else int(num_psites))
     if len(init_cond) != expected_state:
-        raise ValueError(f"[{gene}] Initial condition length {len(init_cond)} does not match {model} state dimension {expected_state}.")
+        raise ValueError(
+            f"[{gene}] Initial condition length {len(init_cond)} does not match {model} state dimension {expected_state}.")
 
     pr = np.asarray(pr_data, dtype=np.float64).reshape(-1)
     ph = np.asarray(p_data, dtype=np.float64).reshape(-1)
@@ -199,7 +202,8 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
         "scale_protein": _loss_scale(pr),
         "scale_phospho": _loss_scale(ph),
     }
-    active = [name for name, flag in (("mrna", mode["fit_mrna"]), ("protein", mode["fit_protein"]), ("phospho", mode["fit_phospho"])) if flag]
+    active = [name for name, flag in
+              (("mrna", mode["fit_mrna"]), ("protein", mode["fit_protein"]), ("phospho", mode["fit_phospho"])) if flag]
     if not active:
         raise ValueError(f"[{gene}] No protwise data layers available for fitting.")
     logger.info("[%s] Detected protwise data mode: %s", gene, "+".join(active))
@@ -223,20 +227,29 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info("[%s] Initial scalar objective value: %.8g", gene, initial_value)
     logger.info("[%s] Objective at doubled/clipped initial physical parameters: %.8g", gene, scaled_initial_value)
 
-    best, state, value = optimize_scalar_objective(objective, theta0, lower_opt, upper_opt, maxiter=200, tol=1e-7, logger_obj=logger)
+    best, state, value = optimize_scalar_objective(objective, theta0, lower_opt, upper_opt, maxiter=200, tol=1e-7,
+                                                   logger_obj=logger)
     final_params = np.asarray(from_opt_space(best, model), dtype=np.float64)
     final_params = np.clip(final_params, lower_phys, upper_phys)
     at_lower = np.mean(final_params <= (lower_phys + 1e-7 * np.maximum(1.0, np.abs(lower_phys))))
-    logger.info("[%s] Final scalar objective value: %.8g (initial %.8g); fraction at lower bounds=%.3f", gene, value, initial_value, at_lower)
+    logger.info("[%s] Final scalar objective value: %.8g (initial %.8g); fraction at lower bounds=%.3f", gene, value,
+                initial_value, at_lower)
     logger.info("[%s] Optimizer iterations: %s", gene, getattr(state, "iter_num", "unknown"))
 
     rhs = make_local_model_rhs(model, num_psites)
-    sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64), params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
+    sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64),
+                                   params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
     r_fit = sol[-mrna.size:, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
     pr_fit = sol[:, 1].reshape(-1)
-    ph_fit = np.asarray(aggregate_randmod_phospho(jnp.asarray(sol), num_psites) if model == "randmod" and num_psites else sol[:, 2:2 + num_psites].T, dtype=np.float64).reshape(-1) if num_psites else np.asarray([], dtype=np.float64)
-    seq_model_fit = np.concatenate([r_fit if mode["fit_mrna"] else np.asarray([]), pr_fit if mode["fit_protein"] else np.asarray([]), ph_fit if mode["fit_phospho"] else np.asarray([])])
-    target_fit = np.concatenate([mrna if mode["fit_mrna"] else np.asarray([]), pr if mode["fit_protein"] else np.asarray([]), ph if mode["fit_phospho"] else np.asarray([])])
+    ph_fit = np.asarray(
+        aggregate_randmod_phospho(jnp.asarray(sol), num_psites) if model == "randmod" and num_psites else sol[
+            :, 2:2 + num_psites].T, dtype=np.float64).reshape(-1) if num_psites else np.asarray([], dtype=np.float64)
+    seq_model_fit = np.concatenate(
+        [r_fit if mode["fit_mrna"] else np.asarray([]), pr_fit if mode["fit_protein"] else np.asarray([]),
+         ph_fit if mode["fit_phospho"] else np.asarray([])])
+    target_fit = np.concatenate(
+        [mrna if mode["fit_mrna"] else np.asarray([]), pr if mode["fit_protein"] else np.asarray([]),
+         ph if mode["fit_phospho"] else np.asarray([])])
     errors = seq_model_fit - target_fit if target_fit.size == seq_model_fit.size else np.asarray([float(value)])
     estimated_params = np.vstack([final_params])
     model_fits = [(sol, seq_model_fit)]

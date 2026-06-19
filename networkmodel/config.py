@@ -145,11 +145,10 @@ SENSITIVITY_METRIC = getattr(cfg, "sensitivity_metric", "total_signal")
 # AVAILABLE_MODELS: tuple[str, ...]; default empty tuple; controls logged model metadata.
 AVAILABLE_MODELS = getattr(cfg, "available_models", ())
 
-
 # ENABLE_HYPEREDGE_PREPROCESSING: bool; default False; enables optional pure-JAX hyperedge/network preprocessing before model construction.
 ENABLE_HYPEREDGE_PREPROCESSING = _as_bool(getattr(cfg, "enable_hyperedge_preprocessing", False))
 # HYPEREDGE_PREPROCESSING_OUTPUT_SUBDIR: str; output subdirectory for preprocessing tables/plots under standard result folders.
-HYPEREDGE_PREPROCESSING_OUTPUT_SUBDIR = str(getattr(cfg, "hyperedge_preprocessing_output_subdir", "network_preprocessing"))
+HYPEREDGE_PREPROCESSING_OUTPUT_SUBDIR = str(getattr(cfg, "hyperedge_preprocessing_output_subdir", "networkpruning"))
 # HYPEREDGE_DISCOVERY_THRESHOLD: float; minimum score threshold used for discovered hyperedges.
 HYPEREDGE_DISCOVERY_THRESHOLD = float(getattr(cfg, "hyperedge_discovery_threshold", 0.0))
 # HYPEREDGE_PRUNING_THRESHOLD: float; minimum score threshold used when pruning retained triplets.

@@ -12,6 +12,7 @@ BASE = Path(__file__).parent  # …/processing
 MAPPING = ROOT / "mapping"
 os.makedirs(MAPPING, exist_ok=True)
 
+
 def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Values'):
     """
     Reads the TF-mRNA optimization results from an Excel file and maps mRNA to each TF.
@@ -53,7 +54,8 @@ def map_optimization_results(tf_file_path, kin_file_path, sheet_name='Alpha Valu
 
     # Hide repeated TF rows for readability
     merged_df['TF'] = merged_df['TF'].where(merged_df['TF'] != merged_df['TF'].shift(), '')
-    merged_df['TF_strength'] = merged_df['TF_strength'].where(merged_df['TF_strength'] != merged_df['TF_strength'].shift(), '')
+    merged_df['TF_strength'] = merged_df['TF_strength'].where(
+        merged_df['TF_strength'] != merged_df['TF_strength'].shift(), '')
 
     return merged_df
 
@@ -109,6 +111,7 @@ def create_cytoscape_table(mapping_csv_path):
     edge_df = pd.DataFrame(kinase_tf_edges + tf_mrna_edges)
     return edge_df
 
+
 def add_kinetic_strength_columns(mapping_path, mapping__path, excel_path, suffix):
     """
     Adds kinetic strength columns to the mapping files based on the provided Excel file.
@@ -150,6 +153,7 @@ def add_kinetic_strength_columns(mapping_path, mapping__path, excel_path, suffix
 
     updated.to_csv(ROOT / MAPPING / f"mapping_{suffix}.csv", index=False)
     updated_.to_csv(ROOT / MAPPING / f"mapping_{suffix}_.csv", index=False)
+
 
 def generate_nodes(edge_df):
     """

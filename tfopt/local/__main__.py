@@ -138,7 +138,6 @@ def main():
     plotter.plot_cdf_beta()
     plotter.plot_time_wise_residuals()
 
-
     # LateX the results
     latexit.main(out_dir)
 

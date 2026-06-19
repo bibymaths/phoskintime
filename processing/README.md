@@ -51,12 +51,15 @@ Performs the following steps:
 
 ### `map.py`
 
-This script processes optimization results for transcription factors (TFs) and kinases, mapping their interactions with mRNA and phosphorylation sites. It generates Cytoscape-compatible edge and node tables for network visualization.
+This script processes optimization results for transcription factors (TFs) and kinases, mapping their interactions with
+mRNA and phosphorylation sites. It generates Cytoscape-compatible edge and node tables for network visualization.
 
 #### Key Features:
+
 - **TF-mRNA Mapping**: Extracts non-zero optimization results and groups mRNA by associated TFs and their strengths.
 - **Kinase-Phosphorylation Mapping**: Maps kinases to mRNA and phosphorylation sites based on optimization results.
-- **Cytoscape Table Generation**: Creates edge and node tables for network visualization, including interaction types and strengths.
+- **Cytoscape Table Generation**: Creates edge and node tables for network visualization, including interaction types
+  and strengths.
 - **Kinetic Strength Integration**: Adds kinetic strength columns to mapping files for further analysis.
 
 ---

@@ -13,6 +13,7 @@ mpl.use("Agg")
 
 from kinopt.local.config.constants import OUT_DIR
 
+
 def format_timepoints(tp, tol=1e-9):
     """
     Format timepoints with minimal decimals:
@@ -35,6 +36,7 @@ def format_timepoints(tp, tol=1e-9):
         else:
             labels.append(f"{x:.1f}")
     return labels
+
 
 def plot_fits_for_gene(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
@@ -61,14 +63,13 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
                     label=f"{psite}", marker='s', linestyle='--',
                     color=colors[i], alpha=0.5, markeredgecolor='black')
         axs[0].plot(short_timepoints, gene_data["estimated"][i][:7],
-                    linestyle='-', linewidth = 2, color=colors[i])
+                    linestyle='-', linewidth=2, color=colors[i])
     axs[0].set_title(f"{gene}")
     axs[0].set_xlabel("Time (minutes)")
     axs[0].grid(True, alpha=0.2)
     axs[0].set_xticks(short_timepoints)
     axs[0].set_xticklabels(format_timepoints(short_timepoints))
     axs[0].legend(title="Residue_Position", bbox_to_anchor=(1.05, 1), loc='upper left')
-
 
     # Full timepoints plot
     xt = real_timepoints[9:]
@@ -77,7 +78,7 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
                     label=f"{psite}", marker='s', linestyle='--',
                     color=colors[i], alpha=0.5, markeredgecolor='black')
         axs[1].plot(real_timepoints, gene_data["estimated"][i],
-                    linestyle='-', linewidth = 2, color=colors[i])
+                    linestyle='-', linewidth=2, color=colors[i])
     axs[1].set_title(f"{gene}")
     axs[1].set_xlabel("Time (minutes)")
     axs[1].set_ylabel("Phosphorylation Level (FC)")
@@ -89,6 +90,7 @@ def plot_fits_for_gene(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     filename = Path(out_dir) / f"{gene}_fit_.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close()
+
 
 def export_outcomes_to_csv(outcomes, csv_path):
     """
@@ -119,6 +121,7 @@ def export_outcomes_to_csv(outcomes, csv_path):
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
 
 def plot_cumulative_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     """
@@ -213,16 +216,17 @@ def plot_qqplot_residuals(gene, gene_data, real_timepoints, out_dir=OUT_DIR):
     plt.savefig(filename, format='png', dpi=300)
     plt.close('all')
 
+
 def plot_multistart_summary_runtime_overlay(
-    summary_csv,
-    out_path=None,
-    figsize=(8, 8),
-    x_col="rank",
-    y_col="fun",
-    c_col="runtime_s",
-    success_col="success",
-    cv_col="constr_violation",
-    annotate_best=True,
+        summary_csv,
+        out_path=None,
+        figsize=(8, 8),
+        x_col="rank",
+        y_col="fun",
+        c_col="runtime_s",
+        success_col="success",
+        cv_col="constr_violation",
+        annotate_best=True,
 ):
     """
     Read a multistart summary CSV and plot objective vs rank with point color = runtime.

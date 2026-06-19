@@ -39,12 +39,12 @@ You solve a nonlinear system:
 
 $$
 A - B R = 0  
-$$ 
- 
+$$
+
 $$
 C R - (D + \sum S_i) P + \sum P_i = 0  
-$$ 
- 
+$$
+
 $$
 S_i P - (1 + D_i) P_i = 0 \quad \forall i
 $$
@@ -91,10 +91,10 @@ $$
 
 **Where:**
 
-- $R$: mRNA concentration  
-- $P$: unphosphorylated protein  
-- $P_i$: protein with $i$ sites phosphorylated in sequence  
-- $S_i$: phosphorylation rate from $P_{i-1} \to P_i$  
+- $R$: mRNA concentration
+- $P$: unphosphorylated protein
+- $P_i$: protein with $i$ sites phosphorylated in sequence
+- $S_i$: phosphorylation rate from $P_{i-1} \to P_i$
 - $D_i$: degradation rate of $P_i$
 
 ---
@@ -118,10 +118,10 @@ $$
 
 **Where:**
 
-- $X_j$: concentration of phosphorylation state $j$  
-- $N_j^{\text{in}}$: set of states $k$ that transition into $X_j$  
-- $N_j^{\text{out}}$: set of states $l$ that $X_j$ can transition into  
-- $S_{a \rightarrow b}$: rate constant for transition from state $a$ to $b$ (e.g., phosphorylation/dephosphorylation)  
+- $X_j$: concentration of phosphorylation state $j$
+- $N_j^{\text{in}}$: set of states $k$ that transition into $X_j$
+- $N_j^{\text{out}}$: set of states $l$ that $X_j$ can transition into
+- $S_{a \rightarrow b}$: rate constant for transition from state $a$ to $b$ (e.g., phosphorylation/dephosphorylation)
 - $D_j$: degradation rate of state $X_j$ (depends on its phosphorylation pattern)
 
 ---

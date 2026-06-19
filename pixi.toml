@@ -9,137 +9,172 @@ license = "BSD-3-Clause"
 
 [dependencies]
 python = "3.12.*"
-pip = ">=26.1.2,<27"
+pip = "==26.1.2"
 
 # Core numerical/scientific stack
-numpy = "*"
-pandas = "*"
-scipy = "*"
-scikit-learn = "*"
-statsmodels = "*"
-numba = "*"
+numpy = "==2.4.5"
+pandas = "==3.0.3"
+scipy = "==1.17.1"
+scikit-learn = "==1.8.0"
+statsmodels = "==0.14.6"
+numba = "==0.65.1"
 
 # Plotting, visualization, and file I/O
-matplotlib = "*"
-seaborn = "*"
-plotly = "*"
-openpyxl = "*"
-xlsxwriter = "*"
-adjusttext = "*"
-ansi2html = "*"
+matplotlib = "==3.10.9"
+seaborn = "==0.13.2"
+plotly = "==6.6.0"
+openpyxl = "==3.1.5"
+xlsxwriter = "==3.2.9"
+adjusttext = "==1.3.0"
+ansi2html = "==1.9.2"
 
 # Optimization, sensitivity analysis, and modeling utilities
-pymoo = "*"
-cobyqa = "*"
-salib = "*"
-optuna = "*"
+pymoo = "==0.6.1.5"
+cobyqa = "==1.1.3"
+salib = "==1.5.2"
+optuna = "==4.8.0"
 jax = "*"
-jaxopt = "*"
-diffrax = "*"
-numpyro = "*"
+jaxopt = "==0.8.4"
+diffrax = "==0.7.2"
+numpyro = "==0.21.0"
 
 # Graph/network tooling
-graphviz = "*"
-python-graphviz = "*"
-pydot = "*"
-networkx = "*"
-gravis = "*"
-imageio = "*"
+graphviz = "==14.1.2"
+python-graphviz = "==0.21"
+pydot = "==4.0.1"
+networkx = "==3.6.1"
+gravis = "==0.1.0"
+imageio = "==2.37.0"
 
 # Bioinformatics / annotation utilities
-mygene = "*"
+mygene = "==3.2.2"
 
 # CLI/config/runtime utilities
-tqdm = "*"
-python-dotenv = "*"
-typer = "*"
-streamlit = "*"
-jinja2 = "*"
-tomli = "*"
-git-cliff = ">=2.13.1,<3"
-vulture = ">=2.16,<3"
-ipykernel = ">=7.2.0,<8"
-python-libsbml = ">=5.21.1,<6"
-tabulate = ">=0.10.0,<0.11"
+tqdm = "==4.67.3"
+python-dotenv = "==1.2.2"
+typer = "==0.25.1"
+streamlit = "==1.58.0"
+jinja2 = "==3.1.6"
+tomli = "==2.4.1"
+git-cliff = "==2.13.1"
+vulture = "==2.16"
+ipykernel = "==7.2.0"
+python-libsbml = "==5.21.1"
+tabulate = "==0.10.0"
 
 [pypi-dependencies]
 # Not reliably available as a current conda package across all target platforms.
-py2cytoscape = "*"
+py2cytoscape = "==0.7.1"
 
 [feature.dev.dependencies]
-pytest = "*"
-pytest-cov = "*"
-nbmake = "*"
-ipykernel = "*"
-jupyter = "*"
-nbformat = "*"
-nbclient = "*"
-setuptools = "<82"
+pytest = "==9.0.3"
+pytest-cov = "==7.1.0"
+nbmake = "==1.5.5"
+ipykernel = "==7.2.0"
+jupyter = "==1.1.1"
+nbformat = "==5.10.4"
+nbclient = "==0.6.8"
+setuptools = "==81.0.0"
 
 [feature.dev.pypi-dependencies]
-coverage-badge = ">=1.1.2, <2"
+coverage-badge = "==1.1.2"
 
 [feature.docs.dependencies]
-pymdown-extensions = "*"
-mkdocstrings = "*"
-mkdocstrings-python = "*"
-mkdocs-autorefs = "*"
+pymdown-extensions = "==10.21.3"
+mkdocstrings = "==1.0.3"
+mkdocstrings-python = "==2.0.2"
+mkdocs-autorefs = "==1.4.4"
 
 [feature.docs.pypi-dependencies]
-zensical = ">=0.0.42, <0.0.43"
+zensical = "==0.0.42"
 
 [feature.viz.dependencies]
-optuna-dashboard = "*"
-gravis = "*"
+optuna-dashboard = "==0.20.0"
+gravis = "==0.1.0"
 
 [feature.viz.target.linux-64.dependencies]
-pygraphviz = "*"
+pygraphviz = "==1.14"
 
 [feature.viz.target.osx-64.dependencies]
-pygraphviz = "*"
+pygraphviz = "==1.14"
 
 [feature.viz.target.osx-arm64.dependencies]
-pygraphviz = "*"
+pygraphviz = "==1.14"
 
 [tasks]
+# Generate the full changelog.
 changelog = "git cliff -o CHANGELOG.md"
+
+# Show unreleased changelog entries.
 changelog-unreleased = "git cliff --unreleased"
+
+# Write only the latest changelog section.
 changelog-latest = "git cliff --latest -o CHANGELOG.md"
 
+# Run the Python test suite.
 test = "PYTHONPATH=.:.. pytest"
+
+# Run notebook tests with nbmake.
 test-notebooks = "PYTHONPATH=.:.. pytest --nbmake notebooks/*.ipynb"
 
+# Run tests with coverage reporting.
 test-cov = "PYTHONPATH=.:.. pytest --cov=. --cov-report=term-missing --cov-report=xml"
 
+# Generate a coverage badge.
 coverage-badge = "mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
+# Run coverage and regenerate the badge.
 coverage-all = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
+# Smoke-test core package imports.
 check-import = "PYTHONPATH=. python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
 
+# Run KinOpt local optimization.
 kinopt-local = "PYTHONPATH=. python -m kinopt.local"
+
+# Run KinOpt evolutionary optimization.
 kinopt-evol = "PYTHONPATH=. python -m kinopt.evol"
+
+# Run KinOpt fit-analysis utilities.
 kinopt-fitanalysis = "PYTHONPATH=. python -m kinopt.fitanalysis"
 
+# Run TFOpt local optimization.
 tfopt-local = "PYTHONPATH=. python -m tfopt.local"
+
+# Run TFOpt evolutionary optimization.
 tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
 
+# Run preprocessing cleanup.
 prep = "PYTHONPATH=. python -m processing.cleanup"
 
+# Run protein-wise model workflow.
 model = "PYTHONPATH=. python -m protwise.runner.main"
 
+# Run global network model workflow.
 networkmodel = "PYTHONPATH=. python -m networkmodel.runner"
 
+# Run main PhosKinTime CLI.
 phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
+
+# Run complete PhosKinTime CLI workflow.
 phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
+# Run network dashboard entry point.
 network-dashboard = "PYTHONPATH=. python run_dashboard.py"
+
+# Launch Streamlit dashboard.
 dashboard = "PYTHONPATH=. streamlit run dashboard/app.py"
+
+# Launch dashboard with live reload.
 dashboard-dev = "PYTHONPATH=. streamlit run dashboard/app.py --server.runOnSave=true"
 
+# Serve documentation locally.
 docs-serve = "zensical serve"
+
+# Build static documentation.
 docs-build = "zensical build"
 
+# Print a clean repository tree.
 tree-clean = "tree -a -I '.git|.pixi|.venv|venv|env|ENV|__pycache__|.pytest_cache|.mypy_cache|.ruff_cache|.tox|dist|build|*.egg-info|results_*|result_*|logs|.ipynb_checkpoints'"
 
 [environments]

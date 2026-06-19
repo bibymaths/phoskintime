@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 from config.constants import NORMALIZE_MODEL_OUTPUT
 
+
 @njit(cache=True)
 def ode_core(y, t, A, B, C, D, S_rates, D_rates):
     """
@@ -57,11 +58,11 @@ def ode_core(y, t, A, B, C, D, S_rates, D_rates):
 
     # Loop over the number of phosphorylation sites
     for i in range(n):
-
         # dydt[2 + i] is the rate of change of each P site
         dydt[2 + i] = S_rates[i] * P - (1.0 + D_rates[i]) * y[2 + i]
 
     return dydt
+
 
 @njit(cache=True)
 def unpack_params(params, num_psites):
@@ -85,9 +86,10 @@ def unpack_params(params, num_psites):
     B = params[1]
     C = params[2]
     D = params[3]
-    S_rates = params[4 : 4 + num_psites]
-    D_rates = params[4 + num_psites : 4 + 2 * num_psites]
+    S_rates = params[4: 4 + num_psites]
+    D_rates = params[4 + num_psites: 4 + 2 * num_psites]
     return A, B, C, D, S_rates, D_rates
+
 
 def solve_ode(params, init_cond, num_psites, t, **kwargs):
     """Solve this mechanism with the centralized Diffrax Kvaerno backend."""

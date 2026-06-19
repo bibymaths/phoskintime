@@ -110,13 +110,13 @@ def test_workflow_config_inputs_accept_only_toml(tmp_path):
     json_config = _write_file(tmp_path / "config.json")
 
     for workflow_key, role in (
-        ("kinopt-local", "config"),
-        ("tfopt-local", "config"),
-        ("protwise-model", "config"),
-        ("networkmodel", "config"),
-        ("phoskintime-all", "tf_config"),
-        ("phoskintime-all", "kin_config"),
-        ("phoskintime-all", "model_config"),
+            ("kinopt-local", "config"),
+            ("tfopt-local", "config"),
+            ("protwise-model", "config"),
+            ("networkmodel", "config"),
+            ("phoskintime-all", "tf_config"),
+            ("phoskintime-all", "kin_config"),
+            ("phoskintime-all", "model_config"),
     ):
         assert _validation_problems(workflow_key, role, toml) == []
         for invalid in (yaml, yml, json_config):

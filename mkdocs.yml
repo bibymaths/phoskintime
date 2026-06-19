@@ -47,6 +47,7 @@ nav:
       - Kinase Optimization: Documentation/kinopt/README.md
       - Transcription Factor Optimization: Documentation/tfopt/README.md
       - Protein Wise Models: Documentation/models/README.md
+      - Global Network Pruning: Documentation/pruning/README.md
       - Global Network Model: Documentation/global/README.md
       - Steady State Calculation: Documentation/steady/README.md
       - Parameter Estimation: Documentation/paramest/README.md
@@ -63,15 +64,17 @@ nav:
       - Result Directory Contract: result_directory_contract.md
       - Workflow CLI Reference: workflow_cli_reference.md
       - Scripts: Documentation/scripts.md
-      - Docker: Documentation/docker.md
-      - Testing: Documentation/testing.md
       - Metrics & Distance Measures: Documentation/metrics.md
 
 markdown_extensions:
   - pymdownx.arithmatex:
       inline_syntax: ["$", "$"]
       block_syntax: ["$$", "$$"]
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
   - pymdownx.extra
   - attr_list
@@ -103,7 +106,6 @@ plugins:
   - autorefs
 
 watch:
-  - docs
   - kinopt
   - tfopt
   - protwise
@@ -111,6 +113,8 @@ watch:
   - common
   - config
   - processing
+  - networkpruning
+  - notebooks
 
 copyright: >
   Copyright &copy; 2025 <a href="https://bibymaths.github.io">Abhinav Mishra</a>.

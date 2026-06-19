@@ -44,9 +44,15 @@ class DummyIndex:
 
 
 def _frames(layers):
-    prot = pd.DataFrame({"protein": ["G1"], "time": [0.0], "fc": [1.0], "w": [1.0]}) if "protein" in layers else pd.DataFrame(columns=["protein", "time", "fc", "w"])
-    rna = pd.DataFrame({"protein": ["G1"], "time": [0.0], "fc": [1.0], "w": [1.0]}) if "mrna" in layers else pd.DataFrame(columns=["protein", "time", "fc", "w"])
-    pho = pd.DataFrame({"protein": ["G1"], "psite": ["S1"], "time": [0.0], "fc": [1.0], "w": [1.0]}) if "phospho" in layers else pd.DataFrame(columns=["protein", "psite", "time", "fc", "w"])
+    prot = pd.DataFrame(
+        {"protein": ["G1"], "time": [0.0], "fc": [1.0], "w": [1.0]}) if "protein" in layers else pd.DataFrame(
+        columns=["protein", "time", "fc", "w"])
+    rna = pd.DataFrame(
+        {"protein": ["G1"], "time": [0.0], "fc": [1.0], "w": [1.0]}) if "mrna" in layers else pd.DataFrame(
+        columns=["protein", "time", "fc", "w"])
+    pho = pd.DataFrame({"protein": ["G1"], "psite": ["S1"], "time": [0.0], "fc": [1.0],
+                        "w": [1.0]}) if "phospho" in layers else pd.DataFrame(
+        columns=["protein", "psite", "time", "fc", "w"])
     return prot, rna, pho
 
 
@@ -76,7 +82,8 @@ def test_all_modes_detect_losses_objective_optimize_outputs_and_no_fake_missing_
     assert set(mode.active_loss_terms) == {f"{x}_loss" for x in layers}
     assert set(mode.skipped_loss_terms) == {f"{x}_loss" for x in ("mrna", "protein", "phospho") if x not in layers}
 
-    for layer, obs_key, count_key in (("mrna", "obs_rna", "n_r"), ("protein", "obs_prot", "n_p"), ("phospho", "obs_pho", "n_ph")):
+    for layer, obs_key, count_key in (("mrna", "obs_rna", "n_r"), ("protein", "obs_prot", "n_p"),
+                                      ("phospho", "obs_pho", "n_ph")):
         obs = np.asarray(loss_data[obs_key])
         assert not np.isnan(obs).any()
         if layer not in layers:
@@ -89,7 +96,8 @@ def test_all_modes_detect_losses_objective_optimize_outputs_and_no_fake_missing_
     assert np.isfinite(float(value))
     assert not isinstance(value, (tuple, list, dict))
 
-    params, state, opt_value = optimize_scalar_objective(lambda x: jnp.sum((x - 0.25) ** 2), np.ones(3), np.zeros(3), np.ones(3), maxiter=5)
+    params, state, opt_value = optimize_scalar_objective(lambda x: jnp.sum((x - 0.25) ** 2), np.ones(3), np.zeros(3),
+                                                         np.ones(3), maxiter=5)
     assert np.isfinite(opt_value)
     assert np.all(params >= 0) and np.all(params <= 1)
 
@@ -124,8 +132,6 @@ def test_networkmodel_result_is_single_scalar_objective():
     assert problem.n_obj == 1
     assert out["F"].shape == (1,)
     assert np.isfinite(out["F"][0])
-
-
 
 
 def _assert_slice_layout_constructs_or_raises(slices, match=None):
@@ -175,10 +181,12 @@ def test_global_objective_rejects_missing_tail_coverage():
 
 
 def test_diffrax_kvaerno_solver_shape_dtype_and_failure_message():
-    ys = solve_diffrax(jnp.ones(3), jnp.asarray([0.0, 0.5, 1.0]), params=jnp.ones(3), config=DiffraxSolverConfig("Kvaerno4"))
+    ys = solve_diffrax(jnp.ones(3), jnp.asarray([0.0, 0.5, 1.0]), params=jnp.ones(3),
+                       config=DiffraxSolverConfig("Kvaerno4"))
     assert ys.shape == (3, 3)
     assert ys.dtype == jnp.float64
-    ys5 = solve_diffrax(jnp.ones(2), jnp.asarray([0.0, 1.0]), params=jnp.ones(2), config=DiffraxSolverConfig("Kvaerno5"))
+    ys5 = solve_diffrax(jnp.ones(2), jnp.asarray([0.0, 1.0]), params=jnp.ones(2),
+                        config=DiffraxSolverConfig("Kvaerno5"))
     assert ys5.shape == (2, 2)
     with pytest.raises(ValueError, match="strictly increasing"):
         solve_diffrax(jnp.ones(2), jnp.asarray([0.0, 0.0]), params=jnp.ones(2))
@@ -199,7 +207,8 @@ def test_constraints_alpha_beta_bounded_and_fixed_parameters_after_optimization(
     assert np.any(pb < 0), "beta projection must not force non-negativity"
 
     theta = np.asarray([-1.0, 0.5, 9.0])
-    projected = np.asarray(project_bounds(theta, [0, 0, 0], [2, 2, 2], fixed_mask=[False, True, False], fixed_values=[0, 1.25, 0]))
+    projected = np.asarray(
+        project_bounds(theta, [0, 0, 0], [2, 2, 2], fixed_mask=[False, True, False], fixed_values=[0, 1.25, 0]))
     assert np.all(projected >= 0) and np.all(projected <= 2)
     assert projected[1] == 1.25
 
@@ -234,12 +243,17 @@ def test_protwise_uses_jaxopt_diffrax_path_structurally():
 
 def test_dashboard_bundle_and_dashboard_loader_accept_scalar_fields(tmp_path, monkeypatch):
     mode = DataMode(("protein",), "protein", False, True, False)
-    res = JaxoptResult(X=np.asarray([[0.1, 0.2]]), F=np.asarray([[0.03]]), objective_value=0.03, params=np.asarray([0.1, 0.2]), state=None, data_mode=mode, loss_breakdown={})
-    save_dashboard_bundle(tmp_path, args={"solver": "jaxopt"}, res=res, slices={}, xl=np.zeros(2), xu=np.ones(2), defaults={}, lambdas={}, solver_times=[0, 1], df_prot=pd.DataFrame(), df_rna=pd.DataFrame(), df_pho=pd.DataFrame())
+    res = JaxoptResult(X=np.asarray([[0.1, 0.2]]), F=np.asarray([[0.03]]), objective_value=0.03,
+                       params=np.asarray([0.1, 0.2]), state=None, data_mode=mode, loss_breakdown={})
+    save_dashboard_bundle(tmp_path, args={"solver": "jaxopt"}, res=res, slices={}, xl=np.zeros(2), xu=np.ones(2),
+                          defaults={}, lambdas={}, solver_times=[0, 1], df_prot=pd.DataFrame(), df_rna=pd.DataFrame(),
+                          df_pho=pd.DataFrame())
     write_scalar_result_tables(tmp_path, mode, [0.03])
 
-    fake_streamlit = types.SimpleNamespace(image=lambda *a, **k: None, video=lambda *a, **k: None, markdown=lambda *a, **k: None)
-    fake_px = types.SimpleNamespace(scatter=lambda *a, **k: types.SimpleNamespace(add_trace=lambda *a, **k: None, update_layout=lambda *a, **k: None))
+    fake_streamlit = types.SimpleNamespace(image=lambda *a, **k: None, video=lambda *a, **k: None,
+                                           markdown=lambda *a, **k: None)
+    fake_px = types.SimpleNamespace(scatter=lambda *a, **k: types.SimpleNamespace(add_trace=lambda *a, **k: None,
+                                                                                  update_layout=lambda *a, **k: None))
     fake_go = types.SimpleNamespace(Scatter=lambda *a, **k: object())
     monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
     monkeypatch.setitem(sys.modules, "plotly", types.SimpleNamespace(express=fake_px, graph_objects=fake_go))
@@ -276,7 +290,8 @@ def test_forbidden_stack_not_in_active_networkmodel_protwise_paths():
         root / "protwise" / "models" / "randmod.py",
     ]
     text = "\n".join(p.read_text() for p in active_paths)
-    forbidden = ["from pymoo", "import pymoo", "scipy.optimize", "curve_fit", "from scipy.integrate", "solve_ivp(", "odeint("]
+    forbidden = ["from pymoo", "import pymoo", "scipy.optimize", "curve_fit", "from scipy.integrate", "solve_ivp(",
+                 "odeint("]
     for term in forbidden:
         assert term not in text
     assert "TO" + "DO" not in text

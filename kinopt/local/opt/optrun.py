@@ -7,6 +7,7 @@ from kinopt.local.config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def run_optimization(obj_fun, params_initial, opt_method, bounds, constraints):
     """
     Run optimization using the specified method.
@@ -251,11 +252,11 @@ def multistart_run_optimization(obj_fun, params_initial, opt_method, bounds, con
         feasible = (o.constr_violation <= 1e-12)
         if prefer_feasible:
             return (
-                0 if feasible else 1,           # feasible first
-                o.constr_violation,             # then smallest violation
-                o.fun,                          # then objective
-                0 if o.success else 1,          # then success
-                o.runtime_s                     # then runtime
+                0 if feasible else 1,  # feasible first
+                o.constr_violation,  # then smallest violation
+                o.fun,  # then objective
+                0 if o.success else 1,  # then success
+                o.runtime_s  # then runtime
             )
         return (o.fun, 0 if o.success else 1, o.constr_violation, o.runtime_s)
 

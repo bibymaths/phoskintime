@@ -31,6 +31,7 @@ from kinopt.evol.config.logconf import setup_logger
 
 logger = setup_logger()
 
+
 def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=True):
     """
     Run optimization with graceful handling of Ctrl+C interruption.
@@ -80,6 +81,7 @@ def _run_with_ctrlc(problem, algorithm, termination, verbose=True, save_history=
 
     return res
 
+
 def choose_de_pop_size(problem):
     """
     Determine an appropriate population size for Differential Evolution (DE) algorithms.
@@ -104,6 +106,7 @@ def choose_de_pop_size(problem):
     # DE benefits from even population sizes
     pop = int(10 * round(pop / 10))
     return pop
+
 
 def choose_nsga_pop_size(problem, n_obj=3):
     """
@@ -135,6 +138,7 @@ def choose_nsga_pop_size(problem, n_obj=3):
     pop = int(50 * round(pop / 50))
     pop = max(pop, 10 * n_obj)  # never below 30 for 3 objectives
     return pop
+
 
 def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
     """
@@ -274,6 +278,7 @@ def binary_tournament_loss_cv(pop, P, eps_cv=1e-10, cv_mode="linf", **kwargs):
 
     return S
 
+
 def run_optimization(
         P_initial,
         P_initial_array,
@@ -391,12 +396,13 @@ def run_optimization(
 
     return problem, result
 
+
 def pick_best_loss_with_constraints_as_objectives(
-    result,
-    eps_cv=1e-10,
-    cv_mode="l1",              # "l1" | "linf" | "l2"
-    tie_tol=1e-12,
-    tie_break="loss_then_l2",  # "loss_then_l2" | "loss_only"
+        result,
+        eps_cv=1e-10,
+        cv_mode="l1",  # "l1" | "linf" | "l2"
+        tie_tol=1e-12,
+        tie_break="loss_then_l2",  # "loss_then_l2" | "loss_only"
 ):
     """
     Select the best solution from a population with constraints formulated as objectives.
@@ -469,7 +475,7 @@ def pick_best_loss_with_constraints_as_objectives(
     elif cv_mode == "linf":
         agg = np.maximum(cv1, cv2)
     elif cv_mode == "l2":
-        agg = np.sqrt(cv1**2 + cv2**2)
+        agg = np.sqrt(cv1 ** 2 + cv2 ** 2)
     else:
         raise ValueError("cv_mode must be one of: 'l1', 'linf', 'l2'")
 
@@ -495,6 +501,7 @@ def pick_best_loss_with_constraints_as_objectives(
         "best_agg_cv": best_agg,
     })
     return best_solution, best_idx, info
+
 
 def post_optimization_nsga(
         result,

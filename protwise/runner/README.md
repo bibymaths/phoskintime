@@ -16,14 +16,14 @@ Excel file with sheet name `Estimated`, and columns:
 
 Configuration is passed via command-line arguments and processed using `config/config.py`. Key parameters include:
 
-- `input_excel`: Path to Protein-Kinase data 
-- `input_excel_rna`: Path to mRNA data 
+- `input_excel`: Path to Protein-Kinase data
+- `input_excel_rna`: Path to mRNA data
 - `bootstraps` : Number of bootstrap iterations
-- `A-bound` : Bounds for mRNA production rate 
-- `B-bound` : Bounds for mRNA degradation rate 
-- `C-bound` : Bounds for protein production rate 
-- `D-bound` : Bounds for protein degradation rate 
-- `S-bound` : Bounds for phosphorylation rate 
+- `A-bound` : Bounds for mRNA production rate
+- `B-bound` : Bounds for mRNA degradation rate
+- `C-bound` : Bounds for protein production rate
+- `D-bound` : Bounds for protein degradation rate
+- `S-bound` : Bounds for phosphorylation rate
 - `D-bound` : Bounds for dephosphorylation rate
 
 ## Output

@@ -7,6 +7,7 @@ from config.constants import USE_CUSTOM_WEIGHTS
 
 current_dir = Path(__file__).resolve().parent
 
+
 @njit(cache=True)
 def early_emphasis(pr_data, p_data, time_points, num_psites):
     """
@@ -117,7 +118,7 @@ def get_protein_weights(
         input2_gene, input1,
         on=['GeneID', 'Psite'],
         how='left',
-        indicator= True
+        indicator=True
     )
 
     if merged.isnull().any().any():

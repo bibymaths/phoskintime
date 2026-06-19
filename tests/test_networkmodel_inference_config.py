@@ -31,28 +31,28 @@ def test_legacy_networkmodel_config_fields_are_not_exported():
     cfg = load_config_toml("config.toml")
 
     for field in (
-        "population_size",
-        "use_custom_solver",
-        "optimizer",
-        "study_name",
-        "sampler",
-        "pruner",
-        "n_trials",
-        "refine",
-        "num_refine",
+            "population_size",
+            "use_custom_solver",
+            "optimizer",
+            "study_name",
+            "sampler",
+            "pruner",
+            "n_trials",
+            "refine",
+            "num_refine",
     ):
         assert not hasattr(cfg, field)
 
     for constant in (
-        "POPULATION_SIZE",
-        "USE_CUSTOM_SOLVER",
-        "OPTIMIZER",
-        "STUDY_NAME",
-        "SAMPLER",
-        "PRUNER",
-        "N_TRIALS",
-        "REFINE",
-        "NUM_REFINE",
+            "POPULATION_SIZE",
+            "USE_CUSTOM_SOLVER",
+            "OPTIMIZER",
+            "STUDY_NAME",
+            "SAMPLER",
+            "PRUNER",
+            "N_TRIALS",
+            "REFINE",
+            "NUM_REFINE",
     ):
         assert not hasattr(config, constant)
 

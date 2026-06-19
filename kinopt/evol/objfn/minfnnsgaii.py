@@ -4,6 +4,7 @@ from pymoo.core.problem import ElementwiseProblem
 from kinopt.evol.config import include_regularization, lb, ub, loss_type
 from kinopt.evol.optcon import n, P_initial_array
 
+
 @njit(cache=True, fastmath=False)
 def _predict_matrix_numba(params, i_idx, a_idx, b_idx, k_row_idx, K_array, i_max, t_max):
     """
@@ -321,6 +322,7 @@ class PhosphorylationOptimizationProblem(ElementwiseProblem):
         # Fallback
         return float(_mse_sse_numba(self.P_initial_array, P_pred, float(n)))
 
+
 def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, beta_counts):
     """
     Calculates the estimated time series for each gene-psite based on the optimized parameters.
@@ -392,6 +394,7 @@ def _estimated_series(params, P_initial, K_index, K_array, gene_psite_counts, be
         alpha_cursor += len(kinases)
 
     return P_est
+
 
 def _residuals(P_initial_array, P_estimated):
     """

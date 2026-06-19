@@ -36,7 +36,7 @@ def test_hyperedge_preprocessing_defaults_are_disabled_for_missing_section(tmp_p
     cfg = load_config_toml(conf)
 
     assert cfg.enable_hyperedge_preprocessing is False
-    assert cfg.hyperedge_preprocessing_output_subdir == "network_preprocessing"
+    assert cfg.hyperedge_preprocessing_output_subdir == "networkpruning"
     assert cfg.hyperedge_discovery_threshold == pytest.approx(0.0)
     assert cfg.hyperedge_pruning_threshold == pytest.approx(0.0)
     assert cfg.hyperedge_motif_detection is True

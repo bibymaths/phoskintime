@@ -85,7 +85,8 @@ def test_profile_likelihood_standalone_processes_merges_worker_outputs(tmp_path,
     assert (tmp_path / "profiles" / "profile_likelihood_summary.csv").exists()
     assert (tmp_path / "profiles" / "profile_worker_status.csv").exists()
     assert set(result["summary"]["parameter_index"]) == {0, 2}
-    assert result["summary"].loc[result["summary"]["parameter_index"] == 2, "objective_value"].iloc[0] == pytest.approx(3.5)
+    assert result["summary"].loc[result["summary"]["parameter_index"] == 2, "objective_value"].iloc[0] == pytest.approx(
+        3.5)
 
 
 def test_numpyro_posterior_standalone_processes_merges_chains_and_all_failures_raise(tmp_path, monkeypatch):
@@ -118,7 +119,8 @@ def test_numpyro_posterior_standalone_processes_merges_chains_and_all_failures_r
             else:
                 samples.parent.mkdir(parents=True, exist_ok=True)
                 pd.DataFrame(
-                    {"theta0": [0.1 + self.chain_id], "sigma": [0.2], "scalar_objective": [1.0], "data_mode": ["protein"]}
+                    {"theta0": [0.1 + self.chain_id], "sigma": [0.2], "scalar_objective": [1.0],
+                     "data_mode": ["protein"]}
                 ).to_csv(samples, index=False)
                 status = {
                     "chain_id": self.chain_id,
@@ -194,7 +196,7 @@ def test_write_posterior_payload_writes_arrays_names_and_run_config(tmp_path):
 
 def test_posterior_payload_includes_preprocessed_network_path(tmp_path):
     ctx = _ctx(tmp_path)
-    pruned = tmp_path / "network_preprocessing" / "pruned_network_for_workers.csv"
+    pruned = tmp_path / "networkpruning" / "pruned_network_for_workers.csv"
     pruned.parent.mkdir()
     pruned.write_text("protein,psite,kinase,alpha\nB,S1,A,1.0\n", encoding="utf-8")
     args = SimpleNamespace(
@@ -227,7 +229,8 @@ def test_posterior_worker_loads_preprocessed_network_instead_of_original(tmp_pat
     pruned.to_csv(pruned_path, index=False)
 
     def fake_load_data(args):
-        return original.copy(), pd.DataFrame(columns=["tf", "target", "alpha"]), pd.DataFrame(), pd.DataFrame(columns=["protein", "psite"]), pd.DataFrame(), {}, {}
+        return original.copy(), pd.DataFrame(columns=["tf", "target", "alpha"]), pd.DataFrame(), pd.DataFrame(
+            columns=["protein", "psite"]), pd.DataFrame(), {}, {}
 
     monkeypatch.setattr(po, "load_data", fake_load_data)
     args = SimpleNamespace(kinase_net="original.csv")
@@ -260,7 +263,8 @@ def test_posterior_worker_pruned_network_shape_matches_main_pruned_network(tmp_p
     main_pruned.to_csv(pruned_path, index=False)
 
     def fake_load_data(args):
-        return original.copy(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(columns=["protein", "psite"]), pd.DataFrame(), {}, {}
+        return original.copy(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(
+            columns=["protein", "psite"]), pd.DataFrame(), {}, {}
 
     monkeypatch.setattr(po, "load_data", fake_load_data)
     worker_df_kin = po._load_data_for_posterior_context(

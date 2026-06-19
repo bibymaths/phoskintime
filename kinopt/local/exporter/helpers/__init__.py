@@ -19,7 +19,6 @@ def build_genes_data(P_initial, P_init_dense, P_estimated, residuals):
     keys = list(P_initial.keys())
 
     for i, key in enumerate(keys):
-
         gene, psite = key
         genes_data[gene]["psites"].append(psite)
         genes_data[gene]["observed"].append(P_init_dense[i, :])
