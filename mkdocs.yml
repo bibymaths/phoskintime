@@ -39,6 +39,11 @@ nav:
   - Contributing: repository/contributing.md
   - API Reference: reference.md
   - Changelog: repository/changelog.md
+  - Tutorials:
+      - KinOpt: notebooks/01_kinopt_educational_workflow.md
+      - TFOpt: notebooks/02_tfopt_educational_workflow.md
+      - ProtWise: notebooks/03_protwise_educational_workflow.md
+      - Network Model: notebooks/04_networkmodel_educational_workflow.md
   - Documentation:
       - Architecture & Data Flow: Documentation/architecture.md
       - Configuration Reference: Documentation/configuration.md
@@ -104,6 +109,9 @@ plugins:
             show_signature_annotations: true
             members_order: source
   - autorefs
+  - mkdocs-jupyter:
+      execute: false
+      include_source: true
 
 watch:
   - kinopt
