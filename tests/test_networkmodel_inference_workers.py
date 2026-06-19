@@ -10,6 +10,7 @@ import pytest
 
 import networkmodel.BayesianInference as bi
 from networkmodel.BayesianInference import InferenceContext
+import networkmodel.PosteriorObjective as po
 from networkmodel.PosteriorObjective import write_posterior_payload
 from networkmodel.backend import DataMode
 from networkmodel.sensitivity import compute_bounds
@@ -187,7 +188,88 @@ def test_write_posterior_payload_writes_arrays_names_and_run_config(tmp_path):
     data = json.loads(path.read_text())
     assert data["output_dir"] == str(tmp_path)
     assert data["payload_dir"] == str(payload_dir)
+    assert "preprocessed_kinase_net" not in data
     assert data["lambdas"] == {"protein": 1.0, "rna": 2.0, "phospho": 3.0, "prior": 4.0}
+
+
+def test_posterior_payload_includes_preprocessed_network_path(tmp_path):
+    ctx = _ctx(tmp_path)
+    pruned = tmp_path / "network_preprocessing" / "pruned_network_for_workers.csv"
+    pruned.parent.mkdir()
+    pruned.write_text("protein,psite,kinase,alpha\nB,S1,A,1.0\n", encoding="utf-8")
+    args = SimpleNamespace(
+        kinase_net="original.csv", tf_net="tf.csv", ms="ms.csv", rna="rna.csv",
+        phospho="phospho.csv", kinopt="", tfopt="", cores=1, n_gen=1, seed=1,
+        normalize_fc_steady=False, use_initial_condition_from_data=False,
+        preprocessed_kinase_net=str(pruned),
+    )
+
+    path = write_posterior_payload(
+        ctx=ctx, runner_args=args,
+        lambdas={"protein": 1, "rna": 1, "phospho": 1, "prior": 1},
+        output_dir=tmp_path,
+    )
+
+    data = json.loads(path.read_text())
+    assert data["kinase_net"] == "original.csv"
+    assert data["preprocessed_kinase_net"] == str(pruned)
+
+
+def test_posterior_worker_loads_preprocessed_network_instead_of_original(tmp_path, monkeypatch):
+    original = pd.DataFrame({
+        "protein": ["B", "C"],
+        "psite": ["S1", "S2"],
+        "kinase": ["A", "X"],
+        "alpha": [1.0, 1.0],
+    })
+    pruned = pd.DataFrame({"protein": ["B"], "psite": ["S1"], "kinase": ["A"], "alpha": [1.0]})
+    pruned_path = tmp_path / "pruned_network_for_workers.csv"
+    pruned.to_csv(pruned_path, index=False)
+
+    def fake_load_data(args):
+        return original.copy(), pd.DataFrame(columns=["tf", "target", "alpha"]), pd.DataFrame(), pd.DataFrame(columns=["protein", "psite"]), pd.DataFrame(), {}, {}
+
+    monkeypatch.setattr(po, "load_data", fake_load_data)
+    args = SimpleNamespace(kinase_net="original.csv")
+    loaded = po._load_data_for_posterior_context(args, {"preprocessed_kinase_net": str(pruned_path)})
+
+    assert loaded[0].reset_index(drop=True).equals(pruned)
+
+
+def test_posterior_worker_uses_original_network_without_preprocessed_path(monkeypatch):
+    original = pd.DataFrame({"protein": ["B"], "psite": ["S1"], "kinase": ["A"], "alpha": [1.0]})
+
+    def fake_load_data(args):
+        return original.copy(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}, {}
+
+    monkeypatch.setattr(po, "load_data", fake_load_data)
+    loaded = po._load_data_for_posterior_context(SimpleNamespace(kinase_net="original.csv"), {})
+
+    assert loaded[0].equals(original)
+
+
+def test_posterior_worker_pruned_network_shape_matches_main_pruned_network(tmp_path, monkeypatch):
+    original = pd.DataFrame({
+        "protein": ["B", "C"],
+        "psite": ["S1", "S2"],
+        "kinase": ["A", "X"],
+        "alpha": [1.0, 1.0],
+    })
+    main_pruned = original.iloc[[0]].copy().reset_index(drop=True)
+    pruned_path = tmp_path / "pruned_network_for_workers.csv"
+    main_pruned.to_csv(pruned_path, index=False)
+
+    def fake_load_data(args):
+        return original.copy(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(columns=["protein", "psite"]), pd.DataFrame(), {}, {}
+
+    monkeypatch.setattr(po, "load_data", fake_load_data)
+    worker_df_kin = po._load_data_for_posterior_context(
+        SimpleNamespace(kinase_net="original.csv"),
+        {"preprocessed_kinase_net": str(pruned_path)},
+    )[0]
+
+    assert worker_df_kin.shape == main_pruned.shape
+    assert worker_df_kin.reset_index(drop=True).equals(main_pruned)
 
 
 def test_param_names_pad_truncate_and_generate_defaults():

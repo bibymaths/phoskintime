@@ -24,6 +24,7 @@ os.environ.setdefault(
 )
 
 import numpy as np
+import pandas as pd
 
 from networkmodel.BuildMatrix import build_W_parallel, build_tf_matrix
 from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
@@ -141,6 +142,18 @@ def _prepare_tf_model(df_tf, df_kin, df_prot, df_rna, df_pho, kin_beta_map, tf_b
     return df_tf_model, idx
 
 
+def _load_data_for_posterior_context(args, cfg: dict):
+    """Load worker data, replacing df_kin with persisted preprocessed network when present."""
+    df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
+    preprocessed_path = cfg.get("preprocessed_kinase_net")
+    if preprocessed_path:
+        path = Path(preprocessed_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"preprocessed kinase network not found: {path}")
+        df_kin = pd.read_csv(path)
+    return df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map
+
+
 def build_networkmodel_posterior_context(run_config_path: str | Path, chain_output_dir: str | Path) -> InferenceContext:
     """Rebuild an InferenceContext from saved posterior run config.
 
@@ -183,7 +196,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         solver="jaxopt",
     )
 
-    df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
+    df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = _load_data_for_posterior_context(args, cfg)
 
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)
@@ -368,6 +381,10 @@ def write_posterior_payload(
         },
         "tol": float(getattr(ctx, "tol", 1e-6)),
     }
+
+    preprocessed_kinase_net = getattr(runner_args, "preprocessed_kinase_net", "")
+    if preprocessed_kinase_net:
+        run_config["preprocessed_kinase_net"] = str(preprocessed_kinase_net)
 
     run_config_path = payload_dir / "posterior_run_config.json"
     with open(run_config_path, "w") as f:

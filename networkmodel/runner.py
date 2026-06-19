@@ -503,6 +503,11 @@ def main():
             df_kin, df_tf, df_prot, df_pho, df_rna,
             config=prep_config, output_dir=args.output_dir, logger=logger,
         )
+        worker_net_dir = Path(args.output_dir) / "network_preprocessing"
+        worker_net_dir.mkdir(parents=True, exist_ok=True)
+        worker_net_path = worker_net_dir / "pruned_network_for_workers.csv"
+        df_kin.to_csv(worker_net_path, index=False)
+        args.preprocessed_kinase_net = str(worker_net_path)
         logger.info(
             "[NetworkPreprocessing] Kinase triplets retained: %d → %d",
             n_kin_before, len(df_kin),
