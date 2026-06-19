@@ -10,9 +10,9 @@ def _plot_dir(output_dir, subdir="network_preprocessing"):
         root=Path(output_dir)/subdir/"plots"
     root.mkdir(parents=True, exist_ok=True); return root
 
-def plot_preprocessing_result(result, output_dir, *, style="paper"):
+def plot_preprocessing_result(result, output_dir, *, style="paper", output_subdir="network_preprocessing"):
     import matplotlib.pyplot as plt
-    root=_plot_dir(output_dir); paths={}
+    root=_plot_dir(output_dir, output_subdir); paths={}
     scores=np.asarray(result.discovered.score)
     fig,ax=plt.subplots(); ax.hist(scores, bins=min(30, max(1, len(scores)))); ax.set_title("Hyperedge score distribution"); ax.set_xlabel("score"); ax.set_ylabel("count"); p=root/"hyperedge_score_distribution.png"; fig.savefig(p,dpi=200,bbox_inches="tight"); plt.close(fig); paths["scores"]=p
     fig,ax=plt.subplots(); ax.bar(["retained","removed"],[result.summary["n_retained"], result.summary["n_pruned"]]); ax.set_title("Retained vs removed triplets"); p=root/"retained_vs_removed_triplets.png"; fig.savefig(p,dpi=200,bbox_inches="tight"); plt.close(fig); paths["retained_removed"]=p

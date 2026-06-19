@@ -14,7 +14,7 @@ def discover_hyperedges(encoded: EncodedNetwork, config: NetworkPreprocessingCon
     return TripletTable(encoded.kinase_ids, encoded.site_ids, encoded.substrate_ids, score, encoded.support_count, jnp.zeros_like(encoded.support_count, dtype=jnp.uint32))
 
 def prune_triplets(triplets: TripletTable, encoded: EncodedNetwork, config: NetworkPreprocessingConfig) -> TripletTable:
-    flags=pruning_flags(triplets.score, triplets.support_count, encoded.site_observed, encoded.kinase_observed, triplets.kinase_ids, triplets.substrate_ids, float(config.min_triplet_score), int(config.min_support_count), bool(config.prune_self_loops), bool(config.prune_missing_observations))
+    flags=pruning_flags(triplets.score, triplets.support_count, encoded.site_observed, encoded.kinase_observed, triplets.kinase_ids, triplets.substrate_ids, float(max(config.discovery_threshold, config.min_triplet_score)), int(config.min_support_count), bool(config.prune_self_loops), bool(config.prune_missing_observations))
     keep=flags==0
     if config.max_triplets is not None and int(keep.sum())>config.max_triplets:
         kept_idx=jnp.where(keep, size=triplets.score.size, fill_value=-1)[0]
@@ -58,9 +58,15 @@ def preprocess_network(kinase_network: pd.DataFrame, *, phospho_observations=Non
     summary={"n_discovered": int(discovered.score.size), "n_retained": int(pruned.score.size), "n_pruned": int(discovered.score.size-pruned.score.size), "n_motifs": int(0 if motifs is None else motifs.score.size), "tensor_nnz": int(theta.values.size)}
     res=NetworkPreprocessingResult(encoded, discovered, pruned, theta, motifs, ident, summary)
     if output_dir is not None:
-        from .export import export_preprocessing_result
-        from .plotting import plot_preprocessing_result
-        export_preprocessing_result(res, output_dir); plot_preprocessing_result(res, output_dir)
+        if config.export_csv or config.export_sparse_tensor:
+            from .export import export_preprocessing_result
+            export_preprocessing_result(
+                res, output_dir, output_subdir=config.output_subdir,
+                include_csv=config.export_csv, include_sparse_tensor=config.export_sparse_tensor,
+            )
+        if config.generate_plots:
+            from .plotting import plot_preprocessing_result
+            plot_preprocessing_result(res, output_dir, output_subdir=config.output_subdir)
         logger.info("[NetworkPreprocessing] outputs saved under %s", Path(output_dir)/config.output_subdir)
     return res
 

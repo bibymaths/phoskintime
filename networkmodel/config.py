@@ -144,3 +144,27 @@ SENSITIVITY_METRIC = getattr(cfg, "sensitivity_metric", "total_signal")
 
 # AVAILABLE_MODELS: tuple[str, ...]; default empty tuple; controls logged model metadata.
 AVAILABLE_MODELS = getattr(cfg, "available_models", ())
+
+
+# ENABLE_HYPEREDGE_PREPROCESSING: bool; default False; enables optional pure-JAX hyperedge/network preprocessing before model construction.
+ENABLE_HYPEREDGE_PREPROCESSING = _as_bool(getattr(cfg, "enable_hyperedge_preprocessing", False))
+# HYPEREDGE_PREPROCESSING_OUTPUT_SUBDIR: str; output subdirectory for preprocessing tables/plots under standard result folders.
+HYPEREDGE_PREPROCESSING_OUTPUT_SUBDIR = str(getattr(cfg, "hyperedge_preprocessing_output_subdir", "network_preprocessing"))
+# HYPEREDGE_DISCOVERY_THRESHOLD: float; minimum score threshold used for discovered hyperedges.
+HYPEREDGE_DISCOVERY_THRESHOLD = float(getattr(cfg, "hyperedge_discovery_threshold", 0.0))
+# HYPEREDGE_PRUNING_THRESHOLD: float; minimum score threshold used when pruning retained triplets.
+HYPEREDGE_PRUNING_THRESHOLD = float(getattr(cfg, "hyperedge_pruning_threshold", 0.0))
+# HYPEREDGE_MOTIF_DETECTION: bool; controls optional motif detection during preprocessing.
+HYPEREDGE_MOTIF_DETECTION = _as_bool(getattr(cfg, "hyperedge_motif_detection", True))
+# HYPEREDGE_SPARSE_TENSOR_EXPORT: bool; controls sparse tensor CSV/NPZ export.
+HYPEREDGE_SPARSE_TENSOR_EXPORT = _as_bool(getattr(cfg, "hyperedge_sparse_tensor_export", True))
+# HYPEREDGE_IDENTIFIABILITY_PREPROCESSING: bool; controls optional identifiability diagnostics.
+HYPEREDGE_IDENTIFIABILITY_PREPROCESSING = _as_bool(getattr(cfg, "hyperedge_identifiability_preprocessing", True))
+# HYPEREDGE_MAX_TRIPLETS: int | None; optional maximum retained triplets for memory safety.
+HYPEREDGE_MAX_TRIPLETS = getattr(cfg, "hyperedge_max_triplets", None)
+# HYPEREDGE_BATCH_SIZE: int; batch size used by preprocessing kernels/adapters.
+HYPEREDGE_BATCH_SIZE = int(getattr(cfg, "hyperedge_batch_size", 65536))
+# HYPEREDGE_PLOT_GENERATION: bool; controls preprocessing diagnostic plot generation.
+HYPEREDGE_PLOT_GENERATION = _as_bool(getattr(cfg, "hyperedge_plot_generation", True))
+# HYPEREDGE_CSV_EXPORT: bool; controls preprocessing CSV/JSON table export.
+HYPEREDGE_CSV_EXPORT = _as_bool(getattr(cfg, "hyperedge_csv_export", True))

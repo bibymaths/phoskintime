@@ -7,6 +7,7 @@ import jax.numpy as jnp
 @dataclass(frozen=True)
 class NetworkPreprocessingConfig:
     min_triplet_score: float = 0.0
+    discovery_threshold: float = 0.0
     min_support_count: int = 1
     max_triplets: int | None = None
     batch_size: int = 65536
@@ -16,6 +17,9 @@ class NetworkPreprocessingConfig:
     prune_self_loops: bool = True
     prune_missing_observations: bool = False
     output_subdir: str = "network_preprocessing"
+    export_sparse_tensor: bool = True
+    generate_plots: bool = True
+    export_csv: bool = True
     dense_motif_node_limit: int = 256
     max_motifs: int = 10000
     score_weights: Mapping[str, float] = field(default_factory=dict)
@@ -24,10 +28,18 @@ class NetworkPreprocessingConfig:
     def from_args(args: Any) -> "NetworkPreprocessingConfig":
         return NetworkPreprocessingConfig(
             min_triplet_score=float(getattr(args, "network_preprocessing_min_score", 0.0)),
+            discovery_threshold=float(getattr(args, "network_preprocessing_discovery_threshold", 0.0)),
             min_support_count=int(getattr(args, "network_preprocessing_min_support", 1)),
             max_triplets=getattr(args, "network_preprocessing_max_triplets", None),
+            batch_size=int(getattr(args, "network_preprocessing_batch_size", 65536)),
+            enable_motifs=bool(getattr(args, "network_preprocessing_enable_motifs", True)),
+            enable_identifiability=bool(getattr(args, "network_preprocessing_enable_identifiability", True)),
             prune_self_loops=bool(getattr(args, "network_preprocessing_prune_self_loops", True)),
             prune_missing_observations=bool(getattr(args, "network_preprocessing_prune_missing_observations", False)),
+            output_subdir=str(getattr(args, "network_preprocessing_output_subdir", "network_preprocessing")),
+            export_sparse_tensor=bool(getattr(args, "network_preprocessing_export_sparse_tensor", True)),
+            generate_plots=bool(getattr(args, "network_preprocessing_generate_plots", True)),
+            export_csv=bool(getattr(args, "network_preprocessing_export_csv", True)),
         )
 
 @dataclass(frozen=True)
