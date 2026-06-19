@@ -189,6 +189,18 @@ class PhosKinConfig:
     hyperedge_batch_size: int = 65536
     hyperedge_plot_generation: bool = True
     hyperedge_csv_export: bool = True
+    # Optional PINN / NeuralODE extension
+    enable_pinn: bool = False
+    pinn_mode: str = "off"
+    pinn_hidden_size: int = 32
+    pinn_depth: int = 2
+    pinn_activation: str = "tanh"
+    pinn_output_scale: float = 1e-2
+    pinn_weight_bound: float = 0.25
+    pinn_l2_regularization: float = 1e-6
+    pinn_t_scale: float = 1.0
+    pinn_y_scale: float = 1.0
+    pinn_seed: int = 42
 
 
 def _parse_hyperedge_preprocessing_config(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -383,6 +395,21 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # -------------------------
     hyperedge_cfg = _parse_hyperedge_preprocessing_config(cfg)
 
+    # -------------------------
+    # 13) Optional PINN / NeuralODE
+    # -------------------------
+    enable_pinn = bool(cfg.get("enable_pinn", False))
+    pinn_mode = str(cfg.get("pinn_mode", "off"))
+    pinn_hidden_size = int(cfg.get("pinn_hidden_size", 32))
+    pinn_depth = int(cfg.get("pinn_depth", 2))
+    pinn_activation = str(cfg.get("pinn_activation", "tanh"))
+    pinn_output_scale = float(cfg.get("pinn_output_scale", 1e-2))
+    pinn_weight_bound = float(cfg.get("pinn_weight_bound", 0.25))
+    pinn_l2_regularization = float(cfg.get("pinn_l2_regularization", 1e-6))
+    pinn_t_scale = float(cfg.get("pinn_t_scale", 1.0))
+    pinn_y_scale = float(cfg.get("pinn_y_scale", 1.0))
+    pinn_seed = int(cfg.get("pinn_seed", seed))
+
     return PhosKinConfig(
         kinase_net=kinase_net,
         tf_net=tf_net,
@@ -454,6 +481,18 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         sensitivity_metric=sensitivity_metric,
 
         available_models=available_models,
+
+        enable_pinn=enable_pinn,
+        pinn_mode=pinn_mode,
+        pinn_hidden_size=pinn_hidden_size,
+        pinn_depth=pinn_depth,
+        pinn_activation=pinn_activation,
+        pinn_output_scale=pinn_output_scale,
+        pinn_weight_bound=pinn_weight_bound,
+        pinn_l2_regularization=pinn_l2_regularization,
+        pinn_t_scale=pinn_t_scale,
+        pinn_y_scale=pinn_y_scale,
+        pinn_seed=pinn_seed,
 
         **hyperedge_cfg,
     )

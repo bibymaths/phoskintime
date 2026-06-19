@@ -107,7 +107,7 @@ class GlobalODEScalarObjective:
     """Evaluate and solve the scalar global ODE objective"""
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12,
-                 data_mode: DataMode | None = None, **_):
+                 data_mode: DataMode | None = None, pinn_config=None, pinn_spec=None, **_):
         """Initialize GlobalODEScalarObjective
         
         Args:
@@ -141,13 +141,21 @@ class GlobalODEScalarObjective:
         if slices:
             if "alpha" in slices or "beta" in slices:
                 raise ValueError("alpha/beta are network construction weights and must not be optimized in theta.")
-            theta_len = _validate_slice_layout_covers_bounds(slices, self.xl.size)
+            mechanistic_size = self.xl.size
+            if pinn_config is not None and getattr(pinn_config, "enabled", False):
+                if pinn_spec is None:
+                    raise ValueError("pinn_spec is required when PINN mode is enabled.")
+                mechanistic_size = int(pinn_spec.base_size)
+
+            theta_len = _validate_slice_layout_covers_bounds(slices, mechanistic_size)
         else:
             theta_len = self.xl.size
         self.n_var = len(self.xl)
         self.n_obj = 1
         self.fail_value = float(fail_value)
         self.data_mode = data_mode or detect_data_mode(loss_data=loss_data, logger_obj=logger)
+        self.pinn_config = pinn_config
+        self.pinn_spec = pinn_spec
         validate_loss_data(loss_data, self.data_mode)
         logger.info("[Objective] Single scalar objective initialized for mode %s", self.data_mode.data_mode)
         logger.info("[Objective] Parameter vector size: %d", self.n_var)
@@ -171,6 +179,8 @@ class GlobalODEScalarObjective:
             y0=y0,
             sys=sys,
             slices=slices,
+            pinn_config=pinn_config,
+            pinn_spec=pinn_spec,
         )
         self._objective_raw = make_simple_objective(
             loss_data,
@@ -184,6 +194,8 @@ class GlobalODEScalarObjective:
             y0=y0,
             sys=sys,
             slices=slices,
+            pinn_config=pinn_config,
+            pinn_spec=pinn_spec,
         )
         self.final_loss_breakdown = {}
 
@@ -229,23 +241,70 @@ class GlobalODEScalarObjective:
             ValueError: When inputs are inconsistent or unsupported.
         """
         theta0 = np.asarray(theta0, dtype=np.float64)
+
         logger.info("[GlobalObjective] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, self.xl.shape,
                     self.xu.shape)
+
         if theta0.shape != self.xl.shape or theta0.shape != self.xu.shape:
             raise ValueError(f"theta0/xl/xu shape mismatch: {theta0.shape}, {self.xl.shape}, {self.xu.shape}")
+
+        if (
+            self.pinn_config is not None
+            and getattr(self.pinn_config, "enabled", False)
+            and str(getattr(self.pinn_config, "mode", "off")).lower() == "neuralode"
+        ):
+            from networkmodel.pinn.neuralsolver import solve_neuralode_optax
+
+            logger.info("[GlobalObjective] Using Optax solver for pure NeuralODE mode.")
+
+            params, state, value = solve_neuralode_optax(
+                problem=self,
+                theta0=theta0,
+                xl=self.xl,
+                xu=self.xu,
+                pinn_spec=self.pinn_spec,
+                maxiter=maxiter,
+                learning_rate=float(getattr(self.pinn_config, "optax_learning_rate", 1e-3)),
+                clip_norm=float(getattr(self.pinn_config, "optax_clip_norm", 1.0)),
+                weight_decay=float(getattr(self.pinn_config, "optax_weight_decay", 1e-6)),
+                optimizer=str(getattr(self.pinn_config, "optax_optimizer", "adamw")),
+                logger=logger,
+            )
+
+            for name, sl in self.slices.items():
+                delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
+                logger.info("[Optimizer] Parameter group movement %s: max_abs_delta=%.8g", name, float(delta))
+
+            if self.pinn_spec is not None and getattr(self.pinn_spec, "n_neural_params", 0):
+                sl = self.pinn_spec.nn_slice
+                delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
+                logger.info("[Optimizer] Parameter group movement PINN_NN: max_abs_delta=%.8g", float(delta))
+
+            raw_val, breakdown = self._objective_raw(jnp.asarray(params, dtype=jnp.float64))
+            self.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
+            logger.info("[GlobalObjective] Final per-modality loss: %s", self.final_loss_breakdown)
+
+            return params, state, value
+
         params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter,
                                                          tol=tol, logger_obj=logger)
         for name, sl in self.slices.items():
             delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
             logger.info("[Optimizer] Parameter group movement %s: max_abs_delta=%.8g", name, float(delta))
+
         raw_val, breakdown = self._objective_raw(jnp.asarray(params, dtype=jnp.float64))
+
         self.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
+
         logger.info("[GlobalObjective] Final per-modality loss: %s", self.final_loss_breakdown)
+
         if "phospho" not in self.final_loss_breakdown and self.data_mode.fit_phospho:
             logger.warning("[GlobalObjective] Phospho data were detected but no phospho loss was reported.")
+
         if np.isfinite(float(raw_val)) and abs(float(raw_val) - float(value)) > max(1e-6, 1e-6 * abs(float(value))):
             logger.warning("[GlobalObjective] Raw objective %.8g differs from optimizer value %.8g.",
                            float(raw_val), float(value))
+
         return params, state, value
 
 

@@ -167,3 +167,16 @@ HYPEREDGE_BATCH_SIZE = int(getattr(cfg, "hyperedge_batch_size", 65536))
 HYPEREDGE_PLOT_GENERATION = _as_bool(getattr(cfg, "hyperedge_plot_generation", True))
 # HYPEREDGE_CSV_EXPORT: bool; controls preprocessing CSV/JSON table export.
 HYPEREDGE_CSV_EXPORT = _as_bool(getattr(cfg, "hyperedge_csv_export", True))
+
+# PINN / NeuralODE options.
+ENABLE_PINN = _as_bool(getattr(cfg, "enable_pinn", False))
+PINN_MODE = str(getattr(cfg, "pinn_mode", "off"))
+PINN_HIDDEN_SIZE = int(getattr(cfg, "pinn_hidden_size", 32))
+PINN_DEPTH = int(getattr(cfg, "pinn_depth", 2))
+PINN_ACTIVATION = str(getattr(cfg, "pinn_activation", "tanh"))
+PINN_OUTPUT_SCALE = float(getattr(cfg, "pinn_output_scale", 1e-2))
+PINN_WEIGHT_BOUND = float(getattr(cfg, "pinn_weight_bound", 0.25))
+PINN_L2_REGULARIZATION = float(getattr(cfg, "pinn_l2_regularization", 1e-6))
+PINN_T_SCALE = float(getattr(cfg, "pinn_t_scale", 1.0))
+PINN_Y_SCALE = float(getattr(cfg, "pinn_y_scale", 1.0))
+PINN_SEED = int(getattr(cfg, "pinn_seed", SEED))

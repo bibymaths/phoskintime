@@ -148,9 +148,9 @@ def validate_loss_data(loss_data: Mapping, mode: DataMode) -> None:
 class DiffraxSolverConfig:
     """Store Diffrax implicit-solver configuration values"""
     solver_name: str = "Kvaerno4"
-    rtol: float = 1e-5
-    atol: float = 1e-7
-    max_steps: int = 20000
+    rtol: float = 1e-6
+    atol: float = 1e-6
+    max_steps: int = 200000
     root_max_steps: int = 20
 
     def solver(self):
@@ -829,7 +829,7 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
 
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
                           prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
-                          y0=None, sys=None, slices=None):
+                          y0=None, sys=None, slices=None, pinn_config=None, pinn_spec=None):
     """Create the scalar trajectory objective
     
     Args:
@@ -852,6 +852,24 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
         ValueError: When inputs are inconsistent or unsupported.
     """
     validate_loss_data(loss_data, mode)
+    if pinn_config is not None and getattr(pinn_config, "enabled", False):
+        from networkmodel.pinn.objective import make_pinn_objective
+
+        return make_pinn_objective(
+            loss_data=loss_data,
+            mode=mode,
+            time_grid=time_grid,
+            weights=weights,
+            defaults=defaults,
+            prior_weight=prior_weight,
+            networkmodel_layout=networkmodel_layout,
+            return_breakdown=return_breakdown,
+            y0=y0,
+            sys=sys,
+            slices=slices,
+            pinn_config=pinn_config,
+            pinn_spec=pinn_spec,
+        )
     t = jnp.asarray(time_grid, dtype=jnp.float64)
     prot_map = np.asarray(loss_data["prot_map"])
     if len(prot_map):

@@ -151,7 +151,8 @@ def _defaults_from_loaded_config(loaded_config: dict[str, Any]) -> dict[str, Any
 
     model = str(loaded_config.get("model", "randmod"))
     model_type = _model_type(model)
-    results_dir = _path_from_config(root, paths.get("results_dir", "results"))
+    # Treat empty strings in [paths] as missing values.
+    results_dir = _path_from_config(root, paths.get("results_dir") or "results")
     out_dir_name = str(output.get("out_dir_name") or "").strip()
     out_xlsx_name = str(output.get("out_xlsx_name") or "").strip()
     out_dir = results_dir / (out_dir_name or f"{model_type}_results")

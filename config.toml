@@ -616,14 +616,14 @@ docs_url = "https://bibymaths.github.io/phoskintime/"
 # Required.
 # Expected to contain columns such as GeneID/protein/gene, Psite/site, and Kinase/K.
 # Used to build the kinase -> phosphosite mechanistic topology.
-kinase_net = "data/input2.csv"
+kinase_net = "results_node_subnetworks/ABL2/ABL2_input2.csv"
 
 # TF-gene regulatory network.
 # Required if transcriptional regulation is part of the model.
 # Expected to contain source/TF and target/gene columns.
 # If no TF network is available, use a valid empty TF network file with headers,
 # not an empty string, unless load_data() is explicitly modified to allow missing TF input.
-tf_net = "data/input4.csv"
+tf_net = "results_node_subnetworks/ABL2/ABL2_input4.csv"
 
 # Mass-spec input table.
 # This is the main MS observation file consumed by load_data().
@@ -706,7 +706,7 @@ tfopt  = "data/tfopt_results.xlsx"
 # diagnostics, and dashboard files will be written.
 #
 # Use a scenario-specific name to avoid overwriting previous runs.
-output_dir = "results_networkpruning"
+output_dir = "results_ABL2_network_hybrid"
 
 # Number of CPU cores/workers used for parallel parts of the workflow.
 #
@@ -727,6 +727,65 @@ seed = 42
 
 
 # ------------------------------------------------------------
+# OPTIONAL PINN / NEURALODE EXTENSION
+# ------------------------------------------------------------
+# Optional Equinox-based NeuralODE extension for networkmodel.
+#
+# false:
+#   Use the existing mechanistic ODE model only.
+#
+# true:
+#   Enable either hybrid mechanistic + neural correction RHS
+#   or pure NeuralODE RHS depending on pinn_mode.
+enable_pinn = true
+
+# PINN / NeuralODE mode.
+#
+# Options:
+#   "off"
+#     Existing mechanistic ODE only.
+#
+#   "hybrid"
+#     Existing mechanistic ODE RHS + Equinox neural correction RHS.
+#
+#   "neuralode"
+#     Pure Equinox neural ODE RHS.
+pinn_mode = "neuralode"
+
+# Width of hidden layers in the Equinox MLP.
+pinn_hidden_size = 32
+
+# Number of hidden layers in the Equinox MLP.
+pinn_depth = 2
+
+# Activation function used by the Equinox MLP.
+#
+# Supported by the proposed module:
+#   "tanh"
+#   "relu"
+#   "gelu"
+#   "swish" / "silu"
+#   "softplus"
+pinn_activation = "tanh"
+
+# Scale applied to the neural RHS output.
+# Small default keeps the neural correction conservative.
+pinn_output_scale = 0.01
+
+# Bound applied to appended neural parameters in theta0/xl/xu.
+pinn_weight_bound = 0.25
+
+# L2 penalty on neural parameters.
+pinn_l2_regularization = 1e-6
+
+# Input normalization constants for neural RHS.
+pinn_t_scale = 1.0
+pinn_y_scale = 1.0
+
+# Random seed for Equinox neural parameter initialization.
+pinn_seed = 42
+
+# ------------------------------------------------------------
 # OPTIMIZATION SETTINGS
 # ------------------------------------------------------------
 # Maximum number of local optimizer iterations.
@@ -738,7 +797,7 @@ seed = 42
 #   maximum JAXopt local-optimization iterations
 #
 # This is not an evolutionary generation count anymore.
-n_gen = 100
+n_gen = 10000
 
 
 # ------------------------------------------------------------

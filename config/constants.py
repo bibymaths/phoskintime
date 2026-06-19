@@ -128,9 +128,16 @@ Y_METRIC = str(_CFG.get("y_metric", "total_signal"))
 ########################################################################################################################
 
 # Global project paths (from [paths] in TOML)
-DATA_DIR = _ROOT / _PATHS.get("data_dir", "data")
-RESULTS_DIR = _ROOT / _PATHS.get("results_dir", "results")
-LOGS_DIR = _ROOT / _PATHS.get("logs_dir", "results/logs")
+# Treat empty strings in [paths] as missing values.
+# This prevents outputs such as ./Distributive_results and ./Distributive_logs
+# when config.toml contains results_dir = "" or logs_dir = "".
+_DATA_DIR_RAW = str(_PATHS.get("data_dir") or "data").strip()
+_RESULTS_DIR_RAW = str(_PATHS.get("results_dir") or "results").strip()
+_LOGS_DIR_RAW = str(_PATHS.get("logs_dir") or "").strip()
+
+DATA_DIR = _ROOT / (_DATA_DIR_RAW or "data")
+RESULTS_DIR = _ROOT / (_RESULTS_DIR_RAW or "results")
+LOGS_DIR = _ROOT / (_LOGS_DIR_RAW or str(RESULTS_DIR / "logs"))
 
 # ODE-specific output naming (optional)
 _out = _CFG.get("output", {}) or {}

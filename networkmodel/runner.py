@@ -177,6 +177,17 @@ def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path
         "hyperedge_batch_size": int(getattr(config, "hyperedge_batch_size", 65536)),
         "hyperedge_plot_generation": _as_bool(getattr(config, "hyperedge_plot_generation", True)),
         "hyperedge_csv_export": _as_bool(getattr(config, "hyperedge_csv_export", True)),
+        "enable_pinn": _as_bool(getattr(config, "enable_pinn", False)),
+        "pinn_mode": str(getattr(config, "pinn_mode", "off")),
+        "pinn_hidden_size": int(getattr(config, "pinn_hidden_size", 32)),
+        "pinn_depth": int(getattr(config, "pinn_depth", 2)),
+        "pinn_activation": str(getattr(config, "pinn_activation", "tanh")),
+        "pinn_output_scale": float(getattr(config, "pinn_output_scale", 1e-2)),
+        "pinn_weight_bound": float(getattr(config, "pinn_weight_bound", 0.25)),
+        "pinn_l2_regularization": float(getattr(config, "pinn_l2_regularization", 1e-6)),
+        "pinn_t_scale": float(getattr(config, "pinn_t_scale", 1.0)),
+        "pinn_y_scale": float(getattr(config, "pinn_y_scale", 1.0)),
+        "pinn_seed": int(getattr(config, "pinn_seed", getattr(config, "seed", 0))),
         "raw_config": config,
     }
 
@@ -253,6 +264,20 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
                         help="Prune triplets missing phosphosite or kinase observation support when preprocessing is enabled.")
     parser.add_argument("--network-preprocessing-keep-self-loops", action="store_true", default=False,
                         help="Keep kinase self-loop triplets during optional network preprocessing.")
+    parser.add_argument("--enable-pinn", action="store_true", default=config_defaults["enable_pinn"],
+                        help="Enable optional networkmodel PINN/NeuralODE objective.")
+    parser.add_argument("--pinn-mode", choices=["off", "hybrid", "neuralode"],
+                        default=config_defaults["pinn_mode"],
+                        help="PINN mode: off, hybrid, or neuralode.")
+    parser.add_argument("--pinn-hidden-size", type=int, default=config_defaults["pinn_hidden_size"])
+    parser.add_argument("--pinn-depth", type=int, default=config_defaults["pinn_depth"])
+    parser.add_argument("--pinn-activation", type=str, default=config_defaults["pinn_activation"])
+    parser.add_argument("--pinn-output-scale", type=float, default=config_defaults["pinn_output_scale"])
+    parser.add_argument("--pinn-weight-bound", type=float, default=config_defaults["pinn_weight_bound"])
+    parser.add_argument("--pinn-l2-regularization", type=float, default=config_defaults["pinn_l2_regularization"])
+    parser.add_argument("--pinn-t-scale", type=float, default=config_defaults["pinn_t_scale"])
+    parser.add_argument("--pinn-y-scale", type=float, default=config_defaults["pinn_y_scale"])
+    parser.add_argument("--pinn-seed", type=int, default=config_defaults["pinn_seed"])
     return parser
 
 
@@ -322,6 +347,17 @@ def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
             "hyperedge_batch_size": args.network_preprocessing_batch_size,
             "hyperedge_plot_generation": args.network_preprocessing_generate_plots,
             "hyperedge_csv_export": args.network_preprocessing_export_csv,
+            "enable_pinn": args.enable_pinn,
+            "pinn_mode": args.pinn_mode,
+            "pinn_hidden_size": args.pinn_hidden_size,
+            "pinn_depth": args.pinn_depth,
+            "pinn_activation": args.pinn_activation,
+            "pinn_output_scale": args.pinn_output_scale,
+            "pinn_weight_bound": args.pinn_weight_bound,
+            "pinn_l2_regularization": args.pinn_l2_regularization,
+            "pinn_t_scale": args.pinn_t_scale,
+            "pinn_y_scale": args.pinn_y_scale,
+            "pinn_seed": args.pinn_seed,
         },
     }
 
@@ -361,6 +397,7 @@ def _import_runtime_dependencies() -> None:
     global JaxoptResult, InferenceContext, run_multistart, run_profile_likelihood_standalone_processes
     global run_numpyro_posterior_standalone_processes, configure_jax_parallelism, write_posterior_payload
     global write_scalar_result_tables, frechet_distance, populate_standard_subdirs
+    global run_network_diagnostics, run_parameter_diagnostics, run_trajectory_feature_export
 
     import numpy as np
     import pandas as pd
@@ -401,7 +438,11 @@ def _import_runtime_dependencies() -> None:
     from networkmodel.sensitivity import run_sensitivity_analysis
     from networkmodel.simulate import simulate_and_measure
     from networkmodel.utils import _base_idx, calculate_bio_bounds, get_optimized_sets, normalize_fc_to_t0
-
+    from networkmodel.Insights import (
+        run_network_diagnostics,
+        run_parameter_diagnostics,
+        run_trajectory_feature_export,
+    )
 
 def main():
     """Run the networkmodel entry point
@@ -486,7 +527,7 @@ def main():
     logger.info(f"[Phospho] Mechanistic site filter: {n_before} → {len(df_pho)} (dropped {n_before - len(df_pho)})")
 
     if args.enable_network_preprocessing:
-        from network_preprocessing import NetworkPreprocessingConfig, preprocess_networkmodel_frames
+        from networkpruning import NetworkPreprocessingConfig, preprocess_networkmodel_frames
         prep_config = NetworkPreprocessingConfig.from_args(args)
         if getattr(args, "network_preprocessing_keep_self_loops", False):
             prep_config = NetworkPreprocessingConfig(
@@ -770,6 +811,20 @@ def main():
     W_global = build_W_parallel(df_kin, idx, n_cores=args.cores)
     tf_mat = build_tf_matrix(df_tf_model, idx, tf_beta_map=tf_beta_map, kin_beta_map=kin_beta_map)
 
+    run_network_diagnostics(
+        idx=idx,
+        W_global=W_global,
+        tf_mat=tf_mat,
+        kin_input=kin_in,
+        df_kin=df_kin,
+        df_tf=df_tf_model,
+        df_prot=df_prot,
+        df_pho=df_pho,
+        df_rna=df_rna,
+        output_dir=args.output_dir,
+        logger=logger,
+    )
+
     # Generate labels for EVERY ROW in the matrix (one for every site in the model)
     all_site_labels = []
     for i, p in enumerate(idx.proteins):
@@ -877,6 +932,33 @@ def main():
     # The theta layout intentionally excludes network alpha/beta construction weights.
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
+    pinn_config = None
+    pinn_spec = None
+
+    if args.enable_pinn:
+        from networkmodel.pinn import PinnConfig, extend_theta_with_pinn
+
+        pinn_config = PinnConfig.from_args(args)
+        theta0, xl, xu, pinn_spec = extend_theta_with_pinn(
+            theta0=theta0,
+            xl=xl,
+            xu=xu,
+            sys=sys,
+            config=pinn_config,
+        )
+
+        logger.info(
+            "[PINN] Enabled mode=%s hidden_size=%d depth=%d neural_params=%d total_theta=%d",
+            pinn_config.mode,
+            pinn_config.hidden_size,
+            pinn_config.depth,
+            pinn_spec.n_neural_params,
+            theta0.size,
+        )
+    else:
+        from networkmodel.pinn import PinnConfig
+        pinn_config = PinnConfig(enabled=False, mode="off")
+
     parameter_names = np.empty(theta0.shape[0], dtype=object)
 
     for name, sl in slices.items():
@@ -972,6 +1054,8 @@ def main():
         xl=xl,
         xu=xu,
         data_mode=mode,
+        pinn_config=pinn_config,
+        pinn_spec=pinn_spec,
     )
 
     n_protein_obs = int(loss_data.get("n_p", 0))
@@ -1321,6 +1405,28 @@ def main():
     p_out = {k: (v.tolist() if isinstance(v, np.ndarray) else float(v)) for k, v in params.items()}
     with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
         json.dump(p_out, f, indent=2)
+
+    run_parameter_diagnostics(
+        params=params,
+        idx=idx,
+        slices=slices,
+        theta=theta_best,
+        lower=xl,
+        upper=xu,
+        output_dir=args.output_dir,
+        logger=logger,
+    )
+
+    run_trajectory_feature_export(
+        df_prot_pred=dfp,
+        df_rna_pred=dfr,
+        df_pho_pred=dfph,
+        df_prot_obs=df_prot,
+        df_rna_obs=df_rna,
+        df_pho_obs=df_pho,
+        output_dir=args.output_dir,
+        logger=logger,
+    )
 
     # Write picked objective values. Global JAXopt now returns a scalar F with
     # per-modality components captured from the scalar objective breakdown.
