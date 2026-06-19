@@ -982,6 +982,57 @@ sensitivity_metric = "l2_norm"
 
 
 # ------------------------------------------------------------
+# HYPEREDGE / NETWORK PREPROCESSING
+# ------------------------------------------------------------
+# Optional pure-JAX preprocessing that discovers, scores, prunes, annotates,
+# and exports kinase-site-substrate triplets before networkmodel ODE construction.
+#
+# Default behavior is disabled so existing PhosKinTime workflows remain unchanged.
+[networkmodel.hyperedge_preprocessing]
+
+# Enable optional preprocessing before Index/model construction.
+# false: keep existing networkmodel behavior exactly unchanged.
+# true : run the independent pure-JAX preprocessing module and pass its pruned
+#        kinase network to downstream model construction.
+enable_hyperedge_preprocessing = false
+
+# Subdirectory name used under standard run result folders, e.g.
+# tables/network_preprocessing and plots/network_preprocessing.
+output_subdir = "network_preprocessing"
+
+# Minimum score used during discovery/reporting. Must be >= 0.0.
+hyperedge_discovery_threshold = 0.0
+
+# Minimum score retained during pruning. Must be >= 0.0.
+hyperedge_pruning_threshold = 0.0
+
+# Detect feed-forward loops, kinase cascades, regulatory triangles, and related
+# 3-node motifs from retained triplets.
+motif_detection = true
+
+# Export sparse COO-like theta tensor indices/values as CSV and NPZ.
+sparse_tensor_export = true
+
+# Run structural identifiability preprocessing diagnostics before fitting.
+identifiability_preprocessing = true
+
+# Optional maximum number of retained triplets for memory safety.
+# Use 0 for no explicit cap. Negative values are invalid.
+max_triplets = 0
+
+# Batch size for JAX kernels and chunked preprocessing. Must be positive.
+batch_size = 65536
+
+# Save diagnostic plots for score distributions, motifs, sparsity, and
+# identifiability.
+plot_generation = true
+
+# Save labelled CSV/JSON tables for discovered/pruned triplets, motifs,
+# identifiability diagnostics, and summary statistics.
+csv_export = true
+
+
+# ------------------------------------------------------------
 # INFERENCE / POST-OPTIMIZATION ANALYSES
 # ------------------------------------------------------------
 

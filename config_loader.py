@@ -177,6 +177,71 @@ class PhosKinConfig:
     # Models metadata
     available_models: tuple[str, ...] = ()
 
+    # Optional pure-JAX hyperedge/network preprocessing
+    enable_hyperedge_preprocessing: bool = False
+    hyperedge_preprocessing_output_subdir: str = "network_preprocessing"
+    hyperedge_discovery_threshold: float = 0.0
+    hyperedge_pruning_threshold: float = 0.0
+    hyperedge_motif_detection: bool = True
+    hyperedge_sparse_tensor_export: bool = True
+    hyperedge_identifiability_preprocessing: bool = True
+    hyperedge_max_triplets: int | None = None
+    hyperedge_batch_size: int = 65536
+    hyperedge_plot_generation: bool = True
+    hyperedge_csv_export: bool = True
+
+
+def _parse_hyperedge_preprocessing_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Parse and validate optional pure-JAX hyperedge preprocessing settings."""
+    prep = cfg.get("hyperedge_preprocessing", {}) or {}
+
+    def _bool(name: str, default: bool) -> bool:
+        raw = prep.get(name, default)
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+        return bool(raw)
+
+    def _float_nonnegative(name: str, default: float) -> float:
+        value = float(prep.get(name, default))
+        if value < 0.0:
+            raise ValueError(f"networkmodel.hyperedge_preprocessing.{name} must be non-negative, got {value}")
+        return value
+
+    def _nonnegative_int_cap(name: str, default: int | None) -> int | None:
+        raw = prep.get(name, default)
+        if raw is None:
+            return None
+        value = int(raw)
+        if value < 0:
+            raise ValueError(f"networkmodel.hyperedge_preprocessing.{name} must be non-negative, got {value}")
+        return None if value == 0 else value
+
+    def _positive_int(name: str, default: int) -> int:
+        value = int(prep.get(name, default))
+        if value <= 0:
+            raise ValueError(f"networkmodel.hyperedge_preprocessing.{name} must be positive, got {value}")
+        return value
+
+    output_subdir = str(prep.get("output_subdir", "network_preprocessing")).strip()
+    if not output_subdir:
+        raise ValueError("networkmodel.hyperedge_preprocessing.output_subdir must be a non-empty string")
+
+    return {
+        "enable_hyperedge_preprocessing": _bool("enable_hyperedge_preprocessing", False),
+        "hyperedge_preprocessing_output_subdir": output_subdir,
+        "hyperedge_discovery_threshold": _float_nonnegative("hyperedge_discovery_threshold", 0.0),
+        "hyperedge_pruning_threshold": _float_nonnegative("hyperedge_pruning_threshold", 0.0),
+        "hyperedge_motif_detection": _bool("motif_detection", True),
+        "hyperedge_sparse_tensor_export": _bool("sparse_tensor_export", True),
+        "hyperedge_identifiability_preprocessing": _bool("identifiability_preprocessing", True),
+        "hyperedge_max_triplets": _nonnegative_int_cap("max_triplets", 0),
+        "hyperedge_batch_size": _positive_int("batch_size", 65536),
+        "hyperedge_plot_generation": _bool("plot_generation", True),
+        "hyperedge_csv_export": _bool("csv_export", True),
+    }
+
 
 def load_config_toml(path: str | Path) -> PhosKinConfig:
     path = Path(path)
@@ -313,6 +378,11 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     sensitivity_top_curves = int(cfg.get("sensitivity_top_curves", 50))  # key matches TOML
     sensitivity_metric = str(cfg.get("sensitivity_metric", "total_signal"))
 
+    # -------------------------
+    # 12) Optional hyperedge/network preprocessing
+    # -------------------------
+    hyperedge_cfg = _parse_hyperedge_preprocessing_config(cfg)
+
     return PhosKinConfig(
         kinase_net=kinase_net,
         tf_net=tf_net,
@@ -384,4 +454,6 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         sensitivity_metric=sensitivity_metric,
 
         available_models=available_models,
+
+        **hyperedge_cfg,
     )
