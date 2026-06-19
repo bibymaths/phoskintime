@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import pandas as pd
 from network_preprocessing import NetworkPreprocessingConfig, preprocess_network, preprocess_networkmodel_frames
-from network_preprocessing.jax_kernels import score_triplets
+from network_preprocessing.jax_kernels import identifiability_kernel, score_triplets
 
 
 def frames():
@@ -98,6 +98,37 @@ def test_motif_detection_uses_common_node_namespace_positive_control():
     motif = res.motifs
     labels = motif.node_labels
     assert (labels[int(motif.node_a[0])], labels[int(motif.node_b[0])], labels[int(motif.node_c[0])]) == ("A", "X", "D")
+
+
+def test_identifiability_grouping_avoids_legacy_linear_hash_collision():
+    indices = jnp.asarray([[1, 0, 0], [0, 991, 84]], dtype=jnp.int32)
+    values = jnp.ones(2, dtype=jnp.float64)
+
+    _, group_id, _, _ = identifiability_kernel(indices, values)
+
+    assert int(group_id[0]) != int(group_id[1])
+
+
+def test_identifiability_grouping_keeps_duplicate_triplets_together():
+    indices = jnp.asarray([[2, 3, 4], [2, 3, 4], [2, 3, 5]], dtype=jnp.int32)
+    values = jnp.ones(3, dtype=jnp.float64)
+
+    _, group_id, _, _ = identifiability_kernel(indices, values)
+
+    assert int(group_id[0]) == int(group_id[1])
+    assert int(group_id[0]) != int(group_id[2])
+
+
+def test_identifiability_grouping_large_sparse_tensor_is_deterministic():
+    indices = jnp.asarray([[1, 0, 0], [0, 991, 84], [7, 1200, 99], [7, 1200, 99]], dtype=jnp.int32)
+    values = jnp.ones(4, dtype=jnp.float64)
+
+    _, group_id_a, _, _ = identifiability_kernel(indices, values)
+    _, group_id_b, _, _ = identifiability_kernel(indices, values)
+
+    assert group_id_a.tolist() == group_id_b.tolist()
+    assert int(group_id_a[0]) != int(group_id_a[1])
+    assert int(group_id_a[2]) == int(group_id_a[3])
 
 
 def test_identifiability_and_outputs(tmp_path):

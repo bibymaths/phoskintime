@@ -36,10 +36,13 @@ def sparse_indices_values(kinase_ids, site_ids, substrate_ids, score):
 def identifiability_kernel(indices, values):
     norms = jnp.abs(values).astype(jnp.float64)
     retained = norms > jnp.finfo(jnp.float64).eps
-    keys = indices[:,0]*jnp.int32(1000003) + indices[:,1]*jnp.int32(1009) + indices[:,2]
-    order = jnp.argsort(keys)
-    sorted_keys = keys[order]
-    new_group = jnp.concatenate([jnp.array([True]), sorted_keys[1:] != sorted_keys[:-1]])
+    idx64 = indices.astype(jnp.int64)
+    order = jnp.lexsort((idx64[:, 2], idx64[:, 1], idx64[:, 0]))
+    sorted_idx = idx64[order]
+    new_group = jnp.concatenate([
+        jnp.array([True]),
+        jnp.any(sorted_idx[1:] != sorted_idx[:-1], axis=1),
+    ])
     gid_sorted = jnp.cumsum(new_group.astype(jnp.int32)) - 1
     gid = jnp.empty_like(gid_sorted).at[order].set(gid_sorted)
     redundancy = 1.0 - retained.astype(jnp.float64)
