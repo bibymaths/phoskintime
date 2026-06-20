@@ -389,7 +389,7 @@ def _import_runtime_dependencies() -> None:
     global np, pd, save_dashboard_bundle, run_hyperparameter_scan, run_sensitivity_analysis
     global _dump_y0, build_W_parallel, build_tf_matrix, prepare_fast_loss_data, load_data
     global Index, KinaseInput, System, GlobalODEScalarObjective, build_weight_functions
-    global init_raw_params, unpack_params, simulate_and_measure, normalize_fc_to_t0, _base_idx
+    global init_raw_params, unpack_params, simulate_and_measure, simulate_pinn_and_measure, simulate_pinn_diffrax, normalize_fc_to_t0, _base_idx
     global calculate_bio_bounds, get_optimized_sets, export_pareto_front_to_excel, plot_goodness_of_fit
     global export_results, save_gene_timeseries_plots, export_S_rates, plot_s_rates_report
     global export_kinase_activities, export_param_correlations, export_residuals, export_parameter_distributions
@@ -436,7 +436,7 @@ def _import_runtime_dependencies() -> None:
     from networkmodel.params import init_raw_params, unpack_params
     from networkmodel.scan import run_hyperparameter_scan
     from networkmodel.sensitivity import run_sensitivity_analysis
-    from networkmodel.simulate import simulate_and_measure
+    from networkmodel.simulate import simulate_and_measure, simulate_pinn_diffrax, simulate_pinn_and_measure
     from networkmodel.utils import _base_idx, calculate_bio_bounds, get_optimized_sets, normalize_fc_to_t0
     from networkmodel.Insights import (
         run_network_diagnostics,
@@ -977,6 +977,9 @@ def main():
 
         parameter_names[sl] = labels
 
+    if pinn_spec is not None and getattr(pinn_spec, "n_neural_params", 0):
+        parameter_names[pinn_spec.nn_slice] = list(pinn_spec.parameter_names)
+
     parameter_names = parameter_names.tolist()
 
     logger.info("[Optimizer] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, xl.shape, xu.shape)
@@ -1057,6 +1060,37 @@ def main():
         pinn_config=pinn_config,
         pinn_spec=pinn_spec,
     )
+
+    def _is_pinn_runtime() -> bool:
+        return (
+                pinn_config is not None
+                and getattr(pinn_config, "enabled", False)
+                and str(getattr(pinn_config, "mode", "off")).lower() in {"hybrid", "neuralode"}
+                and pinn_spec is not None
+                and getattr(pinn_spec, "n_neural_params", 0) > 0
+        )
+
+    def _simulate_current(theta):
+        if _is_pinn_runtime():
+            return simulate_pinn_and_measure(
+                sys=sys,
+                idx=idx,
+                theta=theta,
+                slices=slices,
+                pinn_config=pinn_config,
+                pinn_spec=pinn_spec,
+                t_points_p=args.time_points_protein,
+                t_points_r=args.time_points_rna,
+                t_points_pho=args.time_points_phospho,
+            )
+
+        return simulate_and_measure(
+            sys,
+            idx,
+            args.time_points_protein,
+            args.time_points_rna,
+            args.time_points_phospho,
+        )
 
     n_protein_obs = int(loss_data.get("n_p", 0))
     n_rna_obs = int(loss_data.get("n_r", 0))
@@ -1264,13 +1298,15 @@ def main():
     frechet_scores = []
     for i in range(len(X)):
         theta = X[i].astype(float)
-        params_temp = unpack_params(theta, slices)
-        sys.update(**params_temp)
 
-        # Simulate with current parameters
-        dfp_temp, dfr_temp, dfph_temp = simulate_and_measure(
-            sys, idx, args.time_points_protein, args.time_points_rna, args.time_points_phospho
-        )
+        if _is_pinn_runtime():
+            # For hybrid, mechanistic parameters are used by the PINN RHS through theta.
+            # For neuralode, they are inactive compatibility values.
+            dfp_temp, dfr_temp, dfph_temp = _simulate_current(theta)
+        else:
+            params_temp = unpack_params(theta, slices)
+            sys.update(**params_temp)
+            dfp_temp, dfr_temp, dfph_temp = _simulate_current(theta)
 
         detailed_scores = {"prot": {}, "rna": {}, "phospho": {}}
 
@@ -1344,8 +1380,70 @@ def main():
     logger.info("=" * 60)
 
     theta_best = X[I].astype(float)
-    params = unpack_params(theta_best, slices)
-    sys.update(**params)
+    params = unpack_params(theta_best[: max(sl.stop for sl in slices.values())], slices)
+
+    is_pinn_runtime = (
+            pinn_config is not None
+            and getattr(pinn_config, "enabled", False)
+            and str(getattr(pinn_config, "mode", "off")).lower() in {"hybrid", "neuralode"}
+            and pinn_spec is not None
+            and getattr(pinn_spec, "n_neural_params", 0) > 0
+    )
+
+    if is_pinn_runtime:
+        from networkmodel.pinn.diagnostics import (
+            write_pinn_parameter_reports,
+            write_pinn_rhs_reports,
+        )
+
+        pinn_times = np.unique(
+            np.concatenate(
+                [
+                    args.time_points_protein,
+                    args.time_points_rna,
+                    args.time_points_phospho,
+                ]
+            ).astype(np.float64)
+        )
+
+        pinn_Y = simulate_pinn_diffrax(
+            sys=sys,
+            theta=theta_best,
+            slices=slices,
+            pinn_config=pinn_config,
+            pinn_spec=pinn_spec,
+            t_eval=pinn_times,
+            rtol=1e-5,
+            atol=1e-7,
+            max_steps=5000,
+        )
+
+        write_pinn_parameter_reports(
+            theta=theta_best,
+            theta0=theta0,
+            lower=xl,
+            upper=xu,
+            spec=pinn_spec,
+            output_dir=args.output_dir,
+            logger=logger,
+        )
+
+        write_pinn_rhs_reports(
+            theta=theta_best,
+            spec=pinn_spec,
+            pinn_config=pinn_config,
+            idx=idx,
+            time_grid=pinn_times,
+            trajectory=pinn_Y,
+            output_dir=args.output_dir,
+            logger=logger,
+            model_code=args.model_code,
+            jacobian_stride=1,
+            max_jacobian_timepoints=25,
+        )
+
+    if not _is_pinn_runtime() or str(pinn_config.mode).lower() == "hybrid":
+        sys.update(**params)
 
     if args.sensitivity:
         run_sensitivity_analysis(
@@ -1394,8 +1492,7 @@ def main():
         f"[Output] Saved phosphorylation rates report for picked solution {args.output_dir}/S_rates_report.pdf.")
 
     # 12) Export picked solution
-    dfp, dfr, dfph = simulate_and_measure(sys, idx, args.time_points_protein, args.time_points_rna,
-                                          args.time_points_phospho)
+    dfp, dfr, dfph = _simulate_current(theta_best)
 
     # Save raw preds
     if dfp is not None: dfp.to_csv(os.path.join(args.output_dir, "pred_prot_picked.csv"), index=False)
@@ -1463,7 +1560,14 @@ def main():
 
     # 1. Simulate to see long-term behavior
     logger.info("[Simulate] Simulating system for 14 days to assess steady-state behavior.")
-    t_check, Y_check = simulate_until_steady(sys, t_max=24 * 14 * 60)
+    t_check, Y_check = simulate_until_steady(
+        sys,
+        t_max=24 * 14 * 60,
+        theta=theta_best,
+        slices=slices,
+        pinn_config=pinn_config,
+        pinn_spec=pinn_spec,
+    )
 
     # Log for each protein whether it approximately reached steady state
     window = min(10, Y_check.shape[1])
@@ -1488,7 +1592,8 @@ def main():
         Y_check,
         sys,
         idx,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        pinn_config=pinn_config,
     )
 
     logger.info("[Simulate] Check complete. Inspect 'steady_state_plots' folder.")

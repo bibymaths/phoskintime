@@ -737,7 +737,7 @@ seed = 42
 # true:
 #   Enable either hybrid mechanistic + neural correction RHS
 #   or pure NeuralODE RHS depending on pinn_mode.
-enable_pinn = true
+enable_pinn = false
 
 # PINN / NeuralODE mode.
 #
@@ -750,7 +750,7 @@ enable_pinn = true
 #
 #   "neuralode"
 #     Pure Equinox neural ODE RHS.
-pinn_mode = "neuralode"
+pinn_mode = "off"
 
 # Width of hidden layers in the Equinox MLP.
 pinn_hidden_size = 32
@@ -797,7 +797,7 @@ pinn_seed = 42
 #   maximum JAXopt local-optimization iterations
 #
 # This is not an evolutionary generation count anymore.
-n_gen = 10000
+n_gen = 200
 
 
 # ------------------------------------------------------------

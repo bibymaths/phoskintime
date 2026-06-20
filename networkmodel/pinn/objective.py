@@ -109,8 +109,10 @@ def make_pinn_objective(
             f"loss-data state dimension {state_dim}."
         )
 
-    mech_rhs = make_networkmodel_rhs(sys, slices)
-    defaults_j = _defaults_vector_jax(defaults, slices)
+    is_pure_neuralode = str(pinn_config.mode).lower() == "neuralode"
+
+    mech_rhs = None if is_pure_neuralode else make_networkmodel_rhs(sys, slices)
+    defaults_j = None if is_pure_neuralode else _defaults_vector_jax(defaults, slices)
     solver_cfg = DiffraxSolverConfig()
 
     def rhs(ti, yi, args):
@@ -136,7 +138,11 @@ def make_pinn_objective(
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
 
-        base_theta = theta[: pinn_spec.base_size]
+        base_theta = (
+            jnp.empty((0,), dtype=jnp.float64)
+            if is_pure_neuralode
+            else theta[: pinn_spec.base_size]
+        )
         nn_flat = theta[pinn_spec.nn_slice]
         nn_model = _rebuild_model(pinn_spec, nn_flat)
 
@@ -165,7 +171,7 @@ def make_pinn_objective(
 
         total = total + bad_traj_penalty
 
-        if defaults_j is not None and prior_weight:
+        if (not is_pure_neuralode) and defaults_j is not None and prior_weight:
             physical_params = _unpack_theta_jax(base_theta, slices)
             rates = _flatten_params_for_slices_jax(physical_params, slices)
             d = rates[: defaults_j.size] - defaults_j

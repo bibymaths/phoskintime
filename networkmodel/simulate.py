@@ -4,6 +4,11 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import jax.numpy as jnp
+import diffrax
+
+from networkmodel.pinn.objective import _rebuild_model
+
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -67,106 +72,93 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
         dtype=np.float64,
     )
 
+def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
+    """Extract protein, RNA, and phospho measurement tables from a solved trajectory."""
+    Y = np.asarray(Y, dtype=np.float64)
+    times = np.asarray(times, dtype=np.float64)
 
-def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
-    """Simulate a System and return measured output tables
-    
-    Args:
-        sys: Input value used by this routine.
-        idx: Input value used by this routine.
-        t_points_p: Input value used by this routine.
-        t_points_r: Input value used by this routine.
-        t_points_pho: Input value used by this routine.
-    
-    Returns:
-        Computed result from this routine.
-    """
-    # 1. Create master time grid
-    times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
-
-    # 2. Run simulation
-    Y = simulate_diffrax(sys, times, rtol=1e-5, atol=1e-7, max_steps=5000)
-
-    # Helper to find index of a specific time (for normalization baseline)
     def _bidx(t0: float) -> int:
         return int(np.argmin(np.abs(times - float(t0))))
 
     prot_b = _bidx(0.0)
-    rna_b = _bidx(4.0)  # RNA often normalized to a later baseline if t=0 is noisy or absent
+    rna_b = _bidx(4.0)
     pho_b = _bidx(0.0)
 
     rows_p, rows_r, rows_pho = [], [], []
 
-    # 3. Iterate over every protein to extract observables
     for i, gene in enumerate(idx.proteins):
         st = int(idx.offset_y[i])
 
-        # --- RNA ---
-        # State index 'st' is always RNA
         R = Y[:, st]
         fc_r = np.maximum(R, 1e-12) / np.maximum(R[rna_b], 1e-12)
         rows_r.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_r}))
 
         if MODEL == 2:
-            # --- Combinatorial Model Extraction ---
             ns = int(idx.n_states[i])
             n_sites = int(idx.n_sites[i])
             p0 = st + 1
 
-            # Total Protein: Sum of all 2^n states
-            states = Y[:, p0:p0 + ns]  # (T, ns)
-            tot = states.sum(axis=1)  # (T,)
+            states = Y[:, p0:p0 + ns]
+            tot = states.sum(axis=1)
             fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
-            # Phospho Sites: Bitwise aggregation, streamed one site at a time
-            # to avoid an ns x n_sites dense bit matrix.
             if n_sites > 0:
                 masks = np.arange(ns, dtype=np.uint64)
                 for s_idx, psite in enumerate(idx.sites[i]):
                     weights = ((masks >> np.uint64(s_idx)) & np.uint64(1)).astype(np.float64, copy=False)
                     sig = states @ weights
                     fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
-                    rows_pho.append(pd.DataFrame({
-                        "protein": gene, "psite": psite, "time": times, "pred_fc": fc
-                    }))
+                    rows_pho.append(
+                        pd.DataFrame(
+                            {
+                                "protein": gene,
+                                "psite": psite,
+                                "time": times,
+                                "pred_fc": fc,
+                            }
+                        )
+                    )
                     del weights, sig
                 del masks
             del states
 
         else:
-            # --- Standard Model Extraction (Distributive/Sequential) ---
             ns = int(idx.n_sites[i])
 
-            P0 = Y[:, st + 1]  # Unphosphorylated
+            P0 = Y[:, st + 1]
             if ns > 0:
-                P_sites = Y[:, st + 2: st + 2 + ns]  # (T, ns)
+                P_sites = Y[:, st + 2: st + 2 + ns]
                 pho_total = P_sites.sum(axis=1)
             else:
                 P_sites = None
                 pho_total = np.zeros_like(P0)
 
-            # Total Protein
             tot = P0 + pho_total
             fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
-            # Phospho Sites
             if P_sites is not None:
                 for s_idx, psite in enumerate(idx.sites[i]):
                     sig = P_sites[:, s_idx]
                     fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
-                    rows_pho.append(pd.DataFrame({
-                        "protein": gene, "psite": psite, "time": times, "pred_fc": fc
-                    }))
+                    rows_pho.append(
+                        pd.DataFrame(
+                            {
+                                "protein": gene,
+                                "psite": psite,
+                                "time": times,
+                                "pred_fc": fc,
+                            }
+                        )
+                    )
 
-    # 4. Assemble DataFrames
     df_p = pd.concat(rows_p, ignore_index=True) if rows_p else pd.DataFrame(columns=["protein", "time", "pred_fc"])
     df_r = pd.concat(rows_r, ignore_index=True) if rows_r else pd.DataFrame(columns=["protein", "time", "pred_fc"])
     df_pho = pd.concat(rows_pho, ignore_index=True) if rows_pho else pd.DataFrame(
-        columns=["protein", "psite", "time", "pred_fc"])
+        columns=["protein", "psite", "time", "pred_fc"]
+    )
 
-    # 5. Filter to requested timepoints
     tp = np.asarray(t_points_p, dtype=np.float64)
     tr = np.asarray(t_points_r, dtype=np.float64)
     tph = np.asarray(t_points_pho, dtype=np.float64)
@@ -179,3 +171,136 @@ def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
         df_pho = df_pho[df_pho["time"].isin(tph)]
 
     return df_p, df_r, df_pho
+
+def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
+    """Simulate mechanistic System and return measured output tables."""
+    times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
+    Y = simulate_diffrax(sys, times, rtol=1e-5, atol=1e-7, max_steps=5000)
+    return measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho)
+
+def simulate_pinn_diffrax(
+    sys,
+    theta,
+    slices,
+    pinn_config,
+    pinn_spec,
+    t_eval,
+    rtol=None,
+    atol=None,
+    max_steps=None,
+    solver_name="Kvaerno4",
+):
+    """Simulate hybrid or pure NeuralODE PINN model with trained neural parameters."""
+    if pinn_config is None or pinn_spec is None or not getattr(pinn_config, "enabled", False):
+        return simulate_diffrax(
+            sys,
+            t_eval,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+            solver_name=solver_name,
+        )
+
+    mode = str(getattr(pinn_config, "mode", "off")).lower()
+    if mode == "off":
+        return simulate_diffrax(
+            sys,
+            t_eval,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+            solver_name=solver_name,
+        )
+
+    theta = jnp.asarray(theta, dtype=jnp.float64)
+    t_eval = jnp.asarray(t_eval, dtype=jnp.float64)
+    y0 = jnp.asarray(sys.y0(), dtype=jnp.float64)
+
+    base_theta = theta[: pinn_spec.base_size]
+    nn_flat = theta[pinn_spec.nn_slice]
+    nn_model = _rebuild_model(pinn_spec, nn_flat)
+
+    mech_rhs = None
+    if mode == "hybrid":
+        mech_rhs = make_networkmodel_rhs(sys, slices)
+
+    def rhs(ti, yi, args):
+        base_theta_arg, nn_model_arg = args
+
+        yi = jnp.asarray(yi, dtype=jnp.float64)
+        ti = jnp.asarray(ti, dtype=jnp.float64)
+
+        ti_scaled = ti / float(pinn_config.t_scale)
+        yi_scaled = yi / float(pinn_config.y_scale)
+
+        neural = nn_model_arg(ti_scaled, yi_scaled)
+
+        if mode == "hybrid":
+            mechanistic = mech_rhs(ti, yi, base_theta_arg)
+            return mechanistic + neural
+
+        if mode == "neuralode":
+            return neural
+
+        raise ValueError(f"Unsupported pinn mode for simulation: {mode!r}")
+
+    cfg = DiffraxSolverConfig(
+        solver_name=solver_name,
+        rtol=float(ODE_REL_TOL if rtol is None else rtol),
+        atol=float(ODE_ABS_TOL if atol is None else atol),
+        max_steps=int(ODE_MAX_STEPS if max_steps is None else max_steps),
+        root_max_steps=20,
+    )
+
+    term = diffrax.ODETerm(rhs)
+
+    sol = diffrax.diffeqsolve(
+        term,
+        cfg.solver(),
+        t0=t_eval[0],
+        t1=t_eval[-1],
+        dt0=jnp.maximum((t_eval[-1] - t_eval[0]) / jnp.maximum(t_eval.size - 1, 1), 1e-3),
+        y0=y0,
+        args=(base_theta, nn_model),
+        saveat=diffrax.SaveAt(ts=t_eval),
+        stepsize_controller=diffrax.PIDController(
+            rtol=cfg.rtol,
+            atol=cfg.atol,
+        ),
+        max_steps=cfg.max_steps,
+        throw=False,
+    )
+
+    Y = jnp.asarray(sol.ys, dtype=jnp.float64)
+    Y = jnp.nan_to_num(Y, nan=1e6, posinf=1e6, neginf=-1e6)
+
+    return np.asarray(Y, dtype=np.float64)
+
+
+def simulate_pinn_and_measure(
+    sys,
+    idx,
+    theta,
+    slices,
+    pinn_config,
+    pinn_spec,
+    t_points_p,
+    t_points_r,
+    t_points_pho,
+):
+    """Simulate fitted hybrid/neuralode PINN model and return measured output tables."""
+    times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
+
+    Y = simulate_pinn_diffrax(
+        sys=sys,
+        theta=theta,
+        slices=slices,
+        pinn_config=pinn_config,
+        pinn_spec=pinn_spec,
+        t_eval=times,
+        rtol=1e-5,
+        atol=1e-7,
+        max_steps=5000,
+    )
+
+    return measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho)
