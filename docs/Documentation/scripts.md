@@ -228,3 +228,80 @@ Major backend workflows accept an explicit `--outdir`/`--output-dir` option so a
 ## Unified dashboard integration and legacy script status
 
 The unified dashboard now provides workflow-specific result panels for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. Legacy visualization/readout scripts such as `kinopt_network_viz.py`, `tfopt_network_viz.py`, `kinopt_network_readout.py`, and `tfopt_network_readout.py` are retained for batch reproducibility, but interactive exploration should prefer the unified dashboard panels and the existing `app/kinopt.py` / `app/tfopt.py` logic where available. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
+
+# PhosKinTime fitted SBML exporter — saved-topology fix
+
+This version addresses the error `ValueError: A_i: expected 2 entries, got 17`.
+
+## Cause
+
+The previous exporter rebuilt a network using the **current** `config.toml` data paths. Its topology contained two genes, while the stored fitted parameter vector contains 17 values for the gene-level kinetic parameter `A_i`. Those are not compatible models.
+
+The replacement reconstructs the previously fitted **distributive networkmodel** directly from the original run's exported topology and input matrices. It avoids dependence on the posterior sampling payload or on potentially changed input paths inside the current TOML.
+
+## Required saved files
+
+All must exist in `results_network_distributive/`:
+
+- `fitted_params_picked.json`
+- `model_parameters_genes.csv`
+- `model_parameters_genes_psites.csv`
+- `model_parameters_kinases.csv`
+- `network_W_global.csv`
+- `network_tf_mat.csv`
+- `network_kinase_inputs.csv`
+- `S_rates_picked.csv`
+- `initial_conditions_y0.csv`
+
+The script refuses to invent missing sites, initial states, kinase drivers or weights.
+
+## Usage
+
+Run from the PhosKinTime repository root. Back up the current script first:
+
+```bash
+cp scripts/export_model_to_sbml.py scripts/export_model_to_sbml.py.bak
+# Copy the replacement export_model_to_sbml.py into scripts/
+
+python scripts/export_model_to_sbml.py \
+  --results results_network_distributive \
+  --conf config.toml \
+  --check-only
+
+python scripts/export_model_to_sbml.py \
+  --results results_network_distributive \
+  --conf config.toml \
+  --out results_network_distributive/sbml_reactions
+```
+
+The `--conf` file must select the original **distributive (MODEL=0) RHS**. It is used for the repository's import-time model selection, but its *input data paths* are not used to reconstruct the fitted topology.
+
+The output XML is `results_network_distributive/sbml_reactions/networkmodel_reactions.xml`. To overwrite an existing XML use `--overwrite` explicitly. `--check-only` does not write or modify SBML.
+
+## Validation
+
+```bash
+python -m pytest -q scripts/test_export_model_to_sbml.py
+```
+
+The exporter cross-checks:
+
+1. Saved parameters against the ordered gene, site, and kinase tables.
+2. Saved matrix edges and weights, and gene names.
+3. Sample-and-hold kinase inputs against the fitted phosphorylation-drive trajectories.
+4. Initial state mapping against the long-form saved initial-condition table.
+5. The exported reaction graph's evaluated ODE against `networkmodel.backend.make_networkmodel_rhs`, the JAX fitting RHS. The legacy NumPy `System.rhs` has a different TF-input squashing path, so it is not the reference for numerical equivalence.
+6. libSBML consistency and SBML file round-trip, when `python-libsbml` is installed.
+
+The numerical check evaluates selected time points and one representative nonnegative state vector; it is a regression preflight, **not** a formal mathematical proof or a complete simulation validation.
+
+For a fitted result with 17 modeled proteins/genes, 36 phosphosites, and 27 kinases, the reaction-based SBML should contain 176 reactions and 97 species. The actual script prints the recovered counts; never force these counts if a check fails.
+
+## Scope and limitations
+
+- Only the **distributive** networkmodel kinetics are supported. Other topologies (`sequential`, `combinatorial`, `saturating`) require separate reaction definitions and tests.
+- Exported coefficients represent the **picked fitted solution**, not the posterior mean.
+- Only numeric (post-proxy) TF network coefficients survive in the saved exported TF matrix. Original TF names that were proxied are not recoverable from those matrix exports alone. The **effective model** remains reconstructable.
+- The SBML contains a time-dependent kinase boundary input as a `piecewise` assignment, explicit catalytic/reaction modifiers, and reaction kinetics for RNA, protein, and phosphosite species.
+- `python-libsbml` could not be installed in the preparation environment, so the actual libSBML serialization/roundtrip must still pass locally. The pure-Python regression suite passed (9 passed, 1 skipped).
+- Full production equivalence remains to be verified on your original local `results_network_distributive` files.
