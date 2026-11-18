@@ -33,7 +33,7 @@ tag_pattern = "v[0-9]*"
 sort_commits = "oldest"
 
 commit_parsers = [
-  { message = "^feat", group = "Added" },
+  { message = "^(feat|add)", group = "Added" },
   { message = "^fix", group = "Fixed" },
   { message = "^docs", group = "Documentation" },
   { message = "^perf", group = "Performance" },

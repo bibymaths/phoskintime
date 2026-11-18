@@ -4,7 +4,7 @@ __version__ = "0.4.0"
 __author__ = "Abhinav Mishra"
 __email__ = "mishraabhinav36@gmail.com"
 __license__ = "BSD-3-Clause"
-__description__ = "A Python package for modeling and optimizing kinase-phosphorylation dynamics in triple negative breast cancer."
+__description__ = "A Python package for modeling and optimizing kinase-phosphorylation dynamics"
 __url__ = "https://github.com/bibymaths/phoskintime"
 __project_name__ = "phoskintime"
 
