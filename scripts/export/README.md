@@ -22,7 +22,7 @@ Exports a fitted **distributive** networkmodel run (networkmodel MODEL=0 only) a
 - **Tests:** `tests/test_export_model_to_sbml.py`. Two of these tests need an untracked fixture directory, `tests/fitted_ode_test/`, and are skipped without it.
 
 ```bash
-PYTHONPATH=. pixi run python scripts/export/export_model_to_sbml.py \
+pixi run python scripts/export/export_model_to_sbml.py \
   --results results_network_distributive --conf config.toml --check-only
 ```
 

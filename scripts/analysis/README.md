@@ -14,5 +14,5 @@ These are the analysis backends behind the dashboard's "Advanced analysis" panel
 Example:
 
 ```bash
-PYTHONPATH=. pixi run python scripts/analysis/curve_similarity.py --out-dir results_scripts
+pixi run python scripts/analysis/curve_similarity.py --out-dir results_scripts
 ```

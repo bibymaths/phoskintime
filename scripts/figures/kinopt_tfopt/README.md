@@ -15,8 +15,8 @@ These are KinOpt/TFOpt network readouts, publication-style figures and schematic
 Example:
 
 ```bash
-PYTHONPATH=. pixi run python scripts/figures/kinopt_tfopt/kinopt_network_readout.py
-PYTHONPATH=. pixi run python scripts/figures/kinopt_tfopt/kinopt_network_viz.py
+pixi run python scripts/figures/kinopt_tfopt/kinopt_network_readout.py
+pixi run python scripts/figures/kinopt_tfopt/kinopt_network_viz.py
 ```
 
 Which publication figures these scripts produced: TODO(owner).

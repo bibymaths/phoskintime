@@ -28,7 +28,6 @@ import math
 import os
 from pathlib import Path
 import re
-import sys
 from typing import Any
 from xml.sax.saxutils import escape as xml_escape
 
@@ -40,10 +39,6 @@ try:
 except ImportError:  # Plan-generation and pure-Python tests still work.
     libsbml = None
 
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if (REPO_ROOT / "networkmodel").is_dir() and str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 
 @dataclass(frozen=True)
@@ -1070,8 +1065,6 @@ def main(argv=None) -> int:
     if not args.conf.exists():
         ap.error(f"Missing config TOML: {args.conf}")
     os.environ["PHOSKINTIME_NETWORKMODEL_CONFIG"] = str(args.conf.resolve())
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
     # Only import after setting the config variable; networkmodel.config is import-time configured.
     from networkmodel.config import MODEL
     if MODEL != 0:

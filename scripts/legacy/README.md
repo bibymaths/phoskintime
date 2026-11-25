@@ -16,5 +16,5 @@ A Streamlit app for knockout simulations and mechanism comparison on a fitted ne
 - **Start** from the repository root (see [`../README.md`](../README.md)):
 
 ```bash
-PYTHONPATH=. pixi run streamlit run scripts/legacy/compare_mechanisms.py
+pixi run streamlit run scripts/legacy/compare_mechanisms.py
 ```
