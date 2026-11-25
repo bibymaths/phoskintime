@@ -50,3 +50,7 @@ def optimization_performance():
     ks.to_csv(f'{OUT_DIR}/kinase_substrate.csv')
     create_sankey_from_network(output_dir, data, "Phosphorylation Connections")
     important_connections(output_dir, data)
+
+
+if __name__ == "__main__":
+    optimization_performance()
