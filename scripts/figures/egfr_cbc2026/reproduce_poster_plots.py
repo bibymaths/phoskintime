@@ -2,7 +2,7 @@
 """Reproduce the latest CBC PhosKinTime figures from numerical result exports.
 
 Usage:
-    python reproduce_poster_plots.py RESULTS_DIRECTORY --output poster_figures
+    python scripts/figures/egfr_cbc2026/reproduce_poster_plots.py RESULTS_DIRECTORY --output poster_figures
 
 Requires numpy, pandas, scipy, matplotlib. No PhosKinTime installation required.
 """

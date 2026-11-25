@@ -28,7 +28,7 @@ IMPORTANT INTERPRETATION NOTES:
 - Beta at bounds (±4) means the kinase's internal site-mixture is extreme; interpret as within-kinase tension/selection.
 
 Run:
-  python kinopt_network_readout.py
+  python scripts/figures/kinopt_tfopt/kinopt_network_readout.py
 
 Outputs in ./results_scripts/figures_kinopt:
   - kinopt_latent_kinase_activity_summary.csv

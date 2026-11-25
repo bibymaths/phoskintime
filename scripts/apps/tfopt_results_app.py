@@ -47,7 +47,7 @@ Interpolation onto mRNA grid: selectable (default: cubic)
 
 Run
 ---
-  streamlit run app/tfopt.py
+  streamlit run scripts/apps/tfopt_results_app.py
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ protein abundance changes despite flat or low mRNA changes (e.g., due to
 post-transcriptional regulation or high stability).
 
 Usage:
-    python identify_accumulators.py --prot pred_prot_picked.csv --rna pred_rna_picked.csv
+    python scripts/analysis/find_protein_accumulators.py --prot pred_prot_picked.csv --rna pred_rna_picked.csv
 
 License: BSD-3-Clause
 Author: Abhinav Mishra

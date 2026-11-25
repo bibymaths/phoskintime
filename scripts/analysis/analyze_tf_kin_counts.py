@@ -5,7 +5,7 @@ Python script for analyzing TF and kinase counts in beta values and target gene 
 This script processes optimization results for Transcription Factors (TF) and Kinases,
 calculating statistics on phosphosites (PSites) and aggregating counts per target gene.
 
-Usage: analyze_tf_kin_counts.py [--tfopt-xlsx=<path>] [--kinopt-xlsx=<path>] [--out-dir=<path>]
+Usage: python scripts/analysis/analyze_tf_kin_counts.py [--tfopt-xlsx=<path>] [--kinopt-xlsx=<path>] [--out-dir=<path>]
 
 License: BSD-3-Clause
 Author: Abhinav Mishra

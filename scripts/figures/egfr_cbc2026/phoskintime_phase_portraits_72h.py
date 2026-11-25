@@ -13,10 +13,10 @@ final recorded kinase input, the final input is held constant: this is a model
 extrapolation scenario, not an experimental constraint.
 
 Dependencies: numpy, scipy, pandas, matplotlib and the original repository
-``scripts/phoskintime_dynestyx_smoothing.py`` (for load_run/reference_rhs).
+``scripts/figures/egfr_cbc2026/phoskintime_dynestyx_smoothing.py`` (for load_run/reference_rhs).
 
 Example:
-  python scripts/phoskintime_phase_portraits_72h.py \\
+  python scripts/figures/egfr_cbc2026/phoskintime_phase_portraits_72h.py \\
     --source . --results results_network_distributive \\
     --parameter-csv results_network_distributive/egfr_forward_72h/parameter_ensemble.csv \\
     --out results_network_distributive/egfr_phase_72h \\

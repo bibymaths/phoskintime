@@ -8,7 +8,7 @@ This script analyzes the optimized model to extract 4 biological insights:
 3. Transcriptional Saturation (Digital switching behavior).
 4. Feedback Gain (Revolving door loops).
 
-Usage: python mechanistic_insights.py --kinase-net input2.csv --tf-net input4.csv --ms input1.csv --rna input3.csv --phospho input5.csv --kinopt fitted_params_picked.json --tfopt fitted_params_picked.json --output-dir output
+Usage: python scripts/analysis/mechanistic_insights.py --kinase-net input2.csv --tf-net input4.csv --ms input1.csv --rna input3.csv --phospho input5.csv --kinopt fitted_params_picked.json --tfopt fitted_params_picked.json --output-dir output
 
 License: BSD-3-Clause
 Author: Abhinav Mishra

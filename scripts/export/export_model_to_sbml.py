@@ -11,7 +11,7 @@ This intentionally supports only networkmodel MODEL=0.  Other model families
 and kinetic topologies must have separately tested reaction definitions.
 
 Usage (from repository root):
-    python scripts/export_networkmodel_sbml_reactions.py \\
+    python scripts/export/export_model_to_sbml.py \\
       --results results_network_distributive \\
       --out results_network_distributive/sbml_reactions \\
       --conf config.toml

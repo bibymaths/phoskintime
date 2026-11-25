@@ -13,7 +13,7 @@ percentiles from the EXACT SAME forward-state draw arrays in phase NPZ.
 This avoids inventing upstream c_k uncertainty. In --quantity drive mode, the
 lack of uncertainty is shown explicitly if no relevant c_k was sampled.
 
-Requires files from scripts/phoskintime_phase_portraits_72h.py:
+Requires files from scripts/figures/egfr_cbc2026/phoskintime_phase_portraits_72h.py:
   egfr_phase_draws.npz (time_min, P0, Forward_flux)
   egfr_nominal_phase_coordinates.csv (time_min, P0, Forward_flux)
   used_parameter_draws.csv (draw-order-aligned c_k_... where applicable)

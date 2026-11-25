@@ -16,7 +16,7 @@ Also writes:
 Optionally writes:
   <outdir>.zip  (zip of the outdir contents)
 
-Usage: python export_subnetworks.py --hops 2 --outdir <outdir> <input2> <input4>
+Usage: python scripts/analysis/export_subnetworks.py --hops 2 --outdir <outdir> <input2> <input4>
 
 License: BSD-3-Clause
 Author: Abhinav Mishra

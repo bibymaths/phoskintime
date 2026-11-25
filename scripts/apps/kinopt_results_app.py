@@ -42,7 +42,7 @@ Design notes
 
 Run
 ---
-  streamlit run app.py
+  streamlit run scripts/apps/kinopt_results_app.py
 
 Dependencies
 ------------

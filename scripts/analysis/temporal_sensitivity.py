@@ -6,7 +6,7 @@ Temporal Sensitivity Analysis Script
 This script performs global sensitivity analysis (GSA) on a mechanistic model to identify the most influential parameters.
 It uses the SALib library for Sobol' indices and Saltelli sampling to quantify parameter importance.
 
-Usage: python temporal_sensitivity.py --results-dir results --samples 128
+Usage: python scripts/analysis/temporal_sensitivity.py --results-dir results --samples 128
 
 License: BSD-3-Clause
 Author: Abhinav Mishra

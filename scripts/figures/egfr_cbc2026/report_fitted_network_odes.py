@@ -2,8 +2,8 @@
 """Export fitted *distributive* networkmodel ODE equations and existing reports.
 
 Run at the PhosKinTime repository root, for example:
-    python scripts/report_fitted_network_odes.py --results results_network_distributive --gene EGFR
-    python scripts/report_fitted_network_odes.py --results results_network_distributive
+    python scripts/figures/egfr_cbc2026/report_fitted_network_odes.py --results results_network_distributive --gene EGFR
+    python scripts/figures/egfr_cbc2026/report_fitted_network_odes.py --results results_network_distributive
 
 The numerical rates come from fitted_params_picked.json (the picked solution),
 not posterior_theta0.npy (which may describe a different optimizer selection).

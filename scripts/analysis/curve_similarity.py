@@ -33,7 +33,7 @@ Outputs:
 
 Each output includes per-row distance, validity flags, ranks, and basic metadata columns (if present).
 
-Usage: curve_similarity.py [--tfopt-xlsx=<path>] [--kinopt-xlsx=<path>] [--out-dir=<path>]
+Usage: python scripts/analysis/curve_similarity.py [--tfopt-xlsx=<path>] [--kinopt-xlsx=<path>] [--out-dir=<path>]
 
 License: BSD-3-Clause
 Author: Abhinav Mishra
