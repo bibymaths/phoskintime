@@ -328,7 +328,7 @@ def run_posterior(d: RunData, cfg_path: Path, a: argparse.Namespace) -> None:
 
 def main() -> int:
     a = parse_args()
-    repo = Path(__file__).resolve().parent
+    repo = Path(__file__).resolve().parents[3]  # repository root (this file: scripts/figures/egfr_cbc2026/)
     os.chdir(repo)  # relative input paths in the saved run configuration use repository root
     d = load_run(repo, a)
     print_preflight(d)

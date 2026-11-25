@@ -41,7 +41,7 @@ except ImportError:  # Plan-generation and pure-Python tests still work.
     libsbml = None
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if (REPO_ROOT / "networkmodel").is_dir() and str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 

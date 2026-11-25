@@ -41,9 +41,14 @@ COLORS = {'CDK1': '#b9902e', 'GSK3B': '#a6532e', 'MAPK1': '#796a96',
 
 
 def _load_model(source, results):
-    file = Path(source).resolve() / 'scripts' / 'phoskintime_dynestyx_smoothing.py'
-    if not file.is_file():
-        raise FileNotFoundError(f'Validated original loader is missing: {file}')
+    # Current layout first; the pre-reorganisation layout keeps --source usable for older checkouts.
+    root = Path(source).resolve()
+    candidates = [root / 'scripts' / 'figures' / 'egfr_cbc2026' / 'phoskintime_dynestyx_smoothing.py',
+                  root / 'scripts' / 'phoskintime_dynestyx_smoothing.py']
+    file = next((c for c in candidates if c.is_file()), None)
+    if file is None:
+        raise FileNotFoundError('Validated original loader is missing; tried: '
+                                + ', '.join(str(c) for c in candidates))
     spec = importlib.util.spec_from_file_location('_source_loader', file)
     if spec is None or spec.loader is None:
         raise RuntimeError(f'Cannot import {file}')

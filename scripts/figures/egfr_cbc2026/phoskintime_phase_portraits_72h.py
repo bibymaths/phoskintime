@@ -44,10 +44,13 @@ GRID = '#e1e5e8'
 
 
 def load_original(source: Path):
-    path = source / 'scripts' / 'phoskintime_dynestyx_smoothing.py'
-    if not path.is_file():
+    # Current layout first; the pre-reorganisation layout keeps --source usable for older checkouts.
+    candidates = [source / 'scripts' / 'figures' / 'egfr_cbc2026' / 'phoskintime_dynestyx_smoothing.py',
+                  source / 'scripts' / 'phoskintime_dynestyx_smoothing.py']
+    path = next((c for c in candidates if c.is_file()), None)
+    if path is None:
         raise FileNotFoundError(
-            f'Missing original PhosKinTime script: {path}. '
+            'Missing original PhosKinTime script; tried: ' + ', '.join(str(c) for c in candidates) + '. '
             'This script requires its validated load_run/reference_rhs functions.'
         )
     spec = importlib.util.spec_from_file_location('_phoskintime_phase_reference', path)

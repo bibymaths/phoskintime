@@ -24,9 +24,13 @@ from scipy.special import logsumexp
 
 
 def load_helpers(source):
-    path = source / 'scripts' / 'phoskintime_dynestyx_smoothing.py'
-    if not path.is_file():
-        raise FileNotFoundError(f'Required original reference script missing: {path}')
+    # Current layout first; the pre-reorganisation layout keeps --source usable for older checkouts.
+    candidates = [source / 'scripts' / 'figures' / 'egfr_cbc2026' / 'phoskintime_dynestyx_smoothing.py',
+                  source / 'scripts' / 'phoskintime_dynestyx_smoothing.py']
+    path = next((c for c in candidates if c.is_file()), None)
+    if path is None:
+        raise FileNotFoundError('Required original reference script missing; tried: '
+                                + ', '.join(str(c) for c in candidates))
     spec = importlib.util.spec_from_file_location('_phoskintime_ode_reference', path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
