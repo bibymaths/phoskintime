@@ -3,7 +3,6 @@
 Run from the repository root:
     python -m pytest -q tests/test_export_model_to_sbml.py
 """
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
