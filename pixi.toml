@@ -104,6 +104,12 @@ pygraphviz = "==1.14"
 [feature.viz.target.osx-arm64.dependencies]
 pygraphviz = "==1.14"
 
+# Make the repository root importable in every environment and from any working
+# directory: library packages (kinopt, networkmodel, config, ...) are imported by
+# their top-level names. Applies to `pixi run`, `pixi shell` and `pixi shell-hook`.
+[activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
+
 [tasks]
 # Generate the full changelog.
 changelog = "git cliff -o CHANGELOG.md"
@@ -115,61 +121,61 @@ changelog-unreleased = "git cliff --unreleased"
 changelog-latest = "git cliff --latest -o CHANGELOG.md"
 
 # Run the Python test suite.
-test = "PYTHONPATH=.:.. pytest"
+test = "pytest"
 
 # Run notebook tests with nbmake.
-test-notebooks = "PYTHONPATH=.:.. pytest --nbmake notebooks/*.ipynb"
+test-notebooks = "pytest --nbmake notebooks/*.ipynb"
 
 # Run tests with coverage reporting.
-test-cov = "PYTHONPATH=.:.. pytest --cov=. --cov-report=term-missing --cov-report=xml"
+test-cov = "pytest --cov=. --cov-report=term-missing --cov-report=xml"
 
 # Generate a coverage badge.
 coverage-badge = "mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
 # Run coverage and regenerate the badge.
-coverage-all = "PYTHONPATH=. pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
+coverage-all = "pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
 # Smoke-test core package imports.
-check-import = "PYTHONPATH=. python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
+check-import = "python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
 
 # Run KinOpt local optimization.
-kinopt-local = "PYTHONPATH=. python -m kinopt.local"
+kinopt-local = "python -m kinopt.local"
 
 # Run KinOpt evolutionary optimization.
-kinopt-evol = "PYTHONPATH=. python -m kinopt.evol"
+kinopt-evol = "python -m kinopt.evol"
 
 # Run KinOpt fit-analysis utilities.
-kinopt-fitanalysis = "PYTHONPATH=. python -m kinopt.fitanalysis"
+kinopt-fitanalysis = "python -m kinopt.fitanalysis"
 
 # Run TFOpt local optimization.
-tfopt-local = "PYTHONPATH=. python -m tfopt.local"
+tfopt-local = "python -m tfopt.local"
 
 # Run TFOpt evolutionary optimization.
-tfopt-evol = "PYTHONPATH=. python -m tfopt.evol"
+tfopt-evol = "python -m tfopt.evol"
 
 # Run preprocessing cleanup.
-prep = "PYTHONPATH=. python -m processing.cleanup"
+prep = "python -m processing.cleanup"
 
 # Run protein-wise model workflow.
-model = "PYTHONPATH=. python -m protwise.runner.main"
+model = "python -m protwise.runner.main"
 
 # Run global network model workflow.
-networkmodel = "PYTHONPATH=. python -m networkmodel.runner"
+networkmodel = "python -m networkmodel.runner"
 
 # Run main PhosKinTime CLI.
-phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
+phoskintime = "python -m config.cli"
 
 # Run complete PhosKinTime CLI workflow.
-phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
+phoskintime-all = "python -m config.cli all"
 
-# Run network dashboard entry point.
-network-dashboard = "PYTHONPATH=. python scripts/apps/run_dashboard.py"
+# Run the legacy networkmodel dashboard: pixi run network-dashboard --output-dir <results folder>
+network-dashboard = "streamlit run scripts/apps/run_dashboard.py --"
 
 # Launch Streamlit dashboard.
-dashboard = "PYTHONPATH=. streamlit run dashboard/app.py"
+dashboard = "streamlit run dashboard/app.py"
 
 # Launch dashboard with live reload.
-dashboard-dev = "PYTHONPATH=. streamlit run dashboard/app.py --server.runOnSave=true"
+dashboard-dev = "streamlit run dashboard/app.py --server.runOnSave=true"
 
 # Serve documentation locally.
 docs-serve = "zensical serve"
@@ -191,6 +197,11 @@ full = { features = ["dev", "docs", "viz"], solve-group = "default" }
 # Dedicated Linux environment for dynestyx inference
 [feature.dynestyx]
 platforms = ["linux-64"]
+
+# This environment sets no-default-feature, so it does not inherit the top-level
+# [activation.env]; repeat it here.
+[feature.dynestyx.activation.env]
+PYTHONPATH = "$PIXI_PROJECT_ROOT"
 
 [feature.dynestyx.dependencies]
 python = "3.12.*"
