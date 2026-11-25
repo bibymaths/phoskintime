@@ -28,7 +28,7 @@ Do not assume a custom config was used unless `metadata.json` and `config_resolv
 | `networkmodel` | Global network model runner. | `python -m networkmodel.runner` | `pixi run networkmodel --conf config.toml --output-dir results/example_networkmodel` |
 | `phoskintime` | Typer workflow wrapper. | `python -m phoskintime.config.cli` | `pixi run phoskintime --help` |
 | `phoskintime-all` | Typer wrapper `all` command. | `python -m phoskintime.config.cli all` | `pixi run phoskintime-all` |
-| `network-dashboard` | Legacy Networkmodel dashboard launcher. | `python run_dashboard.py` | `pixi run network-dashboard` |
+| `network-dashboard` | Legacy Networkmodel dashboard launcher. | `python scripts/apps/run_dashboard.py` | `pixi run network-dashboard` |
 | `dashboard` | Unified no-code dashboard. | `streamlit run dashboard/app.py` | `pixi run dashboard` |
 | `dashboard-dev` | Unified dashboard with reload-on-save. | `streamlit run dashboard/app.py --server.runOnSave=true` | `pixi run dashboard-dev` |
 | `test` | Run pytest with project path. | `PYTHONPATH=.:.. pytest` | `pixi run -e dev test` |
@@ -239,7 +239,7 @@ pixi run networkmodel --conf config.toml --output-dir results/example_networkmod
 
 - Commands: `dashboard`, `dashboard-dev`, `network-dashboard`.
 - Purpose: `dashboard` and `dashboard-dev` run the unified dashboard; `network-dashboard` runs the legacy Networkmodel dashboard.
-- Backend modules: `dashboard/app.py` or `run_dashboard.py`.
+- Backend modules: `dashboard/app.py` or `scripts/apps/run_dashboard.py`.
 - Example:
 
 ```bash

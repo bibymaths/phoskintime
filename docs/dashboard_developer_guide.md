@@ -110,10 +110,10 @@ Workflow panels should present existing outputs and call reusable backend functi
 
 Existing apps and scripts to consider when adding or improving panels:
 
-- `app/kinopt.py`
-- `app/tfopt.py`
+- `scripts/apps/kinopt_results_app.py`
+- `scripts/apps/tfopt_results_app.py`
 - `networkmodel/dashboard_app.py`
-- `scripts/compare_mechanisms.py`
+- `scripts/legacy/compare_mechanisms.py`
 
 Refactor shared logic into reusable backend functions rather than copying code into dashboard files.
 

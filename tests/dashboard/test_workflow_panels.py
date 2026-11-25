@@ -81,7 +81,7 @@ def test_analysis_command_wrapper_and_output_discovery(tmp_path):
         root,
     )
 
-    assert command[:2] == ["python", "scripts/export_subnetworks.py"]
+    assert command[:2] == ["python", "scripts/analysis/export_subnetworks.py"]
     assert "--input2" in command
     assert "--outdir" in command
     outdir = root / "artifacts" / "analysis" / "export-subnetworks"
@@ -181,7 +181,7 @@ def test_analyze_tf_kin_counts_cli_uses_selected_paths(monkeypatch, tmp_path):
     pytest.importorskip("pandas")
     import importlib
 
-    module = importlib.import_module("scripts.analyze_tf_kin_counts")
+    module = importlib.import_module("scripts.analysis.analyze_tf_kin_counts")
     calls = {}
 
     def fake_main(*, tfopt_xlsx, kinopt_xlsx, out_dir):
@@ -204,7 +204,7 @@ def test_curve_similarity_cli_uses_selected_paths(monkeypatch, tmp_path):
     pytest.importorskip("numpy")
     import importlib
 
-    module = importlib.import_module("scripts.curve_similarity")
+    module = importlib.import_module("scripts.analysis.curve_similarity")
     calls = {}
 
     def fake_main(*, tfopt_xlsx, kinopt_xlsx, out_dir):

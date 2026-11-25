@@ -31,7 +31,7 @@ results. Computes phosphosite (PSite) statistics per entity.
 
 **Example:**
 ```bash
-python scripts/analyze_tf_kin_counts.py
+python scripts/analysis/analyze_tf_kin_counts.py
 ```
 
 > **Note:** `analyze_tf_kin_counts.py` does not accept command-line arguments. It uses hardcoded
@@ -57,7 +57,7 @@ model topologies. Visualizes kinase-substrate and TF-gene networks with global k
 
 **Example:**
 ```bash
-streamlit run scripts/compare_mechanisms.py
+streamlit run scripts/legacy/compare_mechanisms.py
 ```
 
 > **Note:** Requires `streamlit`, `gravis`, `networkx`, and `imageio` in addition to the standard
@@ -81,7 +81,7 @@ from `tfopt_results.xlsx` and `kinopt_results.xlsx`. Useful for ranking best/wor
 
 **Example:**
 ```bash
-python scripts/curve_similarity.py \
+python scripts/analysis/curve_similarity.py \
   --tfopt-xlsx data/tfopt_results.xlsx \
   --kinopt-xlsx data/kinopt_results.xlsx \
   --out-dir results_scripts
@@ -113,7 +113,7 @@ TF network (`input4`). Useful for focused network analysis around specific prote
 
 **Example:**
 ```bash
-python scripts/export_subnetworks.py \
+python scripts/analysis/export_subnetworks.py \
   --input2 data/input2.csv \
   --input4 data/input4.csv \
   --outdir results_subnetworks \
@@ -141,7 +141,7 @@ protein stability.
 
 **Example:**
 ```bash
-python scripts/find_protein_accumulators.py \
+python scripts/analysis/find_protein_accumulators.py \
   --prot results_model_global/pred_prot_picked.csv \
   --rna  results_model_global/pred_rna_picked.csv
 ```
@@ -172,7 +172,7 @@ python scripts/find_protein_accumulators.py \
 
 **Example:**
 ```bash
-python scripts/mechanistic_insights.py \
+python scripts/analysis/mechanistic_insights.py \
   --kinase-net data/input2.csv \
   --tf-net     data/input4.csv \
   --ms         data/input1.csv \
@@ -203,7 +203,7 @@ python scripts/mechanistic_insights.py \
 
 **Example:**
 ```bash
-python scripts/temporal_sensitivity.py \
+python scripts/analysis/temporal_sensitivity.py \
   --results-dir results_model_global \
   --samples 128
 ```
@@ -227,7 +227,7 @@ Major backend workflows accept an explicit `--outdir`/`--output-dir` option so a
 
 ## Unified dashboard integration and legacy script status
 
-The unified dashboard now provides workflow-specific result panels for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. Legacy visualization/readout scripts such as `kinopt_network_viz.py`, `tfopt_network_viz.py`, `kinopt_network_readout.py`, and `tfopt_network_readout.py` are retained for batch reproducibility, but interactive exploration should prefer the unified dashboard panels and the existing `app/kinopt.py` / `app/tfopt.py` logic where available. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
+The unified dashboard now provides workflow-specific result panels for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. Legacy visualization/readout scripts such as `kinopt_network_viz.py`, `tfopt_network_viz.py`, `kinopt_network_readout.py`, and `tfopt_network_readout.py` are retained for batch reproducibility, but interactive exploration should prefer the unified dashboard panels and the existing `scripts/apps/kinopt_results_app.py` / `scripts/apps/tfopt_results_app.py` logic where available. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
 
 # PhosKinTime fitted SBML exporter — saved-topology fix
 
@@ -260,15 +260,15 @@ The script refuses to invent missing sites, initial states, kinase drivers or we
 Run from the PhosKinTime repository root. Back up the current script first:
 
 ```bash
-cp scripts/export_model_to_sbml.py scripts/export_model_to_sbml.py.bak
+cp scripts/export/export_model_to_sbml.py scripts/export/export_model_to_sbml.py.bak
 # Copy the replacement export_model_to_sbml.py into scripts/
 
-python scripts/export_model_to_sbml.py \
+python scripts/export/export_model_to_sbml.py \
   --results results_network_distributive \
   --conf config.toml \
   --check-only
 
-python scripts/export_model_to_sbml.py \
+python scripts/export/export_model_to_sbml.py \
   --results results_network_distributive \
   --conf config.toml \
   --out results_network_distributive/sbml_reactions

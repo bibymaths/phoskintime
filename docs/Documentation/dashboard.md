@@ -35,7 +35,7 @@ Saves and loads a compact binary bundle (`dashboard_bundle.pkl`) containing:
 
 The bundle stores scalar objective arrays and mode metadata, making it portable across Python sessions.
 
-### `run_dashboard.py`
+### `scripts/apps/run_dashboard.py`
 
 Root-level launcher script. Sets up `sys.path` and calls `networkmodel.dashboard_app.main()`.
 
@@ -67,7 +67,7 @@ If `dashboard_bundle.pkl` is missing the dashboard will fail with a `FileNotFoun
 ### Option 1: Direct Streamlit invocation (recommended)
 
 ```bash
-streamlit run run_dashboard.py -- --output-dir results_model_global_distributive_knockout
+streamlit run scripts/apps/run_dashboard.py -- --output-dir results_model_global_distributive_knockout
 ```
 
 Streamlit will start a local web server. The default URL is:
@@ -112,7 +112,7 @@ After it finishes, launch the dashboard with Option 1 above.
 ### Option 3: Python script
 
 ```bash
-python run_dashboard.py --output-dir results_model_global_distributive_knockout
+python scripts/apps/run_dashboard.py --output-dir results_model_global_distributive_knockout
 ```
 
 ---
@@ -133,7 +133,7 @@ python run_dashboard.py --output-dir results_model_global_distributive_knockout
 Streamlit defaults to port **8501**. To use a different port:
 
 ```bash
-streamlit run run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
+streamlit run scripts/apps/run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
 ```
 
 ---

@@ -83,7 +83,7 @@ coverage.xml
 /dynestyx_ode_smoothing/
 /poster_figures/
 
-# Schematic PNGs written to the working directory by scripts/make_kinopt_diagram.py
+# Schematic PNGs written to the working directory by scripts/figures/kinopt_tfopt/make_kinopt_diagram.py
 /kinopt_diagram.png
 /kinopt_constraints.png
 /tfopt_diagram.png

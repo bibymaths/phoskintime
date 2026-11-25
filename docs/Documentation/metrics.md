@@ -54,7 +54,7 @@ The final result is `cost[-1, -1]`.
 - **`networkmodel/runner.py`**: After optimization, Fréchet scores are computed between observed
   and predicted time-series trajectories for each gene. These scores are stored in the dashboard
   bundle (`frechet_scores` field) and displayed in the Streamlit dashboard.
-- **`scripts/curve_similarity.py`**: Stand-alone script that computes per-row Fréchet distances
+- **`scripts/analysis/curve_similarity.py`**: Stand-alone script that computes per-row Fréchet distances
   between observed and estimated columns in `tfopt_results.xlsx` / `kinopt_results.xlsx`.
 
 ### Fréchet vs RMSE

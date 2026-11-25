@@ -163,7 +163,7 @@ phoskintime = "PYTHONPATH=.:.. python -m phoskintime.config.cli"
 phoskintime-all = "PYTHONPATH=.:.. python -m phoskintime.config.cli all"
 
 # Run network dashboard entry point.
-network-dashboard = "PYTHONPATH=. python run_dashboard.py"
+network-dashboard = "PYTHONPATH=. python scripts/apps/run_dashboard.py"
 
 # Launch Streamlit dashboard.
 dashboard = "PYTHONPATH=. streamlit run dashboard/app.py"

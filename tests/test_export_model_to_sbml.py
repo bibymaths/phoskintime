@@ -9,7 +9,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import pytest
 
-import scripts.export_model_to_sbml as ex
+import scripts.export.export_model_to_sbml as ex
 
 # Exported-network fixture used by two tests. It is not tracked in git.
 FIXTURE_DIR = Path(__file__).resolve().parent / "fitted_ode_test"

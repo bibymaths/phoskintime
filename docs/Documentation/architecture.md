@@ -112,7 +112,7 @@ flowchart TD
 | System-level network simulation | `networkmodel` (requires kinopt/tfopt outputs) |
 | Sensitivity of individual ODE parameters | `sensitivity/analysis.py` |
 | Sensitivity of global coupled model parameters | `networkmodel/sensitivity.py` |
-| Interactive exploration of results | `run_dashboard.py` (Streamlit) |
+| Interactive exploration of results | `scripts/apps/run_dashboard.py` (Streamlit) |
 
 ---
 
@@ -137,9 +137,7 @@ phoskintime/
 ├── utils/              Shared helpers
 ├── bin/                CLI entry points
 ├── scripts/            Stand-alone analysis utilities
-├── background/         Background tasks and helpers
-├── app/                Web application assets
-└── run_dashboard.py    Dashboard launcher
+└── background/         Background tasks and helpers
 ```
 
 ---
