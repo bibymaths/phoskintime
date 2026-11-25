@@ -1,0 +1,13 @@
+# Minimal networkmodel config used by tests/test_networkmodel_inference_config.py.
+# It checks that the inference keys are read from the [networkmodel] table of a
+# given TOML file. Values are test inputs, not recommended settings.
+
+[networkmodel]
+n_starts = 1
+profile_likelihood = false
+profile_grid_size = 5
+posterior_sampling = false
+posterior_num_warmup = 20
+posterior_num_samples = 30
+sensitivity_analysis = false
+hyperparam_scan = false

@@ -2,8 +2,8 @@ from pathlib import Path
 import jax
 import jax.numpy as jnp
 import pandas as pd
-from network_preprocessing import NetworkPreprocessingConfig, preprocess_network, preprocess_networkmodel_frames
-from network_preprocessing.jax_kernels import identifiability_kernel, score_triplets
+from networkpruning import NetworkPreprocessingConfig, preprocess_network, preprocess_networkmodel_frames
+from networkpruning.jax_kernels import identifiability_kernel, score_triplets
 
 
 def frames():

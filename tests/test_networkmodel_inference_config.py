@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import inspect
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 from config_loader import load_config_toml
 import networkmodel.config as config
 import networkmodel.runner as runner
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+INFERENCE_KEYS_TOML = REPO_ROOT / "tests" / "fixtures" / "networkmodel_inference_keys.toml"
 
-def test_inference_config_defaults_are_loaded():
-    cfg = load_config_toml("config.toml")
+
+def test_loader_reads_inference_keys_from_given_toml():
+    """load_config_toml reads the inference keys from the [networkmodel] table of the given TOML file."""
+    cfg = load_config_toml(str(INFERENCE_KEYS_TOML))
 
     assert cfg.n_starts == 1
     assert cfg.profile_likelihood is False
@@ -17,14 +26,31 @@ def test_inference_config_defaults_are_loaded():
     assert cfg.posterior_num_warmup == 20
     assert cfg.posterior_num_samples == 30
 
-    assert config.N_STARTS == 1
-    assert config.PROFILE_LIKELIHOOD is False
-    assert config.PROFILE_GRID_SIZE == 5
-    assert config.POSTERIOR_SAMPLING is False
-    assert config.SENSITIVITY_ANALYSIS is False
-    assert config.HYPERPARAM_SCAN is False
-    assert config.POSTERIOR_NUM_WARMUP == 20
-    assert config.POSTERIOR_NUM_SAMPLES == 30
+
+def test_networkmodel_config_module_reads_inference_keys_from_given_toml(tmp_path):
+    """networkmodel.config exposes the inference keys of the TOML named by PHOSKINTIME_NETWORKMODEL_CONFIG.
+
+    The module reads its TOML at import time, so it is imported in a fresh subprocess
+    (cwd = tmp_path) to keep the module already imported by this test session untouched.
+    """
+    probe = (
+        "import json, networkmodel.config as c; print(json.dumps({k: getattr(c, k) for k in ("
+        "'N_STARTS', 'PROFILE_LIKELIHOOD', 'PROFILE_GRID_SIZE', 'POSTERIOR_SAMPLING', "
+        "'SENSITIVITY_ANALYSIS', 'HYPERPARAM_SCAN', 'POSTERIOR_NUM_WARMUP', 'POSTERIOR_NUM_SAMPLES')}))"
+    )
+    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT), PHOSKINTIME_NETWORKMODEL_CONFIG=str(INFERENCE_KEYS_TOML))
+    out = subprocess.run([sys.executable, "-c", probe], cwd=tmp_path, env=env,
+                         capture_output=True, text=True, check=True).stdout
+    values = json.loads(out.strip().splitlines()[-1])
+
+    assert values["N_STARTS"] == 1
+    assert values["PROFILE_LIKELIHOOD"] is False
+    assert values["PROFILE_GRID_SIZE"] == 5
+    assert values["POSTERIOR_SAMPLING"] is False
+    assert values["SENSITIVITY_ANALYSIS"] is False
+    assert values["HYPERPARAM_SCAN"] is False
+    assert values["POSTERIOR_NUM_WARMUP"] == 20
+    assert values["POSTERIOR_NUM_SAMPLES"] == 30
 
 
 def test_legacy_networkmodel_config_fields_are_not_exported():

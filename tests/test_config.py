@@ -3,7 +3,7 @@ import logging
 from config.logconf import setup_logger, ColoredFormatter
 
 
-def logger_handles_empty_log_directory(tmp_path):
+def test_logger_handles_empty_log_directory(tmp_path):
     """
     Test that the logger creates the log directory if it does not exist.
     """
@@ -12,7 +12,7 @@ def logger_handles_empty_log_directory(tmp_path):
     assert os.path.exists(log_directory)
 
 
-def logger_does_not_duplicate_handlers(tmp_path):
+def test_logger_does_not_duplicate_handlers(tmp_path):
     """
     Test that the logger does not add duplicate handlers when called multiple times.
     """
@@ -23,7 +23,7 @@ def logger_does_not_duplicate_handlers(tmp_path):
     assert len(logger.handlers) == initial_handler_count
 
 
-def logger_handles_no_log_directory():
+def test_logger_handles_no_log_directory():
     """
     Test that the logger works without a log directory and only uses a stream handler.
     """
@@ -32,7 +32,7 @@ def logger_handles_no_log_directory():
     assert not file_handler
 
 
-def logger_respects_custom_formatter(tmp_path):
+def test_logger_respects_custom_formatter(tmp_path):
     """
     Test that the logger uses the custom formatter for all handlers.
     """

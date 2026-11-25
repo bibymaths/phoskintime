@@ -1,7 +1,7 @@
 """Unit tests for the reaction topology without requiring python-libsbml.
 
-Run after copying both files into the PhosKinTime repository:
-    python -m pytest -q scripts/test_export_networkmodel_sbml_reactions.py
+Run from the repository root:
+    python -m pytest -q tests/test_export_model_to_sbml.py
 """
 import sys
 from pathlib import Path
@@ -10,8 +10,11 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import export_model_to_sbml as ex
+import scripts.export_model_to_sbml as ex
+
+# Exported-network fixture used by two tests. It is not tracked in git.
+FIXTURE_DIR = Path(__file__).resolve().parent / "fitted_ode_test"
+FIXTURE_MISSING_REASON = "missing fixture directory tests/fitted_ode_test/ (not tracked in git)"
 
 
 class FakeKinase:
@@ -107,9 +110,9 @@ def test_rhs_numeric_matches_original():
 
 def test_rebuilt_network_validation_against_fixture():
     sys=FakeSystem()
-    fixture=Path(__file__).resolve().parent/"fitted_ode_test"
+    fixture=FIXTURE_DIR
     if not fixture.is_dir():
-        pytest.skip("Optional synthetic network export files not available")
+        pytest.skip(FIXTURE_MISSING_REASON)
     e=ex.check_rebuilt_network(fixture,sys)
     assert e == {"kinase_site_edges": 4, "tf_gene_edges": 2}
     assert ex.check_initial_conditions_table(fixture,sys) is not None if False else True
@@ -189,6 +192,7 @@ def test_real_libsbml_validates_complete_reaction_network(tmp_path):
     assert sum(r.getNumModifiers() for r in parsed.getModel().getListOfReactions()) > 0
 
 
+@pytest.mark.skipif(not FIXTURE_DIR.is_dir(), reason=FIXTURE_MISSING_REASON)
 def test_reconstruct_from_saved_run_exports_without_config_or_posterior(tmp_path, monkeypatch):
     """Regress A_i shape mismatch caused by rebuilding a different network."""
     import json
@@ -198,7 +202,7 @@ def test_reconstruct_from_saved_run_exports_without_config_or_posterior(tmp_path
     import pandas as pd
 
     original = FakeSystem()
-    data = Path(__file__).parent / "fitted_ode_test"
+    data = FIXTURE_DIR
     for name in [
         "network_W_global.csv", "network_tf_mat.csv",
         "model_parameters_genes.csv", "model_parameters_genes_psites.csv",
