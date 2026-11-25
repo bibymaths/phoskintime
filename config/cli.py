@@ -30,6 +30,7 @@ python phoskintime model
 # run the integrated Global Model
 python phoskintime networkmodel
 """
+import os
 import shutil
 from pathlib import Path
 import subprocess as sp
@@ -168,37 +169,59 @@ def networkmodel(
     _run(_python_module("networkmodel.runner", conf, outdir))
 
 
+# Caches removed anywhere in the repository (except inside SKIP_DIRS).
+CLEAN_RECURSIVE_DIRS = ("__pycache__", ".pytest_cache", ".mypy_cache")
+CLEAN_RECURSIVE_FILE_SUFFIXES = (".pyc", ".pyo", ".nbc")  # .nbc: Numba cache
+# Build artifacts removed only at the repository top level.
+CLEAN_TOPLEVEL_GLOBS = ("build", "dist", "*.egg-info")
+# Never descend into these: the pixi environments and git metadata contain
+# directories named build/, dist/ and *.egg-info that belong to them.
+CLEAN_SKIP_DIRS = (".pixi", ".git")
+
+
+def clean_targets(root: Path) -> list[Path]:
+    """Return the paths `clean` removes under *root*.
+
+    Caches are matched at any depth; build/, dist/ and *.egg-info only at the top
+    level of *root*. Nothing inside .pixi/ or .git/ is ever matched.
+    """
+    root = Path(root)
+    targets: list[Path] = []
+    for pattern in CLEAN_TOPLEVEL_GLOBS:
+        targets.extend(p for p in root.glob(pattern) if p.name not in CLEAN_SKIP_DIRS)
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+        # Prune skipped directories and directories that are removed as a whole.
+        keep = []
+        for d in dirnames:
+            if d in CLEAN_SKIP_DIRS:
+                continue
+            if d in CLEAN_RECURSIVE_DIRS:
+                targets.append(Path(dirpath) / d)
+                continue
+            keep.append(d)
+        dirnames[:] = keep
+        targets.extend(Path(dirpath) / f for f in filenames if f.endswith(CLEAN_RECURSIVE_FILE_SUFFIXES))
+    return sorted(set(targets))
+
+
 @app.command()
 def clean():
     """
-    Remove all __pycache__, .pyc, .nbc, and build artifacts recursively.
+    Remove Python/Numba caches recursively, and build/, dist/ and *.egg-info at
+    the repository top level. Never touches .pixi/ or .git/.
     """
-    patterns = [
-        "__pycache__",
-        "*.pyc",
-        "*.pyo",
-        "*.nbc",  # Numba cache
-        ".pytest_cache",
-        ".mypy_cache",
-        "build",  # setuptools build dir
-        "dist",  # setuptools dist dir
-        "*.egg-info"
-    ]
-
     count = 0
-    # Use ROOT from your existing cli.py
-    for pattern in patterns:
-        # rglob finds files recursively
-        for path in ROOT.rglob(pattern):
-            try:
-                if path.is_dir():
-                    shutil.rmtree(path)
-                else:
-                    path.unlink()
-                count += 1
-                # typer.echo(f"Deleted: {path}") # Uncomment for verbose output
-            except Exception as e:
-                typer.echo(f"Error deleting {path}: {e}")
+    for path in clean_targets(ROOT):
+        if not path.exists():  # already removed with a parent directory
+            continue
+        try:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+            count += 1
+        except Exception as e:
+            typer.echo(f"Error deleting {path}: {e}")
 
     typer.echo(f"Cleaned up {count} cached files and directories.")
 
