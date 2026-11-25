@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Run EGFR-specific profiles and full-network NUTS posterior from a saved PhosKinTime fit.
 
-Place this script at the PhosKinTime repository root and run it from the existing
-Python environment. It never changes the original fitted model or posterior payload.
+Run it from the existing Python environment, for example:
+    python scripts/figures/egfr_cbc2026/run_egfr_inference.py --stage check
+The script changes into the repository root itself; relative --source/--output paths
+are resolved against the repository root. It never changes the original fitted model
+or posterior payload.
 """
 from __future__ import annotations
 
