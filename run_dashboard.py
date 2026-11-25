@@ -1,4 +1,4 @@
-#! usr/bin/env python
+#!/usr/bin/env python
 
 """
 Run the PhosKinTime dashboard application.

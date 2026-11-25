@@ -139,8 +139,7 @@ phoskintime/
 ├── scripts/            Stand-alone analysis utilities
 ├── background/         Background tasks and helpers
 ├── app/                Web application assets
-├── run_dashboard.py    Dashboard launcher
-└── Dockerfile          Container definition
+└── run_dashboard.py    Dashboard launcher
 ```
 
 ---
