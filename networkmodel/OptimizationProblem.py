@@ -113,7 +113,7 @@ class GlobalODEScalarObjective:
     """Evaluate and solve the scalar global ODE objective"""
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12,
-                 data_mode: DataMode | None = None, pinn_config=None, pinn_spec=None, **_):
+                 data_mode: DataMode | None = None, pinn_config=None, pinn_spec=None, solver_config=None, **_):
         """Initialize GlobalODEScalarObjective
         
         Args:
@@ -187,6 +187,7 @@ class GlobalODEScalarObjective:
             slices=slices,
             pinn_config=pinn_config,
             pinn_spec=pinn_spec,
+            solver_config=solver_config,
         )
         self._objective_raw = make_simple_objective(
             loss_data,
@@ -202,6 +203,7 @@ class GlobalODEScalarObjective:
             slices=slices,
             pinn_config=pinn_config,
             pinn_spec=pinn_spec,
+            solver_config=solver_config,
         )
         self.final_loss_breakdown = {}
 

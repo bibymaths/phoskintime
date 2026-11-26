@@ -24,9 +24,11 @@ FC_FLOOR = 1e-12
 DATA_BASELINE_NEAR_ZERO = 1e-12
 
 
-def baseline_index(times, layer: str):
-    """Index of the baseline time of ``layer`` ("protein", "phospho", "rna") in ``times``."""
-    return _base_idx(np.asarray(times, dtype=float), BASELINE_TIMES[layer])
+def baseline_index(times, layer: str, baseline_times=None):
+    """Index of the baseline time of ``layer`` ("protein", "phospho", "rna") in ``times``; ``baseline_times``
+    overrides the configured ones (a rebuild passes the run's recorded values)."""
+    bt = BASELINE_TIMES if baseline_times is None else baseline_times
+    return _base_idx(np.asarray(times, dtype=float), float(bt[layer]))
 
 
 def model_fold_change(values, base, xp=np):

@@ -375,6 +375,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
     from common.results import update_metadata
     from networkmodel.backend import networkmodel_solver_config
     from networkmodel.config import SCALING_METHOD
+    import networkmodel.config as _nmc
     from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
     from networkmodel.simulate import EXPORT_SOLVER_SETTINGS
 
@@ -406,6 +407,10 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "bounds": bounds,
         "weighting": {"protein": str(weight_cfg.get("protein")), "rna": str(weight_cfg.get("rna"))},
         "scaling_method": str(SCALING_METHOD),
+        "time_points": {layer: [float(x) for x in getattr(args, f"time_points_{layer}", default)]
+                        for layer, default in (("protein", _nmc.TIME_POINTS_PROTEIN), ("rna", _nmc.TIME_POINTS_RNA),
+                                               ("phospho", _nmc.TIME_POINTS_PHOSPHO))},
+        "baseline_times": {k: float(v) for k, v in __import__("networkmodel.baselines", fromlist=["x"]).BASELINE_TIMES.items()},
         "kinase_drive": "monotone cubic Hermite (PCHIP, Fritsch-Carlson) through the kinase knots, shared by fit and "
                         "export (networkmodel.kinase_drive); held constant outside the knot range (extrapolation "
                         "policy pending owner decision); no jump_ts",

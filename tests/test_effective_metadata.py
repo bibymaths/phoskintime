@@ -17,9 +17,16 @@ def test_networkmodel_effective_settings_written(tmp_path):
     _record_effective_settings(args, {"A_i": (0.1, 2.0), "c_k": (0.01, 5.0)}, slices, xl, xu,
                                {"protein": "uniform", "rna": "uniform"})
     eff = json.loads((tmp_path / "metadata.json").read_text())["effective_settings"]
-    assert eff["solver_fit"]["rtol"] == 1e-8 and eff["solver_fit"]["solver_name"] == "Kvaerno4"  # N5
-    assert eff["solver_export_observation_times"]["rtol"] == 1e-8
-    assert eff["solver_steady_state"]["atol"] == 1e-8
+    from dataclasses import asdict
+
+    from networkmodel.backend import networkmodel_solver_config
+
+    # Values are checked against the real config.toml in a clean process (tests/test_solver_config_single.py);
+    # here other tests may have imported networkmodel.config with a fixture config.
+    assert eff["solver_fit"] == asdict(networkmodel_solver_config())
+    for key in ("solver_export_observation_times", "solver_steady_state"):
+        assert set(eff[key]) == {"solver_name", "rtol", "atol", "max_steps"}
+    assert set(eff["time_points"]) == {"protein", "rna", "phospho"} and "baseline_times" in eff
     assert eff["bounds"]["A_i"] == {"raw_lower_min": -2.0, "raw_upper_max": 2.0, "physical_lower": 0.1,
                                     "physical_upper": 2.0}
     assert eff["weighting"] == {"protein": "uniform", "rna": "uniform"}

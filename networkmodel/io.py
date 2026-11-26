@@ -206,9 +206,9 @@ def load_data(args):
     SCALING_REPORT["ms"] = {}
     df_ms = process_and_scale_raw_data(
         df_ms_raw,
-        time_points=TIME_POINTS_PROTEIN,
+        time_points=getattr(args, "time_points_protein", None) if getattr(args, "time_points_protein", None) is not None else TIME_POINTS_PROTEIN,
         id_cols=["GeneID", "Psite"],
-        scale_method=SCALING_METHOD,
+        scale_method=getattr(args, "scaling_method", None) or SCALING_METHOD,
         report=SCALING_REPORT["ms"],
     )
     df_ms = _normcols(df_ms)
@@ -234,7 +234,8 @@ def load_data(args):
         tidy["psite"] = tidy[scol]
         # Map 'x1' -> Index 0 -> TimePoint[0]
         x_idx = tidy["xcol"].str.replace("x", "", regex=False).astype(int) - 1
-        tidy["time"] = TIME_POINTS_PROTEIN[x_idx.to_numpy()]
+        _tp = getattr(args, "time_points_protein", None)
+        tidy["time"] = np.asarray(TIME_POINTS_PROTEIN if _tp is None else _tp, dtype=float)[x_idx.to_numpy()]
     else:
         # Handling pre-melted data
         tcol = _find_col(df_ms, ["time", "t"])
@@ -294,9 +295,9 @@ def load_data(args):
         SCALING_REPORT["rna"] = {}
         df_rna = process_and_scale_raw_data(
             df_rna_raw,
-            time_points=TIME_POINTS_RNA,
+            time_points=getattr(args, "time_points_rna", None) if getattr(args, "time_points_rna", None) is not None else TIME_POINTS_RNA,
             id_cols=["protein"],
-            scale_method=SCALING_METHOD,
+            scale_method=getattr(args, "scaling_method", None) or SCALING_METHOD,
             report=SCALING_REPORT["rna"],
         )
 

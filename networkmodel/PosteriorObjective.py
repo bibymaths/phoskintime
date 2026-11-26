@@ -196,6 +196,15 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         solver="jaxopt",
     )
 
+    # N7 (6a): the run's own recorded settings, never the current config.toml.
+    from networkmodel.run_settings import load_run_settings, solver_config_from
+
+    run_eff = load_run_settings(base_output_dir)
+    args.scaling_method = run_eff["scaling_method"]
+    args.time_points_protein = np.asarray(run_eff["time_points"]["protein"], dtype=float)
+    args.time_points_rna = np.asarray(run_eff["time_points"]["rna"], dtype=float)
+    args.time_points_phospho = np.asarray(run_eff["time_points"]["phospho"], dtype=float)
+
     df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = _load_data_for_posterior_context(args, cfg)
 
     if args.normalize_fc_steady:
@@ -278,15 +287,15 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         sys_obj.set_initial_conditions()
 
     solver_times = np.unique(
-        np.concatenate([TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO])
+        np.concatenate([args.time_points_protein, args.time_points_rna, args.time_points_phospho])
     )
 
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
     from networkmodel.baselines import baseline_index  # baseline times defined once (N7)
 
-    loss_data["prot_base_idx"] = baseline_index(solver_times, "protein")
-    loss_data["rna_base_idx"] = baseline_index(solver_times, "rna")
-    loss_data["pho_base_idx"] = baseline_index(solver_times, "phospho")
+    loss_data["prot_base_idx"] = baseline_index(solver_times, "protein", run_eff["baseline_times"])
+    loss_data["rna_base_idx"] = baseline_index(solver_times, "rna", run_eff["baseline_times"])
+    loss_data["pho_base_idx"] = baseline_index(solver_times, "phospho", run_eff["baseline_times"])
 
     custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
     theta0_build, slices, xl_build, xu_build = init_raw_params(defaults, custom_bounds=custom_bounds)
@@ -323,6 +332,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         xl=lower,
         xu=upper,
         data_mode=mode,
+        solver_config=solver_config_from(run_eff),
     )
 
     ctx = InferenceContext(

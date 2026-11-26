@@ -843,7 +843,7 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
 
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
                           prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
-                          y0=None, sys=None, slices=None, pinn_config=None, pinn_spec=None):
+                          y0=None, sys=None, slices=None, pinn_config=None, pinn_spec=None, solver_config=None):
     """Create the scalar trajectory objective
     
     Args:
@@ -905,7 +905,8 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
             f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
     model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
     defaults_j = _defaults_vector_jax(defaults, slices)
-    solver_cfg = networkmodel_solver_config()  # N5: same config as export and diagnostics
+    # N5: same config as export and diagnostics; a rebuild passes the run's own recorded config (N7 6a).
+    solver_cfg = networkmodel_solver_config() if solver_config is None else solver_config
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
