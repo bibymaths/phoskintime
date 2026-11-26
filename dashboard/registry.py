@@ -93,7 +93,6 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         python_module="protwise.runner.main",
         accepted_arguments=(
             ArgumentSpec("conf", "--conf", "path", "Optional model configuration file."),
-            ArgumentSpec("bootstraps", "--bootstraps", "int", "Bootstrap iterations."),
             ArgumentSpec("input_excel_protein", "--input-excel-protein", "path", "Protein input CSV file."),
             ArgumentSpec("input_excel_psite", "--input-excel-psite", "path", "Phosphosite input Excel file."),
             ArgumentSpec("input_excel_rna", "--input-excel-rna", "path", "RNA input Excel file."),

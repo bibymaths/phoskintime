@@ -18,7 +18,6 @@ Configuration is passed via command-line arguments and processed using `config/c
 
 - `input_excel`: Path to Protein-Kinase data
 - `input_excel_rna`: Path to mRNA data
-- `bootstraps` : Number of bootstrap iterations
 - `A-bound` : Bounds for mRNA production rate
 - `B-bound` : Bounds for mRNA degradation rate
 - `C-bound` : Bounds for protein production rate

@@ -193,7 +193,7 @@ def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_w
     return jnp.asarray(total, dtype=jnp.float64)
 
 
-def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps=0):
+def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds):
     """Estimate local-model parameters with a deterministic JAXopt projected-gradient path."""
     model = _canonical_model_name(ODE_MODEL)
     expected_state = 2 + ((1 << int(num_psites)) - 1 if model == "randmod" else int(num_psites))

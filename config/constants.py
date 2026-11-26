@@ -55,9 +55,10 @@ UB_Protein_deg = float(_bounds.get("protein_deg", 20))
 UB_Phospho_prod = float(_bounds.get("phospho_prod", 20))
 UB_Phospho_deg = float(_bounds.get("phospho_deg", 20))
 
-# Bootstraps
-_boot = _CFG.get("bootstrap", {}) or {}
-BOOTSTRAPS = int(_boot.get("n", 0))
+# [ode.bootstrap] was removed (X12): normest never used the bootstrap count.
+if _CFG.get("bootstrap"):
+    raise ValueError("[ode.bootstrap] is no longer supported: the protwise fit never ran bootstraps "
+                     "(see KNOWN_ISSUES.md X12). Remove the [ode.bootstrap] table from the config.")
 
 # Sensitivity analysis configuration (Morris)
 _sens = _CFG.get("sensitivity", {}) or {}

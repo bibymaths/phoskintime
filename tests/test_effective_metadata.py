@@ -31,5 +31,5 @@ def test_protwise_effective_settings():
     from protwise.runner.main import _effective_settings
 
     eff = _effective_settings({"bounds": {"A": [0, 1]}, "seed": 7})
-    assert eff["solver"]["rtol"] == 1e-6 and eff["bootstraps_used"] == 0 and eff["seeds"]["sensitivity"] == 7
-    assert eff["rna_times"][0] == 4.0
+    assert eff["solver"]["rtol"] == 1e-6 and eff["seeds"]["sensitivity"] == 7
+    assert eff["rna_times"][0] == 4.0 and "bootstraps_used" not in eff

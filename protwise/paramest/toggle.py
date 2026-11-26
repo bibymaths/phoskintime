@@ -1,7 +1,7 @@
 from protwise.paramest.normest import normest
 
 
-def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps):
+def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds):
     """
     Wrapper around the normal estimation workflow in ``paramest/normest.py``.
 
@@ -18,7 +18,6 @@ def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, ti
         num_psites (int): Number of phosphorylation sites.
         time_points (array): Time points for the data.
         bounds (tuple): Bounds for the parameter estimation.
-        bootstraps (int): Number of bootstrap samples.
 
     Returns:
         model_fits (list): List of model fits.
@@ -30,7 +29,7 @@ def estimate_parameters(gene, pr_data, p_data, r_data, init_cond, num_psites, ti
 
     # For normal estimation, we use the provided bounds and fixed parameters
     estimated_params, model_fits, errors, reg_term = normest(
-        gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds, bootstraps
+        gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, bounds
     )
 
     # For normal estimation, model_fits[0][1] is already an array of shape (num_psites, len(time_points))

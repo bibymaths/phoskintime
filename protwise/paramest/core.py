@@ -23,7 +23,6 @@ def process_gene(
         mrna_data,
         time_points,
         bounds,
-        bootstraps=0,
         out_dir=OUT_DIR,
         seed=SENSITIVITY_SEED,
 ):
@@ -37,7 +36,6 @@ def process_gene(
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
         bounds (tuple): Bounds for parameter estimation.
-        bootstraps (int, optional): Number of bootstrap iterations. Defaults to 0.
         out_dir (str, optional): Output directory for saving results. Defaults to OUT_DIR.
 
     Returns:
@@ -89,7 +87,7 @@ def process_gene(
 
     # Estimate parameters
     model_fits, estimated_params, seq_model_fit, errors, regularization_val = estimate_parameters(
-        gene, Pr_data, P_data, R_data, init_cond, num_psites, time_points, bounds, bootstraps
+        gene, Pr_data, P_data, R_data, init_cond, num_psites, time_points, bounds
     )
 
     # Error Metrics
@@ -255,7 +253,7 @@ def _phospho_tail(seq_model_fit, num_psites, n_t):
     return flat[flat.size - n:].reshape(int(num_psites), int(n_t))
 
 
-def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR,
+def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, out_dir=OUT_DIR,
                          seed=SENSITIVITY_SEED):
     """
     Wrapper function to process a gene.
@@ -267,7 +265,6 @@ def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points
         mrna_data (pd.DataFrame): DataFrame containing mRNA data.
         time_points (list): List of time points for the experiment.
         bounds (tuple): Bounds for parameter estimation.
-        bootstraps (int, optional): Number of bootstrap iterations. Defaults to 0.
         out_dir (str, optional): Output directory for saving results. Defaults to OUT_DIR.
 
     Returns:
@@ -280,7 +277,6 @@ def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points
         mrna_data=mrna_data,
         time_points=time_points,
         bounds=bounds,
-        bootstraps=bootstraps,
         out_dir=out_dir,
         seed=seed,
     )

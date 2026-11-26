@@ -33,7 +33,7 @@ The config module is composed of several submodules:
   This file handles command-line argument parsing and configuration extraction. It provides:
 
     - The `parse_args` function to define and parse the necessary CLI arguments (such as parameter bounds, fixed
-      parameter values, bootstrapping iterations, and input file paths).
+      parameter values and input file paths).
     - Utility functions like `ensure_output_directory` to create necessary directories.
     - The `extract_config` function, which aggregates all command-line arguments and constants into a unified
       configuration dictionary used by the rest of the package.

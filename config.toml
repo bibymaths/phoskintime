@@ -88,17 +88,6 @@ phospho_deg = 20
 
 
 # ------------------------------------------------------------
-# BOOTSTRAP SETTINGS
-# ------------------------------------------------------------
-# Number of bootstrap replicates used for uncertainty estimation.
-#
-# Higher values improve uncertainty estimates but increase runtime.
-# Use small values for testing and larger values for final analyses.
-[ode.bootstrap]
-n = 10
-
-
-# ------------------------------------------------------------
 # TIME GRIDS
 # ------------------------------------------------------------
 # Experimental sampling times in minutes.

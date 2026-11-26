@@ -30,9 +30,6 @@ protein_deg = 14
 phospho_prod = 15
 phospho_deg = 16
 
-[ode.bootstrap]
-n = 17
-
 [ode.time]
 protein = [0, 2, 4, 8]
 rna = [4, 8, 16]
@@ -90,7 +87,6 @@ def test_custom_protwise_conf_is_honored(tmp_path):
     assert config["bounds"]["D"] == (0.0, 14.0)
     assert config["bounds"]["S(i)"] == (0.0, 15.0)
     assert config["bounds"]["D(i)"] == (0.0, 16.0)
-    assert config["bootstraps"] == 17
     assert config["time_points"].tolist() == [0.0, 2.0, 4.0, 8.0]
     assert Path(config["outdir"]) == outdir
 
@@ -107,13 +103,11 @@ def test_cli_flags_override_custom_protwise_conf(tmp_path):
     args = parse_args([
         "--conf", str(conf),
         "--A-bound", "0,99",
-        "--bootstraps", "3",
         "--outdir", str(cli_out),
     ])
     config = extract_config(args)
 
     assert config["bounds"]["A"] == (0.0, 99.0)
-    assert config["bootstraps"] == 3
     assert Path(config["outdir"]) == cli_out
     assert config["input_excel_protein"].endswith("custom/protein.csv")
 
@@ -173,5 +167,16 @@ def test_protwise_run_contract_records_custom_config(tmp_path):
     assert metadata["config_source"] == "custom"
     assert metadata["effective_inputs"]["protein"].endswith("custom/protein.csv")
     assert metadata["effective_bounds"]["A"] == [0.0, 11.0]
-    assert metadata["effective_bootstraps"] == 17
     assert metadata["effective_time_grid"] == [0.0, 2.0, 4.0, 8.0]
+
+
+def test_bootstrap_table_is_rejected(tmp_path):
+    """X12: [ode.bootstrap] was removed (normest never used it)."""
+    pytest.importorskip("numpy")
+    from config.config import parse_args
+
+    conf = tmp_path / "protwise.toml"
+    _write_protwise_config(conf, tmp_path / "out")
+    conf.write_text(conf.read_text().replace("[ode.time]", "[ode.bootstrap]\nn = 5\n\n[ode.time]", 1))
+    with pytest.raises(ValueError, match="X12"):
+        parse_args(["--conf", str(conf)])

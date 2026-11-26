@@ -62,10 +62,6 @@ Controls the per-protein ODE fitting pipeline (`protwise/models/`, `protwise/par
 
 Parameter bounds for ODE model fitting.
 
-### `[ode.bootstrap]`
-
-Bootstrap sample count for confidence intervals.
-
 ### `[ode.time]`
 
 Time point grid for ODE integration.

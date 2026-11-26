@@ -89,7 +89,7 @@ flowchart TD
 |---|---|
 | `processing/` | Raw data cleaning and network mapping |
 | `protwise/models/` | Per-protein ODE definitions and solvers |
-| `protwise/paramest/` | Parameter estimation (`normest.py`); bootstrap confidence intervals |
+| `protwise/paramest/` | Parameter estimation (`normest.py`) |
 | `protwise/sensitivity/` | Morris sensitivity analysis (local ODE models) |
 | `protwise/steady/` | Steady-state initial condition computation |
 | `protwise/plotting/` | Static publication-ready plots and HTML reports |
@@ -107,7 +107,7 @@ flowchart TD
 ---|---|
 | `processing/` | Raw data cleaning and network mapping |
 | `models/` | Per-protein ODE definitions and solvers |
-| `paramest/` | Parameter estimation (`normest.py`); bootstrap confidence intervals |
+| `paramest/` | Parameter estimation (`normest.py`) |
 | `sensitivity/` | Morris sensitivity analysis (local ODE models) |
 | `steady/` | Steady-state initial condition computation |
 | `plotting/` | Static publication-ready plots and HTML reports |

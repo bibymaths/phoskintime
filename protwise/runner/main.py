@@ -57,7 +57,6 @@ def _metadata_extra(config: dict) -> dict:
             "rna": config.get("input_excel_rna"),
         },
         "effective_bounds": config.get("bounds"),
-        "effective_bootstraps": config.get("bootstraps"),
         "effective_time_grid": config.get("time_points"),
         "output_directory": config.get("outdir"),
         "effective_settings": _effective_settings(config),
@@ -83,7 +82,6 @@ def _effective_settings(config: dict) -> dict:
         "weighting": "none (unweighted per-layer means)",
         "rna_times": [float(x) for x in TIME_POINTS_RNA],
         "normalize_model_output": bool(NORMALIZE_MODEL_OUTPUT),
-        "bootstraps_used": 0,
         "sensitivity_analysis": bool(SENSITIVITY_ANALYSIS),
         "seeds": {"sensitivity": config.get("seed")},
     }
@@ -272,7 +270,6 @@ def main(argv: list[str] | None = None):
             mrna_data,
             config["time_points"],
             config["bounds"],
-            config["bootstraps"],
             out_dir=out_dir,
             seed=config["seed"],
         )
