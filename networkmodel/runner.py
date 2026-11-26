@@ -362,6 +362,47 @@ def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) -> None:
+    """Write the settings this run actually uses into metadata.json["effective_settings"] (META).
+
+    These are the values in force in the code path, not the requested config values (those are in
+    config_resolved.yaml).
+    """
+    from dataclasses import asdict
+
+    from common.results import update_metadata
+    from networkmodel.backend import DiffraxSolverConfig
+    from networkmodel.config import SCALING_METHOD
+    from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
+    from networkmodel.simulate import EXPORT_SOLVER_SETTINGS
+
+    bounds = {}
+    for name, sl in slices.items():
+        if isinstance(sl, slice) and sl.stop > sl.start:
+            entry = {"raw_lower_min": float(np.min(xl[sl])), "raw_upper_max": float(np.max(xu[sl]))}
+            if name in custom_bounds:
+                lo, hi = custom_bounds[name]
+                entry.update({"physical_lower": float(lo), "physical_upper": float(hi)})
+            bounds[name] = entry
+    update_metadata(args.output_dir, {"effective_settings": {
+        "loss_function": "weighted mean squared error per modality (protein, RNA, phospho) + lambda_prior * prior "
+                         "penalty (networkmodel.backend objective)",
+        "lambdas": {"protein": float(args.lambda_protein), "rna": float(args.lambda_rna),
+                    "phospho": float(args.lambda_phospho), "prior": float(args.lambda_prior)},
+        "solver_fit": asdict(DiffraxSolverConfig()),
+        "solver_export_observation_times": dict(EXPORT_SOLVER_SETTINGS),
+        "solver_steady_state": dict(STEADY_STATE_SOLVER_SETTINGS),
+        "bounds_source": "networkmodel.utils.calculate_bio_bounds (data-derived)",
+        "bounds": bounds,
+        "weighting": {"protein": str(weight_cfg.get("protein")), "rna": str(weight_cfg.get("rna"))},
+        "scaling_method": str(SCALING_METHOD),
+        "kinase_drive": "zero-order hold at the kinase knots (searchsorted side='right'); value held after the last "
+                        "knot; no jump_ts",
+        "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
+        "model": int(args.model_code) if hasattr(args, "model_code") else None,
+    }})
+
+
 def initialize_run_contract(args: argparse.Namespace) -> argparse.Namespace:
     """Create output/provenance files after config and CLI precedence are resolved."""
     from common.results import attach_file_console_logger, ensure_result_dir, write_command, write_metadata, \
@@ -992,6 +1033,8 @@ def main():
         parameter_names[pinn_spec.nn_slice] = list(pinn_spec.parameter_names)
 
     parameter_names = parameter_names.tolist()
+
+    _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg)
 
     logger.info("[Optimizer] theta0.shape=%s xl.shape=%s xu.shape=%s", theta0.shape, xl.shape, xu.shape)
     if theta0.shape != xl.shape or theta0.shape != xu.shape:

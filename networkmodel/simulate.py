@@ -16,6 +16,10 @@ from networkmodel.config import MODEL, ODE_ABS_TOL, ODE_REL_TOL, ODE_MAX_STEPS
 from networkmodel.backend import DiffraxSolverConfig, make_networkmodel_rhs, solve_diffrax
 
 
+
+# Solver settings of the observation-time export (simulate_and_measure); recorded in metadata.json.
+EXPORT_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": 1e-5, "atol": 1e-7, "max_steps": 5000}
+
 def combinatorial_site_signals_streaming(states, n_sites):
     """Return per-site combinatorial signals without building an ns x n_sites bit matrix."""
     state_view = np.asarray(states, dtype=np.float64)
@@ -175,7 +179,8 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
 def simulate_and_measure(sys, idx, t_points_p, t_points_r, t_points_pho):
     """Simulate mechanistic System and return measured output tables."""
     times = np.unique(np.concatenate([t_points_p, t_points_r, t_points_pho]).astype(np.float64))
-    Y = simulate_diffrax(sys, times, rtol=1e-5, atol=1e-7, max_steps=5000)
+    Y = simulate_diffrax(sys, times, rtol=EXPORT_SOLVER_SETTINGS["rtol"], atol=EXPORT_SOLVER_SETTINGS["atol"],
+                         max_steps=EXPORT_SOLVER_SETTINGS["max_steps"])
     return measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho)
 
 def simulate_pinn_diffrax(

@@ -60,6 +60,32 @@ def _metadata_extra(config: dict) -> dict:
         "effective_bootstraps": config.get("bootstraps"),
         "effective_time_grid": config.get("time_points"),
         "output_directory": config.get("outdir"),
+        "effective_settings": _effective_settings(config),
+    }
+
+
+def _effective_settings(config: dict) -> dict:
+    """Settings actually used by the protwise fit (META), not the requested config values."""
+    from dataclasses import asdict
+
+    from config.constants import NORMALIZE_MODEL_OUTPUT, ODE_MODEL, SENSITIVITY_ANALYSIS, TIME_POINTS_RNA, \
+        USE_REGULARIZATION
+    from networkmodel.backend import DiffraxSolverConfig
+    from protwise.paramest.normest import REGULARIZATION_WEIGHT
+
+    return {
+        "model": ODE_MODEL,
+        "loss_function": "mean squared error per layer (mRNA, protein, phospho) divided by the layer scale"
+                         + (f" + {REGULARIZATION_WEIGHT:g} * mean(params^2)" if USE_REGULARIZATION else ""),
+        "optimizer": "jaxopt.ProjectedGradient, maxiter=200, tol=1e-7, start at the box midpoint",
+        "solver": asdict(DiffraxSolverConfig()),
+        "bounds": config.get("bounds"),
+        "weighting": "none (unweighted per-layer means)",
+        "rna_times": [float(x) for x in TIME_POINTS_RNA],
+        "normalize_model_output": bool(NORMALIZE_MODEL_OUTPUT),
+        "bootstraps_used": 0,
+        "sensitivity_analysis": bool(SENSITIVITY_ANALYSIS),
+        "seeds": {"sensitivity": config.get("seed")},
     }
 
 

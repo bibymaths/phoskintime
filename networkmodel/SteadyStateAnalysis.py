@@ -11,6 +11,10 @@ from config.config import setup_logger
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
+
+# Solver settings of the 14-day steady-state simulation; recorded in metadata.json.
+STEADY_STATE_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": 1e-6, "atol": 1e-8, "max_steps": 50000}
+
 def _pinn_mode(pinn_config) -> str:
     if pinn_config is None:
         return "off"
@@ -72,9 +76,9 @@ def simulate_until_steady(
             pinn_config=pinn_config,
             pinn_spec=pinn_spec,
             t_eval=t_eval,
-            rtol=1e-6,
-            atol=1e-8,
-            max_steps=50000,
+            rtol=STEADY_STATE_SOLVER_SETTINGS["rtol"],
+            atol=STEADY_STATE_SOLVER_SETTINGS["atol"],
+            max_steps=STEADY_STATE_SOLVER_SETTINGS["max_steps"],
         )
     else:
         logger.info("[SteadyState] Simulating mechanistic system for %g minutes...", float(t_max))
@@ -82,9 +86,9 @@ def simulate_until_steady(
         Y = simulate_diffrax(
             sys,
             t_eval,
-            rtol=1e-6,
-            atol=1e-8,
-            max_steps=50000,
+            rtol=STEADY_STATE_SOLVER_SETTINGS["rtol"],
+            atol=STEADY_STATE_SOLVER_SETTINGS["atol"],
+            max_steps=STEADY_STATE_SOLVER_SETTINGS["max_steps"],
         )
 
     # Use finite difference for all modes. This avoids calling sys.rhs,
