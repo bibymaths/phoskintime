@@ -39,6 +39,8 @@ nav:
   - Contributing: repository/contributing.md
   - API Reference: reference.md
   - Changelog: repository/changelog.md
+  - Releases:
+      - v0.6.0: releases/v0.6.0.md
   - Repository Layout: repository/layout.md
   - Tutorials:
       - ProtWise: notebooks/03_protwise_educational_workflow.md
