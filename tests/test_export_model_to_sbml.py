@@ -285,3 +285,9 @@ def test_reconstruct_from_saved_run_exports_without_config_or_posterior(tmp_path
     (tmp_path / "fitted_params_picked.json").write_text(json.dumps(wrong))
     with pytest.raises(ValueError, match="A_i: expected 2 entries, got 1"):
         ex.read_fitted_params(tmp_path, reconstructed.idx)
+
+
+def test_sbml_export_is_blocked_while_drive_is_not_encoded():
+    """N17: the fit uses a PCHIP kinase drive that this exporter cannot encode; main() refuses with a clear message."""
+    with pytest.raises(SystemExit, match="N17"):
+        ex.main(["--results", "unused"])

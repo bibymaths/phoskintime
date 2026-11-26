@@ -1046,6 +1046,13 @@ def rebuild_system_from_saved_exports(results: Path):
     system.custom_y0 = np.asarray(y0, dtype=float)
     return system
 
+DRIVE_NOT_ENCODED_MESSAGE = (
+    "SBML export is blocked: the fit now uses a PCHIP kinase drive (KNOWN_ISSUES N17), but this exporter encodes a "
+    "step drive, so the exported model would not be the fitted one. Encoding the piecewise-cubic drive in SBML is a "
+    "pending owner decision."
+)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--results", required=True, type=Path)
@@ -1055,6 +1062,7 @@ def main(argv=None) -> int:
     ap.add_argument("--check-only", action="store_true", help="Reconstruct, validate tables and RHS; do not write SBML")
     ap.add_argument("--overwrite", action="store_true", help="Allow replacement of existing output file")
     args = ap.parse_args(argv)
+    raise SystemExit(DRIVE_NOT_ENCODED_MESSAGE)  # N17: the exporter encodes a step drive; verify_rhs would fail
     results = args.results.resolve()
     output_dir = (args.out if args.out else results/"sbml_reactions").resolve()
     xml_path = output_dir/"networkmodel_reactions.xml"
