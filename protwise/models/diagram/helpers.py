@@ -35,7 +35,7 @@ def state_label(state):
     return "P" + ''.join(sorted_sites)
 
 
-def create_random_diagram(x, num_sites, output_filename):
+def create_random_diagram(x, num_sites, output_filename, out_dir=OUT_DIR):
     """
     Create a random phosphorylation diagram.
 
@@ -117,10 +117,10 @@ def create_random_diagram(x, num_sites, output_filename):
         dot.edge(label, 'NULL_' + label, label=deg_label, color='dimgray',
                  fontcolor='dimgray', style='dotted', penwidth='1.5')
 
-    dot.render(f"{OUT_DIR}/{output_filename}", format='png', cleanup=True)
+    dot.render(f"{out_dir}/{output_filename}", format='png', cleanup=True)
 
 
-def create_distributive_diagram(x, num_sites, output_filename):
+def create_distributive_diagram(x, num_sites, output_filename, out_dir=OUT_DIR):
     """
     Create a distributive phosphorylation diagram.
 
@@ -163,10 +163,10 @@ def create_distributive_diagram(x, num_sites, output_filename):
         dot.edge(p_node, null_p_node, label=f'D{i}', color='dimgray', fontcolor='dimgray',
                  style='dotted', penwidth='1.5')
 
-    dot.render(f"{OUT_DIR}/{output_filename}", format='png', cleanup=True)
+    dot.render(f"{out_dir}/{output_filename}", format='png', cleanup=True)
 
 
-def create_successive_model(x, num_sites, output_filename):
+def create_successive_model(x, num_sites, output_filename, out_dir=OUT_DIR):
     """
     Create a successive phosphorylation diagram.
 
@@ -220,4 +220,4 @@ def create_successive_model(x, num_sites, output_filename):
         dot.edge(f'P{i}', f'NULL_P{i}', label=f'D{i}', color='dimgray', fontcolor='dimgray',
                  style='dotted', penwidth='1.5')
 
-    dot.render(f"{OUT_DIR}/{output_filename}", format='png', cleanup=True)
+    dot.render(f"{out_dir}/{output_filename}", format='png', cleanup=True)

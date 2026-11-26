@@ -125,7 +125,7 @@ def process_gene(
     logger.info(f"[{gene}]      Generating plots...")
 
     # Generate phosphorylation ODE diagram
-    illustrate(gene, num_psites)
+    illustrate(gene, num_psites, out_dir)
 
     # Create plotting instance
     plotter = Plotter(gene, out_dir)
@@ -215,7 +215,7 @@ def process_gene(
         perturbation_analysis, trajectories_w_params = sensitivity_analysis(Pr_data, P_data, R_data, final_params,
                                                                             time_points,
                                                                             num_psites, psite_values, labels, init_cond,
-                                                                            gene)
+                                                                            gene, out_dir=out_dir)
 
     # Return Results
     return {

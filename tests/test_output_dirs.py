@@ -7,10 +7,6 @@ import logging
 
 import pytest
 
-X11 = pytest.mark.xfail(reason="X11: hard-coded output folders", strict=True)
-
-
-@X11
 def test_file_log_directory_is_created_lazily(tmp_path):
     from config.logconf import setup_logger
 
@@ -24,7 +20,6 @@ def test_file_log_directory_is_created_lazily(tmp_path):
     assert any(log_dir.iterdir())
 
 
-@X11
 def test_redirect_file_logs_moves_existing_and_future_loggers(tmp_path):
     from config.logconf import redirect_file_logs, setup_logger
 
@@ -48,7 +43,6 @@ def test_redirect_file_logs_moves_existing_and_future_loggers(tmp_path):
     assert len(file_handlers) == 1
 
 
-@X11
 def test_illustrate_writes_to_given_out_dir(tmp_path):
     pytest.importorskip("graphviz")
     import inspect
@@ -65,7 +59,6 @@ def test_illustrate_writes_to_given_out_dir(tmp_path):
     assert list(tmp_path.glob("GENEX_phospho_diagram*.png"))
 
 
-@X11
 def test_sensitivity_analysis_accepts_out_dir():
     import inspect
 

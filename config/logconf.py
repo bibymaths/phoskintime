@@ -20,6 +20,69 @@ LOG_COLORS = {
 }
 
 
+class _LazyDirMixin:
+    """Create the log file's directory when the file is first opened, not when the logger is set up.
+
+    Handlers are created with ``delay=True``, so a logger whose file handler is redirected
+    (see :func:`redirect_file_logs`) before its first message never touches its default folder.
+    """
+
+    def _open(self):
+        os.makedirs(os.path.dirname(self.baseFilename) or ".", exist_ok=True)
+        return super()._open()
+
+
+class LazyFileHandler(_LazyDirMixin, logging.FileHandler):
+    pass
+
+
+class LazyRotatingFileHandler(_LazyDirMixin, RotatingFileHandler):
+    pass
+
+
+# Absolute default log directory -> directory used instead (set by redirect_file_logs).
+_LOG_DIR_REDIRECTS: dict[str, str] = {}
+
+
+def _resolve_log_dir(log_dir):
+    if not log_dir:
+        return log_dir
+    return _LOG_DIR_REDIRECTS.get(os.path.abspath(os.fspath(log_dir)), log_dir)
+
+
+def redirect_file_logs(new_dir, from_dirs):
+    """Send file logs that would go to any of ``from_dirs`` to ``new_dir`` instead.
+
+    Retargets the file handlers of loggers that already exist and applies to loggers set up
+    later in this process. Runners call this with their run's output folder so that
+    concurrent runs do not share (or create) a hard-coded log folder.
+    """
+    new_dir = os.fspath(new_dir)
+    olds = {os.path.abspath(os.fspath(d)) for d in from_dirs if d}
+    for d in olds:
+        _LOG_DIR_REDIRECTS[d] = new_dir
+    loggers = [logging.getLogger()] + [
+        lg for lg in list(logging.Logger.manager.loggerDict.values()) if isinstance(lg, logging.Logger)
+    ]
+    for lg in loggers:
+        for h in list(lg.handlers):
+            if not isinstance(h, (LazyFileHandler, LazyRotatingFileHandler)):
+                continue
+            if os.path.dirname(h.baseFilename) not in olds:
+                continue
+            target = os.path.join(new_dir, os.path.basename(h.baseFilename))
+            if isinstance(h, LazyRotatingFileHandler):
+                new = LazyRotatingFileHandler(target, maxBytes=h.maxBytes, backupCount=h.backupCount, delay=True)
+            else:
+                new = LazyFileHandler(target, delay=True)
+            new.setFormatter(h.formatter)
+            new.setLevel(h.level)
+            lg.removeHandler(h)
+            h.close()
+            lg.addHandler(new)
+    return new_dir
+
+
 class TqdmToLogger:
     def __init__(self, logger, level=logging.INFO):
         self.logger = logger
@@ -112,8 +175,9 @@ def setup_logger(
         - "per_process": file logging in each process
     :return: logger
     """
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # The directory is created when the first message is written (LazyFileHandler), so a
+    # redirected or unused default folder is never created.
+    log_dir = _resolve_log_dir(log_dir)
 
     if name is None:
         frame = inspect.stack()[1]
@@ -163,11 +227,11 @@ def setup_logger(
         # Avoid RotatingFileHandler across processes on NFS.
         # Keep rotation ONLY in the main process.
         if rotate and (not is_worker):
-            file_handler = RotatingFileHandler(
-                log_file_use, maxBytes=max_bytes, backupCount=backup_count
+            file_handler = LazyRotatingFileHandler(
+                log_file_use, maxBytes=max_bytes, backupCount=backup_count, delay=True
             )
         else:
-            file_handler = logging.FileHandler(log_file_use)
+            file_handler = LazyFileHandler(log_file_use, delay=True)
 
         file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(file_format)

@@ -369,7 +369,13 @@ def initialize_run_contract(args: argparse.Namespace) -> argparse.Namespace:
     from config.config import setup_logger
 
     global logger
+    from config.logconf import redirect_file_logs
+    from networkmodel.config import RESULTS_DIR
+
     args.output_dir = str(ensure_result_dir(args.output_dir)["root"])
+    # Module file logs (setup_logger(log_dir=RESULTS_DIR)) go next to this run's own log,
+    # not to the configured default folder (X11). A no-op when --output-dir is the default.
+    redirect_file_logs(args.output_dir, [RESULTS_DIR])
     logger = setup_logger(log_dir=args.output_dir)
     attach_file_console_logger(logger, args.output_dir)
     write_command(args.output_dir)

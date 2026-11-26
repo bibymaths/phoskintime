@@ -168,7 +168,7 @@ def _perturb_solve(i_X_tuple):
 
 
 def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psites,
-                          psite_labels, state_labels, init_cond, gene):
+                          psite_labels, state_labels, init_cond, gene, out_dir=OUT_DIR):
     """
     Perform Morris sensitivity analysis using the current ODE model.
 
@@ -274,7 +274,7 @@ def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psit
     # True model fit with estimated parameters
     model_fit, _ = solve_ode(popt, init_cond, num_psites, time_points)
 
-    plotter = Plotter(gene, OUT_DIR)
+    plotter = Plotter(gene, out_dir)
     plotter.plot_time_state_grid(all_states, time_points, state_labels)
     plotter.plot_phase_space(all_states, state_labels)
     plotter.plot_model_perturbations(

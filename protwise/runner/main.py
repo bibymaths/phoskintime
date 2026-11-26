@@ -72,7 +72,12 @@ def initialize_run_contract(config: dict, args, logger):
         write_resolved_config,
     )
 
+    from config.constants import LOG_DIR
+    from config.logconf import redirect_file_logs
+
     out_dir = ensure_result_dir(config["outdir"])["root"]
+    # Module file logs go to this run's folder, not the shared default (X11).
+    redirect_file_logs(out_dir / "logs", [LOG_DIR])
     out_results_dir = out_dir / Path(config["out_results_dir"]).name
     config["outdir"] = str(out_dir)
     config["out_results_dir"] = str(out_results_dir)

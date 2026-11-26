@@ -5,10 +5,12 @@ from config.logconf import setup_logger, ColoredFormatter
 
 def test_logger_handles_empty_log_directory(tmp_path):
     """
-    Test that the logger creates the log directory if it does not exist.
+    Test that the logger creates the log directory if it does not exist
+    (when the first message is written; see X11).
     """
     log_directory = str(tmp_path / "nonexistent_logs")
     logger = setup_logger(name="empty_log_dir_test", log_dir=log_directory)
+    logger.info("first message")
     assert os.path.exists(log_directory)
 
 
