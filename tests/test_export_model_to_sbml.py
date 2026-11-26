@@ -290,12 +290,6 @@ def test_reconstruct_from_saved_run_exports_without_config_or_posterior(tmp_path
         ex.read_fitted_params(tmp_path, reconstructed.idx)
 
 
-def test_sbml_export_is_blocked_while_drive_is_not_encoded():
-    """N17: the fit uses a PCHIP kinase drive that this exporter cannot encode; main() refuses with a clear message."""
-    with pytest.raises(SystemExit, match="N17"):
-        ex.main(["--results", "unused"])
-
-
 @pytest.mark.parametrize("policy", ["hold", "baseline"])
 def test_sbml_pchip_drive_matches_jax_drive(policy):
     """B7: the SBML piecewise cubic equals the JAX PCHIP drive to <= 1e-12 at >= 1,000 points, including every
