@@ -590,12 +590,12 @@ def evaluate_reaction_plan_rhs(plan: ExportPlan, sys_obj, t: float, y: np.ndarra
     return out
 
 
-def verify_rhs(plan: ExportPlan, sys_obj, fitted: dict, *, reference_backend: str = "legacy") -> dict[str, Any]:
+def verify_rhs(plan: ExportPlan, sys_obj, fitted: dict, *, reference_backend: str = "jax") -> dict[str, Any]:
     """Compare exported reaction expressions against a PhosKinTime RHS.
 
-    Production uses the JAX/Diffrax fitting RHS from backend.py, not the
-    legacy System.rhs path, whose TF-input squashing can differ.
-    Synthetic unit tests can explicitly exercise legacy System.rhs.
+    The reference is the JAX/Diffrax fitting RHS from backend.py (N10: System.rhs is retired).
+    reference_backend="legacy" calls sys_obj.rhs and is kept only for synthetic test systems that
+    implement their own independent rhs.
     """
     if reference_backend not in {"jax", "legacy"}:
         raise ValueError(f"Unsupported reference backend: {reference_backend}")

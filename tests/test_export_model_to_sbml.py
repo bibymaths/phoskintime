@@ -102,7 +102,7 @@ def test_reaction_graph_has_correct_edges_and_stoichiometry():
 def test_rhs_numeric_matches_original():
     sys=FakeSystem()
     plan=ex.make_plan(sys, sys.p)
-    v=ex.verify_rhs(plan,sys,sys.p)
+    v=ex.verify_rhs(plan,sys,sys.p,reference_backend="legacy")
     assert v["max_abs_rhs_error"] < 1e-10
     assert v["tested_times"] == [0.,.5,1.]
 

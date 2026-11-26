@@ -213,7 +213,9 @@ def plot_steady_state_all(t, Y, sys, idx, output_dir, *, pinn_config=None):
 
         abs_dy = np.abs(dy_last)
     else:
-        dy_last = sys.rhs(t_last, y_last)
+        # JAX RHS used by the fit (N10); the legacy numba System.rhs squashed the TF input twice.
+        from networkmodel.simulate import jax_rhs_value
+        dy_last = jax_rhs_value(sys, t_last, y_last)
         abs_dy = np.abs(dy_last)
 
     plt.figure(figsize=(10, 5))

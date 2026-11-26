@@ -5,7 +5,7 @@ import pandas as pd
 
 from networkmodel.BuildMatrix import site_key
 from networkmodel.config import TIME_POINTS_PROTEIN, MODEL, RESULTS_DIR
-from networkmodel.models import distributive_rhs, build_random_transitions, sequential_rhs, combinatorial_rhs
+from networkmodel.models import build_random_transitions
 from networkmodel.InitialConditions import build_y0_from_data
 from config.config import setup_logger
 
@@ -381,90 +381,11 @@ class System:
         )
 
     def rhs(self, t, y):
-        """Evaluate the active ODE right-hand side
-        
-        Args:
-            t: Input value used by this routine.
-            y: Input value used by this routine.
-        
-        Returns:
-            Computed result from this routine.
-        
-        Raises:
-            ValueError: When inputs are inconsistent or unsupported.
-        """
-        dy = np.zeros_like(y)
-
-        # 1. Observed Kinase Activity (The Driver)
-        Kt = self.kin.eval(t) * self.c_k
-        S_all = self.W_global.dot(Kt)
-
-        P_vec = np.zeros(self.idx.N, dtype=np.float64)
-
-        for i in range(self.idx.N):
-            # --- Live-Drive for Kinases ---
-            # If the protein is a kinase OR an orphan redirected to one,
-            # we drive the mRNA using the high-fidelity Kinase trajectory.
-            prot_name = self.idx.proteins[i]
-
-            # Check if this name is in the proxy map or is a kinase itself
-            if prot_name in self.idx.kinases or (hasattr(self.idx, 'proxy_map') and prot_name in self.idx.proxy_map):
-                # Resolve the kinase name (either the protein itself or its proxy)
-                k_name = prot_name if prot_name in self.idx.kinases else self.idx.proxy_map[prot_name]
-                k_idx = self.idx.k2i[k_name]
-                # Use the observed fold-change scaled by optimized multiplier c_k
-                P_vec[i] = Kt[k_idx]
-            else:
-                # Standard logic: Use the predicted phosphorylation state
-                st = self.idx.offset_y[i]
-                if MODEL == 2:
-                    ns = int(self.idx.n_states[i])
-                    tot = 0.0
-                    for m in range(ns):
-                        tot += y[st + 1 + m]
-                else:
-                    ns = self.idx.n_sites[i]
-                    tot = y[st + 1]
-                    if ns > 0:
-                        tot += y[st + 2: st + 2 + ns].sum()
-                P_vec[i] = tot
-
-        # 2. Transcription Logic
-        TF_inputs = self.tf_mat.dot(P_vec)
-        # Squash inputs for stability (u / 1+|u|)
-        for i in range(len(TF_inputs)):
-            val = TF_inputs[i] / self.tf_deg[i]
-            TF_inputs[i] = val / (1.0 + abs(val))
-
-        if MODEL == 0:
-            distributive_rhs(
-                y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
-                TF_inputs, S_all,
-                self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
-            )
-        elif MODEL == 1:
-            sequential_rhs(
-                y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
-                TF_inputs, S_all,
-                self.idx.offset_y, self.idx.offset_s, self.idx.n_sites
-            )
-        elif MODEL == 2:
-
-            if self.S_cache is None:
-                raise ValueError("MODEL==2: System.S_cache is None.")
-            self.S_cache[:] = S_all
-
-            combinatorial_rhs(
-                y, dy,
-                self.A_i, self.B_i, self.C_i, self.D_i, self.Dp_i, self.E_i, self.tf_scale,
-                TF_inputs,
-                self.S_cache,
-                self.idx.offset_y, self.idx.offset_s,
-                self.idx.n_sites, self.idx.n_states
-            )
-        return dy
+        """Retired (KNOWN_ISSUES N10): the legacy numba right-hand side differed from the fitted model
+        (TF input squashed twice; MODEL 4 returned zeros). Use networkmodel.simulate.jax_rhs_value(sys, t, y),
+        or networkmodel.backend.make_networkmodel_rhs for the fit RHS. The numba kernels in
+        networkmodel.models remain as test oracles only."""
+        raise NotImplementedError("System.rhs is retired (KNOWN_ISSUES N10); use networkmodel.simulate.jax_rhs_value.")
 
     def y0(self) -> np.ndarray:
         """Return a copy of the initial state vector

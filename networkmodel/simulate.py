@@ -76,6 +76,19 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
         dtype=np.float64,
     )
 
+def jax_rhs_value(sys, t, y):
+    """dy/dt of the fitted system at (t, y) from the JAX RHS used by the fit (N10; replaces System.rhs)."""
+    params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i,
+              np.asarray([sys.tf_scale], dtype=np.float64))
+    rhs = getattr(sys, "_cached_jax_rhs", None)
+    if rhs is None:
+        rhs = make_networkmodel_rhs(sys)
+        sys._cached_jax_rhs = rhs
+    args = tuple(jnp.asarray(p, dtype=jnp.float64) for p in params)
+    return np.asarray(rhs(jnp.asarray(float(t), dtype=jnp.float64), jnp.asarray(y, dtype=jnp.float64), args),
+                      dtype=np.float64)
+
+
 def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
     """Extract protein, RNA, and phospho measurement tables from a solved trajectory."""
     Y = np.asarray(Y, dtype=np.float64)
