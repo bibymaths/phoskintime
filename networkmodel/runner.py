@@ -406,8 +406,9 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "bounds": bounds,
         "weighting": {"protein": str(weight_cfg.get("protein")), "rna": str(weight_cfg.get("rna"))},
         "scaling_method": str(SCALING_METHOD),
-        "kinase_drive": "zero-order hold at the kinase knots (searchsorted side='right'); value held after the last "
-                        "knot; no jump_ts",
+        "kinase_drive": "monotone cubic Hermite (PCHIP, Fritsch-Carlson) through the kinase knots, shared by fit and "
+                        "export (networkmodel.kinase_drive); held constant outside the knot range (extrapolation "
+                        "policy pending owner decision); no jump_ts",
         "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
         "model_code": int(args.model_code) if hasattr(args, "model_code") else None,
     }})
@@ -1551,7 +1552,7 @@ def main():
         )
 
     # 1. Export Dynamic Kinase Activities (Mechanism check)
-    export_kinase_activities(sys, idx, args.output_dir, t_max=120)
+    export_kinase_activities(sys, idx, args.output_dir)
     logger.info("[Output] Saved dynamic kinase activities.")
     from networkmodel.export import export_dense_diagnostics
     export_dense_diagnostics(sys, idx, args.output_dir)

@@ -1,8 +1,8 @@
 """S1/N1: the JAX right-hand side (networkmodel.backend.make_networkmodel_rhs) must match the numba
 topology kernels in networkmodel.models for MODEL 0 (distributive), 1 (sequential) and 2 (combinatorial).
 
-Parity is checked at the kernel level: the reference computes the kinase drive (zero-order hold,
-searchsorted side="right"), S_all = W @ (K(t) * c_k), the TF input (TF @ P) / tf_deg and the kinase
+Parity is checked at the kernel level: the reference computes the kinase drive (the shared PCHIP drive,
+networkmodel.kinase_drive.KinaseDrive in numpy; N17), S_all = W @ (K(t) * c_k), the TF input (TF @ P) / tf_deg and the kinase
 driver mapping exactly as the JAX RHS does, then calls the numba kernel. This isolates the topology
 equations from the known differences of the legacy System.rhs wrapper (N10: TF input squashed twice;
 N17: kinase interpolation), which are not part of S1.
@@ -63,8 +63,9 @@ def _reference_dy(model_id, sys, par, t, y):
     from networkmodel.models import combinatorial_rhs, distributive_rhs, sequential_rhs
 
     idx = sys.idx
-    j = int(np.clip(np.searchsorted(sys.kin.grid, t, side="right") - 1, 0, sys.kin.grid.size - 1))
-    Kt = sys.kin.Kmat[:, j] * par["c_k"]
+    from networkmodel.kinase_drive import KinaseDrive
+
+    Kt = KinaseDrive(sys.kin.grid, sys.kin.Kmat).evaluate(float(t)) * par["c_k"]
     S_all = sys.W_global.toarray() @ Kt
     P_vec = np.zeros(idx.N)
     for i, p in enumerate(idx.proteins):

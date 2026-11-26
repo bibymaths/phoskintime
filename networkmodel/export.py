@@ -14,7 +14,6 @@ import matplotlib.colors as mcolors
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 
-from scipy.interpolate import interp1d
 from scipy.stats import linregress
 
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO, MODEL, RESULTS_DIR
@@ -1461,7 +1460,7 @@ def export_dense_diagnostics(sys, idx, output_dir, n_points=1001):
     logger.info("[Output] Saved dense diagnostic grid (%d points; not used in the loss) to %s", t.size, out)
 
 
-def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
+def export_kinase_activities(sys, idx, output_dir, t_max=None, n_points=1001):
     """Export kinase activity trajectories
     
     Args:
@@ -1471,29 +1470,14 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
         t_max: Input value used by this routine.
         n_points: Input value used by this routine.
     """
-    # Create time grid for plotting
-    t_grid = np.linspace(0, t_max, n_points)
+    # The SAME drive as the fit (PCHIP through the knots, held after the last knot; N17), times the fitted c_k,
+    # over the whole knot range by default (was: a separate linear interpolation up to 120 min).
+    from networkmodel.kinase_drive import KinaseDrive
 
-    # Raw data profile from the system inputs
-    orig_t = sys.kin.grid
-    orig_K = sys.kin.Kmat
-
-    activities = []
-
-    for k_idx, k_name in enumerate(idx.kinases):
-        # 1. Get base profile from MS data
-        base_profile = orig_K[k_idx, :]
-
-        # 2. Interpolate to smooth grid
-        interp_func = interp1d(orig_t, base_profile, kind='linear', fill_value="extrapolate")
-        smooth_profile = interp_func(t_grid)
-
-        # 3. Apply optimized multiplier c_k
-        # c_k is stored in sys.c_k
-        multiplier = sys.c_k[k_idx]
-        act_trace = smooth_profile * multiplier
-
-        activities.append(act_trace)
+    orig_t = np.asarray(sys.kin.grid, dtype=float)
+    t_grid = np.linspace(orig_t[0], orig_t[-1] if t_max is None else float(t_max), int(n_points))
+    drive = KinaseDrive(orig_t, sys.kin.Kmat).evaluate_many(t_grid)  # (n_kinases, n_points)
+    activities = drive * np.asarray(sys.c_k, dtype=float)[:, None]
 
     # Build DataFrame
     df_act = pd.DataFrame(np.array(activities).T, columns=idx.kinases)

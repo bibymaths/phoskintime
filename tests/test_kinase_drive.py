@@ -8,7 +8,6 @@ import pytest
 import scipy.sparse as sp
 from scipy.interpolate import PchipInterpolator
 
-N17 = pytest.mark.xfail(reason="N17: fit uses a step drive, export a linear interp1d", strict=True)
 GRID = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
 
 
@@ -42,7 +41,6 @@ def test_positive_data_give_positive_drive_and_hold_after_last_knot():
     np.testing.assert_array_equal(drv.evaluate(5000.0), K[:, -1])
 
 
-@N17
 def test_jax_rhs_uses_the_pchip_drive(monkeypatch):
     import jax.numpy as jnp
 
@@ -69,7 +67,6 @@ def test_jax_rhs_uses_the_pchip_drive(monkeypatch):
             np.testing.assert_allclose(float(rhs(jnp.float64(t), y, par)[2]), ref(t)[j], rtol=1e-12)
 
 
-@N17
 def test_export_uses_the_same_drive():
     import networkmodel.export as ex
 

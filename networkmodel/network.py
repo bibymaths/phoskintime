@@ -211,12 +211,10 @@ class KinaseInput:
         Returns:
             Computed result from this routine.
         """
-        if t <= self.grid[0]:
-            return self.Kmat[:, 0]
-        if t >= self.grid[-1]:
-            return self.Kmat[:, -1]
-        j = int(np.searchsorted(self.grid, t, side="right") - 1)
-        return self.Kmat[:, j]
+        # Same PCHIP drive as the fit RHS (N17); held constant outside the knot range.
+        from networkmodel.kinase_drive import KinaseDrive
+
+        return KinaseDrive(self.grid, self.Kmat).evaluate(float(t))
 
 
 class System:

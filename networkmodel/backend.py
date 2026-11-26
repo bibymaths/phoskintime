@@ -288,15 +288,17 @@ def make_networkmodel_rhs(sys, slices=None):
         )
     ]
 
+    # Kinase drive: monotone cubic Hermite (PCHIP) through the knots, held constant outside (N17). The same
+    # KinaseDrive coefficients and formula are used by the exports (networkmodel.kinase_drive).
+    from networkmodel.kinase_drive import KinaseDrive
+
+    _drive = KinaseDrive(np.asarray(sys.kin.grid, dtype=np.float64), np.asarray(sys.kin.Kmat, dtype=np.float64))
+    kin_slopes = jnp.asarray(_drive.slopes, dtype=jnp.float64)
+
     def rhs(t, y, args):
         par = _params(args)
 
-        def _stepwise(row):
-            idx = jnp.searchsorted(kin_grid, t, side="right") - 1
-            idx = jnp.clip(idx, 0, kin_grid.shape[0] - 1)
-            return row[idx]
-
-        K_raw = jax.vmap(_stepwise)(kin_Kmat)
+        K_raw = _drive.evaluate(t, xp=jnp, grid=kin_grid, Kmat=kin_Kmat, slopes=kin_slopes)
         Kt = K_raw * par["c_k"]
         S_all = W @ Kt
 
