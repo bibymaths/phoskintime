@@ -137,6 +137,28 @@ def _make_local_model_rhs_cached(model: str, n: int):
     raise ValueError(f"Unsupported local ODE model: {model!r}")
 
 
+def rna_time_grid(time_points, n_rna: int | None = None, rna_times=None):
+    """Union solve grid for protwise (P1): protein/phospho are read at ``time_points``, RNA at the RNA
+    observation times (config ``[timepoints] rna``), never at the last n protein times.
+
+    Returns ``(grid, t_idx, rna_idx)`` with ``grid[t_idx] == time_points`` and ``grid[rna_idx] == rna_times``.
+    The initial time stays ``time_points[0]``: RNA times before it are an error. ``n_rna`` (the number of
+    RNA observations being fitted) must match the configured RNA grid when given and non-zero.
+    """
+    from config.constants import TIME_POINTS_RNA  # defer to avoid circular imports at module load
+
+    t = np.asarray(time_points, dtype=np.float64).reshape(-1)
+    r = np.asarray(TIME_POINTS_RNA if rna_times is None else rna_times, dtype=np.float64).reshape(-1)
+    if n_rna is not None and n_rna == 0:
+        r = r[:0]
+    elif n_rna is not None and r.size != n_rna:
+        raise ValueError(f"{n_rna} RNA observations but {r.size} configured RNA times {r.tolist()}.")
+    if r.size and t.size and r.min() < t[0]:
+        raise ValueError(f"RNA times {r.tolist()} start before the initial time {t[0]}.")
+    grid = np.union1d(t, r)
+    return grid, np.searchsorted(grid, t), np.searchsorted(grid, r)
+
+
 def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None = None):
     """Solve the selected local ODE model with the centralized Diffrax backend."""
     from config.constants import ODE_MODEL  # defer to avoid circular imports at module load
@@ -149,24 +171,28 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     if params_arr.size != expected_params:
         raise ValueError(f"{model} expects {expected_params} parameters for {num_psites} sites, got {params_arr.size}.")
     rhs = make_local_model_rhs(model, num_psites)
-    sol = np.asarray(
+    grid, t_idx, rna_idx = rna_time_grid(t)
+    sol_grid = np.asarray(
         solve_diffrax(
             np.asarray(init_cond, dtype=np.float64),
-            np.asarray(t, dtype=np.float64),
+            grid,
             params=params_arr,
             rhs=rhs,
             config=DiffraxSolverConfig(),
         ),
         dtype=np.float64,
     )
-    sol_raw = np.clip(sol, 0, None)
+    sol_raw = np.clip(sol_grid[t_idx], 0, None)
+    r_raw = np.clip(sol_grid[rna_idx, 0], 0, None)
 
     if NORMALIZE_MODEL_OUTPUT:
         norm_init = np.asarray(init_cond, dtype=sol_raw.dtype)
         norm_init = np.where(norm_init == 0, 1.0, norm_init)
         sol_out = sol_raw / norm_init[np.newaxis, :]
+        r_fitted = r_raw / norm_init[0]
     else:
         sol_out = sol_raw.copy()
+        r_fitted = r_raw.copy()
 
     if model == "randmod" and num_psites:
         # Sensitivity/plotting callers read solution[:, 2:2+num_psites] as
@@ -181,6 +207,5 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     else:
         p_fitted = sol_out[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol_out.dtype)
 
-    r_fitted = sol_out[5:, 0].T if sol_out.shape[0] > 5 else sol_out[:, 0].T
     pr_fitted = sol_out[:, 1].T if sol_out.shape[1] > 1 else np.asarray([], dtype=sol_out.dtype)
     return sol_out, np.concatenate((np.ravel(r_fitted), np.ravel(pr_fitted), np.ravel(p_fitted)))

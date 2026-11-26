@@ -4,8 +4,6 @@ not at the last n protein times. One code path for fit (objective) and export (s
 import numpy as np
 import pytest
 
-P1 = pytest.mark.xfail(reason="P1: RNA read from the protein time grid", strict=True)
-
 MODEL = "distmod"
 NUM_PSITES = 2
 
@@ -34,7 +32,6 @@ def test_grids_differ_so_the_test_is_meaningful():
     assert not np.array_equal(t[-r.size:], r)
 
 
-@P1
 def test_solve_protwise_ode_reads_rna_at_rna_times():
     from protwise.models.diffrax_solver import solve_protwise_ode
 
@@ -45,7 +42,6 @@ def test_solve_protwise_ode_reads_rna_at_rna_times():
     np.testing.assert_allclose(flat[:r.size], expected, rtol=1e-6, atol=1e-9)
 
 
-@P1
 def test_objective_reads_rna_at_rna_times():
     import jax.numpy as jnp
 

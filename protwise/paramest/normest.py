@@ -11,7 +11,7 @@ import jax.numpy as jnp
 from config.constants import ODE_MODEL, USE_REGULARIZATION, get_num_params, get_param_names
 from config.helpers import randmod_subset_masks
 from networkmodel.backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
-from protwise.models.diffrax_solver import make_local_model_rhs
+from protwise.models.diffrax_solver import make_local_model_rhs, rna_time_grid
 
 logger = logging.getLogger(__name__)
 
@@ -146,15 +146,16 @@ def aggregate_randmod_phospho(sol, num_psites):
     return membership @ subset_states.T
 
 
-def _split_predictions(sol, num_psites, n_rna_times, model_name: str | None = None):
-    r = sol[:, 0]
+def _split_predictions(sol_grid, num_psites, t_idx, rna_idx, model_name: str | None = None):
+    """Split a solution on the rna_time_grid union grid: RNA at rna_idx, protein/phospho at t_idx (P1)."""
+    sol = sol_grid[t_idx]
     pr = sol[:, 1]
     model = _canonical_model_name(model_name)
     if num_psites and model == "randmod":
         ph = aggregate_randmod_phospho(sol, num_psites)
     else:
         ph = sol[:, 2:2 + num_psites].T if num_psites else jnp.zeros((0, sol.shape[0]), dtype=sol.dtype)
-    r_fit = r[-n_rna_times:] if n_rna_times else jnp.asarray([], dtype=sol.dtype)
+    r_fit = sol_grid[rna_idx, 0]
     return r_fit, pr, ph
 
 
@@ -162,14 +163,15 @@ def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_w
     model = _canonical_model_name(model_name)
     params = from_opt_space(theta, model)
     rhs = make_local_model_rhs(model, num_psites)
+    grid, t_idx, rna_idx = rna_time_grid(time_points, int(mode_weights["n_rna"]))
     sol = solve_diffrax(
         jnp.asarray(init_cond, dtype=jnp.float64),
-        jnp.asarray(time_points, dtype=jnp.float64),
+        jnp.asarray(grid, dtype=jnp.float64),
         params=params,
         rhs=rhs,
         config=DiffraxSolverConfig(),
     )
-    r_fit, pr_fit, ph_fit = _split_predictions(sol, num_psites, int(mode_weights["n_rna"]), model)
+    r_fit, pr_fit, ph_fit = _split_predictions(sol, num_psites, t_idx, rna_idx, model)
     total = jnp.asarray(0.0, dtype=jnp.float64)
     if mode_weights["fit_mrna"]:
         total += jnp.mean((r_fit.reshape(-1) - target["mrna"]) ** 2) / mode_weights["scale_mrna"]
@@ -240,9 +242,11 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info("[%s] Optimizer iterations: %s", gene, getattr(state, "iter_num", "unknown"))
 
     rhs = make_local_model_rhs(model, num_psites)
-    sol = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), np.asarray(time_points, dtype=np.float64),
-                                   params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
-    r_fit = sol[-mrna.size:, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
+    grid, t_idx, rna_idx = rna_time_grid(time_points, mrna.size)
+    sol_grid = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), grid,
+                                        params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
+    sol = sol_grid[t_idx]
+    r_fit = sol_grid[rna_idx, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
     pr_fit = sol[:, 1].reshape(-1)
     ph_fit = np.asarray(
         aggregate_randmod_phospho(jnp.asarray(sol), num_psites) if model == "randmod" and num_psites else sol[
