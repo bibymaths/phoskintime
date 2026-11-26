@@ -7,8 +7,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-N20 = pytest.mark.xfail(reason="N20: sequential site j read from the single state j+1", strict=True)
-
 # one protein, 3 sites: y = [R, P0, P1, P2, P3]
 Y = np.array([[1.0, 2.0, 0.6, 0.3, 0.1],
               [1.5, 1.0, 0.9, 0.5, 0.4]])
@@ -18,8 +16,7 @@ def _occ(row, j):
     return row[2 + j:].sum()
 
 
-@N20
-@pytest.mark.parametrize("site", [0, 1])  # site 2 = last state: same under both rules
+@pytest.mark.parametrize("site", [0, 1, 2])
 def test_loss_observable_is_site_occupancy(site):
     import jax.numpy as jnp
 
@@ -31,7 +28,6 @@ def test_loss_observable_is_site_occupancy(site):
     np.testing.assert_allclose(got, _occ(Y[1], site) / _occ(Y[0], site), rtol=1e-12)
 
 
-@N20
 def test_cache_marks_sequential_layout(monkeypatch):
     import inspect
 
@@ -40,7 +36,6 @@ def test_cache_marks_sequential_layout(monkeypatch):
     assert '"sequential" if MODEL == 1' in inspect.getsource(cache)
 
 
-@N20
 def test_export_measurement_is_site_occupancy(monkeypatch):
     import networkmodel.simulate as sim
 
@@ -55,7 +50,6 @@ def test_export_measurement_is_site_occupancy(monkeypatch):
         np.testing.assert_allclose(fc, _occ(Y[1], j) / _occ(Y[0], j), rtol=1e-12)
 
 
-@N20
 def test_initial_conditions_invert_occupancy(monkeypatch):
     import networkmodel.InitialConditions as ic
 

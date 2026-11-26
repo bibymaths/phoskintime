@@ -152,7 +152,7 @@ def prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, time_grid):
         "p_pho": p_pho, "s_pho": s_pho, "t_pho": t_pho, "obs_pho": obs_pho, "w_pho": w_pho,
         "prot_map": np.ascontiguousarray(prot_map, dtype=np.int32),
         "n_sites": np.ascontiguousarray(idx.n_sites, dtype=np.int32),
-        "state_layout": "combinatorial" if MODEL == 2 else "standard",
+        "state_layout": "combinatorial" if MODEL == 2 else ("sequential" if MODEL == 1 else "standard"),
         "backend_mode": "networkmodel",
         "n_p": len(obs_prot),
         "n_r": len(obs_rna),

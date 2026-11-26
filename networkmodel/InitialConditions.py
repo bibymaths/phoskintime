@@ -11,6 +11,22 @@ from config.config import setup_logger
 logger = setup_logger(log_dir=RESULTS_DIR)
 
 
+
+def sequential_states_from_occupancy(occupancy, gene=None):
+    """Sequential-model states from per-site occupancies (N20).
+
+    State j (j+1 sites phosphorylated, in site order) contains sites 0..j, so occupancy_j = sum_{k>=j} state_k and
+    state_j = occupancy_j - occupancy_{j+1}. A sequential model can only represent non-increasing occupancies;
+    other inputs are projected onto them by a running minimum (logged), so no state is negative.
+    """
+    occ = np.asarray(occupancy, dtype=np.float64)
+    mono = np.minimum.accumulate(occ)
+    if not np.allclose(mono, occ):
+        logger.warning("[IC] %s: site occupancies %s are not non-increasing in site order; the sequential model "
+                       "uses the running minimum %s (N20).", gene, np.round(occ, 6).tolist(), np.round(mono, 6).tolist())
+    nxt = np.append(mono[1:], 0.0)
+    return mono - nxt
+
 def _dump_y0(sys, out_dir, max_sites=200):
     """Handle internal dump y0"""
     idx = sys.idx
@@ -216,8 +232,16 @@ def build_y0_from_data(
                     mask = 1 << j
                     y0[st + 1 + mask] = max(mass, eps)
 
+        elif MODEL == 1 and len(site_mass):
+            # sequential (N20): site_mass[j] is the occupancy of site j; state j holds j+1 sites, so the states are
+            # the differences of the (non-increasing) occupancies; P0 holds the unphosphorylated rest.
+            states = sequential_states_from_occupancy(site_mass, gene=gene)
+            y0[st + 1] = max(P_tot - float(states.sum()), eps)
+            for j, mass in enumerate(states):
+                y0[st + 2 + j] = max(mass, eps)
+
         else:
-            # distributive / sequential: P0 is first protein state
+            # distributive: P0 is first protein state
             y0[st + 1] = max(P_tot - pho_sum, eps)
 
             for j, mass in enumerate(site_mass):

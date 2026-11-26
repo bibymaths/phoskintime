@@ -156,7 +156,8 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
 
             if P_sites is not None:
                 for s_idx, psite in enumerate(idx.sites[i]):
-                    sig = P_sites[:, s_idx]
+                    # N20: sequential state k holds k+1 sites (in site order) -> site occupancy = sum of states s..n-1
+                    sig = P_sites[:, s_idx:].sum(axis=1) if MODEL == 1 else P_sites[:, s_idx]
                     fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
                     rows_pho.append(
                         pd.DataFrame(

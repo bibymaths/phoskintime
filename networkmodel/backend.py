@@ -580,7 +580,7 @@ def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, ti
         return jnp.where(valid_site, _safe_fold_change(pho_t, pho_b), 0.0)
 
     # Standard/sequential global layout: mRNA at offset, unphosphorylated protein
-    # at offset+1, and local phospho site s at offset+2+s.
+    # at offset+1, and phospho state s at offset+2+s.
     if layer == "protein":
         ar = jnp.arange(max_count + 1, dtype=jnp.int32)
         valid_state = ar < (count + 1)
@@ -590,6 +590,15 @@ def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, ti
         return _safe_fold_change(total_t, total_b)
 
     site = jnp.asarray(0 if site_idx is None else site_idx, dtype=jnp.int32)
+    if layout == "sequential":
+        # N20: state k (k+1 sites phosphorylated, in site order) contains site j iff k >= j, so the
+        # occupancy of site j is the sum of states j..n-1.
+        ar = jnp.arange(max_count, dtype=jnp.int32)
+        valid = (ar >= site) & (ar < count)
+        positions = jnp.minimum(off + 2 + ar, Y.shape[1] - 1)
+        pred = jnp.sum(jnp.where(valid, Y[t, positions], 0.0))
+        base = jnp.sum(jnp.where(valid, Y[b, positions], 0.0))
+        return _safe_fold_change(pred, base)
     pred = Y[t, off + 2 + site]
     base = Y[b, off + 2 + site]
     return _safe_fold_change(pred, base)
