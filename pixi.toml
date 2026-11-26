@@ -16,7 +16,6 @@ numpy = "==2.4.5"
 pandas = "==3.0.3"
 scipy = "==1.17.1"
 scikit-learn = "==1.8.0"
-statsmodels = "==0.14.6"
 numba = "==0.65.1"
 
 # Plotting, visualization, and file I/O
@@ -29,10 +28,7 @@ adjusttext = "==1.3.0"
 ansi2html = "==1.9.2"
 
 # Optimization, sensitivity analysis, and modeling utilities
-pymoo = "==0.6.1.5"
-cobyqa = "==1.1.3"
 salib = "==1.5.2"
-optuna = "==4.8.0"
 jax = "==0.10.2"
 jaxopt = "==0.8.4"
 diffrax = "==0.7.2"
@@ -63,10 +59,6 @@ python-libsbml = "==5.21.1"
 tabulate = "==0.10.0"
 optax = ">=0.2.8,<0.3"
 jaxtyping = ">=0.3.9,<0.4"
-
-[pypi-dependencies]
-# Not reliably available as a current conda package across all target platforms.
-py2cytoscape = "==0.7.1"
 
 [feature.dev.dependencies]
 pytest = "==9.0.3"
