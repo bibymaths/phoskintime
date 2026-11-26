@@ -3,17 +3,15 @@ import matplotlib.cm as cm
 import os, re
 import seaborn as sns
 import matplotlib
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 from itertools import combinations
 from adjustText import adjust_text
-from matplotlib.lines import Line2D
 from pandas.plotting import parallel_coordinates
 from scipy.interpolate import CubicSpline
-from scipy.stats import gaussian_kde, entropy
+from scipy.stats import entropy
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from config.constants import COLOR_PALETTE, OUT_DIR, available_markers, model_type, TIME_POINTS_RNA, \
@@ -179,27 +177,6 @@ class Plotter:
         self._save_fig(fig, f"{self.gene}_tsne_plot_.png")
         return tsne_result
 
-    def plot_param_series(self, estimated_params: list, param_names: list, time_points: np.ndarray):
-        """
-        Plots the time series of estimated parameters over the given time points.
-
-        Args:
-            estimated_params (list): List of estimated parameters.
-            param_names (list): List of parameter names.
-            time_points (np.ndarray): Array of time points.
-        """
-        arr = np.array(estimated_params)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        for i in range(arr.shape[1]):
-            ax.plot(time_points, arr[:, i], label=param_names[i])
-        ax.set_title(self.gene)
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Kinetic Rates")
-        ax.grid(True, alpha=0.2)
-        ax.legend(loc="best")
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_series_.png")
-
     def plot_profiles(self, data: pd.DataFrame):
         """
         Plots the profiles of estimated parameters over time.
@@ -332,106 +309,6 @@ class Plotter:
         )
         fig_plotly.write_html(os.path.join(self.out_dir, f"{self.gene}_model_fit_.html"))
 
-    def plot_param_scatter(self, est_arr: np.ndarray, num_psites: int, time_vals: np.ndarray):
-        """
-        Plots scatter and density plots for parameters.
-
-        Args:
-            est_arr (np.ndarray): 2D numpy array of estimated parameters.
-            num_psites (int): Number of phosphorylation sites.
-            time_vals (np.ndarray): Array of time values.
-        """
-        est_arr = np.array(est_arr)
-        cmap = plt.get_cmap("viridis")
-        norm = mcolors.Normalize(vmin=min(time_vals), vmax=max(time_vals))
-
-        param_labels = ["A", "B", "C", "D"]
-
-        for idx, label in enumerate(param_labels):
-            param_vals = est_arr[:, idx]
-
-            # Scatter plot
-            fig, ax = plt.subplots(figsize=(8, 8))
-            legend_handles = []
-            for i in range(num_psites):
-                S_vals = est_arr[:, 4 + i]
-                sc = ax.scatter(param_vals, S_vals, c=time_vals, cmap=cmap, norm=norm,
-                                s=50, alpha=0.8, marker=available_markers[i])
-                slope, intercept = np.polyfit(param_vals, S_vals, 1)
-                x_fit = np.linspace(param_vals.min(), param_vals.max(), 100)
-                y_fit = slope * x_fit + intercept
-                line_color = f"C{i}"
-                ax.plot(x_fit, y_fit, color=line_color, lw=1)
-                legend_handles.append(Line2D([0], [0],
-                                             marker=available_markers[i],
-                                             color='w',
-                                             markerfacecolor=line_color,
-                                             markeredgecolor='k',
-                                             markersize=8,
-                                             label=f"S{i + 1}"))
-            ax.set_xlabel(f"{label} (rate)")
-            ax.set_ylabel("S (Phosphorylation rate)")
-            ax.set_title(self.gene)
-            cbar = plt.colorbar(sc, ax=ax)
-            cbar.set_label("Time (min)")
-            ax.grid(True, alpha=0.2)
-            ax.legend(handles=legend_handles)
-            plt.tight_layout()
-            self._save_fig(fig, f"{self.gene}_scatter_{label}_S_.png")
-
-            # Density contour plot
-            all_points = np.vstack([np.column_stack((param_vals, est_arr[:, 4 + i])) for i in range(num_psites)])
-            kde = gaussian_kde(all_points.T)
-            param_lin = np.linspace(param_vals.min(), param_vals.max(), 100)
-            all_S = all_points[:, 1]
-            S_lin = np.linspace(all_S.min(), all_S.max(), 100)
-            param_grid, S_grid = np.meshgrid(param_lin, S_lin)
-            grid_coords = np.vstack([param_grid.ravel(), S_grid.ravel()])
-            density = kde(grid_coords).reshape(param_grid.shape)
-
-            fig, ax = plt.subplots(figsize=(8, 8))
-            ax.scatter(all_points[:, 0], all_points[:, 1], c='black', s=30, alpha=0.5)
-            contourf = ax.contourf(param_grid, S_grid, density, levels=10, cmap="inferno", alpha=0.7)
-            # Use a fixed value of 100 for contour levels to maintain consistency in density visualization.
-            ax.contour(param_grid, S_grid, density, levels=100, colors='white', linewidths=0.5)
-            ax.set_xlabel(f"{label}")
-            ax.set_ylabel("S")
-            ax.set_title(self.gene)
-            cbar = plt.colorbar(contourf, ax=ax)
-            cbar.set_label("Density")
-            plt.tight_layout()
-            self._save_fig(fig, f"{self.gene}_density_{label}_S_.png")
-
-    def plot_heatmap(self, param_value_df: pd.DataFrame):
-        """
-        Args:
-            param_value_df (pd.DataFrame): DataFrame containing parameter values with 'Protein' as one of the columns.
-        """
-        df = param_value_df.copy()
-        if 'Protein' in df.columns:
-            df.set_index('Protein', inplace=True)
-        correlation_matrix = df.T.corr()
-        fig, ax = plt.subplots(figsize=(8, 8))
-        sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm', vmin=-1, vmax=1, square=True, ax=ax)
-        ax.set_title('')
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_heatmap_protein.png")
-
-    def plot_error_distribution(self, error_df: pd.DataFrame):
-        """
-        Args:
-            error_df (pd.DataFrame): DataFrame containing errors with 'MAE' as one of the columns.
-        """
-        fig, ax = plt.subplots(figsize=(8, 8))
-        sns.histplot(error_df['MAE'], kde=True, color='blue', label='MSE', ax=ax)
-        sns.histplot(error_df['MAE'], kde=True, color='orange', label='MAE', ax=ax)
-        ax.set_xlabel('Error')
-        ax.set_ylabel('Frequency')
-        ax.set_title('')
-        ax.legend()
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_model_error.png")
-
     def plot_gof(self, merged_data: pd.DataFrame):
         """
         Plot the goodness of fit for the model.
@@ -523,70 +400,6 @@ class Plotter:
         ax.set_title(f"{model_type} Model")
         plt.tight_layout()
         self._save_fig(fig, f"{model_type}_kld_.png")
-
-    def plot_params_bar(self, ci_results: dict, param_labels: list = None):
-        """
-        Plots bar plot for estimated parameter with 95% Confidence Interval.
-
-        Args:
-            ci_results (dict): Dictionary containing the results of the confidence intervals.
-            param_labels (list, optional): List of parameter labels. Defaults to None.
-        """
-        beta_hat = ci_results['beta_hat']
-        p_values = ci_results['pval']
-        lwr_ci = ci_results['lwr_ci']
-        upr_ci = ci_results['upr_ci']
-        num_params = len(beta_hat)
-        if param_labels is None:
-            param_labels = [f"{i + 1}" for i in range(num_params)]
-
-        valid_indices = [
-            i for i, label in enumerate(param_labels)
-            if re.fullmatch(r"[A-Za-z][0-9]?$", label)
-        ]
-
-        if not valid_indices:
-            return
-
-        beta_hat = beta_hat[valid_indices]
-        p_values = p_values[valid_indices]
-        lwr_ci = lwr_ci[valid_indices]
-        upr_ci = upr_ci[valid_indices]
-        param_labels = [param_labels[i] for i in valid_indices]
-
-        lower_error = beta_hat - lwr_ci
-        upper_error = upr_ci - beta_hat
-        errors = np.vstack((lower_error, upper_error))
-
-        x = np.arange(len(beta_hat))
-
-        fig, ax = plt.subplots(figsize=(12, 8))
-
-        colors = []
-        s_counter = 0
-        for label in param_labels:
-            if re.fullmatch(r"S\d+", label):
-                color = self.color_palette[s_counter]
-                colors.append(color)
-                s_counter += 1
-            else:
-                colors.append('lightgray')
-
-        ax.bar(x, beta_hat, yerr=errors, capsize=5, align='center',
-               alpha=0.7, edgecolor='black', color=colors)
-
-        for i, (xi, yi, pval) in enumerate(zip(x, beta_hat, p_values)):
-            ax.text(xi, yi + upper_error[i] + 0.01 * np.max(beta_hat),
-                    f"p={pval:.1e}", ha='center', va='bottom',
-                    fontsize=6, fontweight='bold')
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(param_labels, ha='right')
-        ax.set_ylabel('Estimate')
-        ax.set_title(self.gene)
-        ax.grid(True, axis='y', linestyle='--', alpha=0.2)
-        plt.tight_layout()
-        self._save_fig(fig, f"{self.gene}_params_bar_.png")
 
     def plot_knockouts(self, results_dict: dict, num_psites: int, psite_labels: list):
         """
