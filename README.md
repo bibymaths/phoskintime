@@ -121,6 +121,9 @@ pixi run dashboard                         # Streamlit dashboard
 `pixi run phoskintime <command>` runs `python -m config.cli <command>`. The model stages read KinOpt/TFOpt result
 workbooks; see [External tools](docs/Documentation/external_tools.md).
 
+`pixi run phoskintime all` needs KinOpt/TFOpt result files: set `psite_excel` and `rna_excel` under `[ode.inputs]` in
+`config.toml` first (see [External tools](docs/Documentation/external_tools.md)).
+
 ## Repository layout
 
 | Path              | Contents                                                                                    |
