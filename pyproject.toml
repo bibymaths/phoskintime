@@ -3,7 +3,7 @@
 
 [project]
 name = "phoskintime"
-version = "0.6.0.dev0"
+version = "0.6.0"
 description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
 readme = "README.md"
 authors = [{ name = "Abhinav Mishra", email = "mishraabhinav36@gmail.com" }]
