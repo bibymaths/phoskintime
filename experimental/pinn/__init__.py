@@ -1,9 +1,9 @@
 """NeuralODE / hybrid mechanistic-NeuralODE extensions for networkmodel."""
 
-from networkmodel.pinn.config import PinnConfig
-from networkmodel.pinn.pack import PinnParameterSpec, extend_theta_with_pinn
-from networkmodel.pinn.objective import make_pinn_objective
-from networkmodel.pinn.solver import should_use_pinn_solver, solve_pinn_problem
+from experimental.pinn.config import PinnConfig
+from experimental.pinn.pack import PinnParameterSpec, extend_theta_with_pinn
+from experimental.pinn.objective import make_pinn_objective
+from experimental.pinn.solver import should_use_pinn_solver, solve_pinn_problem
 
 __all__ = [
     "PinnConfig",

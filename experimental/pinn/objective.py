@@ -20,8 +20,8 @@ from networkmodel.backend import (
     _flatten_params_for_slices_jax,
     _unpack_theta_jax,
 )
-from networkmodel.pinn.config import PinnConfig
-from networkmodel.pinn.pack import PinnParameterSpec
+from experimental.pinn.config import PinnConfig
+from experimental.pinn.pack import PinnParameterSpec
 
 
 def _rebuild_model(spec: PinnParameterSpec, nn_flat):

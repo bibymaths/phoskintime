@@ -11,8 +11,8 @@ import jax.numpy as jnp
 import numpy as np
 from jax.flatten_util import ravel_pytree
 
-from networkmodel.pinn.config import PinnConfig
-from networkmodel.pinn.networks import make_neural_rhs
+from experimental.pinn.config import PinnConfig
+from experimental.pinn.networks import make_neural_rhs
 
 
 @dataclass(frozen=True)

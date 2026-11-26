@@ -996,7 +996,7 @@ def main():
             "enable_pinn is not available in the networkmodel workflow: the PINN/NeuralODE path is quarantined "
             "under experimental/ (see KNOWN_ISSUES.md N12). Set enable_pinn = false."
         )
-        from networkmodel.pinn import PinnConfig, extend_theta_with_pinn
+        from experimental.pinn import PinnConfig, extend_theta_with_pinn
 
         pinn_config = PinnConfig.from_args(args)
         theta0, xl, xu, pinn_spec = extend_theta_with_pinn(
@@ -1455,7 +1455,7 @@ def main():
     )
 
     if is_pinn_runtime:
-        from networkmodel.pinn.diagnostics import (
+        from experimental.pinn.diagnostics import (
             write_pinn_parameter_reports,
             write_pinn_rhs_reports,
         )

@@ -884,7 +884,7 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
     """
     validate_loss_data(loss_data, mode)
     if pinn_config is not None and getattr(pinn_config, "enabled", False):
-        from networkmodel.pinn.objective import make_pinn_objective
+        from experimental.pinn.objective import make_pinn_objective
 
         return make_pinn_objective(
             loss_data=loss_data,

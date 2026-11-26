@@ -1,4 +1,4 @@
-# networkmodel/pinn/diagnostics.py
+# experimental/pinn/diagnostics.py
 """Diagnostics for PINN / NeuralODE neural parameters.
 
 These reports describe neural RHS weights. They are not biological,
@@ -455,7 +455,7 @@ def write_pinn_rhs_reports(
     import jax
     import jax.numpy as jnp
 
-    from networkmodel.pinn.objective import _rebuild_model
+    from experimental.pinn.objective import _rebuild_model
 
     theta = _safe_array(theta, name="theta")
     Y = _as_trajectory_array(trajectory)

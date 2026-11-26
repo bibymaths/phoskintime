@@ -45,7 +45,7 @@ def solve_pinn_problem(
     mode = str(getattr(cfg, "mode", "off")).lower()
 
     if mode == "neuralode":
-        from networkmodel.pinn.neuralsolver import solve_neuralode_optax
+        from experimental.pinn.neuralsolver import solve_neuralode_optax
 
         return solve_neuralode_optax(
             problem=problem,

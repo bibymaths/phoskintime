@@ -259,7 +259,7 @@ class GlobalODEScalarObjective:
             and getattr(self.pinn_config, "enabled", False)
             and str(getattr(self.pinn_config, "mode", "off")).lower() == "neuralode"
         ):
-            from networkmodel.pinn.neuralsolver import solve_neuralode_optax
+            from experimental.pinn.neuralsolver import solve_neuralode_optax
 
             logger.info("[GlobalObjective] Using Optax solver for pure NeuralODE mode.")
 
