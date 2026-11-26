@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Clean-up without result changes (2026-11-26, owner decisions)
+
+- metadata.json records the effective settings of each run (loss, solver settings for fit/export/steady state, bounds,
+  weighting, scaling, kinase drive, seeds).
+- **N3** weighted MSE is the only loss (`loss = 0`; other values are rejected); the unused robust-loss module is deleted.
+- **N4** uniform weighting only; **N2** bounds only from the data-derived calculation (`[networkmodel.bounds]` removed);
+  **X8** inference keys moved to `[networkmodel]` (`profile_grid_size = 10`, the value in effect), misplaced keys warn.
+- **X12** the unused `[ode.bootstrap]` setting is removed; **P3** the `normalize_model_output` flag is removed.
+- **N10** the legacy numba `System.rhs` is retired; the steady-state |dy/dt| file now uses the fit RHS (its values change).
+- **N12** the PINN/NeuralODE code moved to `experimental/` and is refused by the runner.
+- **N6** posterior sampling is disabled (not a normalized likelihood); **N13** profile outputs say they are training-objective
+  differences, not likelihood profiles, and report convergence.
+- **N8/P9** parameter labels and docs match the equations.
+
 ### Scientific and correctness fixes (2026-11-26, branch sci/2026-12)
 
 Each fix has a test and a before/after comparison against reference runs (B1–B5); see KNOWN_ISSUES.md.
