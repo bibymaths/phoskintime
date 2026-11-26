@@ -370,6 +370,8 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
     """
     from dataclasses import asdict
 
+    import numpy as np
+
     from common.results import update_metadata
     from networkmodel.backend import DiffraxSolverConfig
     from networkmodel.config import SCALING_METHOD
