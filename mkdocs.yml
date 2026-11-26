@@ -40,8 +40,6 @@ nav:
   - API Reference: reference.md
   - Changelog: repository/changelog.md
   - Tutorials:
-      - KinOpt: notebooks/01_kinopt_educational_workflow.md
-      - TFOpt: notebooks/02_tfopt_educational_workflow.md
       - ProtWise: notebooks/03_protwise_educational_workflow.md
       - Network Model: notebooks/04_networkmodel_educational_workflow.md
   - Documentation:
@@ -49,8 +47,6 @@ nav:
       - Configuration Reference: Documentation/configuration.md
       - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
-      - Kinase Optimization: Documentation/kinopt/README.md
-      - Transcription Factor Optimization: Documentation/tfopt/README.md
       - Protein Wise Models: Documentation/models/README.md
       - Global Network Pruning: Documentation/pruning/README.md
       - Global Network Model: Documentation/global/README.md
@@ -114,8 +110,6 @@ plugins:
       include_source: true
 
 watch:
-  - kinopt
-  - tfopt
   - protwise
   - networkmodel
   - common

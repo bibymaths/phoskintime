@@ -1,13 +1,12 @@
 # scripts/
 
-These are stand-alone scripts that sit on top of the library packages (`kinopt`, `tfopt`, `protwise`, `networkmodel`, …). They are not part of the library: nothing in the library imports them. The dashboard calls the `analysis/` scripts.
+These are stand-alone scripts that sit on top of the library packages (`protwise`, `networkmodel`, …). They are not part of the library: nothing in the library imports them. The dashboard calls the `analysis/` scripts.
 
 | Folder | Contents |
 |---|---|
 | [`analysis/`](analysis/README.md) | Analysis backends used by the dashboard's "Advanced analysis" panel. Each takes CLI arguments. |
 | [`export/`](export/README.md) | Model export: SBML (reaction form) and model documentation. |
 | [`figures/egfr_cbc2026/`](figures/egfr_cbc2026/README.md) | EGFR inference, ensembles and CBC 2026 poster figures. They are kept as provenance. |
-| [`figures/kinopt_tfopt/`](figures/kinopt_tfopt/README.md) | KinOpt/TFOpt network readouts, figures and schematic diagrams. |
 | [`apps/`](apps/README.md) | Stand-alone Streamlit viewers and the launcher for the legacy networkmodel dashboard. |
 | [`legacy/`](legacy/README.md) | Older interactive tools kept for reference. |
 

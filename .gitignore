@@ -20,15 +20,6 @@ out/
 # Ignore runtime logs
 logs/
 
-# Ignore tfopt and kinopt generated data
-/tfopt/data/
-/kinopt/data/
-
-# Ignore tfopt and kinopt result outputs
-/tfopt/results/
-/kinopt/results/
-/kinopt/julia_results/
-
 # Ignore all result directories
 /*results*/
 
@@ -83,11 +74,3 @@ coverage.xml
 /dynestyx_ode_smoothing/
 /poster_figures/
 
-# Schematic PNGs written to the working directory by scripts/figures/kinopt_tfopt/make_kinopt_diagram.py
-/kinopt_diagram.png
-/kinopt_constraints.png
-/tfopt_diagram.png
-/tfopt_constraints.png
-/global_diagram.png
-/global_constraints.png
-/kin_tf_opt_diagram.png

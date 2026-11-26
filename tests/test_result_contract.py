@@ -72,20 +72,8 @@ def test_populate_standard_subdirs_copies_legacy_outputs(tmp_path):
     assert (outdir / "summary.csv").is_file()
 
 
-def test_local_workflows_do_not_copy_outputs_to_data_ode():
-    kinopt_main = Path("kinopt/local/__main__.py").read_text(encoding="utf-8")
-    tfopt_main = Path("tfopt/local/__main__.py").read_text(encoding="utf-8")
-
-    assert "ODE_DATA_DIR" not in kinopt_main
-    assert "ODE_DATA_DIR" not in tfopt_main
-    assert "shutil.copy" not in kinopt_main
-    assert "shutil.copy" not in tfopt_main
-
-
 def test_major_cli_parsers_expose_outdir_flags():
     parser_files = [
-        Path("kinopt/local/config/constants.py"),
-        Path("tfopt/local/config/constants.py"),
         Path("config/config.py"),
         Path("networkmodel/runner.py"),
         Path("config/cli.py"),

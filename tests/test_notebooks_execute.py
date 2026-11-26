@@ -11,8 +11,6 @@ from nbclient import NotebookClient
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 NOTEBOOKS = [
-    REPO_ROOT / "notebooks/01_kinopt_educational_workflow.ipynb",
-    REPO_ROOT / "notebooks/02_tfopt_educational_workflow.ipynb",
     REPO_ROOT / "notebooks/03_protwise_educational_workflow.ipynb",
     REPO_ROOT / "notebooks/04_networkmodel_educational_workflow.ipynb",
 ]

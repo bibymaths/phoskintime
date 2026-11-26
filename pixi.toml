@@ -105,7 +105,7 @@ pygraphviz = "==1.14"
 pygraphviz = "==1.14"
 
 # Make the repository root importable in every environment and from any working
-# directory: library packages (kinopt, networkmodel, config, ...) are imported by
+# directory: library packages (protwise, networkmodel, config, ...) are imported by
 # their top-level names. Applies to `pixi run`, `pixi shell` and `pixi shell-hook`.
 [activation.env]
 PYTHONPATH = "$PIXI_PROJECT_ROOT"
@@ -136,7 +136,7 @@ coverage-badge = "mkdir -p docs/assets && coverage-badge -o docs/assets/coverage
 coverage-all = "pytest --cov=. --cov-report=term-missing --cov-report=xml && mkdir -p docs/assets && coverage-badge -o docs/assets/coverage.svg -f"
 
 # Smoke-test core package imports.
-check-import = "python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
+check-import = "python -c \"import protwise, networkmodel, networkpruning, common, config, processing; print('project imports ok')\""
 
 # Run preprocessing cleanup.
 prep = "python -m processing.cleanup"

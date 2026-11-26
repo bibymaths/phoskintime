@@ -1,6 +1,5 @@
 # Default owner for all files
 * @bibymaths
-tfopt/local/objfn/minfn.py @Minna
 
 # Documentation
 docs/ @bibymaths
