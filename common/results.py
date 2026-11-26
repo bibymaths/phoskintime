@@ -157,6 +157,20 @@ def write_metadata(
     return path
 
 
+def update_metadata(outdir: str | Path, fields: dict[str, Any]) -> Path:
+    """Merge *fields* into an existing metadata.json (written by write_metadata).
+
+    Used for provenance that is only known after inputs are read, e.g. the external
+    KinOpt/TFOpt result files (common.external_results).
+    """
+    root = ensure_result_dir(outdir)["root"]
+    path = root / "metadata.json"
+    metadata = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    metadata.update(_jsonable(fields))
+    path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
 def write_resolved_config(outdir: str | Path, config: Any | None) -> Path | None:
     if config is None:
         return None
