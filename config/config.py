@@ -143,6 +143,7 @@ def _defaults_from_loaded_config(loaded_config: dict[str, Any]) -> dict[str, Any
         "Ssite_bound": (0.0, float(bounds.get("phospho_prod", 20))),
         "Dsite_bound": (0.0, float(bounds.get("phospho_deg", bounds.get("protein_deg", 20)))),
         "bootstraps": int(bootstrap.get("n", 0)),
+        "seed": int(sensitivity.get("seed", 42)),
         "input_excel_protein": _path_from_config(root, inputs["protein_excel"]) if inputs.get("protein_excel") else "",
         "input_excel_psite": _path_from_config(root, inputs["psite_excel"]) if inputs.get("psite_excel") else "",
         "input_excel_rna": _path_from_config(root, inputs["rna_excel"]) if inputs.get("rna_excel") else "",
@@ -187,6 +188,8 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--Ssite-bound", type=parse_bound_pair, default=defaults["Ssite_bound"])
     parser.add_argument("--Dsite-bound", type=parse_bound_pair, default=defaults["Dsite_bound"])
     parser.add_argument("--bootstraps", type=int, default=defaults["bootstraps"])
+    parser.add_argument("--seed", type=int, default=defaults["seed"],
+                        help="Seed for the Morris sensitivity analysis (sampling and confidence intervals).")
     parser.add_argument("--input-excel-protein", type=str, default=str(defaults["input_excel_protein"]),
                         help="Path to the original protein data file")
     parser.add_argument("--input-excel-psite", type=str, default=str(defaults["input_excel_psite"]),
@@ -259,6 +262,7 @@ def extract_config(args, loaded_config: dict[str, Any] | None = None):
     config = {
         "bounds": bounds,
         "bootstraps": args.bootstraps,
+        "seed": args.seed,
         "input_excel_protein": args.input_excel_protein,
         "input_excel_psite": args.input_excel_psite,
         "input_excel_rna": args.input_excel_rna,

@@ -1462,7 +1462,8 @@ def main():
             idx=idx,
             fitted_params=params,
             output_dir=args.output_dir,
-            metric=args.sensitivity_metric
+            metric=args.sensitivity_metric,
+            seed=args.seed,
         )
 
     # 1. Export Dynamic Kinase Activities (Mechanism check)

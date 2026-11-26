@@ -5,9 +5,6 @@ import inspect
 import numpy as np
 import pytest
 
-S7 = pytest.mark.xfail(reason="S7: Morris seeds not threaded through", strict=True)
-
-
 def test_salib_morris_is_deterministic_for_a_fixed_seed():
     from SALib.analyze import morris as ma
     from SALib.sample import morris as ms
@@ -25,7 +22,6 @@ def test_salib_morris_is_deterministic_for_a_fixed_seed():
         np.testing.assert_array_equal(np.asarray(S1[key]), np.asarray(S2[key]))
 
 
-@S7
 def test_protwise_seed_reaches_morris_sample_and_analyze(monkeypatch):
     import protwise.sensitivity.analysis as an
 
@@ -35,7 +31,6 @@ def test_protwise_seed_reaches_morris_sample_and_analyze(monkeypatch):
     assert "seed=seed" in src.split("Si = analyze(")[1].split(")")[0]
 
 
-@S7
 def test_protwise_cli_seed_reaches_process_gene():
     from config.config import extract_config, parse_args
     from protwise.paramest import core
@@ -46,14 +41,13 @@ def test_protwise_cli_seed_reaches_process_gene():
     assert "seed" in inspect.signature(core.process_gene_wrapper).parameters
 
 
-@S7
 def test_networkmodel_sensitivity_takes_the_run_seed():
     import networkmodel.sensitivity as ns
 
     assert "seed" in inspect.signature(ns.run_sensitivity_analysis).parameters
     src = inspect.getsource(ns.run_sensitivity_analysis)
-    assert "seed=seed" in src.split("morris.sample(")[1].split(")")[0]
-    assert "seed=seed" in src.split("analyze(")[1].split(")")[0]
+    assert "seed=seed" in src.split("morris.sample(")[1].split("\n    )")[0]
+    assert "seed=seed" in src.split("analyze(")[1].split("\n    )")[0]
     runner_src = inspect.getsource(__import__("networkmodel.runner", fromlist=["main"]).main)
-    call = runner_src.split("run_sensitivity_analysis(")[1].split(")")[0]
+    call = runner_src.split("run_sensitivity_analysis(")[1].split("\n        )")[0]
     assert "seed=args.seed" in call

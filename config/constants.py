@@ -63,6 +63,9 @@ BOOTSTRAPS = int(_boot.get("n", 0))
 _sens = _CFG.get("sensitivity", {}) or {}
 SENSITIVITY_ANALYSIS = bool(_sens.get("enabled", True))
 PERTURBATIONS_VALUE = float(_sens.get("perturbation", 0.5))
+# Seed for Morris sampling and SALib's bootstrap confidence intervals (S7). Optional key
+# [ode.sensitivity] seed; the default matches [networkmodel] seed. Overridden by --seed.
+SENSITIVITY_SEED = int(_sens.get("seed", 42))
 
 _morris = _sens.get("morris", {}) or {}
 NUM_TRAJECTORIES = int(_morris.get("num_trajectories", 1000))

@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from protwise.knockout import apply_knockout, generate_knockout_combinations
-from config.constants import ODE_MODEL, get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS
+from config.constants import ODE_MODEL, get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS, \
+    SENSITIVITY_SEED
 from protwise.models.diagram import illustrate
 from protwise.paramest.toggle import estimate_parameters
 from protwise.sensitivity import sensitivity_analysis
@@ -23,7 +24,8 @@ def process_gene(
         time_points,
         bounds,
         bootstraps=0,
-        out_dir=OUT_DIR
+        out_dir=OUT_DIR,
+        seed=SENSITIVITY_SEED,
 ):
     """
     Process a single gene by estimating its parameters and generating plots.
@@ -215,7 +217,7 @@ def process_gene(
         perturbation_analysis, trajectories_w_params = sensitivity_analysis(Pr_data, P_data, R_data, final_params,
                                                                             time_points,
                                                                             num_psites, psite_values, labels, init_cond,
-                                                                            gene, out_dir=out_dir)
+                                                                            gene, out_dir=out_dir, seed=seed)
 
     # Return Results
     return {
@@ -242,7 +244,8 @@ def process_gene(
     }
 
 
-def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR):
+def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR,
+                         seed=SENSITIVITY_SEED):
     """
     Wrapper function to process a gene.
 
@@ -267,5 +270,6 @@ def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points
         time_points=time_points,
         bounds=bounds,
         bootstraps=bootstraps,
-        out_dir=out_dir
+        out_dir=out_dir,
+        seed=seed,
     )

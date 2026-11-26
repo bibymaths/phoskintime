@@ -248,6 +248,7 @@ def main(argv: list[str] | None = None):
             config["bounds"],
             config["bootstraps"],
             out_dir=out_dir,
+            seed=config["seed"],
         )
         results.append(result)
 

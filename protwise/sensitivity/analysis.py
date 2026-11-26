@@ -13,6 +13,7 @@ from config.constants import (
     TIME_POINTS_RNA,
     PERTURBATIONS_VALUE,
     OUT_DIR,
+    SENSITIVITY_SEED,
     Y_METRIC,
     get_num_params,
     get_param_names,
@@ -168,7 +169,8 @@ def _perturb_solve(i_X_tuple):
 
 
 def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psites,
-                          psite_labels, state_labels, init_cond, gene, out_dir=OUT_DIR):
+                          psite_labels, state_labels, init_cond, gene, out_dir=OUT_DIR,
+                          seed=SENSITIVITY_SEED):
     """
     Perform Morris sensitivity analysis using the current ODE model.
 
@@ -183,7 +185,7 @@ def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psit
 
     N = NUM_TRAJECTORIES
     num_levels = PARAMETER_SPACE
-    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True)
+    param_values = morris.sample(problem, N=N, num_levels=num_levels, local_optimization=True, seed=seed)
     n_samples = len(param_values)
 
     Y = np.zeros(n_samples, dtype=np.float64)
@@ -229,6 +231,7 @@ def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psit
         conf_level=0.99,
         scaled=True,
         print_to_console=False,
+        seed=seed,
     )
 
     # Compare to reference data

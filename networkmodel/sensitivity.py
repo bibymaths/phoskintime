@@ -342,7 +342,7 @@ def _get_process_context():
         return mp.get_context()
 
 
-def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_norm"):
+def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_norm", seed=None):
     """Run Morris perturbation sensitivity analysis.
 
     Returns:
@@ -350,6 +350,8 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
     """
     output_dir = str(output_dir)
     os.makedirs(output_dir, exist_ok=True)
+    # One seed for Morris sampling and the bootstrap confidence intervals (S7); the runner passes --seed.
+    seed = int(SEED if seed is None else seed)
 
     logger.info(
         "[Sensitivity] Starting Morris analysis "
@@ -382,7 +384,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
         N=int(SENSITIVITY_TRAJECTORIES),
         num_levels=int(SENSITIVITY_LEVELS),
         local_optimization=True,
-        seed=int(SEED),
+        seed=seed,
     )
 
     logger.info(
@@ -503,6 +505,7 @@ def run_sensitivity_analysis(sys, idx, fitted_params, output_dir, metric="l2_nor
         results_y,
         conf_level=0.95,
         print_to_console=False,
+        seed=seed,
     )
 
     df_sens = pd.DataFrame(
