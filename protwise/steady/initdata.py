@@ -6,8 +6,7 @@ model reproduces the t0 observations exactly:
   pending for the owner: R(0) = 1 vs the first RNA value.)
 - P(0) = protein fold change at t0.
 - distmod / succmod: X_i(0) = fold change of site i at t0 (these models read site i from state i).
-- randmod: the single-site subset {i} holds site i's t0 value and every multi-site subset starts at 0, so the
-  site-level aggregate at t0 equals the data (allocation rule; pending owner confirmation).
+- randmod: independence rule (Round 2 item 14, see randmod_independent_states / measured_t0_vector).
 A missing or non-finite t0 value keeps the former constant initial value for that state and is logged.
 """
 from __future__ import annotations
@@ -76,21 +75,47 @@ def measured_t0_vector(model, num_psites, protein_t0_series, site_series):
     s0 = _t0(site_series) if num_psites else None
     if num_psites and s0 is not None:
         if model == "randmod":
-            # Independence rule (Round 2 item 14): the protein t0 value is taken as the total, occupancies are the
-            # site t0 values divided by it (projected into [0, 1], logged); see randmod_independent_states.
-            if np.all(np.isfinite(s0[:num_psites])) and np.isfinite(m[1]):
-                total = m[1]
-                occ = s0[:num_psites] / total
-                occ_p = np.clip(occ, 0.0, 1.0)
-                if not np.allclose(occ_p, occ):
-                    logger.warning("[IC] randmod occupancies %s outside [0, 1]; projected to %s (Round 2 item 14).",
-                                   np.round(occ, 6).tolist(), np.round(occ_p, 6).tolist())
-                m[1], m[2:] = randmod_independent_states(total, occ_p)
+            # Independence rule (Round 2 item 14): the total T is chosen so that the unphosphorylated state equals the
+            # protein t0 datum (the randmod protein observable) and occ_j = s_j/T ∈ [0, 1); then the protein datum and
+            # every site marginal are reproduced exactly (randmod_total_for, randmod_independent_states).
+            if s0.size >= num_psites and np.all(np.isfinite(s0[:num_psites])) and np.all(s0[:num_psites] >= 0) \
+                    and np.isfinite(m[1]):
+                total = randmod_total_for(m[1], s0[:num_psites])
+                p_unphos, m[2:] = randmod_independent_states(total, s0[:num_psites] / total)
+                m[1] = p_unphos
+            else:
+                logger.warning("[IC] randmod: incomplete or negative site t0 data; subset states use the ic_policy "
+                               "(Round 2 item 14).")
         else:
             for i in range(num_psites):
                 if i < s0.size and np.isfinite(s0[i]) and s0[i] >= 0:
                     m[2 + i] = float(s0[i])
     return m
+
+
+def randmod_total_for(p0, sites):
+    """Total T with T·Π(1 − s_j/T) = p0 (the unphosphorylated mass equals the protein datum p0; Round 2 item 14).
+
+    g(T) = Π(T − s_j)/T^{n−1} is strictly increasing on T > max s_j (d log g/dT > 1/T), from 0 to ∞, so the root is
+    unique; found by bisection to machine precision. For one site T = p0 + s_1 (as in distmod)."""
+    s = np.asarray(sites, dtype=np.float64)
+    if not (p0 > 0) or np.any(s < 0) or not np.all(np.isfinite(s)):
+        raise ValueError(f"randmod total needs p0 > 0 and finite non-negative site values, got {p0}, {s.tolist()}.")
+    n = s.size
+
+    def g(T):
+        return float(np.prod(T - s)) / T ** (n - 1)
+
+    lo = float(s.max()) if s.size else 0.0
+    hi = max(lo, 1e-300) * 2.0 + float(p0) + float(s.sum())
+    while g(hi) < p0:
+        hi *= 2.0
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if mid <= lo or mid >= hi:
+            break
+        lo, hi = (mid, hi) if g(mid) < p0 else (lo, mid)
+    return 0.5 * (lo + hi)
 
 
 def randmod_independent_states(total, occ):

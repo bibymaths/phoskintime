@@ -266,6 +266,7 @@ baseline enters the model is set by the initial conditions (KNOWN_ISSUES P4).
 ### Random-order model: initial states (Round 2 item 14)
 
 The randmod initial state follows an **independence assumption**: each site is phosphorylated independently of the
-others, so the initial mass of subset state m is total · Π_{j∈m} occ_j · Π_{j∉m} (1 − occ_j). The protein value at
-t = 0 is taken as the total and occ_j = (site j value at t = 0) / total, projected into [0, 1] (logged). The states sum
-to the total and the site marginals reproduce the site data at t = 0 exactly.
+others, so the initial mass of subset state m is total · Π_{j∈m} occ_j · Π_{j∉m} (1 − occ_j) with occ_j = s_j / total
+(s_j = site j value at t = 0). The total is chosen so that the unphosphorylated state (the randmod protein observable)
+equals the protein value at t = 0: total · Π(1 − s_j/total) = P(0), a unique root with total > max s_j. The states sum
+to the total; the protein value and every site value at t = 0 are reproduced exactly; no projection is needed.

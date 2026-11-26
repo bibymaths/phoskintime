@@ -22,10 +22,28 @@ def test_independence_rule_sums_and_marginals(n):
     assert p0 == pytest.approx(total * np.prod(1 - occ), rel=1e-14)
 
 
-def test_measured_vector_uses_independence_and_projects_out_of_range():
+def test_measured_vector_reproduces_protein_and_site_data():
+    """The unphosphorylated state equals the protein datum and every site marginal equals its datum, also when a
+    site value exceeds the protein value (fold changes; no projection)."""
+    from config.helpers import randmod_subset_masks
     from protwise.steady.initdata import measured_t0_vector
 
-    m = measured_t0_vector("randmod", 2, np.array([[2.0, 1.0]]), np.array([[0.5, 1.0], [3.0, 1.0]]))
-    # occ = [0.25, 1.5 -> 1.0 (projected)]; total 2.0
-    assert m[1] == pytest.approx(0.0, abs=1e-15)  # unphosphorylated: total·(1−0.25)·(1−1)
-    assert m[2:].sum() + m[1] == pytest.approx(2.0)
+    pr, sites = 1.216, np.array([1.559, 0.494, 1.49])  # ABL2-like t0 values
+    m = measured_t0_vector("randmod", 3, np.array([[pr, 1.0]]), np.column_stack([sites, np.ones(3)]))
+    assert m[1] == pytest.approx(pr, rel=1e-12)
+    masks = randmod_subset_masks(3)
+    for j in range(3):
+        assert sum(m[2 + k] for k, mk in enumerate(masks) if mk >> j & 1) == pytest.approx(sites[j], rel=1e-12)
+    assert np.all(m[1:] >= 0)
+
+
+@pytest.mark.parametrize("n", [1, 2, 3, 4])
+def test_total_root_property(n):
+    from protwise.steady.initdata import randmod_total_for
+
+    rng = np.random.default_rng(10 + n)
+    s, p0 = rng.uniform(0, 3, n), rng.uniform(0.1, 3)
+    T = randmod_total_for(p0, s)
+    assert T * np.prod(1 - s / T) == pytest.approx(p0, rel=1e-12)
+    if n == 1:
+        assert T == pytest.approx(p0 + s[0], rel=1e-12)
