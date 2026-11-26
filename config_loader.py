@@ -311,6 +311,11 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     # Loss
     loss_mode = int(cfg.get("loss", 0))
+    if loss_mode != 0:
+        raise ValueError(
+            f"[networkmodel] loss = {loss_mode} is not supported: the only loss is 0 (weighted mean squared "
+            "error). Robust losses were never used by the fit; see KNOWN_ISSUES.md N3."
+        )
 
     # Inference / post-optimization analyses
     n_starts = int(cfg.get("n_starts", 1))

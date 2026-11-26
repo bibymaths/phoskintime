@@ -507,37 +507,13 @@ n_gen = 200
 # ------------------------------------------------------------
 # Loss function used to compare predicted and observed trajectories.
 #
-# Available options:
+#   0 = weighted mean squared error per modality (protein, RNA, phospho), each term
+#       divided by the sum of its weights, plus lambda_prior times the prior penalty.
 #
-#   -1 = Charbonnier loss
-#    0 = Mean squared error (MSE)
-#    1 = Huber loss
-#    2 = Pseudo-Huber loss
-#    3 = Log-cosh loss
-#    4 = Cauchy loss
-#    5 = Poisson loss
-#    6 = Geman-McClure loss
-#
-# Recommended defaults:
-#
-#   loss = 0
-#     Use when data are clean and you want strong penalty for large residuals.
-#
-#   loss = 1 or 2
-#     Use for noisy omics data where outliers should not dominate the fit.
-#     Pseudo-Huber is smooth and usually safer for JAX-based optimization.
-#
-#   loss = 3
-#     Smooth robust alternative; often stable for continuous fold-change data.
-#
-#   loss = 4 or 6
-#     Strongly robust losses; useful when outliers are severe, but they may
-#     downweight large residuals aggressively.
-#
-#   loss = 5
-#     Use only for count-like non-negative data. Usually not appropriate for
-#     scaled log-fold-change proteomics/transcriptomics data.
-loss = 2
+# This is the only loss the network model implements (KNOWN_ISSUES N3). Any other
+# value is rejected at start-up. Earlier configs set loss = 2 (Pseudo-Huber), but no
+# fit ever used it: the robust-loss module had no callers.
+loss = 0
 
 # ------------------------------------------------------------
 # LOSS WEIGHTS

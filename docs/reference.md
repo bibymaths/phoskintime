@@ -96,7 +96,6 @@
 ### Optimization & Loss Functions
 
 ::: networkmodel.OptimizationProblem
-::: networkmodel.LossFunction
 ::: networkmodel.BayesianInference
 ::: networkmodel.PosteriorObjective
 ::: networkmodel.PosteriorWorker

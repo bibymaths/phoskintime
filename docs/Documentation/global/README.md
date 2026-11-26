@@ -345,7 +345,6 @@ The package is structured to separate data management, topology construction, ph
 | `simulate.py` | Simulation orchestration. Runs the Diffrax solve and produces measured/observable outputs aligned to experimental time points. |
 | `optproblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` rejects unsupported multi-objective usage. |
 | `inference.py` | Optional multistart, profile-likelihood, and NumPyro posterior routines around the scalar objective. |
-| `lossfn.py` | Error metrics used by helper paths, including robust losses such as Huber and Charbonnier. |
 | `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\). |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.). |
 | `config.py` | Central configuration loader for `config.toml` (paths, solver tolerances, bounds, time grids). |

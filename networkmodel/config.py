@@ -66,7 +66,7 @@ ODE_REL_TOL = cfg.ode_rel_tol
 # ODE_MAX_STEPS: int; default cfg.ode_max_steps; controls maximum Diffrax solver steps.
 ODE_MAX_STEPS = cfg.ode_max_steps
 
-# LOSS_MODE: int; default cfg.loss_mode; controls robust-loss selector.
+# LOSS_MODE: int; always 0 = weighted mean squared error (the only loss; config_loader rejects others, N3).
 LOSS_MODE = cfg.loss_mode
 # MAX_ITERATIONS: int; default cfg.maximum_iterations; controls maximum ProjectedGradient iterations.
 MAX_ITERATIONS = cfg.maximum_iterations

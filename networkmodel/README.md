@@ -408,7 +408,7 @@ Numerical integration:
 - Inputs \(u_k(t)\) are typically available at discrete experimental times. The solver therefore treats kinase inputs as
   piecewise-constant (or bucketed) in time, which avoids interpolation-induced artifacts when dynamics are fast relative
   to sampling.
-- Adaptive RK45 controls local error using absolute/relative tolerances (configured in `config.toml`).
+- Diffrax Kvaerno (implicit, stiff) controls local error using absolute/relative tolerances (see KNOWN_ISSUES N5 for the values actually used).
 
 Performance:
 
