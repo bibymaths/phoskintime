@@ -29,7 +29,6 @@ Global project paths. Used by all pipeline stages.
 | `data_dir` | string | `"data"` | Input data directory (relative to project root) |
 | `results_dir` | string | `"results_model"` | Output results directory |
 | `logs_dir` | string | `"results_model/logs"` | Log files directory |
-| `ode_data_dir` | string | `"data"` | ODE model data directory |
 
 > **Tip:** Use distinct `results_dir` / `logs_dir` for each run to avoid overwriting results.
 

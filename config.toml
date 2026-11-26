@@ -33,10 +33,6 @@ results_dir = ""
 # Keep this inside results_dir so logs stay attached to the corresponding run.
 logs_dir = ""
 
-# Input directory used specifically by the downstream ODE/protwise pipeline.
-# Usually this is the same as data_dir unless ODE inputs are stored separately.
-ode_data_dir = ""
-
 
 # ============================================================
 # PROTWISE ODE PIPELINE CONFIGURATION
