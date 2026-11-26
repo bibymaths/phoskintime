@@ -200,6 +200,13 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
     from networkmodel.run_settings import load_run_settings, solver_config_from
 
     run_eff = load_run_settings(base_output_dir)
+    from networkmodel.config import MODEL as _current_model
+
+    if run_eff.get("model_code") is not None and int(run_eff["model_code"]) != int(_current_model):
+        raise ValueError(
+            f"The run used model {run_eff['model_code']} but the loaded configuration selects model {_current_model}; "
+            "rebuild with the run's configuration (--conf / PHOSKINTIME_NETWORKMODEL_CONFIG) (N7, 6a)."
+        )
     args.scaling_method = run_eff["scaling_method"]
     args.time_points_protein = np.asarray(run_eff["time_points"]["protein"], dtype=float)
     args.time_points_rna = np.asarray(run_eff["time_points"]["rna"], dtype=float)

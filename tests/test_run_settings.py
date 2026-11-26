@@ -34,3 +34,12 @@ def test_rebuild_uses_run_settings_not_config():
     src = inspect.getsource(po.build_networkmodel_posterior_context)
     assert "load_run_settings(base_output_dir)" in src and "solver_config=solver_config_from(run_eff)" in src
     assert "TIME_POINTS_PROTEIN, TIME_POINTS_RNA, TIME_POINTS_PHOSPHO" not in src
+
+
+def test_rebuild_refuses_a_different_model():
+    import inspect
+
+    import networkmodel.PosteriorObjective as po
+
+    src = inspect.getsource(po.build_networkmodel_posterior_context)
+    assert 'run_eff["model_code"]' in src and "raise ValueError" in src
