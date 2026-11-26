@@ -419,6 +419,32 @@ def make_networkmodel_rhs(sys, slices=None):
                     dy_block = dy_block.at[to_set].add(flux_fwd)
 
                 dy = dy.at[p0:p0 + nst_i].add(dy_block)
+            elif model_id == 1:
+                # Sequential MODEL == 1 (S1/N1): mirrors models.sequential_rhs term by term.
+                # States: P0 = y[off + 1] (unphosphorylated), P1..Pns = y[off + 2 ...];
+                # step j moves P(j) -> P(j+1) at rate S_all[s_off + j]; E_i dephosphorylates
+                # P(j+1) -> P(j); each phospho state decays at Dp_i[s_off + j] + D_i.
+                p0 = offsets_list[i] + 1
+                base = p0 + 1
+                s_off_i = site_offsets_list[i]
+                ns_i = n_sites_list[i]
+                Ci, Di, Ei = par["C_i"][i], par["D_i"][i], par["E_i"][i]
+                P0 = y[p0]
+                if ns_i == 0:
+                    dy = dy.at[p0].set(Ci * R - Di * P0)
+                else:
+                    k0 = S_all[s_off_i]
+                    dy = dy.at[p0].set(Ci * R - Di * P0 - k0 * P0 + Ei * y[base])
+                    for j in range(ns_i):
+                        Pj = y[base + j]
+                        P_prev = P0 if j == 0 else y[base + j - 1]
+                        k_in = S_all[s_off_i + j]
+                        Dpj = par["Dp_i"][s_off_i + j]
+                        if j < ns_i - 1:
+                            k_out = S_all[s_off_i + j + 1]
+                            dy = dy.at[base + j].set(k_in * P_prev + Ei * y[base + j + 1] - (k_out + Ei + Dpj + Di) * Pj)
+                        else:
+                            dy = dy.at[base + j].set(k_in * P_prev - (Ei + Dpj + Di) * Pj)
             else:
                 P = y[off + 1]
                 ar = jnp.arange(max_sites, dtype=jnp.int32)

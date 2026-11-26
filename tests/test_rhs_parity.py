@@ -110,8 +110,7 @@ def scaled_errors(model_id, monkeypatch, seed=20261126):
 
 @pytest.mark.parametrize(
     "model_id",
-    [0, pytest.param(1, marks=pytest.mark.xfail(reason="S1/N1: no sequential branch in the JAX RHS",
-                                                 strict=True)), 2],
+    [0, 1, 2],
     ids=["distributive", "sequential", "combinatorial"],
 )
 def test_jax_rhs_matches_numba_kernels(model_id, monkeypatch):
