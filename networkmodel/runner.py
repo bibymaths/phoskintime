@@ -405,6 +405,19 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
     }})
 
 
+POSTERIOR_DISABLED_MESSAGE = (
+    "Posterior sampling is disabled: its likelihood is not a normalized likelihood (one shared sigma, no "
+    "N*log(sigma) term; see KNOWN_ISSUES.md N6), so the samples are not a posterior. A proper per-modality "
+    "Gaussian likelihood is planned as its own phase. Set posterior_sampling = false."
+)
+
+
+def check_posterior_disabled(args: argparse.Namespace) -> None:
+    """N6 (option C): refuse posterior sampling before any work is done."""
+    if bool(getattr(args, "posterior_sampling", False)):
+        raise ValueError(POSTERIOR_DISABLED_MESSAGE)
+
+
 def initialize_run_contract(args: argparse.Namespace) -> argparse.Namespace:
     """Create output/provenance files after config and CLI precedence are resolved."""
     from common.results import attach_file_console_logger, ensure_result_dir, write_command, write_metadata, \
@@ -503,6 +516,7 @@ def main():
         ValueError: When inputs are inconsistent or unsupported.
     """
     args, config_defaults = parse_runtime_args()
+    check_posterior_disabled(args)
     args = initialize_run_contract(args)
     _import_runtime_dependencies()
 

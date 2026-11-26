@@ -717,9 +717,9 @@ profile_grid_size = 10
 # ------------------------------------------------------------
 # Enable posterior sampling after optimization.
 #
-# Requires NumPyro and a working posterior objective.
-# This is useful for uncertainty quantification, but is substantially slower
-# than deterministic optimization.
+# DISABLED (KNOWN_ISSUES N6): the sampler's likelihood is not a normalized
+# likelihood, so the draws are not a posterior. Setting this to true stops the
+# run with an explanation. A proper Gaussian likelihood is a separate, planned phase.
 posterior_sampling = false
 
 # Number of warmup/adaptation samples for posterior sampling.
