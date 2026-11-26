@@ -120,7 +120,9 @@ def setup_logger(
         module = inspect.getmodule(frame[0])
         name = module.__name__ if module else 'phoskintime'
 
-    if log_file is None:
+    # Only derive a default log file path when there is a log directory;
+    # with no log_dir, file logging is disabled below (enable_file = bool(log_dir)).
+    if log_file is None and log_dir:
         timestamp = datetime.now().strftime("%Y%m%d")
         log_file = os.path.join(log_dir, f"{name}_{timestamp}.log")
 
