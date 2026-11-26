@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Round 2 (2026-11-26, owner decisions)
+
+- Posterior/profile rebuilds read the run's own recorded settings (scaling, time grids, baseline times, solver) from
+  its metadata.json, never the current config.toml; a different model is refused.
+- New config keys: `fc_baseline_near_zero` (fc_start), `drive_extrapolation` ("hold" default — the stimulation is
+  sustained in this dataset — or "baseline" with `drive_baseline_tau`); protwise `[ode.fit] ic_policy`
+  ("steady_state" default, "estimate" opt-in) and `ic_estimate_bounds`. Simulations past the last kinase knot warn.
+- SBML export re-enabled: the kinase drive is encoded exactly as the fit's PCHIP drive (piecewise cubic); the
+  exporter's own check passes (max RHS difference 5.6e-17 on the reference fit).
+- protwise initial conditions (results change): per species the measured t0 value, otherwise the model's own steady
+  state from the current parameters (e.g. R(0) = A/B), or an estimated value (opt-in); randmod starts from
+  independent site occupancies.
+- Documentation: k = 1.0 in protwise is a fixed, non-identifiable constant; the sequential model uses residue order as
+  reaction order.
+
 ### Changed results (2026-11-26, owner decisions)
 
 Network model (results of earlier runs are not reproducible with this version):
