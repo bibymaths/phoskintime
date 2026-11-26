@@ -269,6 +269,37 @@ def piecewise_stepwise(times: np.ndarray, levels: np.ndarray) -> str:
     return f"piecewise({', '.join(terms)})"
 
 
+def piecewise_pchip(times, levels, slopes, extrapolation: str = "hold", tau: float = 60.0) -> str:
+    """Exact SBML piecewise cubic of the PCHIP kinase drive (N17; same knots, values and Fritsch–Carlson slopes as
+    networkmodel.kinase_drive.KinaseDrive). One cubic per knot interval in power form about its left knot:
+    y_i + d_i·u + c2·u² + c3·u³ (u = time − t_i); before the first knot the first value; after the last knot the
+    configured extrapolation ("hold": last value; "baseline": 1 + (y_last − 1)·exp(−(time − t_last)/tau))."""
+    t = np.asarray(times, dtype=float)
+    y = np.asarray(levels, dtype=float)
+    d = np.asarray(slopes, dtype=float)
+    if not (t.ndim == y.ndim == d.ndim == 1 and t.size == y.size == d.size >= 2):
+        raise ValueError("PCHIP drive needs matching times, levels and slopes with at least two knots")
+    if np.any(~np.isfinite(t)) or np.any(~np.isfinite(y)) or np.any(~np.isfinite(d)) or np.any(np.diff(t) <= 0):
+        raise ValueError("Invalid kinase input grid, values or slopes")
+    terms = [num(y[0]), f"lt(time, {num(t[0])})"]
+    for i in range(t.size - 1):
+        h = t[i + 1] - t[i]
+        m = (y[i + 1] - y[i]) / h
+        c2 = (3.0 * m - 2.0 * d[i] - d[i + 1]) / h
+        c3 = (d[i] + d[i + 1] - 2.0 * m) / (h * h)
+        u = f"(time - {num(t[i])})"
+        expr = f"{num(y[i])} + {num(d[i])}*{u} + {num(c2)}*{u}*{u} + {num(c3)}*{u}*{u}*{u}"
+        cond = f"lt(time, {num(t[i + 1])})" if i < t.size - 2 else f"leq(time, {num(t[i + 1])})"
+        terms += [expr, cond]
+    if extrapolation == "hold":
+        terms.append(num(y[-1]))
+    elif extrapolation == "baseline":
+        terms.append(f"1 + ({num(y[-1])} - 1)*exp(-(time - {num(t[-1])})/{num(tau)})")
+    else:
+        raise ValueError(f"Unknown drive_extrapolation {extrapolation!r}")
+    return f"piecewise({', '.join(terms)})"
+
+
 def _species_ids(genes: list[str], sites: dict[str, list[str]], kinases: list[str]):
     all_ids = [sid("R", g) for g in genes] + [sid("P", g) for g in genes]
     all_ids += [sid("X", g, site) for g in genes for site in sites[g]]
@@ -277,7 +308,8 @@ def _species_ids(genes: list[str], sites: dict[str, list[str]], kinases: list[st
         raise ValueError("SBML SId collision after sanitizing gene/site names")
 
 
-def make_plan(sys_obj, fitted: dict[str, Any]) -> ExportPlan:
+def make_plan(sys_obj, fitted: dict[str, Any], *, drive_extrapolation: str | None = None,
+              drive_baseline_tau: float | None = None) -> ExportPlan:
     """Build reaction and assignment definitions directly from System topology."""
     idx = sys_obj.idx
     genes = list(map(str, idx.proteins))
@@ -332,13 +364,19 @@ def make_plan(sys_obj, fitted: dict[str, Any]) -> ExportPlan:
         plan.reactions.append(ReactionDef(rid, f"{kind} {label}", tuple(reactants),
                                           tuple(products), tuple(dict.fromkeys(modifiers)), formula, reversible))
 
-    # Actual observed kinase-input time series are boundary species (not inferred states).
+    # Observed kinase-input time series are boundary species (not inferred states), encoded as the same PCHIP drive
+    # as the fit (N17), with the run's extrapolation policy after the last knot.
+    from networkmodel.kinase_drive import KinaseDrive
+
+    drive = KinaseDrive(grid, Kmat, extrapolation=drive_extrapolation, tau=drive_baseline_tau)
+    plan.notes.append(f"Kinase drive: PCHIP through the measured points; after the last knot: {drive.extrapolation}"
+                      + (f" (tau = {drive.tau:g} min)" if drive.extrapolation == "baseline" else "") + ".")
     for k, kinase in enumerate(kinases):
         kid = sid("K", kinase)
         ckid = sid("ck", kinase)
         add_species(kid, None)
         add_param(ckid, float(fitted["c_k"][k]))
-        add_assignment(kid, f"{ckid} * ({piecewise_stepwise(grid, Kmat[k])})")
+        add_assignment(kid, f"{ckid} * ({piecewise_pchip(grid, Kmat[k], drive.slopes[k], drive.extrapolation, drive.tau)})")
 
     # Create all dynamic species/parameters first to make cross-references explicit.
     for i, gene in enumerate(genes):
@@ -562,6 +600,10 @@ def evaluate_reaction_plan_rhs(plan: ExportPlan, sys_obj, t: float, y: np.ndarra
                 return abs(vals[0])
             if fname == "lt" and len(vals) == 2:
                 return float(vals[0] < vals[1])
+            if fname == "leq" and len(vals) == 2:
+                return float(vals[0] <= vals[1])
+            if fname == "exp" and len(vals) == 1:
+                return math.exp(vals[0])
             if fname == "geq" and len(vals) == 2:
                 return float(vals[0] >= vals[1])
         raise ValueError(f"Unsupported generated formula AST: {ast.dump(node)}")
@@ -835,7 +877,7 @@ def rebuild_system_without_posterior_payload():
 class SavedKinaseInput:
     """Time-series boundary input reconstructed from the original matrix export.
 
-    Its stepwise evaluation matches networkmodel.network.KinaseInput.eval, but
+    Its PCHIP evaluation matches networkmodel.network.KinaseInput.eval, but
     uses the *saved run's* time grid, not whatever config.toml now specifies.
     """
 
@@ -850,8 +892,10 @@ class SavedKinaseInput:
             raise ValueError("Invalid saved kinase input matrix")
 
     def eval(self, t):
-        j = int(np.searchsorted(self.grid, float(t), side="right") - 1)
-        return self.Kmat[:, max(0, min(j, len(self.grid)-1))]
+        # Same PCHIP drive as the fit (N17).
+        from networkmodel.kinase_drive import KinaseDrive
+
+        return KinaseDrive(self.grid, self.Kmat).evaluate(float(t))
 
 
 def rebuild_system_from_saved_exports(results: Path):

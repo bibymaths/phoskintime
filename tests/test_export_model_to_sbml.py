@@ -21,8 +21,11 @@ class FakeKinase:
     Kmat = np.array([[1.0, 2.0, 2.5], [1.0, 1.5, 3.0]])
 
     def eval(self, t):
-        i = max(0, min(len(self.grid)-1, np.searchsorted(self.grid, t, side="right") - 1))
-        return self.Kmat[:, i]
+        # Independent PCHIP drive (scipy), as the fit uses since N17; hold the end values outside the knots.
+        from scipy.interpolate import PchipInterpolator
+
+        tt = min(max(float(t), self.grid[0]), self.grid[-1])
+        return PchipInterpolator(self.grid, self.Kmat, axis=1)(tt)
 
 
 class FakeSystem:
@@ -291,3 +294,39 @@ def test_sbml_export_is_blocked_while_drive_is_not_encoded():
     """N17: the fit uses a PCHIP kinase drive that this exporter cannot encode; main() refuses with a clear message."""
     with pytest.raises(SystemExit, match="N17"):
         ex.main(["--results", "unused"])
+
+
+@pytest.mark.parametrize("policy", ["hold", "baseline"])
+def test_sbml_pchip_drive_matches_jax_drive(policy):
+    """B7: the SBML piecewise cubic equals the JAX PCHIP drive to <= 1e-12 at >= 1,000 points, including every
+    knot and points just past the last knot, for both extrapolation policies."""
+    import jax.numpy as jnp
+
+    from networkmodel.backend import ensure_jax_float64
+    from networkmodel.kinase_drive import KinaseDrive
+
+    ensure_jax_float64()
+    grid = np.array([0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0])
+    rng = np.random.default_rng(9)
+    K = rng.uniform(0.2, 3.0, (3, grid.size))
+    K[1, 4:8] = 1.5
+    drv = KinaseDrive(grid, K, extrapolation=policy, tau=45.0)
+    t = np.unique(np.concatenate([np.linspace(-1.0, 960.0, 1200), grid, 960.0 + np.array([1e-9, 1e-3, 1.0, 30.0,
+                                                                                            500.0, 5000.0])]))
+    assert t.size >= 1000
+
+    def piecewise(*a):
+        for j in range(0, len(a) - 1, 2):
+            if a[j + 1]:
+                return a[j]
+        return a[-1]
+
+    for k in range(K.shape[0]):
+        f = ex.piecewise_pchip(grid, K[k], drv.slopes[k], policy, 45.0)
+        code = compile(f.replace("^", "**"), "<sbml>", "eval")
+        got = np.array([eval(code, {"__builtins__": {}}, {"time": float(tt), "piecewise": piecewise,
+                                                          "lt": lambda a, b: a < b, "leq": lambda a, b: a <= b,
+                                                          "exp": np.exp}) for tt in t])
+        ref = np.array([float(drv.evaluate(jnp.float64(tt), xp=jnp, grid=jnp.asarray(grid), Kmat=jnp.asarray(K),
+                                           slopes=jnp.asarray(drv.slopes))[k]) for tt in t])
+        assert np.max(np.abs(got - ref)) <= 1e-12 * max(1.0, np.max(np.abs(ref)))
