@@ -38,7 +38,9 @@ def test_protwise_dummy_solve_objective_gradient_optimization_and_plot(tmp_path)
     params = np.asarray([0.3, 0.2, 0.4, 0.1, 0.2, 0.15], dtype=float)
     sol, flat = solve_protwise_ode(params, init, 1, t, model_name="distmod")
     assert sol.shape == (len(t), 3)
-    assert flat.size == (len(t) - 5) + len(t) + len(t)
+    from config.constants import TIME_POINTS_RNA
+
+    assert flat.size == len(TIME_POINTS_RNA) + len(t) + len(t)  # RNA at the configured RNA times (P1)
 
     mode = {"fit_mrna": True, "fit_protein": True, "fit_phospho": True, "n_rna": len(mrna), "scale_mrna": 1.0,
             "scale_protein": 1.0, "scale_phospho": 1.0}

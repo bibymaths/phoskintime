@@ -82,12 +82,17 @@ def test_randmod_solve_output_aggregates_sites_without_rescaling(monkeypatch):
         [4.0, 6.0, 2.0, 4.0, 6.0, 20.0, 40.0, 60.0, 200.0],
     ])
     assert not hasattr(dfs, "NORMALIZE_MODEL_OUTPUT")
-    monkeypatch.setattr(dfs, "solve_diffrax", lambda *args, **kwargs: raw_sol)
+    # the solve now runs on the union with the RNA grid; the first two grid points are t = 0, 1
+    monkeypatch.setattr(dfs, "solve_diffrax",
+                        lambda y0, ts, **kwargs: np.vstack([raw_sol] + [raw_sol[-1:]] * (len(ts) - 2)))
     sol_site, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0],
                                             model_name="randmod")
     # masks (1, 2, 4, 3, 5, 6, 7) -> site 0: 1+10+20+100, site 1: 2+10+30+100, site 2: 3+20+30+100 (row 2 doubled)
     expected = [[131.0, 262.0], [142.0, 284.0], [153.0, 306.0]]
-    np.testing.assert_allclose(flat[4:].reshape(3, 2), expected, rtol=1e-12)
+    from config.constants import TIME_POINTS_RNA
+
+    n_r = len(TIME_POINTS_RNA)  # RNA at the configured RNA times (P1), then protein (2), then phospho (3 x 2)
+    np.testing.assert_allclose(flat[n_r + 2:].reshape(3, 2), expected, rtol=1e-12)
     np.testing.assert_allclose(sol_site[:, 2:5].T, expected, rtol=1e-12)
     np.testing.assert_allclose(sol_site[:, :2], raw_sol[:, :2], rtol=0)
 

@@ -241,7 +241,8 @@ def _sensitivity_analysis(pr_data, p_data, rna_data, popt, time_points, num_psit
 
     protein_preds = all_protein_solutions[:, :]
     psite_preds = all_model_psite_solutions[:, :, :]
-    rna_preds = all_mrna_solutions[:, -len(TIME_POINTS_RNA):]
+    # RNA at the RNA observation times, from the same solve as the fit/export (P1): solve_ode's flat output.
+    rna_preds = all_flat_mRNA
 
     rna_diff = np.abs(rna_preds - rna_ref[np.newaxis, :]) / rna_ref.size
     psite_diff = np.abs(psite_preds - psite_data_ref.T[np.newaxis, :, :]) / psite_data_ref.size

@@ -2,6 +2,7 @@
 not at the last n protein times. One code path for fit (objective) and export (solve_protwise_ode).
 """
 import numpy as np
+import pytest
 
 MODEL = "distmod"
 NUM_PSITES = 2
@@ -56,3 +57,17 @@ def test_objective_reads_rna_at_rna_times():
     val = float(protwise_objective(theta, target, init, NUM_PSITES, t, mode, MODEL))
     reg = REGULARIZATION_WEIGHT * float(np.mean(params * params)) if USE_REGULARIZATION else 0.0
     assert abs(val - reg) < 1e-10
+
+
+def test_any_grid_rna_on_the_time_grid_and_explicit_times():
+    """P1 generalised: one rule for any grid, no special cases."""
+    from protwise.models.diffrax_solver import rna_time_grid
+
+    t = np.array([0.0, 0.5, 1.0, 2.0, 4.0, 8.0])
+    grid, ti, ri = rna_time_grid(t, n_rna=6)  # RNA measured on the protein grid
+    np.testing.assert_array_equal(grid[ri], t)
+    grid, ti, ri = rna_time_grid(t, n_rna=2, rna_times=[1.5, 3.0])
+    np.testing.assert_array_equal(grid[ri], [1.5, 3.0])
+    np.testing.assert_array_equal(grid[ti], t)
+    with pytest.raises(ValueError):
+        rna_time_grid(t, n_rna=4)
