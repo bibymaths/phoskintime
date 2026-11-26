@@ -81,7 +81,12 @@ def process_gene(
     R_data = rna_data.iloc[:, 1:].values
 
     # Get initial conditions
-    init_cond = initial_condition(num_psites)
+    # P4 (option b): the state at t0 is taken from the t0 data (former constant IC as fallback per state).
+    from protwise.models.diffrax_solver import _canonical_model_name
+    from protwise.steady.initdata import data_initial_condition
+
+    init_cond = data_initial_condition(gene, _canonical_model_name(ODE_MODEL), num_psites, Pr_data, P_data,
+                                       initial_condition(num_psites))
 
     logger.info(f"[{gene}]      Fitting to data...")
 

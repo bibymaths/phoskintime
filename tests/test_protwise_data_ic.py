@@ -4,10 +4,7 @@ import inspect
 import numpy as np
 import pytest
 
-P4 = pytest.mark.xfail(reason="P4: fixed constant initial conditions", strict=True)
 
-
-@P4
 @pytest.mark.parametrize("model", ["distmod", "succmod"])
 def test_ic_equals_t0_data(model):
     from protwise.steady.initdata import data_initial_condition
@@ -18,7 +15,6 @@ def test_ic_equals_t0_data(model):
     np.testing.assert_allclose(y0, [1.0, 1.3, 0.7, 1.6])
 
 
-@P4
 def test_randmod_single_site_subsets_and_fallback():
     from protwise.steady.initdata import data_initial_condition
 
@@ -29,7 +25,6 @@ def test_randmod_single_site_subsets_and_fallback():
     np.testing.assert_allclose(y0, [1.0, 0.25, 0.4, 0.9, 0.0])  # protein t0 missing -> fallback kept
 
 
-@P4
 def test_core_uses_data_initial_condition():
     import protwise.paramest.core as core
 
