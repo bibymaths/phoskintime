@@ -842,6 +842,80 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
     return np.asarray(params), state, val_f
 
 
+def optimize_scalar_objective_tracked(objective_fun, theta0, lower, upper, *, maxiter, tol, logger_obj=None):
+    """jaxopt.ProjectedGradient (same settings as optimize_scalar_objective) stepped one update at a time so that the
+    best iterate is kept and returned (protwise, pre-merge item 1).
+
+    The loop reproduces jaxopt's ``run``: one unconditional update, then updates while ``error > tol`` and fewer than
+    ``maxiter`` updates were made. After every update the objective is evaluated at the new iterate; the iterate with
+    the lowest finite objective (the starting point included) is returned.
+
+    Status: "not_converged" when ``maxiter`` updates were made without reaching ``tol``, when the objective at the
+    final iterate is above the best iterate's (the run ended worse than it had been: e.g. ABL2 in .sci R11, where the
+    objective jumped to 2.06 while jaxopt reported error 0), or when an iterate's objective was not finite;
+    otherwise "converged". The comparison is with the final iterate, not with every step: ProjectedGradient uses
+    FISTA acceleration, which is not monotone, so single-step increases are normal; their count is recorded as
+    ``nonmonotone_steps`` (information only).
+
+    Returns (params, info) with info = {status, reasons, iterations, best_iteration, final_objective,
+    best_objective, grad_norm (at the returned params), nonmonotone_steps}.
+    """
+    ensure_jax_float64()
+    log = logger_obj or logger
+    lower_j = jnp.asarray(lower, dtype=jnp.float64)
+    upper_j = jnp.asarray(upper, dtype=jnp.float64)
+
+    def projection(x, hyperparams):
+        lo, hi = hyperparams
+        return project_bounds(x, lo, hi, None, None)
+
+    solver = jaxopt.ProjectedGradient(objective_fun, projection, value_and_grad=False, has_aux=False, stepsize=0.0,
+                                      maxiter=maxiter, maxls=30, tol=tol, verbose=0, implicit_diff=True, jit=True)
+    hp = (lower_j, upper_j)
+    params = project_bounds(jnp.asarray(theta0, dtype=jnp.float64), lower_j, upper_j, None, None)
+    update = jax.jit(lambda p, s: solver.update(p, s, hyperparams_proj=hp))
+    value_fn = jax.jit(objective_fun)
+    try:
+        state = solver.init_state(params, hyperparams_proj=hp)
+        best_params, best_val, best_it = params, float(value_fn(params)), 0
+        increases, nonfinite, it = 0, False, 0
+        while True:
+            params, state = update(params, state)
+            it += 1
+            v = float(value_fn(params))
+            if not np.isfinite(v):
+                nonfinite = True
+            elif v > best_val:
+                increases += 1
+            if np.isfinite(v) and v <= best_val:
+                best_params, best_val, best_it = params, v, it
+            if it >= maxiter or not float(state.error) > tol:
+                break
+    except Exception as exc:
+        msg = f"JAXopt failed: {exc}"
+        log.error(msg)
+        raise RuntimeError(msg) from exc
+    if not np.isfinite(best_val):
+        raise RuntimeError(f"JAXopt failed: non-finite objective {best_val}")
+    reasons = []
+    if it >= maxiter and float(state.error) > tol:
+        reasons.append(f"max iterations ({maxiter}) reached")
+    if np.isfinite(v) and v > best_val:
+        reasons.append(f"final objective {v:.8g} above the best iterate's {best_val:.8g} (iteration {best_it})")
+    if nonfinite:
+        reasons.append("non-finite objective at an iterate")
+    try:
+        grad_norm = float(jnp.linalg.norm(jax.grad(objective_fun)(best_params)))
+    except Exception:
+        grad_norm = float("nan")
+    info = {"status": "not_converged" if reasons else "converged", "reasons": reasons, "iterations": it,
+            "best_iteration": best_it, "final_objective": v, "best_objective": best_val, "grad_norm": grad_norm,
+            "nonmonotone_steps": increases}
+    log.info("[Optimizer] status=%s iterations=%d best_iteration=%d best_objective=%.8g final_objective=%.8g "
+             "grad_norm=%.8g %s", info["status"], it, best_it, best_val, v, grad_norm, "; ".join(reasons))
+    return np.asarray(best_params), info
+
+
 def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequence[float], weights=None, defaults=None,
                           prior_weight=0.0, *, networkmodel_layout: bool = False, return_breakdown: bool = False,
                           y0=None, sys=None, slices=None, pinn_config=None, pinn_spec=None, solver_config=None):

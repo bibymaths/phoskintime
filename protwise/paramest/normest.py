@@ -10,7 +10,7 @@ import jax.numpy as jnp
 
 from config.constants import ODE_MODEL, USE_REGULARIZATION, get_num_params, get_param_names
 from config.helpers import randmod_subset_masks
-from networkmodel.backend import optimize_scalar_objective, solve_diffrax, DiffraxSolverConfig
+from networkmodel.backend import optimize_scalar_objective_tracked, solve_diffrax, DiffraxSolverConfig
 from protwise.models.diffrax_solver import make_local_model_rhs, rna_time_grid
 
 logger = logging.getLogger(__name__)
@@ -272,8 +272,12 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info("[%s] Initial scalar objective value: %.8g", gene, initial_value)
     logger.info("[%s] Objective at doubled/clipped initial physical parameters: %.8g", gene, scaled_initial_value)
 
-    best, state, value = optimize_scalar_objective(objective, theta0, lower_opt, upper_opt, maxiter=200, tol=1e-7,
-                                                   logger_obj=logger)
+    best, opt_info = optimize_scalar_objective_tracked(objective, theta0, lower_opt, upper_opt, maxiter=200,
+                                                       tol=1e-7, logger_obj=logger)
+    value = opt_info["best_objective"]
+    if opt_info["status"] != "converged":
+        logger.warning("[%s] Optimizer not converged: %s (returning the best iterate, iteration %d of %d)", gene,
+                       "; ".join(opt_info["reasons"]), opt_info["best_iteration"], opt_info["iterations"])
     best = np.asarray(best, dtype=np.float64)
     if n_ic:
         init_cond.estimated = np.clip(best[n_params:], lower_opt[n_params:], upper_opt[n_params:])
@@ -283,7 +287,7 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     at_lower = np.mean(final_params <= (lower_phys + 1e-7 * np.maximum(1.0, np.abs(lower_phys))))
     logger.info("[%s] Final scalar objective value: %.8g (initial %.8g); fraction at lower bounds=%.3f", gene, value,
                 initial_value, at_lower)
-    logger.info("[%s] Optimizer iterations: %s", gene, getattr(state, "iter_num", "unknown"))
+    logger.info("[%s] Optimizer iterations: %s", gene, opt_info["iterations"])
 
     rhs = make_local_model_rhs(model, num_psites)
     grid, t_idx, rna_idx = rna_time_grid(time_points, mrna.size)
@@ -308,4 +312,4 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     reg_term = float(REGULARIZATION_WEIGHT * np.mean(final_params * final_params)) if USE_REGULARIZATION else 0.0
     if final_params.size != n_params:
         raise ValueError(f"[{gene}] Estimated {final_params.size} parameters but {model} requires {n_params}.")
-    return estimated_params, model_fits, errors, reg_term
+    return estimated_params, model_fits, errors, reg_term, opt_info

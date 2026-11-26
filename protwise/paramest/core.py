@@ -91,7 +91,7 @@ def process_gene(
     logger.info(f"[{gene}]      Fitting to data...")
 
     # Estimate parameters
-    model_fits, estimated_params, seq_model_fit, errors, regularization_val = estimate_parameters(
+    model_fits, estimated_params, seq_model_fit, errors, regularization_val, opt_info = estimate_parameters(
         gene, Pr_data, P_data, R_data, init_cond, num_psites, time_points, bounds
     )
 
@@ -247,6 +247,7 @@ def process_gene(
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,
         "initial_conditions": ic.record(),
+        "optimizer": opt_info,
         "masked_targets": masked_targets,
         "mae": mae,
         "pca_result": pca_result,

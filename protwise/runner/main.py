@@ -282,7 +282,11 @@ def main(argv: list[str] | None = None):
 
     masked_targets = {str(r["gene"]): r.get("masked_targets", {}) for r in results if any(r.get("masked_targets", {}).values())}
     update_metadata(out_dir, {"failed_genes": failed_genes, "masked_targets": masked_targets,
-                              "initial_conditions": {str(r["gene"]): r.get("initial_conditions") for r in results}})
+                              "initial_conditions": {str(r["gene"]): r.get("initial_conditions") for r in results},
+                              "optimizer": {str(r["gene"]): r.get("optimizer") for r in results}})
+    not_conv = sorted(str(r["gene"]) for r in results if (r.get("optimizer") or {}).get("status") == "not_converged")
+    if not_conv:
+        logger.warning("%d gene(s) not converged (metadata.json optimizer): %s", len(not_conv), not_conv)
     if failed_genes:
         logger.error("%d gene(s) failed: %s (see metadata.json failed_genes)", len(failed_genes), sorted(failed_genes))
 

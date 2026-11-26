@@ -57,7 +57,7 @@ def main() -> None:
     # each subset into every site it contains before fitting.
     phospho_obs = np.asarray(aggregate_randmod_phospho(sol, args.num_sites)).T if args.model == "randmod" else sol[
         :, 2:]
-    estimated, fits, errors, reg = normest_mod.normest(
+    estimated, fits, errors, reg, _opt_info = normest_mod.normest(
         f"SYN_{args.model.upper()}",
         pr_data=sol[:, 1],
         p_data=phospho_obs.T,
