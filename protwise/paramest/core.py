@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from protwise.knockout import apply_knockout, generate_knockout_combinations
-from config.constants import ODE_MODEL, get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, TIME_POINTS, \
+from config.constants import ODE_MODEL, get_param_names, generate_labels, OUT_DIR, SENSITIVITY_ANALYSIS, \
     SENSITIVITY_SEED
 from protwise.models.diagram import illustrate
 from protwise.paramest.toggle import estimate_parameters
