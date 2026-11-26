@@ -2,7 +2,6 @@
 not at the last n protein times. One code path for fit (objective) and export (solve_protwise_ode).
 """
 import numpy as np
-import pytest
 
 MODEL = "distmod"
 NUM_PSITES = 2

@@ -3,7 +3,6 @@ analysis (sampling AND the bootstrap confidence intervals of SALib's analyze), h
 import inspect
 
 import numpy as np
-import pytest
 
 def test_salib_morris_is_deterministic_for_a_fixed_seed():
     from SALib.analyze import morris as ma

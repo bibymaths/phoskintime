@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
-import pytest
 
 SLICES = {"A_i": slice(0, 2), "B_i": slice(2, 4), "C_i": slice(4, 6), "D_i": slice(6, 8), "E_i": slice(8, 10),
           "c_k": slice(10, 13), "tf_scale": slice(13, 14), "Dp_i": slice(14, 16)}
