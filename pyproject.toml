@@ -1,0 +1,77 @@
+# Project metadata and tool configuration only. pixi.toml stays the source of truth for
+# environments and dependencies; this file has no [build-system] and is not a pixi manifest.
+
+[project]
+name = "phoskintime"
+version = "0.6.0.dev0"
+description = "PhosKinTime: ODE-based modeling of phosphorylation kinetics and transcriptional time-series."
+readme = "README.md"
+authors = [{ name = "Abhinav Mishra", email = "mishraabhinav36@gmail.com" }]
+license = "BSD-3-Clause"
+requires-python = "==3.12.*"
+keywords = [
+    "phosphorylation",
+    "ODE",
+    "time-series",
+    "kinetics",
+    "parameter-estimation",
+    "sensitivity-analysis",
+    "systems-biology",
+    "LC-MS",
+    "modeling",
+    "python",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://bibymaths.github.io/phoskintime/"
+Documentation = "https://bibymaths.github.io/phoskintime/"
+Repository = "https://github.com/bibymaths/phoskintime"
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = [".pixi", ".audit"]
+
+[tool.ruff.lint]
+# Small, bug-focused rule set (no mass reformat).
+select = ["F", "E9", "B006", "B008", "BLE001", "S110", "S112"]
+
+# Moved verbatim from pytest.ini.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_functions = ["test_*", "verify_*"]
+
+# Moved verbatim from .coveragerc (D9: include list and fail_under unchanged).
+[tool.coverage.run]
+omit = [
+    ".pixi/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+fail_under = 60
+include = [
+    "protwise/paramest/normest.py",
+    "protwise/models/diffrax_solver.py",
+    "protwise/models/distmod.py",
+    "protwise/models/protwise.py",
+    "protwise/models/randmod.py",
+    "protwise/models/succmod.py",
+    "networkmodel/BayesianInference.py",
+    "networkmodel/OptimizationProblem.py",
+    "networkmodel/backend.py",
+    "networkmodel/cache.py",
+    "networkmodel/config.py",
+    "networkmodel/dashboard_bundle.py",
+    "networkmodel/mode_outputs.py",
+]
