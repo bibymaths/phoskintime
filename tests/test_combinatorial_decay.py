@@ -87,3 +87,25 @@ def test_c_mass_conserved_without_degradation(monkeypatch):
         y = jnp.asarray(np.concatenate([[0.0], rng.uniform(0.1, 1, 8)]))
         dy = np.asarray(rhs(0.5, y, par))
         assert abs(dy[1:].sum()) <= 1e-13 * np.abs(dy[1:]).sum() + 1e-15
+
+
+@pytest.mark.parametrize("kernel", ["jax", "numba"])
+def test_per_state_decay_rate(monkeypatch, kernel):
+    """With S = E = C = 0: dy_m = -(D + sum_{j in m} Dp_j) * y_m for every mask m (both kernels)."""
+    import jax.numpy as jnp
+
+    rng = np.random.default_rng(4)
+    D, Dp = 0.17, rng.uniform(0.05, 1.0, 3)
+    y = np.concatenate([[0.0], rng.uniform(0.1, 1.0, 8)])
+    if kernel == "jax":
+        dy = np.asarray(_rhs(monkeypatch, 2, 3)(0.5, jnp.asarray(y), _par(3, D_i=[D], Dp_i=Dp)))
+    else:
+        from networkmodel.models import combinatorial_rhs
+
+        dy = np.zeros_like(y)
+        z = np.zeros(1)
+        combinatorial_rhs(y, dy, z, z, z, np.array([D]), Dp, z, 1.0, z, np.zeros(3), np.array([0], np.int32),
+                          np.array([0], np.int32), np.array([3], np.int32), np.array([8], np.int32))
+    for m in range(8):
+        rate = D + sum(Dp[j] for j in range(3) if m >> j & 1)
+        np.testing.assert_allclose(dy[1 + m], -rate * y[1 + m], rtol=1e-14, atol=1e-16)

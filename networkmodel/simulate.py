@@ -16,8 +16,9 @@ from networkmodel.backend import DiffraxSolverConfig, make_networkmodel_rhs, sol
 
 
 
-# Solver settings of the observation-time export (simulate_and_measure); recorded in metadata.json.
-EXPORT_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": 1e-5, "atol": 1e-7, "max_steps": 5000}
+# Solver settings of the observation-time export (simulate_and_measure) = the fit's (N5); recorded in metadata.
+EXPORT_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": float(ODE_REL_TOL), "atol": float(ODE_ABS_TOL),
+                          "max_steps": int(ODE_MAX_STEPS)}
 
 def combinatorial_site_signals_streaming(states, n_sites):
     """Return per-site combinatorial signals without building an ns x n_sites bit matrix."""

@@ -378,11 +378,13 @@ def explicit_combinatorial_gene_equations(g: Any) -> str:
                 Pclear = plain_label("P", gene, f"mask{m ^ bit}")
                 terms.append(f"{S}(t)*{Pclear}(t)")
                 terms.append(f"-{E}*{Pm}(t)")
-                terms.append(f"-({Dp} + {D})*{Pm}(t)")
+                terms.append(f"-{Dp}*{Pm}(t)")
             else:
                 Pset = plain_label("P", gene, f"mask{m | bit}")
                 terms.append(f"{E}*{Pset}(t)")
                 terms.append(f"-{S}(t)*{Pm}(t)")
+        if m != 0:
+            terms.append(f"-{D}*{Pm}(t)")  # protein turnover once per molecule (N9)
         active_sites = [sites[j] for j in range(n) if m & (1 << j)]
         state_note = "unphosphorylated" if not active_sites else " + ".join(active_sites)
         lines.append(f"d{Pm}/dt = {join_terms(terms)}    # mask {m}: {state_note}")
@@ -1121,10 +1123,12 @@ def latex_combinatorial_gene(out: list[str], g: Any) -> None:
             Dp = tex_label("Dp", gene, site)
             if m & bit:
                 Pclear = tex_label("P", gene, f"mask{m ^ bit}", time="t")
-                terms += [("+", rf"{S}\,{Pclear}"), ("-", rf"{E}\,{Pm}"), ("-", rf"\left({Dp}+{D}\right){Pm}")]
+                terms += [("+", rf"{S}\,{Pclear}"), ("-", rf"{E}\,{Pm}"), ("-", rf"{Dp}\,{Pm}")]
             else:
                 Pset = tex_label("P", gene, f"mask{m | bit}", time="t")
                 terms += [("+", rf"{E}\,{Pset}"), ("-", rf"{S}\,{Pm}")]
+        if m != 0:
+            terms += [("-", rf"{D}\,{Pm}")]  # protein turnover once per molecule (N9)
         append_aligned_equation(out, rf"\frac{{d\,{Pm0}}}{{dt}}", terms)
     out.append(r"\end{align*}")
 
