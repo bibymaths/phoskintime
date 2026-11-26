@@ -261,50 +261,29 @@ def update_gene_symbols(filename):
     logger.info(f"Updated gene symbols in {filename}")
 
 
+# Processed inputs end up in <repo>/data/ (git-ignored). They are the inputs of the
+# PhosKinTime models and of the external KinOpt/TFOpt tools.
+DATA_DIR = ROOT / "data"
+PROCESSED_FILES = ("input1.csv", "input2.csv", "input3.csv", "input4.csv")
+
+
 def move_processed_files():
     """
-    Moves or copies processed files to their respective directories.
+    Moves the processed input files (input1-4) from processing/ into <repo>/data/.
     """
-
-    # Create a new directory if it doesn't exist
-    tf_data_dir = ROOT / "tfopt" / "data"
-    kin_data_dir = ROOT / "kinopt" / "data"
-
-    os.makedirs(tf_data_dir, exist_ok=True)
-    os.makedirs(kin_data_dir, exist_ok=True)
-
-    # List of files to move
-    kinopt_files = [
-        "input1.csv",
-        "input2.csv"
-    ]
-    tfopt_files = [
-        "input1.csv",
-        "input3.csv",
-        "input4.csv"
-    ]
+    os.makedirs(DATA_DIR, exist_ok=True)
 
     copied_files = set()
 
-    for f in kinopt_files:
+    for f in PROCESSED_FILES:
         src = BASE / f
-        dst = kin_data_dir / f
+        dst = DATA_DIR / f
         if src.exists():
             shutil.copy(src, dst)
             copied_files.add(f)
-            logger.info(f"Copied {f} to {kin_data_dir}")
+            logger.info(f"Copied {f} to {DATA_DIR}")
         else:
-            logger.info(f"{f} not found for kinopt.")
-
-    for f in tfopt_files:
-        src = BASE / f
-        dst = tf_data_dir / f
-        if src.exists():
-            shutil.copy(src, dst)
-            copied_files.add(f)
-            logger.info(f"Copied {f} to {tf_data_dir}")
-        else:
-            logger.info(f"{f} not found for tfopt.")
+            logger.info(f"{f} not found in {BASE}.")
 
     # Remove only the files that were successfully copied
     for f in copied_files:
@@ -341,29 +320,15 @@ if __name__ == "__main__":
     for file in replace_ID_to_Symbol:
         update_gene_symbols(file)
 
-    # 6. Move processed files to the appropriate directories
-    # You need to manually put input2.csv in ./kinopt/data/ (if not already there)
+    # 6. Move processed files to <repo>/data/
+    # input2.csv (kinase-substrate table) is not generated here: put it in processing/
+    # before running, or directly in data/.
     move_processed_files()
 
-    # 7. Print clickable hyperlinks for key output files
-    kinopt_outputs = [
-        ROOT / "kinopt" / "data" / "input1.csv",
-        ROOT / "kinopt" / "data" / "input2.csv"
-    ]
-
-    tfopt_outputs = [
-        ROOT / "tfopt" / "data" / "input1.csv",
-        ROOT / "tfopt" / "data" / "input3.csv",
-        ROOT / "tfopt" / "data" / "input4.csv"
-    ]
-
-    logger.info("\n[KinOpt Output Files]")
-    for fpath in kinopt_outputs:
-        if fpath.exists():
-            logger.info(f"  {fpath.as_uri()}")
-
-    logger.info("[TFOpt Output Files]")
-    for fpath in tfopt_outputs:
+    # 7. Print clickable hyperlinks for the output files
+    logger.info("\n[Output Files in data/]")
+    for f in PROCESSED_FILES:
+        fpath = DATA_DIR / f
         if fpath.exists():
             logger.info(f"  {fpath.as_uri()}")
 

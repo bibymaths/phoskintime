@@ -3,7 +3,7 @@ import pandas as pd
 from pandas import MultiIndex, concat
 
 from config.constants import OUT_DIR
-from kinopt.evol.config.constants import OUT_FILE
+from common.external_results import KINOPT, read_external_results
 from config.logconf import setup_logger
 
 logger = setup_logger(__name__)
@@ -19,9 +19,11 @@ def generate_tables(xlsx_file_path):
     Returns:
         tuple: containing protein, psite, and the corresponding table.
     """
-    # Load alpha and beta values from the XLSX file
-    alpha_values = pd.read_excel(xlsx_file_path, sheet_name="Alpha Values")
-    beta_values = pd.read_excel(xlsx_file_path, sheet_name="Beta Values")
+    # Load alpha and beta values from the KinOpt result workbook (file contract:
+    # common/external_results.py; raises with file/sheet/columns if malformed).
+    workbook = read_external_results(xlsx_file_path, KINOPT, sheets=("Alpha Values", "Beta Values"))
+    alpha_values = workbook.sheets["Alpha Values"]
+    beta_values = workbook.sheets["Beta Values"]
 
     # Prepare the tables
     hierarchical_tables = []
@@ -136,9 +138,17 @@ def save_master_table(folder="latex", output_file="latex/all_tables.tex"):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Write per-site LaTeX/CSV alpha/beta tables from a KinOpt result workbook.")
+    parser.add_argument("xlsx", help="KinOpt result workbook (kinopt_results.xlsx) produced by the KinOpt tool.")
+    parser.add_argument("--outdir", default=str(OUT_DIR), help="Output directory (default: config OUT_DIR).")
+    cli_args = parser.parse_args()
+
     # Define the input and output paths
-    xlsx_file_path = OUT_FILE
-    output_dir = OUT_DIR
+    xlsx_file_path = cli_args.xlsx
+    output_dir = cli_args.outdir
 
     # Generate hierarchical tables
     tables = generate_tables(xlsx_file_path)
