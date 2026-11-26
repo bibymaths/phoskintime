@@ -18,6 +18,18 @@ The configuration file is `config.toml` at the project root. It is loaded by two
 > They should be unified so `networkmodel/config.py` entirely delegates to `config_loader.py`.
 > See `config_loader.py` for the shared loader behavior.
 
+### JAX compilation cache (environment variable)
+
+Compiled JAX/XLA code is cached on disk so that later runs skip compilation
+(`common/jax_cache.py`, set up when `networkmodel.backend` is imported). The cache holds
+compiled code only and does not change results.
+
+| `PHOSKINTIME_JAX_CACHE_DIR` | Effect |
+|---|---|
+| unset | cache in `<repository root>/.jax_cache` (git-ignored) |
+| a path | cache in that directory |
+| `off`, `0`, `false`, `none` or empty | no persistent cache |
+
 ---
 
 ## Section: `[paths]`

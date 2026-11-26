@@ -74,3 +74,5 @@ coverage.xml
 /dynestyx_ode_smoothing/
 /poster_figures/
 
+# Persistent JAX compilation cache (common/jax_cache.py; PHOSKINTIME_JAX_CACHE_DIR)
+/.jax_cache/

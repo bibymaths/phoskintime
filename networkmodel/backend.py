@@ -11,6 +11,10 @@ import numpy as np
 import jax
 
 jax.config.update("jax_enable_x64", True)
+from common.jax_cache import configure_persistent_compilation_cache
+
+# Before any compilation: reuse compiled code across processes (PHOSKINTIME_JAX_CACHE_DIR).
+configure_persistent_compilation_cache()
 import jax.numpy as jnp
 import jaxopt
 import diffrax
