@@ -990,6 +990,12 @@ def main():
     pinn_spec = None
 
     if args.enable_pinn:
+        # Quarantined (KNOWN_ISSUES N12): no PINN/NeuralODE in mechanistic experiments; it can mask solver
+        # failures. The code is kept under experimental/ and is not reachable from this workflow.
+        raise ValueError(
+            "enable_pinn is not available in the networkmodel workflow: the PINN/NeuralODE path is quarantined "
+            "under experimental/ (see KNOWN_ISSUES.md N12). Set enable_pinn = false."
+        )
         from networkmodel.pinn import PinnConfig, extend_theta_with_pinn
 
         pinn_config = PinnConfig.from_args(args)
@@ -1010,8 +1016,10 @@ def main():
             theta0.size,
         )
     else:
-        from networkmodel.pinn import PinnConfig
-        pinn_config = PinnConfig(enabled=False, mode="off")
+        from types import SimpleNamespace
+
+        # Mechanistic run: a plain "off" record; the PINN package is not imported (N12).
+        pinn_config = SimpleNamespace(enabled=False, mode="off")
 
     parameter_names = np.empty(theta0.shape[0], dtype=object)
 

@@ -7,7 +7,6 @@ import pandas as pd
 import jax.numpy as jnp
 import diffrax
 
-from networkmodel.pinn.objective import _rebuild_model
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -236,6 +235,8 @@ def simulate_pinn_diffrax(
 
     base_theta = theta[: pinn_spec.base_size]
     nn_flat = theta[pinn_spec.nn_slice]
+    from networkmodel.pinn.objective import _rebuild_model  # experimental path only (N12)
+
     nn_model = _rebuild_model(pinn_spec, nn_flat)
 
     mech_rhs = None
