@@ -170,9 +170,10 @@ def test_protwise_run_contract_records_custom_config(tmp_path):
     assert metadata["effective_time_grid"] == [0.0, 2.0, 4.0, 8.0]
 
 
-def test_bootstrap_table_is_rejected(tmp_path):
+def test_bootstrap_table_is_rejected(tmp_path, monkeypatch):
     """X12: [ode.bootstrap] was removed (normest never used it)."""
     pytest.importorskip("numpy")
+    monkeypatch.delenv("PHOSKINTIME_ODE_CONFIG", raising=False)  # parse_args sets it; restore afterwards
     from config.config import parse_args
 
     conf = tmp_path / "protwise.toml"

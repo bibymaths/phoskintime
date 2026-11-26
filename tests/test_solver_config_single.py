@@ -13,7 +13,7 @@ def _expected():
 
 _CHECK = """
 import json, os
-os.environ.pop("PHOSKINTIME_NETWORKMODEL_CONFIG", None)
+[os.environ.pop(k) for k in list(os.environ) if k.startswith("PHOSKINTIME_")]
 import networkmodel.config as nc
 from networkmodel.backend import networkmodel_solver_config
 from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
@@ -33,7 +33,7 @@ def _fresh():
     import sys
     from pathlib import Path
 
-    env = {k: v for k, v in os.environ.items() if k != "PHOSKINTIME_NETWORKMODEL_CONFIG"}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PHOSKINTIME_")}
     out = subprocess.run([sys.executable, "-c", _CHECK], cwd=Path(__file__).resolve().parents[1], env=env,
                          capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip().splitlines()[-1])
