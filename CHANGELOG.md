@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed results (2026-11-26, owner decisions)
+
+Network model (results of earlier runs are not reproducible with this version):
+- **N20** sequential model: a measured site is compared with its occupancy (sum of the states in which it is
+  phosphorylated), in the loss, the export and the initial conditions.
+- **N9** combinatorial model: protein degradation D_i applies once per molecule (decay of state m = D_i + sum of the
+  phospho-site losses Dp_i of its sites).
+- **N5** one ODE solver setting (rtol = atol = 1e-8, max_steps 200000) for the fit, the exports, the steady-state run,
+  sensitivity and the posterior/profile rebuild (the fit used 1e-6, the export 1e-5/1e-7).
+- **N7** `scaling_method = "fc_start"`: each data series and each model trajectory is divided by its own value at the
+  baseline time (t = 0; first RNA time for RNA); bad baselines are skipped and counted; scaled observations are saved.
+- **N17** the kinase drive is a monotone cubic (PCHIP) through the measured points, identical in fit and exports; it is
+  held constant outside the measured range. The SBML export is blocked until it can encode this drive.
+
+Protein-wise model:
+- **P1** RNA is read at the RNA observation times for any time grid, also in the sensitivity analysis.
+- **P4** each gene starts from its own t = 0 data.
+- **P8** missing (NaN) targets are masked and counted; a failing gene no longer stops the run.
+
 ### Clean-up without result changes (2026-11-26, owner decisions)
 
 - metadata.json records the effective settings of each run (loss, solver settings for fit/export/steady state, bounds,
