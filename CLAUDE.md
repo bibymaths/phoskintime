@@ -74,7 +74,6 @@ the protwise model. It does not run networkmodel, KinOpt or TFOpt.
 5. **Do not run full workflows on real data in automated sessions** (prep, model,
    networkmodel, the scripts, or notebook execution). Unit tests and static checks are fine.
 6. Do not move a file and edit its content in the same commit.
-7. Do not strip or re-execute notebook outputs unless asked.
 
 CI (`.github/workflows/tests.yml`) runs on pushes to `main` and on pull requests. Pushes to
 the `global` branch do not trigger it, so run the tests locally before pushing there.
