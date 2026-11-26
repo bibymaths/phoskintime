@@ -167,22 +167,14 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
     "phoskintime-all": WorkflowDescriptor(
         key="phoskintime-all",
         label="PhosKinTime all",
-        description="Run the existing config.cli all wrapper for preprocessing, local TF/KinOpt, and ProtWise model.",
+        description="Run config.cli all: preprocessing, check of the external KinOpt/TFOpt result files, ProtWise model.",
         pixi_task="phoskintime-all",
         python_module="config.cli",
         module_args=("all",),
         accepted_arguments=(
-            ArgumentSpec("tf_mode", "--tf-mode", "str", "TFOpt mode.", default="local"),
-            ArgumentSpec("kin_mode", "--kin-mode", "str", "KinOpt mode.", default="local"),
-            ArgumentSpec("tf_conf", "--tf-conf", "path", "TFOpt config file."),
-            ArgumentSpec("kin_conf", "--kin-conf", "path", "KinOpt config file."),
             ArgumentSpec("model_conf", "--model-conf", "path", "ProtWise config file."),
         ),
         input_assignments=(
-            InputSpec("tf_config", "TFOpt TOML config file", "tf_conf", "TOML config for TFOpt stage.",
-                      extensions=(".toml",)),
-            InputSpec("kin_config", "KinOpt TOML config file", "kin_conf", "TOML config for KinOpt stage.",
-                      extensions=(".toml",)),
             InputSpec("model_config", "ProtWise TOML config file", "model_conf", "TOML config for ProtWise stage.",
                       extensions=(".toml",)),
         ),

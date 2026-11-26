@@ -72,7 +72,7 @@ def test_config_input_specs_match_toml_only_runners():
     for workflow_key, roles in {
         "protwise-model": ("config",),
         "networkmodel": ("config",),
-        "phoskintime-all": ("tf_config", "kin_config", "model_config"),
+        "phoskintime-all": ("model_config",),
     }.items():
         for role in roles:
             spec = _spec(workflow_key, role)

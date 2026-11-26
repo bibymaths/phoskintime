@@ -138,21 +138,6 @@ coverage-all = "pytest --cov=. --cov-report=term-missing --cov-report=xml && mkd
 # Smoke-test core package imports.
 check-import = "python -c \"import kinopt, tfopt, protwise, networkmodel, common, config, processing; print('project imports ok')\""
 
-# Run KinOpt local optimization.
-kinopt-local = "python -m kinopt.local"
-
-# Run KinOpt evolutionary optimization.
-kinopt-evol = "python -m kinopt.evol"
-
-# Run KinOpt fit-analysis utilities.
-kinopt-fitanalysis = "python -m kinopt.fitanalysis"
-
-# Run TFOpt local optimization.
-tfopt-local = "python -m tfopt.local"
-
-# Run TFOpt evolutionary optimization.
-tfopt-evol = "python -m tfopt.evol"
-
 # Run preprocessing cleanup.
 prep = "python -m processing.cleanup"
 

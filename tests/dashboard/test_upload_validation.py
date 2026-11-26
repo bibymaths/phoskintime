@@ -112,8 +112,6 @@ def test_workflow_config_inputs_accept_only_toml(tmp_path):
     for workflow_key, role in (
             ("protwise-model", "config"),
             ("networkmodel", "config"),
-            ("phoskintime-all", "tf_config"),
-            ("phoskintime-all", "kin_config"),
             ("phoskintime-all", "model_config"),
     ):
         assert _validation_problems(workflow_key, role, toml) == []

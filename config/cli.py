@@ -6,23 +6,14 @@ Usage
 # Come one level up from the package root, it should be the working directory
 # (where you can see the project directory).
 
-# run everything with the default (local) solver
+# preprocessing -> validate KinOpt/TFOpt result files -> model
 python phoskintime all
 
 # run only preprocessing
 python phoskintime prep
 
-# run tfopt with local flavour
-python phoskintime tfopt --mode local
-
-# run tfopt with evol flavour
-python phoskintime tfopt --mode evol
-
-# run kinopt with local flavour
-python phoskintime kinopt --mode local
-
-# run kinopt with evol flavour
-python phoskintime kinopt --mode evol
+# KinOpt and TFOpt are separate tools (github.com/bibymaths/KinOpt and TFOpt).
+# Their result workbooks are inputs here; see the 'External tools' docs page.
 
 # run the model
 python phoskintime model
@@ -82,52 +73,6 @@ def prep():
     Preprocess data (processing.cleanup).
     """
     _run(["processing.cleanup"])
-
-
-@app.command()
-def tfopt(
-        mode: str = typer.Option("local", help="local | evol"),
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
-                                           help="Directory for workflow outputs."),
-        conf: Path | None = typer.Option(
-            None, "--conf", file_okay=True, dir_okay=False, writable=False,
-            help="Path to TOML/YAML config. Uses defaults if omitted."
-        ),
-):
-    """
-    Transcription-Factor-mRNA Optimisation.
-
-    Args:
-        mode: local | evol
-        conf: Path to TOML/YAML config. Uses defaults if omitted.
-    Returns:
-        None
-    """
-    module = f"tfopt.{mode}"
-    _run(_python_module(module, conf, outdir if mode == "local" else None))
-
-
-@app.command()
-def kinopt(
-        mode: str = typer.Option("local", help="local | evol"),
-        outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
-                                           help="Directory for workflow outputs."),
-        conf: Path | None = typer.Option(
-            None, "--conf", file_okay=True, dir_okay=False, writable=False,
-            help="Path to TOML/YAML config. Uses defaults if omitted."
-        ),
-):
-    """
-    Kinase-Phosphorylation Optimization.
-
-    Args:
-        mode: local | evol
-        conf: Path to TOML/YAML config. Uses defaults if omitted.
-    Returns:
-        None
-    """
-    module = f"kinopt.{mode}"
-    _run(_python_module(module, conf, outdir if mode == "local" else None))
 
 
 @app.command()
@@ -226,38 +171,79 @@ def clean():
     typer.echo(f"Cleaned up {count} cached files and directories.")
 
 
+def _external_result_paths(model_conf: Path | None) -> tuple[Path | None, Path | None]:
+    """KinOpt/TFOpt workbook paths the model stage will read ([ode.inputs] psite_excel / rna_excel).
+
+    Same resolution as protwise (config/config.py): [ode] overlaid with [ode.modes.local],
+    relative paths resolved against the repository root.
+    """
+    import tomllib
+
+    cfg = Path(model_conf).expanduser() if model_conf else ROOT / "config.toml"
+    with cfg.open("rb") as fh:
+        raw = tomllib.load(fh)
+    ode = raw.get("ode", {}) or {}
+    inputs = dict(ode.get("inputs", {}) or {})
+    inputs.update((((ode.get("modes", {}) or {}).get("local", {}) or {}).get("inputs", {}) or {}))
+
+    def resolve(value) -> Path | None:
+        if not value:
+            return None
+        p = Path(str(value)).expanduser()
+        return p if p.is_absolute() else ROOT / p
+
+    return resolve(inputs.get("psite_excel")), resolve(inputs.get("rna_excel"))
+
+
+def validate_external_results(model_conf: Path | None = None) -> None:
+    """Check the KinOpt/TFOpt result workbooks the model stage reads; exit early if not usable.
+
+    Applies the same check as protwise (common/external_results.py, "Estimated" sheet present).
+    """
+    from common.external_results import KINOPT, TFOPT, ExternalResultsError, ExternalResultsMissing, \
+        read_external_results
+
+    psite, rna = _external_result_paths(model_conf)
+    for path, contract in ((psite, KINOPT), (rna, TFOPT)):
+        try:
+            res = read_external_results(path, contract, sheets=("Estimated",), required_columns={"Estimated": ()})
+        except (ExternalResultsMissing, ExternalResultsError) as exc:
+            typer.echo(f"[all] {contract.tool} result file not usable: {exc}", err=True)
+            typer.echo("[all] Produce it with the standalone tool and point [ode.inputs] "
+                       f"{'psite_excel' if contract is KINOPT else 'rna_excel'} at it. "
+                       "See docs/Documentation/external_tools.md.", err=True)
+            raise typer.Exit(code=2)
+        typer.echo(f"[all] {contract.tool} results OK: {res.path} (sha256 {res.sha256})")
+
+
 @app.command()
 def all(
-        # propagate the same options to keep behaviour predictable
-        tf_mode: str = typer.Option("local", help="tfopt mode: local | evol"),
-        kin_mode: str = typer.Option("local", help="kinopt mode: local | evol"),
-        tf_conf: Path | None = typer.Option(None, help="tfopt config file"),
-        kin_conf: Path | None = typer.Option(None, help="kinopt config file"),
-        model_conf: Path | None = typer.Option(None, help="model config file"),
+        model_conf: Path | None = typer.Option(None, help="model config file (also used to locate the "
+                                                          "KinOpt/TFOpt result files, [ode.inputs])"),
         outdir: Path | None = typer.Option(None, "--outdir", "--output-dir", file_okay=False, dir_okay=True,
                                            help="Base directory for workflow outputs."),
 ):
     """
-    Run every stage in sequence.
-    Preprocessing -> TF optimisation -> Kinase optimisation -> Model.
+    Run preprocessing, check the external KinOpt/TFOpt result files, then the model.
+    Preprocessing -> validate KinOpt/TFOpt results -> Model.
+
+    KinOpt and TFOpt are separate tools; this command does not run them. If their result
+    files are missing or malformed, it stops before the model stage.
 
     Note: This command does NOT run the global network simulation (networkmodel).
-    To run the global model, use the separate entry point ``phoskintime-global``
-    (or ``python -m networkmodel.runner``) after this command completes.
+    Use ``python -m config.cli networkmodel`` (or ``pixi run networkmodel``) for that.
 
     Args:
-        tf_mode: tfopt mode: local | evol
-        kin_mode: kinopt mode: local | evol
-        tf_conf: Path to TOML/YAML config. Uses defaults if omitted.
-        kin_conf: Path to TOML/YAML config. Uses defaults if omitted.
         model_conf: Path to model config file. Uses defaults if omitted.
+        outdir: Base directory for workflow outputs.
     Returns:
         None
     """
     prep()
-    tfopt.callback(mode=tf_mode, conf=tf_conf, outdir=(outdir / "tfopt" if outdir else None))
-    kinopt.callback(mode=kin_mode, conf=kin_conf, outdir=(outdir / "kinopt" if outdir else None))
-    model.callback(conf=model_conf, outdir=(outdir / "protwise" if outdir else None))
+    validate_external_results(model_conf)
+    # typer's @app.command() returns the plain function, so call it directly
+    # (the previous `<command>.callback(...)` calls raised AttributeError).
+    model(conf=model_conf, outdir=(outdir / "protwise" if outdir else None))
 
 
 if __name__ == "__main__":
