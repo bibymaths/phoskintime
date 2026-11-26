@@ -812,7 +812,8 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         log.error(msg)
         logging.getLogger().error(msg)
         raise RuntimeError(msg) from exc
-    val = objective_fun(params)
+    # One compiled evaluation each instead of op-by-op eager dispatch (PERF-2).
+    val = jax.jit(objective_fun)(params)
     val_f = float(val)
     if not np.isfinite(val_f):
         msg = f"JAXopt failed: non-finite final objective {val_f}"
@@ -820,7 +821,7 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         logging.getLogger().error(msg)
         raise RuntimeError(msg)
     try:
-        grad_norm = float(jnp.linalg.norm(jax.grad(objective_fun)(params)))
+        grad_norm = float(jnp.linalg.norm(jax.jit(jax.grad(objective_fun))(params)))
     except Exception:
         grad_norm = float("nan")
     log.info(

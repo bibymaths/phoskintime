@@ -222,8 +222,11 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     def objective(x):
         return protwise_objective(x, target, init_cond, num_psites, time_points, mode, model)
 
-    initial_value = float(objective(theta0))
-    scaled_initial_value = float(objective(np.clip(theta0_phys * 2.0, lower_phys, upper_phys)))
+    # Both diagnostic evaluations share one compiled objective (PERF-2).
+    objective_jit = jax.jit(objective)
+    initial_value = float(objective_jit(jnp.asarray(theta0, dtype=jnp.float64)))
+    scaled_initial_value = float(objective_jit(jnp.asarray(np.clip(theta0_phys * 2.0, lower_phys, upper_phys),
+                                                           dtype=jnp.float64)))
     logger.info("[%s] Initial scalar objective value: %.8g", gene, initial_value)
     logger.info("[%s] Objective at doubled/clipped initial physical parameters: %.8g", gene, scaled_initial_value)
 
