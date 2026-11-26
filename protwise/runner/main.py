@@ -167,8 +167,21 @@ def main(argv: list[str] | None = None):
     ensure_output_directory(out_dir)
 
     protein_data = pd.read_csv(config["input_excel_protein"])
-    kinase_data = pd.read_excel(config["input_excel_psite"], sheet_name="Estimated")
-    mrna_data = pd.read_excel(config["input_excel_rna"], sheet_name="Estimated")
+    # External KinOpt/TFOpt result workbooks (file contract: common/external_results.py).
+    # Only the presence of the "Estimated" sheet is checked here; the column checks below
+    # are unchanged. Absent files raise ExternalResultsMissing (a FileNotFoundError).
+    from common.external_results import KINOPT, TFOPT, read_external_results
+    from common.results import update_metadata
+    kinase_res = read_external_results(config["input_excel_psite"], KINOPT, sheets=("Estimated",),
+                                       required_columns={"Estimated": ()})
+    mrna_res = read_external_results(config["input_excel_rna"], TFOPT, sheets=("Estimated",),
+                                     required_columns={"Estimated": ()})
+    kinase_data = kinase_res.sheets["Estimated"]
+    mrna_data = mrna_res.sheets["Estimated"]
+    update_metadata(out_dir, {"external_results": [
+        kinase_res.provenance(role="phosphosite time courses (protwise)"),
+        mrna_res.provenance(role="mRNA time courses (protwise)"),
+    ]})
 
     if mrna_data.empty and kinase_data.empty and protein_data.empty:
         logger.error("No data found in the input files.")

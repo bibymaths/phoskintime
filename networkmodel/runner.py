@@ -497,6 +497,11 @@ def main():
 
     # 1) Load
     df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map = load_data(args)
+    # Provenance of the external KinOpt/TFOpt result files (sha256, optional Metadata sheet,
+    # or "priors: none" when absent); see common/external_results.py.
+    from common.results import update_metadata
+    import networkmodel.io as _nm_io
+    update_metadata(args.output_dir, {"external_results": list(_nm_io.EXTERNAL_RESULTS_PROVENANCE)})
 
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)

@@ -6,8 +6,32 @@ import re
 from networkmodel.utils import _normcols, _find_col, process_and_scale_raw_data
 from networkmodel.config import TIME_POINTS_PROTEIN, TIME_POINTS_RNA, RESULTS_DIR, SCALING_METHOD
 from config.config import setup_logger
+from common.external_results import KINOPT, TFOPT, absent_provenance, is_absent, read_external_results
 
 logger = setup_logger(log_dir=RESULTS_DIR)
+
+# Provenance of the external KinOpt/TFOpt result files used by the last load_data() call.
+# The runner records it in metadata.json ("external_results").
+EXTERNAL_RESULTS_PROVENANCE: list[dict] = []
+
+
+def _load_prior_workbook(path, contract, role):
+    """Read the Alpha/Beta sheets of an external result workbook (common.external_results).
+
+    Absent (no path configured, or file missing): log a WARNING, record "priors: none" and
+    return None, so the caller keeps the default weights (alpha = 1.0, no beta priors).
+    Present but malformed: ExternalResultsError is raised (file, sheet and missing columns).
+    """
+    if is_absent(path):
+        logger.warning(
+            f"[Data] {contract.tool} results not found ({path!r}): using alpha = 1.0 for all "
+            f"{role} edges and no {role} priors (priors: none). See the 'External tools' docs page."
+        )
+        EXTERNAL_RESULTS_PROVENANCE.append(absent_provenance(contract, path, role=f"{role} priors (networkmodel)"))
+        return None
+    res = read_external_results(path, contract, sheets=("Alpha Values", "Beta Values"))
+    EXTERNAL_RESULTS_PROVENANCE.append(res.provenance(role=f"{role} priors (networkmodel)"))
+    return res
 
 _MISSING_INPUT_VALUES = {"", "none", "null", "na", "n/a", "nan", "-"}
 
@@ -67,57 +91,50 @@ def load_data(args):
     df_kin_clean = pd.DataFrame(rows, columns=["protein", "psite", "kinase"]).drop_duplicates()
 
     # --- Merge Kinase Alpha Values ---
-    # Try to load 'Alpha' (Interaction Strength) from previous optimization steps if available.
-    alpha_path = args.kinopt if args.kinopt and os.path.exists(args.kinopt) else None
+    # Load 'Alpha' (Interaction Strength) from the external KinOpt result file if available.
+    EXTERNAL_RESULTS_PROVENANCE.clear()
+    kin_res = _load_prior_workbook(args.kinopt, KINOPT, role="kinase")
 
-    if alpha_path:
-        logger.info(f"[Data] Loading Kinase Alphas from: {alpha_path}")
-        try:
-            df_ka = pd.read_excel(alpha_path, sheet_name="Alpha Values")
-            # Map specific columns: Gene, Psite, Kinase, Alpha
-            df_ka = df_ka.rename(columns={"Gene": "protein", "Psite": "psite", "Kinase": "kinase", "Alpha": "alpha"})
+    if kin_res is not None:
+        logger.info(f"[Data] Loading Kinase Alphas from: {kin_res.path}")
+        df_ka = kin_res.sheets["Alpha Values"]
+        # Map specific columns: Gene, Psite, Kinase, Alpha
+        df_ka = df_ka.rename(columns={"Gene": "protein", "Psite": "psite", "Kinase": "kinase", "Alpha": "alpha"})
 
-            # Normalize strings for merge
-            for c in ["protein", "kinase"]:
-                if c in df_ka.columns:
-                    df_ka[c] = df_ka[c].astype(str).str.strip().str.upper()
-            if "psite" in df_ka.columns:
-                df_ka["psite"] = df_ka["psite"].astype(str).str.strip()
+        # Normalize strings for merge
+        for c in ["protein", "kinase"]:
+            if c in df_ka.columns:
+                df_ka[c] = df_ka[c].astype(str).str.strip().str.upper()
+        if "psite" in df_ka.columns:
+            df_ka["psite"] = df_ka["psite"].astype(str).str.strip()
 
-            # Merge existing network with loaded alphas
-            df_kin_clean = df_kin_clean.merge(df_ka[["protein", "psite", "kinase", "alpha"]],
-                                              on=["protein", "psite", "kinase"],
-                                              how="left")
+        # Merge existing network with loaded alphas
+        df_kin_clean = df_kin_clean.merge(df_ka[["protein", "psite", "kinase", "alpha"]],
+                                          on=["protein", "psite", "kinase"],
+                                          how="left")
 
-            # Fill missing alphas with 1.0 (default assumption of equal strength)
-            df_kin_clean["alpha"] = df_kin_clean["alpha"].fillna(1.0)
-
-        except Exception as e:
-            logger.info(f"[Data] Warning: Could not load Kinase Alphas: {e}")
-            df_kin_clean["alpha"] = 1.0
+        # Fill missing alphas with 1.0 (default assumption of equal strength)
+        df_kin_clean["alpha"] = df_kin_clean["alpha"].fillna(1.0)
     else:
         df_kin_clean["alpha"] = 1.0
 
     # --- Load Kinase Beta Values (Priors) ---
     # Betas represent inherent kinase activity multipliers (e.g., from expression levels or mutations).
     kin_beta_map = {}
-    if alpha_path:
-        try:
-            df_kb = pd.read_excel(alpha_path, sheet_name="Beta Values")
-            # Map: Kinase, Beta (Global has Psite=NaN)
-            df_kb = df_kb.rename(columns={"Kinase": "kinase", "Beta": "beta", "Psite": "psite"})
+    if kin_res is not None:
+        df_kb = kin_res.sheets["Beta Values"]
+        # Map: Kinase, Beta (Global has Psite=NaN)
+        df_kb = df_kb.rename(columns={"Kinase": "kinase", "Beta": "beta", "Psite": "psite"})
 
-            # Normalize kinase names
-            df_kb["kinase"] = df_kb["kinase"].astype(str).str.strip().str.upper()
+        # Normalize kinase names
+        df_kb["kinase"] = df_kb["kinase"].astype(str).str.strip().str.upper()
 
-            # Filter for global betas (rows where psite is empty/NaN)
-            mask_global = df_kb["psite"].isna() | (df_kb["psite"].astype(str).str.strip() == "")
-            df_kb_global = df_kb[mask_global]
+        # Filter for global betas (rows where psite is empty/NaN)
+        mask_global = df_kb["psite"].isna() | (df_kb["psite"].astype(str).str.strip() == "")
+        df_kb_global = df_kb[mask_global]
 
-            kin_beta_map = dict(zip(df_kb_global["kinase"], df_kb_global["beta"]))
-            logger.info(f"       Found {len(kin_beta_map)} kinase priors.")
-        except Exception as e:
-            logger.info(f"[Data] Warning: Could not load Kinase Betas: {e}")
+        kin_beta_map = dict(zip(df_kb_global["kinase"], df_kb_global["beta"]))
+        logger.info(f"       Found {len(kin_beta_map)} kinase priors.")
 
     # =========================================================================
     # 2. Load TF Network & Merge Alphas
@@ -136,53 +153,45 @@ def load_data(args):
     }).drop_duplicates()
 
     # --- Merge TF Alpha Values ---
-    tf_alpha_path = args.tfopt if args.tfopt and os.path.exists(args.tfopt) else None
+    tf_res = _load_prior_workbook(args.tfopt, TFOPT, role="TF")
 
-    if tf_alpha_path:
-        logger.info(f"[Data] Loading TF Alphas from: {tf_alpha_path}")
-        try:
-            df_ta = pd.read_excel(tf_alpha_path, sheet_name="Alpha Values")
-            # Map: mRNA -> target, TF -> tf, Value -> alpha
-            df_ta = df_ta.rename(columns={"mRNA": "target", "TF": "tf", "Value": "alpha"})
+    if tf_res is not None:
+        logger.info(f"[Data] Loading TF Alphas from: {tf_res.path}")
+        df_ta = tf_res.sheets["Alpha Values"]
+        # Map: mRNA -> target, TF -> tf, Value -> alpha
+        df_ta = df_ta.rename(columns={"mRNA": "target", "TF": "tf", "Value": "alpha"})
 
-            # Normalize strings for merge
-            for c in ["target", "tf"]:
-                if c in df_ta.columns:
-                    df_ta[c] = df_ta[c].astype(str).str.strip().str.upper()
+        # Normalize strings for merge
+        for c in ["target", "tf"]:
+            if c in df_ta.columns:
+                df_ta[c] = df_ta[c].astype(str).str.strip().str.upper()
 
-            # Merge
-            df_tf_clean = df_tf_clean.merge(df_ta[["target", "tf", "alpha"]],
-                                            on=["target", "tf"],
-                                            how="left")
+        # Merge
+        df_tf_clean = df_tf_clean.merge(df_ta[["target", "tf", "alpha"]],
+                                        on=["target", "tf"],
+                                        how="left")
 
-            # Fill missing with 1.0
-            df_tf_clean["alpha"] = df_tf_clean["alpha"].fillna(1.0)
-
-        except Exception as e:
-            logger.info(f"[Data] Warning: Could not load TF Alphas: {e}")
-            df_tf_clean["alpha"] = 1.0
+        # Fill missing with 1.0
+        df_tf_clean["alpha"] = df_tf_clean["alpha"].fillna(1.0)
     else:
         df_tf_clean["alpha"] = 1.0
 
     # --- Load TF Beta Values ---
     tf_beta_map = {}
-    if tf_alpha_path:
-        try:
-            df_tb = pd.read_excel(tf_alpha_path, sheet_name="Beta Values")
-            # Map: TF, Value -> Beta
-            df_tb = df_tb.rename(columns={"TF": "tf", "Value": "beta", "PSite": "psite"})
+    if tf_res is not None:
+        df_tb = tf_res.sheets["Beta Values"]
+        # Map: TF, Value -> Beta
+        df_tb = df_tb.rename(columns={"TF": "tf", "Value": "beta", "PSite": "psite"})
 
-            # Normalize names
-            df_tb["tf"] = df_tb["tf"].astype(str).str.strip().str.upper()
+        # Normalize names
+        df_tb["tf"] = df_tb["tf"].astype(str).str.strip().str.upper()
 
-            # Filter global
-            mask_global = df_tb["psite"].isna() | (df_tb["psite"].astype(str).str.strip() == "")
-            df_tb_global = df_tb[mask_global]
+        # Filter global
+        mask_global = df_tb["psite"].isna() | (df_tb["psite"].astype(str).str.strip() == "")
+        df_tb_global = df_tb[mask_global]
 
-            tf_beta_map = dict(zip(df_tb_global["tf"], df_tb_global["beta"]))
-            logger.info(f"       Found {len(tf_beta_map)} TF priors.")
-        except Exception as e:
-            logger.info(f"[Data] Warning: Could not load TF Betas: {e}")
+        tf_beta_map = dict(zip(df_tb_global["tf"], df_tb_global["beta"]))
+        logger.info(f"       Found {len(tf_beta_map)} TF priors.")
 
     # =========================================================================
     # 3. Load MS Data (Proteins + Phospho)
