@@ -106,6 +106,13 @@ degradation, applied to every state; `Dp_i[s]` = extra per-site loss of the phos
 For the combinatorial model the decay of state $m$ is $\gamma_{g,m} = D_i + \sum_{s \in m} \mathrm{Dp}_i[s]$: protein
 turnover $D_i$ once per molecule, independent of phosphorylation, plus the loss of each phosphorylated site (N9).
 
+**Sequential model: reaction order (KNOWN_ISSUES N20).** The sequential model phosphorylates a protein's sites one after
+another in residue order (sites sorted by residue number). This order is a modelling assumption: it is not inferred
+from the data, and data whose site occupancies are not non-increasing in that order cannot be represented exactly
+(the initial conditions then use the running minimum, logged). The observable of site j is the sum of the states in
+which site j is phosphorylated (states j..n-1).
+
+
 The propensities $\pi_{g,s}(t)$ drive forward fluxes; dephosphorylation provides reverse fluxes.
 
 #### A. Distributive / Independent (Model 0)

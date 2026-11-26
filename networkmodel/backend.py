@@ -383,7 +383,8 @@ def make_networkmodel_rhs(sys, slices=None):
 
                 dy = dy.at[p0:p0 + nst_i].add(dy_block)
             elif model_id == 1:
-                # Sequential MODEL == 1 (S1/N1): mirrors models.sequential_rhs term by term.
+                # Sequential MODEL == 1 (S1/N1): mirrors models.sequential_rhs term by term. Reaction order =
+                # residue order of the protein's sites (an assumption; KNOWN_ISSUES N20).
                 # States: P0 = y[off + 1] (unphosphorylated), P1..Pns = y[off + 2 ...];
                 # step j moves P(j) -> P(j+1) at rate S_all[s_off + j]; E_i dephosphorylates
                 # P(j+1) -> P(j); each phospho state decays at Dp_i[s_off + j] + D_i.

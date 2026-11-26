@@ -203,6 +203,11 @@ def distributive_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, 
 def sequential_rhs(y, dy, A_i, B_i, C_i, D_i, Dp_i, E_i, tf_scale, TF_inputs, S_all,
                    offset_y, offset_s, n_sites):
     """Evaluate the sequential topology right-hand side
+
+    Reaction order: sites are phosphorylated one after another in RESIDUE ORDER (the protein's sites sorted by
+    residue number, networkmodel.network / BuildMatrix.site_key). State j holds the molecules with exactly the first
+    j+1 sites phosphorylated, so the occupancy of site j is the sum of states j..n-1 (KNOWN_ISSUES N20). The order is
+    a modelling assumption, not derived from data.
     
     Args:
         y: Input value used by this routine.
