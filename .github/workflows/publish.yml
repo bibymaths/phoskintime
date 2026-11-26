@@ -53,7 +53,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Release notes from docs/releases/<tag>.md when that file exists; otherwise GitHub's generated notes.
+          notes_file="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes_file" ]; then
+            notes_args=(--notes-file "$notes_file")
+          else
+            notes_args=(--generate-notes)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             release_assets/* \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes
+            "${notes_args[@]}"
