@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import jax
 import jax.numpy as jnp
 
 from networkmodel.backend import (
@@ -281,7 +280,7 @@ class GlobalODEScalarObjective:
                 delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
                 logger.info("[Optimizer] Parameter group movement PINN_NN: max_abs_delta=%.8g", float(delta))
 
-            raw_val, breakdown = jax.jit(self._objective_raw)(jnp.asarray(params, dtype=jnp.float64))
+            raw_val, breakdown = self._objective_raw(jnp.asarray(params, dtype=jnp.float64))
             self.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
             logger.info("[GlobalObjective] Final per-modality loss: %s", self.final_loss_breakdown)
 
@@ -293,7 +292,7 @@ class GlobalODEScalarObjective:
             delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
             logger.info("[Optimizer] Parameter group movement %s: max_abs_delta=%.8g", name, float(delta))
 
-        raw_val, breakdown = jax.jit(self._objective_raw)(jnp.asarray(params, dtype=jnp.float64))
+        raw_val, breakdown = self._objective_raw(jnp.asarray(params, dtype=jnp.float64))
 
         self.final_loss_breakdown = {k: float(v) for k, v in breakdown.items()}
 
