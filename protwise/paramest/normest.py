@@ -146,6 +146,15 @@ def aggregate_randmod_phospho(sol, num_psites):
     return membership @ subset_states.T
 
 
+def _grid_or_legacy(time_points, n_rna):
+    """rna_time_grid for the configured protein grid; otherwise the previous rule (RNA = last n_rna rows)."""
+    tg = rna_time_grid(time_points, n_rna)
+    if tg is None:
+        t = np.asarray(time_points, dtype=np.float64).reshape(-1)
+        tg = (t, np.arange(t.size), np.arange(t.size - n_rna, t.size) if n_rna else np.arange(0))
+    return tg
+
+
 def _split_predictions(sol_grid, num_psites, t_idx, rna_idx, model_name: str | None = None):
     """Split a solution on the rna_time_grid union grid: RNA at rna_idx, protein/phospho at t_idx (P1)."""
     sol = sol_grid[t_idx]
@@ -163,7 +172,7 @@ def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_w
     model = _canonical_model_name(model_name)
     params = from_opt_space(theta, model)
     rhs = make_local_model_rhs(model, num_psites)
-    grid, t_idx, rna_idx = rna_time_grid(time_points, int(mode_weights["n_rna"]))
+    grid, t_idx, rna_idx = _grid_or_legacy(time_points, int(mode_weights["n_rna"]))
     sol = solve_diffrax(
         jnp.asarray(init_cond, dtype=jnp.float64),
         jnp.asarray(grid, dtype=jnp.float64),
@@ -239,7 +248,7 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     logger.info("[%s] Optimizer iterations: %s", gene, getattr(state, "iter_num", "unknown"))
 
     rhs = make_local_model_rhs(model, num_psites)
-    grid, t_idx, rna_idx = rna_time_grid(time_points, mrna.size)
+    grid, t_idx, rna_idx = _grid_or_legacy(time_points, mrna.size)
     sol_grid = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), grid,
                                         params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
     sol = sol_grid[t_idx]

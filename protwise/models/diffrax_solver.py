@@ -143,11 +143,17 @@ def rna_time_grid(time_points, n_rna: int | None = None, rna_times=None):
 
     Returns ``(grid, t_idx, rna_idx)`` with ``grid[t_idx] == time_points`` and ``grid[rna_idx] == rna_times``.
     The initial time stays ``time_points[0]``: RNA times before it are an error. ``n_rna`` (the number of
-    RNA observations being fitted) must match the configured RNA grid when given and non-zero.
+    RNA observations being fitted) must match the RNA grid when given and non-zero.
+
+    Without explicit ``rna_times`` the configured RNA grid is used only when ``time_points`` is the configured
+    protein grid (the workflow path); for any other grid (notebooks, synthetic tests, plotting grids) this returns
+    ``None`` and callers keep their previous slicing.
     """
-    from config.constants import TIME_POINTS_RNA  # defer to avoid circular imports at module load
+    from config.constants import TIME_POINTS, TIME_POINTS_RNA  # defer to avoid circular imports at module load
 
     t = np.asarray(time_points, dtype=np.float64).reshape(-1)
+    if rna_times is None and not np.array_equal(t, np.asarray(TIME_POINTS, dtype=np.float64)):
+        return None
     r = np.asarray(TIME_POINTS_RNA if rna_times is None else rna_times, dtype=np.float64).reshape(-1)
     if n_rna is not None and n_rna == 0:
         r = r[:0]
@@ -188,7 +194,12 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     if params_arr.size != expected_params:
         raise ValueError(f"{model} expects {expected_params} parameters for {num_psites} sites, got {params_arr.size}.")
     rhs = make_local_model_rhs(model, num_psites)
-    grid, t_idx, rna_idx = rna_time_grid(t)
+    tg = rna_time_grid(t)
+    t_arr = np.asarray(t, dtype=np.float64).reshape(-1)
+    if tg is None:  # not the configured protein grid: previous behaviour (RNA = rows 5:)
+        n_t = t_arr.size
+        tg = (t_arr, np.arange(n_t), np.arange(5, n_t) if n_t > 5 else np.arange(n_t))
+    grid, t_idx, rna_idx = tg
     sol_grid = np.asarray(
         solve_diffrax(
             np.asarray(init_cond, dtype=np.float64),
