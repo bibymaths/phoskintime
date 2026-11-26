@@ -5,10 +5,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-N11 = pytest.mark.xfail(reason="N11: steady-state check on the wrong axis", strict=True)
-
-
-@N11
 def test_tail_report_uses_time_axis_and_protein_states(monkeypatch):
     import networkmodel.config as nm_config
     from networkmodel.SteadyStateAnalysis import steady_state_tail_report

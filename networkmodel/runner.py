@@ -399,7 +399,7 @@ def _import_runtime_dependencies() -> None:
     global calculate_bio_bounds, get_optimized_sets, export_pareto_front_to_excel, plot_goodness_of_fit
     global export_results, save_gene_timeseries_plots, export_S_rates, plot_s_rates_report
     global export_kinase_activities, export_param_correlations, export_residuals, export_parameter_distributions
-    global simulate_until_steady, plot_steady_state_all, warn_deprecated_backend_options, detect_data_mode
+    global simulate_until_steady, plot_steady_state_all, steady_state_tail_report, warn_deprecated_backend_options, detect_data_mode
     global JaxoptResult, InferenceContext, run_multistart, run_profile_likelihood_standalone_processes
     global run_numpyro_posterior_standalone_processes, configure_jax_parallelism, write_posterior_payload
     global write_scalar_result_tables, frechet_distance, populate_standard_subdirs
@@ -420,7 +420,7 @@ def _import_runtime_dependencies() -> None:
     from networkmodel.InitialConditions import _dump_y0
     from networkmodel.OptimizationProblem import GlobalODEScalarObjective, build_weight_functions
     from networkmodel.PosteriorObjective import write_posterior_payload
-    from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all
+    from networkmodel.SteadyStateAnalysis import simulate_until_steady, plot_steady_state_all, steady_state_tail_report
     from networkmodel.backend import JaxoptResult, detect_data_mode, warn_deprecated_backend_options
     from networkmodel.cache import prepare_fast_loss_data
     from networkmodel.dashboard_bundle import save_dashboard_bundle
@@ -1581,21 +1581,12 @@ def main():
         pinn_spec=pinn_spec,
     )
 
-    # Log for each protein whether it approximately reached steady state
-    window = min(10, Y_check.shape[1])
-
-    for i, protein in enumerate(idx.proteins):
-        y_tail = Y_check[i, -window:]
-
-        tail_range = np.max(y_tail) - np.min(y_tail)
-        final_scale = abs(Y_check[i, -1]) + 1e-12
-        rel_tail_change = tail_range / final_scale
-
-        reached_steady_state = rel_tail_change < 1e-4
-
+    # Log for each protein whether it approximately reached steady state (N11: Y_check is
+    # (n_times, n_states); the check uses the protein's own states over the last 10 time points).
+    for rep in steady_state_tail_report(Y_check, idx, window=10, tol=1e-4):
         logger.info(
-            f"Protein {protein}: Steady state reached? {reached_steady_state} "
-            f"| final={Y_check[i, -1]:.6g}, rel_tail_change={rel_tail_change:.3e}"
+            f"Protein {rep['protein']}: Steady state reached? {rep['reached']} "
+            f"| final total protein={rep['final_total_protein']:.6g}, rel_tail_change={rep['rel_tail_change']:.3e}"
         )
 
     # 2. Plot every single protein

@@ -99,6 +99,28 @@ def simulate_until_steady(
     return t_eval, Y
 
 
+def steady_state_tail_report(Y, idx, window=10, tol=1e-4):
+    """Per-protein steady-state check for the post-fit log (N11).
+
+    ``Y`` has shape (n_times, n_states) as returned by :func:`simulate_until_steady`. For each protein the
+    check uses that protein's own states (RNA and all protein states) over the last ``window`` time points:
+    rel_tail_change = max over those states of (max - min) / (|final| + 1e-12); reached = rel < tol.
+    """
+    from networkmodel.config import MODEL
+
+    Y = np.asarray(Y, dtype=np.float64)
+    w = max(1, min(int(window), Y.shape[0]))
+    report = []
+    for i, protein in enumerate(idx.proteins):
+        st = int(idx.offset_y[i])
+        n_prot = int(idx.n_states[i]) if int(MODEL) == 2 else 1 + int(idx.n_sites[i])
+        tail = Y[-w:, st: st + 1 + n_prot]
+        rel = float(np.max((tail.max(axis=0) - tail.min(axis=0)) / (np.abs(tail[-1]) + 1e-12)))
+        report.append({"protein": protein, "reached": rel < tol, "rel_tail_change": rel,
+                       "final_total_protein": float(Y[-1, st + 1: st + 1 + n_prot].sum())})
+    return report
+
+
 def plot_steady_state_all(t, Y, sys, idx, output_dir, *, pinn_config=None):
     """Write steady-state diagnostic plots and tables
     
