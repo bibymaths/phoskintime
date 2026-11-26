@@ -39,6 +39,7 @@ class Plotter:
         """
         Saves and closes the given matplotlib figure.
         """
+        os.makedirs(self.out_dir, exist_ok=True)
         path = os.path.join(self.out_dir, filename)
         fig.savefig(path, dpi=dpi)
         plt.close(fig)

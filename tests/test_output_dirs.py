@@ -65,3 +65,17 @@ def test_sensitivity_analysis_accepts_out_dir():
     from protwise.sensitivity import sensitivity_analysis
 
     assert "out_dir" in inspect.signature(sensitivity_analysis).parameters
+
+
+def test_importing_constants_creates_no_output_folders(tmp_path):
+    import subprocess
+    import sys
+
+    code = ("import os, config.constants as c; "
+            "print(os.path.isdir(c.OUT_DIR), os.path.isdir(c.LOG_DIR))")
+    env = {**__import__("os").environ, "PHOSKINTIME_RESULTS_PROBE": "1"}
+    root = __import__("pathlib").Path(__file__).resolve().parents[1]
+    import config.constants as c
+    existed = (c.OUT_DIR.is_dir(), c.LOG_DIR.is_dir())
+    out = subprocess.run([sys.executable, "-c", code], cwd=root, env=env, capture_output=True, text=True, check=True)
+    assert out.stdout.split() == [str(existed[0]), str(existed[1])], "import must not create OUT_DIR/LOG_DIR"

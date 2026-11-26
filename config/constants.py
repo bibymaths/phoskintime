@@ -205,9 +205,9 @@ INPUT_EXCEL_PSITE = _optional_path("psite_excel")
 INPUT_EXCEL_RNA = _optional_path("rna_excel")
 
 # Ensure dirs exist
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+# OUT_DIR and LOG_DIR are created when first written to (Plotter._save_fig, lazy log handlers), not at import,
+# so runs that write to their own --outdir never create the shared default folders (X11).
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 ########################################################################################################################
 # PLOTTING STYLE CONFIGURATION
