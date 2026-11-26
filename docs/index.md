@@ -49,7 +49,8 @@ Executable educational notebooks are available under `notebooks/` and cover end-
 | `03_protwise_educational_workflow.ipynb` | `phoskintime.protwise` | Mode-aware protein-wise ODE fitting with Diffrax-based ODE solving and JAXopt parameter estimation. |
 | `04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal loss handling, adjacency interpretation, JAX/Diffrax solving, multistart ranking, and exports. |
 
-Run them interactively with `jupyter lab notebooks/` or as executable tests with `pytest --nbmake notebooks/*.ipynb`.
+Run them interactively with `pixi run -e dev jupyter lab notebooks/` or as executable tests with
+`pixi run -e dev test-notebooks`.
 
 
 ## No-code dashboard
@@ -138,22 +139,24 @@ The `phoskintime` pipeline provides a command-line interface to execute various 
 including preprocessing and modeling. Below are the usage instructions and examples for running  
 the pipeline.
 
-Before running any commands, ensure you are in the working directory one level above the project root (where the project  
-directory is visible).
+Run all commands from the repository root. `pixi run phoskintime <command>` runs `python -m config.cli <command>`;
+inside `pixi shell` you can call `python -m config.cli <command>` directly.
 
 ### Run All Stages
-Run the entire pipeline with the default (local) solver:
+Run preprocessing, the KinOpt/TFOpt result-file check, and the model:
 ```bash
-python phoskintime all
+pixi run phoskintime all
+# or
+pixi run phoskintime-all
 ```
 
 > **Note:** The `all` command runs `prep → check KinOpt/TFOpt result files → model` only. It does not run KinOpt or
 > TFOpt, and it stops before the model stage if their result files are missing or malformed. It does **not** invoke the
-> global network simulation (`networkmodel`). To run the global model, use the separate entry point:
+> global network simulation (`networkmodel`). To run the global model, use:
 > ```bash
-> phoskintime-global
+> pixi run networkmodel
 > # or
-> python -m networkmodel.runner
+> pixi run phoskintime networkmodel
 > ```
 > The global model reads the KinOpt and TFOpt result workbooks named by `kinopt` and `tfopt` in the `[networkmodel]`
 > section of `config.toml`. These files come from the standalone tools; see
@@ -162,185 +165,36 @@ python phoskintime all
 ### Run Preprocessing Only
 Execute only the preprocessing stage:
 ```bash
-python phoskintime prep
+pixi run prep
+# or
+pixi run phoskintime prep
 ```
 
 ### Run the Model
 Execute the modeling stage:
 ```bash
-python phoskintime model
-``` 
+pixi run model
+# or
+pixi run phoskintime model
+```
 
 ### Quick Start: Setting up environment
 
-This guide provides clean setup instructions for running the `phoskintime` package on a new machine. Choose the scenario
-that best fits your environment and preferences. 
- 
-Before proceeding, ensure you have the following prerequisites installed: 
- 
-- graphviz (for generating diagrams)   
+PhosKinTime uses [pixi](https://pixi.sh) to manage its environment. The environment pins Python 3.12 and includes
+Graphviz; no separate Python or Graphviz installation is needed. Supported platforms are linux-64, osx-64 and
+osx-arm64.
 
-```bash 
-# For Debian/Ubuntu
-sudo apt-get install graphviz   
-
-# For Fedora
-sudo dnf install graphviz    
-
-# For MacOS
-brew install graphviz 
-``` 
-
-- python 3.10 or higher 
-
-```bash  
-# Check python version 
-python3 --version  
-
-# If not installed, install python 3.10 or higher 
-
-# For Debian/Ubuntu  
-sudo apt-get install python3.10 
- 
-# For Fedora 
-sudo dnf install python3.10 
-
-# For MacOS
-brew install python@3.10
-``` 
-
-- git (for cloning the repository) 
- 
-```bash  
-# For Debian/Ubuntu 
-sudo apt-get install git  
-
-# For Fedora 
-sudo dnf install git  
-
-# For MacOS 
-brew install git 
-```
-
----
-
-### Scenario 1: pip + virtualenv (Debian/Ubuntu/Fedora)
-
-#### For **Debian/Ubuntu**
+Prerequisites: `git` and [pixi](https://pixi.sh).
 
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
-```
-
-#### For **Fedora**
-
-```bash
-sudo dnf install -y python3 python3-pip python3-virtualenv git
-```
-
-#### Setup
-
-```bash
-git clone git@github.com:bibymaths/phoskintime.git
+git clone https://github.com/bibymaths/phoskintime.git
 cd phoskintime
 
-# Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
+pixi install          # default environment
+pixi install -e dev   # adds pytest, nbmake and Jupyter
+pixi install -e docs  # adds the documentation tools
 
-# Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+pixi run check-import # check that the packages import
 ```
-
----
-
-### Scenario 2: Poetry + `pyproject.toml`
-
-#### Install Poetry (all platforms)
-
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-# Or: pip install poetry
-```
-
-#### Setup
-
-```bash
-git clone git@github.com:bibymaths/phoskintime.git
-cd phoskintime
-
-# Install dependencies
-poetry install
-
-# Optional: activate shell within poetry env
-poetry shell
-```
-
----
-
-### Scenario 3: Using [`uv`](https://github.com/astral-sh/uv) (fast, isolated pip alternative)
-
-#### Install `uv`
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-#### Setup
-
-```bash
-git clone git@github.com:bibymaths/phoskintime.git
-cd phoskintime
-
-# Create virtual environment and install deps fast
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
-```
-
----
-
-### Scenario 4: Conda or Mamba (Anaconda/Miniconda users)
-
-#### Setup
-
-```bash
-git clone git@github.com:bibymaths/phoskintime.git
-cd phoskintime
-
-# Create and activate conda environment
-conda create -n phoskintime python=3.10 -y
-conda activate phoskintime
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-Or if using `pyproject.toml`, add:
-
-```bash
-pip install poetry
-poetry install
-```
-
-For making illustration diagrams, you need to install Graphviz. You can do this via conda or apt-get:
-
-```bash 
-conda install graphviz
-``` 
-
-or
-
-```bash 
-apt-get install graphviz
-``` 
-
-or download it from the [Graphviz website](https://graphviz.gitlab.io/download/).
-For macusers, you can use Homebrew:
-
-```bash  
-brew install graphviz
-```  
 
 ---

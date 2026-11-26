@@ -92,6 +92,71 @@ The `kinopt/` and `tfopt/` code was last included in PhosKinTime at commit `6eb0
 
 ---
 
+## Installation
+
+PhosKinTime uses [pixi](https://pixi.sh) to manage its environment. The environment pins Python 3.12 and supports
+linux-64, osx-64 and osx-arm64.
+
+```bash
+git clone https://github.com/bibymaths/phoskintime.git
+cd phoskintime
+pixi install          # default environment
+pixi install -e dev   # adds pytest, nbmake and Jupyter
+```
+
+## Quickstart
+
+Run all commands from the repository root.
+
+```bash
+pixi run check-import                      # check that the packages import
+pixi run phoskintime --help                # list the CLI commands
+pixi run prep                              # preprocessing; writes the processed inputs to data/
+pixi run model --conf config.toml          # protein-wise ODE model (protwise)
+pixi run networkmodel --conf config.toml   # global coupled network model (networkmodel)
+pixi run phoskintime all                   # prep, check KinOpt/TFOpt result files, then model
+pixi run dashboard                         # Streamlit dashboard
+```
+
+`pixi run phoskintime <command>` runs `python -m config.cli <command>`. The model stages read KinOpt/TFOpt result
+workbooks; see [External tools](docs/Documentation/external_tools.md).
+
+## Repository layout
+
+| Path              | Contents                                                                                    |
+|-------------------|---------------------------------------------------------------------------------------------|
+| `protwise/`       | Protein-wise ODE models, parameter estimation, steady state, sensitivity, knockout, plots   |
+| `networkmodel/`   | Global coupled signaling-GRN model                                                          |
+| `networkpruning/` | Network preprocessing and pruning                                                           |
+| `processing/`     | Data preprocessing (`pixi run prep`)                                                        |
+| `common/`         | Shared utilities and the KinOpt/TFOpt result-file contract (`common/external_results.py`)   |
+| `config/`         | CLI (`config/cli.py`) and configuration loading; defaults are in `config.toml`              |
+| `dashboard/`      | Streamlit dashboard (`dashboard/app.py`)                                                    |
+| `scripts/`        | Stand-alone analysis, export, figure and app scripts                                        |
+| `notebooks/`      | Educational notebooks                                                                       |
+| `examples/`       | Small runnable examples                                                                     |
+| `global_model/`   | Compatibility aliases for old pickled dashboard bundles                                     |
+| `tests/`          | Test suite                                                                                  |
+| `docs/`           | Documentation sources                                                                       |
+
+`data/` (processed inputs) and `results/` are created locally and are not tracked.
+
+## Tests and coverage
+
+```bash
+pixi run -e dev test       # run the test suite
+pixi run -e dev test-cov   # run the tests with coverage
+```
+
+Test coverage: 70% on 13 core files, 22% overall. The coverage badge is computed only over the 13 files listed under
+`[tool.coverage.report] include` in `pyproject.toml`.
+
+## Known limitations
+
+Known scientific and modelling issues that are not yet fixed are listed in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+
+---
+
 ## Educational notebooks
 
 The repository includes executable educational Jupyter notebooks that demonstrate the core modeling workflows with tiny
@@ -106,7 +171,7 @@ JAX/JAXopt/Diffrax implementation.
 Run the notebooks interactively:
 
 ```bash
-jupyter lab notebooks/
+pixi run -e dev jupyter lab notebooks/
 ```
 
 ---
