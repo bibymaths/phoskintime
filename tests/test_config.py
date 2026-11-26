@@ -34,9 +34,15 @@ def test_logger_handles_no_log_directory():
 
 def test_logger_respects_custom_formatter(tmp_path):
     """
-    Test that the logger uses the custom formatter for all handlers.
+    Test that the console handler uses the coloured formatter while the file
+    handler uses a plain formatter (no ANSI escape codes written to log files).
     """
     log_directory = str(tmp_path / "logs")
     logger = setup_logger(name="custom_formatter_test", log_dir=log_directory)
-    for handler in logger.handlers:
-        assert isinstance(handler.formatter, ColoredFormatter)
+    file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
+    console_handlers = [h for h in logger.handlers if not isinstance(h, logging.FileHandler)]
+    assert len(file_handlers) == 1
+    assert len(console_handlers) == 1
+    assert isinstance(console_handlers[0].formatter, ColoredFormatter)
+    assert isinstance(file_handlers[0].formatter, logging.Formatter)
+    assert not isinstance(file_handlers[0].formatter, ColoredFormatter)
