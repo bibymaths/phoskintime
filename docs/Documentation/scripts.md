@@ -1,8 +1,10 @@
 # Post-Processing Scripts
 
 The `scripts/` directory contains stand-alone analysis and visualization utilities that operate on
-the outputs of the main pipeline. These are not part of the installable package and are intended to
-be run directly with Python from the project root.
+the outputs of the main pipeline. They are not part of the library packages. Run them through pixi
+from the repository root (`pixi run python scripts/<folder>/<script>.py`); pixi activation puts the
+repository root on `PYTHONPATH`. Outside pixi, set `PYTHONPATH` to the repository root yourself.
+See `scripts/README.md` and the README in each `scripts/` subfolder.
 
 ---
 
@@ -32,16 +34,13 @@ results. Computes phosphosite (PSite) statistics per entity.
 
 **Example:**
 ```bash
-python scripts/analysis/analyze_tf_kin_counts.py
+pixi run python scripts/analysis/analyze_tf_kin_counts.py \
+  --tfopt-xlsx data/tfopt_results.xlsx \
+  --kinopt-xlsx data/kinopt_results.xlsx \
+  --out-dir results_scripts
 ```
 
-> **Note:** `analyze_tf_kin_counts.py` does not accept command-line arguments. It uses hardcoded
-> default paths:
-> - Input: `data/tfopt_results.xlsx`, `data/kinopt_results.xlsx`
-> - Output: `results_scripts/`
->
-> To change input paths, edit the `main()` call at the bottom of the script or import and call
-> `main(tfopt_xlsx="data/tfopt_results.xlsx", kinopt_xlsx="data/kinopt_results.xlsx", out_dir="results")` from your own script.
+All three arguments are optional; the values above are the defaults.
 
 ---
 
@@ -58,7 +57,7 @@ model topologies. Visualizes kinase-substrate and TF-gene networks with global k
 
 **Example:**
 ```bash
-streamlit run scripts/legacy/compare_mechanisms.py
+pixi run streamlit run scripts/legacy/compare_mechanisms.py
 ```
 
 > **Note:** Requires `streamlit`, `gravis`, `networkx`, and `imageio` in addition to the standard
@@ -82,7 +81,7 @@ from `tfopt_results.xlsx` and `kinopt_results.xlsx`. Useful for ranking best/wor
 
 **Example:**
 ```bash
-python scripts/analysis/curve_similarity.py \
+pixi run python scripts/analysis/curve_similarity.py \
   --tfopt-xlsx data/tfopt_results.xlsx \
   --kinopt-xlsx data/kinopt_results.xlsx \
   --out-dir results_scripts
@@ -114,7 +113,7 @@ TF network (`input4`). Useful for focused network analysis around specific prote
 
 **Example:**
 ```bash
-python scripts/analysis/export_subnetworks.py \
+pixi run python scripts/analysis/export_subnetworks.py \
   --input2 data/input2.csv \
   --input4 data/input4.csv \
   --outdir results_subnetworks \
@@ -138,11 +137,11 @@ protein stability.
 - `pred_rna_picked.csv` — predicted RNA fold-change (from `networkmodel` output)
 
 **Outputs:**
-- CSV file listing accumulator proteins with their coupling ratios
+- Printed to stdout: accumulator proteins with their coupling ratios. No files are written.
 
 **Example:**
 ```bash
-python scripts/analysis/find_protein_accumulators.py \
+pixi run python scripts/analysis/find_protein_accumulators.py \
   --prot results_model_global/pred_prot_picked.csv \
   --rna  results_model_global/pred_rna_picked.csv
 ```
@@ -166,22 +165,23 @@ python scripts/analysis/find_protein_accumulators.py \
 - `data/input1.csv` (MS/protein data)
 - `data/input3.csv` (RNA data)
 - `data/input1.csv` (phospho data, can overlap with MS)
-- JSON fitted parameter files from `kinopt` and `tfopt`
+- KinOpt and TFOpt result workbooks (`--kinopt`, `--tfopt`; Excel `.xlsx`, defaults from `config.toml`)
+- `--output-dir` (required): a networkmodel results folder containing `fitted_params_picked.json`
 
 **Outputs:**
-- CSV and plot files in `--output-dir` (default: `output/`)
+- `<output-dir>/Mechanistic_Discovery_Report.xlsx` (one sheet per insight)
 
 **Example:**
 ```bash
-python scripts/analysis/mechanistic_insights.py \
+pixi run python scripts/analysis/mechanistic_insights.py \
   --kinase-net data/input2.csv \
   --tf-net     data/input4.csv \
   --ms         data/input1.csv \
   --rna        data/input3.csv \
   --phospho    data/input1.csv \
-  --kinopt     data/fitted_params_picked.json \
-  --tfopt      data/fitted_params_picked.json \
-  --output-dir results_insights
+  --kinopt     data/kinopt_results.xlsx \
+  --tfopt      data/tfopt_results.xlsx \
+  --output-dir results_model_global
 ```
 
 ---
@@ -199,12 +199,12 @@ python scripts/analysis/mechanistic_insights.py \
 - JSON parameter files in `--results-dir`
 
 **Outputs:**
-- CSV file with Sobol' first-order (`S1`) and total-order (`ST`) sensitivity indices
-- Plotly HTML plots for parameter rankings over time
+- Plotly HTML plots for parameter rankings over time:
+  `<results-dir>/global_sensitivity_analysis/gsa_<protein>.html`
 
 **Example:**
 ```bash
-python scripts/analysis/temporal_sensitivity.py \
+pixi run python scripts/analysis/temporal_sensitivity.py \
   --results-dir results_model_global \
   --samples 128
 ```
@@ -216,33 +216,31 @@ High sample counts significantly increase computation time.
 
 ## Notes
 
-- Scripts that import from `networkmodel` must be run from the project root directory.
+- Run scripts from the repository root: default input and output paths are relative to the
+  current working directory.
 - Scripts that use argparse defaults rely on `config.toml`-based path constants from
   `networkmodel/config.py`.
-- The `compare_mechanisms.py` script requires additional dependencies (`gravis`, `networkx`,
-  `imageio`) not included in the base `requirements.txt`.
+- The dependencies of `compare_mechanisms.py` (`streamlit`, `gravis`, `networkx`, `imageio`) are in
+  the default pixi environment (`pixi.toml`).
 
 ## Dashboard-ready output directories
 
-Major backend workflows accept an explicit `--outdir`/`--output-dir` option so automated tools and the planned no-code dashboard can discover outputs consistently. A run directory contains `metadata.json`, `command.txt`, `console.log`, `config_resolved.yaml` when applicable, and the standard `tables/`, `plots/`, `logs/`, `reports/`, and `artifacts/` subdirectories. Legacy filenames are retained at the run-directory root where existing scripts or documentation rely on them, with dashboard-facing copies mirrored into the standard subfolders.
+Major backend workflows accept an explicit `--outdir`/`--output-dir` option so automated tools and the no-code dashboard can discover outputs consistently. A run directory contains `metadata.json`, `command.txt`, `console.log`, `config_resolved.yaml` when applicable, and the standard `tables/`, `plots/`, `logs/`, `reports/`, and `artifacts/` subdirectories. Legacy filenames are retained at the run-directory root where existing scripts or documentation rely on them, with dashboard-facing copies mirrored into the standard subfolders.
 
 ## Unified dashboard integration and legacy script status
 
 The unified dashboard provides workflow-specific result panels for KinOpt and TFOpt result workbooks (produced by the external tools; see [External tools](external_tools.md)), ProtWise, Networkmodel, and advanced analyses. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
 
-# PhosKinTime fitted SBML exporter — saved-topology fix
+## `export_model_to_sbml.py` (`scripts/export/`)
 
-This version addresses the error `ValueError: A_i: expected 2 entries, got 17`.
+Exports a fitted **distributive** networkmodel run as reaction-based SBML. It reconstructs the
+fitted model directly from the run's exported topology and input matrices, not from the current
+`config.toml` data paths or the posterior sampling payload. See also `scripts/export/README.md`.
 
-## Cause
+### Required saved files
 
-The previous exporter rebuilt a network using the **current** `config.toml` data paths. Its topology contained two genes, while the stored fitted parameter vector contains 17 values for the gene-level kinetic parameter `A_i`. Those are not compatible models.
-
-The replacement reconstructs the previously fitted **distributive networkmodel** directly from the original run's exported topology and input matrices. It avoids dependence on the posterior sampling payload or on potentially changed input paths inside the current TOML.
-
-## Required saved files
-
-All must exist in `results_network_distributive/`:
+All must exist in the results folder passed as `--results` (for example
+`results_network_distributive/`):
 
 - `fitted_params_picked.json`
 - `model_parameters_genes.csv`
@@ -256,20 +254,17 @@ All must exist in `results_network_distributive/`:
 
 The script refuses to invent missing sites, initial states, kinase drivers or weights.
 
-## Usage
+### Usage
 
-Run from the PhosKinTime repository root. Back up the current script first:
+Run from the repository root:
 
 ```bash
-cp scripts/export/export_model_to_sbml.py scripts/export/export_model_to_sbml.py.bak
-# Copy the replacement export_model_to_sbml.py into scripts/
-
-python scripts/export/export_model_to_sbml.py \
+pixi run python scripts/export/export_model_to_sbml.py \
   --results results_network_distributive \
   --conf config.toml \
   --check-only
 
-python scripts/export/export_model_to_sbml.py \
+pixi run python scripts/export/export_model_to_sbml.py \
   --results results_network_distributive \
   --conf config.toml \
   --out results_network_distributive/sbml_reactions
@@ -279,10 +274,10 @@ The `--conf` file must select the original **distributive (MODEL=0) RHS**. It is
 
 The output XML is `results_network_distributive/sbml_reactions/networkmodel_reactions.xml`. To overwrite an existing XML use `--overwrite` explicitly. `--check-only` does not write or modify SBML.
 
-## Validation
+### Validation
 
 ```bash
-python -m pytest -q scripts/test_export_model_to_sbml.py
+pixi run -e dev pytest -q tests/test_export_model_to_sbml.py
 ```
 
 The exporter cross-checks:
@@ -298,11 +293,9 @@ The numerical check evaluates selected time points and one representative nonneg
 
 For a fitted result with 17 modeled proteins/genes, 36 phosphosites, and 27 kinases, the reaction-based SBML should contain 176 reactions and 97 species. The actual script prints the recovered counts; never force these counts if a check fails.
 
-## Scope and limitations
+### Scope and limitations
 
 - Only the **distributive** networkmodel kinetics are supported. Other topologies (`sequential`, `combinatorial`, `saturating`) require separate reaction definitions and tests.
 - Exported coefficients represent the **picked fitted solution**, not the posterior mean.
 - Only numeric (post-proxy) TF network coefficients survive in the saved exported TF matrix. Original TF names that were proxied are not recoverable from those matrix exports alone. The **effective model** remains reconstructable.
 - The SBML contains a time-dependent kinase boundary input as a `piecewise` assignment, explicit catalytic/reaction modifiers, and reaction kinetics for RNA, protein, and phosphosite species.
-- `python-libsbml` could not be installed in the preparation environment, so the actual libSBML serialization/roundtrip must still pass locally. The pure-Python regression suite passed (9 passed, 1 skipped).
-- Full production equivalence remains to be verified on your original local `results_network_distributive` files.

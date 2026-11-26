@@ -11,8 +11,8 @@ proteomics and transcriptomics datasets.
 phoskintime/
 ├── processing/
 │   ├── cleanup.py     # Data cleaning and preparation
-│   └── map.py         # Optimization result mapping and network table generation
-├── raw/               # Input CSVs (CollecTRI, MS Gaussian, Rout Limma)
+│   ├── map.py         # Optimization result mapping and network table generation
+│   └── raw/           # Input CSVs (CollecTRI, MS Gaussian, Rout Limma); not distributed
 └── data/              # Processed inputs (input1-input4) and network export for Cytoscape
 ```
 

@@ -4,7 +4,7 @@ This page documents the metrics used in PhosKinTime to evaluate model fit qualit
 
 ---
 
-## Fréchet Distance (`frechet/distance.py`)
+## Fréchet Distance (`common/frechet/distance.py`)
 
 ### What it is
 
@@ -24,7 +24,7 @@ where $\alpha$ and $\beta$ are monotone traversals of the two curves.
 
 ### Implementation
 
-`frechet/distance.py` provides a Numba JIT-compiled function:
+`common/frechet/distance.py` provides a Numba JIT-compiled function:
 
 ```python
 from common.frechet import frechet_distance
@@ -96,7 +96,7 @@ See the [Configuration Reference](configuration.md) for how to set `loss` (globa
 The KinOpt and TFOpt loss codes (`loss_type`) belong to those separate tools and are documented
 there; see [External tools](external_tools.md).
 
-### Global model loss terms (`networkmodel/jax_backend.py`)
+### Global model loss terms (`networkmodel/backend.py`)
 
 The current scalar JAX path reports weighted MSE terms from `multimodal_loss_from_trajectory`:
 

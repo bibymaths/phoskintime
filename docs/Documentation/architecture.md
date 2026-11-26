@@ -12,9 +12,11 @@ PhosKinTime provides two complementary but distinct modeling workflows:
 ### Local (per-protein) workflow
 
 Fits individual protein ODE models to per-site phosphoproteomics time series. Each protein/site
-is handled independently. Optimization uses SciPy (local) or Pymoo evolutionary algorithms (evol).
+is handled independently. Parameter estimation (`protwise/paramest/normest.py`) uses the JAX/Diffrax
+optimizer and solver helpers of `networkmodel/backend.py`.
 
-Packages involved: `processing`, `models`, `paramest`, `sensitivity`, `steady`, `plotting`.
+Packages involved: `processing`, `protwise` (`models`, `paramest`, `sensitivity`, `steady`,
+`plotting`, `knockout`, `runner`).
 
 KinOpt and TFOpt are separate tools. Their result workbooks are inputs to this workflow and to the
 global workflow; see [External tools](external_tools.md).
@@ -24,7 +26,7 @@ global workflow; see [External tools](external_tools.md).
 Solves a coupled ODE system spanning all genes, proteins, and kinases simultaneously. Calibrated
 against multi-omics time series (protein, mRNA, phospho). Uses JAX/JAXopt for deterministic scalar optimization and Diffrax Kvaerno solvers for ODE integration. The objective is mode-aware and includes only available mRNA, protein, and phospho observations.
 
-Packages involved: `processing`, `networkmodel`, `frechet`, `knockout`.
+Packages involved: `processing`, `networkmodel`, `networkpruning`, `common` (including `common/frechet`).
 
 ---
 
@@ -42,20 +44,20 @@ flowchart TD
     D["KinOpt / TFOpt result workbooks\n(external tools, read via\ncommon/external_results.py)"]
 
     subgraph local ["Local Per-Protein Workflow"]
-        F["models/\n• ODE models\n• paramest/normest.py\n• sensitivity/analysis.py (Morris)"]
-        G["plotting/\n• fits, PCA, t-SNE,\n• sensitivity indices, reports"]
+        F["protwise/\n• models/ (ODE models)\n• paramest/normest.py\n• sensitivity/analysis.py (Morris)"]
+        G["protwise/plotting/\n• fits, PCA, t-SNE,\n• sensitivity indices, reports"]
     end
 
     subgraph global_wf ["Global Network Workflow"]
         H["networkmodel/runner.py\n• data loading\n• topology assembly\n• orchestration"]
-        I["networkmodel/optproblem.py\n• scalar objective wrapper"]
-        J["networkmodel/jax_backend.py\n• Diffrax Kvaerno ODE integration\n• jaxopt.ProjectedGradient\n• JAX float64 numeric path"]
-        K["networkmodel/inference.py\n• ThreadPoolExecutor multistart\n• profiles and posterior helpers"]
+        I["networkmodel/OptimizationProblem.py\n• scalar objective wrapper"]
+        J["networkmodel/backend.py\n• Diffrax Kvaerno ODE integration\n• jaxopt.ProjectedGradient\n• JAX float64 numeric path"]
+        K["networkmodel/BayesianInference.py\n(+ ProfileWorker.py, PosteriorWorker.py)\n• ThreadPoolExecutor multistart\n• profiles and posterior helpers"]
         L["networkmodel/sensitivity.py\n• trajectory-based perturbation"]
         N["networkmodel/export.py / analysis.py / dashboard_app.py\n• tables\n• plots\n• Streamlit visualization"]
     end
 
-    subgraph scripts_box ["Post-Processing Scripts (scripts/)"]
+    subgraph scripts_box ["Post-Processing Scripts (scripts/analysis/)"]
         M["analyze_tf_kin_counts\ncurve_similarity\nexport_subnetworks\nmechanistic_insights\ntemporal_sensitivity"]
     end
 
@@ -76,7 +78,7 @@ flowchart TD
 ```
 
 > **Note:** The `all` CLI command runs `prep → check KinOpt/TFOpt result files → model` only. It
-> does not run KinOpt or TFOpt, and it does **not** invoke `networkmodel`. Run `python -m networkmodel.runner` separately after
+> does not run KinOpt or TFOpt, and it does **not** invoke `networkmodel`. Run `pixi run networkmodel` separately after
 > the local pipeline completes.
 
 ---
@@ -85,6 +87,24 @@ flowchart TD
 
 | Package | Role |
 |---|---|
+| `processing/` | Raw data cleaning and network mapping |
+| `protwise/models/` | Per-protein ODE definitions and solvers |
+| `protwise/paramest/` | Parameter estimation (`normest.py`); bootstrap confidence intervals |
+| `protwise/sensitivity/` | Morris sensitivity analysis (local ODE models) |
+| `protwise/steady/` | Steady-state initial condition computation |
+| `protwise/plotting/` | Static publication-ready plots and HTML reports |
+| `protwise/knockout/` | Knockout / perturbation analysis |
+| `protwise/runner/` | Entry point of the per-protein workflow (`python -m protwise.runner.main`) |
+| `networkmodel/` | Network-scale coupled ODE simulation and calibration |
+| `networkpruning/` | Network preprocessing and pruning helpers |
+| `common/frechet/` | Discrete Fréchet distance metric (Numba JIT) |
+| `common/` | Shared helpers: result-directory provenance (`results.py`), the KinOpt/TFOpt result-file contract (`external_results.py`), utilities (`utils/`) |
+| `config/` | CLI, constants, logging, shared configuration helpers |
+| `config_loader.py` | Root-level `config.toml` loader (LRU-cached) |
+| `dashboard/` | Unified Streamlit dashboard (`pixi run dashboard`) |
+| `scripts/` | Stand-alone post-processing and analysis utilities |
+
+---|---|
 | `processing/` | Raw data cleaning and network mapping |
 | `models/` | Per-protein ODE definitions and solvers |
 | `paramest/` | Parameter estimation (`normest.py`); bootstrap confidence intervals |
@@ -106,11 +126,11 @@ flowchart TD
 |---|---|
 | Fit kinase → phosphosite contributions | External KinOpt tool ([External tools](external_tools.md)) |
 | Fit TF → mRNA regulation | External TFOpt tool ([External tools](external_tools.md)) |
-| Fit individual protein phosphorylation dynamics | Local workflow (`models`) |
+| Fit individual protein phosphorylation dynamics | Local workflow (`protwise`) |
 | System-level network simulation | `networkmodel` (requires KinOpt/TFOpt result workbooks) |
-| Sensitivity of individual ODE parameters | `sensitivity/analysis.py` |
+| Sensitivity of individual ODE parameters | `protwise/sensitivity/analysis.py` |
 | Sensitivity of global coupled model parameters | `networkmodel/sensitivity.py` |
-| Interactive exploration of results | `scripts/apps/run_dashboard.py` (Streamlit) |
+| Interactive exploration of results | Unified dashboard (`pixi run dashboard`); legacy networkmodel dashboard (`pixi run network-dashboard`) |
 
 ---
 
@@ -122,23 +142,25 @@ phoskintime/
 ├── config_loader.py    Shared config.toml loader
 ├── config.toml         Project configuration
 ├── processing/         Data preprocessing and mapping
-├── models/             Per-protein ODE models
-├── paramest/           Parameter estimation routines
-├── sensitivity/        Morris sensitivity analysis
-├── steady/             Steady-state solvers
-├── plotting/           Visualization and reports
+├── protwise/           Per-protein ODE workflow (models, paramest, sensitivity, steady, plotting, knockout, runner)
 ├── networkmodel/       Global coupled ODE pipeline
-├── frechet/            Fréchet distance metric
-├── knockout/           Knockout analysis
-├── utils/              Shared helpers
-├── bin/                CLI entry points
-├── scripts/            Stand-alone analysis utilities
-└── background/         Background tasks and helpers
+├── networkpruning/     Network preprocessing and pruning
+├── common/             Shared helpers (Fréchet distance, result provenance, external result-file contract)
+├── global_model/       Compatibility shim for old pickled dashboard bundles
+├── dashboard/          Unified Streamlit dashboard
+├── scripts/            Stand-alone analysis, export, figure and app scripts
+├── notebooks/          Tutorial notebooks
+├── examples/           Small example scripts
+├── tests/              Test suite
+└── docs/               Documentation sources
 ```
+
+See also [Repository layout](../repository/layout.md).
 
 ---
 
 ## Technical Debt Notes
 
-- **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both load sections of
-  `config.toml`. The latter should eventually import from the former to avoid duplication.
+- **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both expose sections of
+  `config.toml`. `networkmodel/config.py` reads the file through `config_loader.load_config_toml()`
+  but keeps its own module-level constants.

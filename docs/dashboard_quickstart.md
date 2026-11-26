@@ -29,6 +29,7 @@ pixi install
 For development and test dependencies:
 
 ```bash
+pixi install -e dev
 pixi run -e dev test
 ```
 

@@ -29,6 +29,8 @@ body:
         - external results (KinOpt/TFOpt workbooks)
         - protwise
         - networkmodel
+        - networkpruning
+        - dashboard
         - common
         - config / config_loader
         - processing

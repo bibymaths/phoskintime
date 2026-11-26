@@ -21,12 +21,12 @@ Do not assume a custom config was used unless `metadata.json` and `config_resolv
 | `prep` | Preprocessing cleanup. | `python -m processing.cleanup` | `pixi run prep` |
 | `model` | ProtWise model runner. | `python -m protwise.runner.main` | `pixi run model --conf config.toml --outdir results/example_protwise` |
 | `networkmodel` | Global network model runner. | `python -m networkmodel.runner` | `pixi run networkmodel --conf config.toml --output-dir results/example_networkmodel` |
-| `phoskintime` | Typer workflow wrapper. | `python -m phoskintime.config.cli` | `pixi run phoskintime --help` |
-| `phoskintime-all` | Typer wrapper `all` command. | `python -m phoskintime.config.cli all` | `pixi run phoskintime-all` |
-| `network-dashboard` | Legacy Networkmodel dashboard launcher. | `python scripts/apps/run_dashboard.py` | `pixi run network-dashboard` |
+| `phoskintime` | Typer workflow wrapper. | `python -m config.cli` | `pixi run phoskintime --help` |
+| `phoskintime-all` | Typer wrapper `all` command. | `python -m config.cli all` | `pixi run phoskintime-all` |
+| `network-dashboard` | Legacy Networkmodel dashboard launcher. | `streamlit run scripts/apps/run_dashboard.py --` | `pixi run network-dashboard --output-dir <results folder>` |
 | `dashboard` | Unified no-code dashboard. | `streamlit run dashboard/app.py` | `pixi run dashboard` |
 | `dashboard-dev` | Unified dashboard with reload-on-save. | `streamlit run dashboard/app.py --server.runOnSave=true` | `pixi run dashboard-dev` |
-| `test` | Run pytest with project path. | `PYTHONPATH=.:.. pytest` | `pixi run -e dev test` |
+| `test` | Run pytest. | `pytest` | `pixi run -e dev test` |
 | `test-notebooks` | Execute notebooks as tests. | `pytest --nbmake notebooks/*.ipynb` | `pixi run -e dev test-notebooks` |
 | `test-cov` | Coverage test run. | `pytest --cov=...` | `pixi run -e dev test-cov` |
 | `check-import` | Import smoke check. | Python one-liner | `pixi run check-import` |
@@ -204,15 +204,15 @@ pixi run -e docs docs-build
 
 The `scripts/` directory contains standalone utilities, including:
 
-- `analyze_tf_kin_counts.py`
-- `compare_mechanisms.py`
-- `curve_similarity.py`
-- `export_subnetworks.py`
-- `find_protein_accumulators.py`
-- `mechanistic_insights.py`
-- `temporal_sensitivity.py`
+- `scripts/analysis/analyze_tf_kin_counts.py`
+- `scripts/legacy/compare_mechanisms.py`
+- `scripts/analysis/curve_similarity.py`
+- `scripts/analysis/export_subnetworks.py`
+- `scripts/analysis/find_protein_accumulators.py`
+- `scripts/analysis/mechanistic_insights.py`
+- `scripts/analysis/temporal_sensitivity.py`
 
-These are not all Pixi tasks. Run them directly only after reading each script's arguments and expected inputs. When integrating a script into the dashboard, parameterize input/output paths and write outputs into the selected run directory under `tables/`, `plots/`, `reports/`, or `artifacts/`.
+These are not Pixi tasks. Run them with `pixi run python scripts/<folder>/<script>.py` from the repository root, after reading each script's arguments and expected inputs (`scripts/README.md`). `compare_mechanisms.py` is a Streamlit app: `pixi run streamlit run scripts/legacy/compare_mechanisms.py`. When integrating a script into the dashboard, parameterize input/output paths and write outputs into the selected run directory under `tables/`, `plots/`, `reports/`, or `artifacts/`.
 
 ## File-format constraints
 

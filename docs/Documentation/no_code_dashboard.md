@@ -16,7 +16,7 @@ For development with Streamlit reload-on-save enabled:
 pixi run dashboard-dev
 ```
 
-The tasks are defined in `pixi.toml` and run `streamlit run dashboard/app.py` with `PYTHONPATH=.` so the in-repository packages are importable.
+The tasks are defined in `pixi.toml` and run `streamlit run dashboard/app.py`. Pixi activation sets `PYTHONPATH` to the repository root (`[activation.env]` in `pixi.toml`), so the in-repository packages are importable.
 
 ## Supported workflows
 
@@ -92,7 +92,7 @@ The result browser includes workflow tabs for KinOpt, TFOpt, ProtWise, Networkmo
 - **TFOpt** displays a `tfopt_results.xlsx` workbook produced by the external TFOpt tool, read the same way.
 - **ProtWise** displays ODE prediction tables, residual/fits files, sensitivity outputs, and generated plots or reports.
 - **Networkmodel** supports both the standardized result layout and legacy Networkmodel outputs such as `dashboard_bundle.pkl`, scalar objective CSVs, convergence history, predictions, optimization summaries, profiles, and posterior outputs.
-- **Advanced analysis** exposes parameterized command wrappers for existing scripts such as curve similarity, protein accumulator detection, subnetwork export, mechanistic insights, temporal sensitivity, and mechanism comparison. These analyses are not run automatically on page load.
+- **Advanced analysis** exposes parameterized command wrappers for existing scripts such as TF/kinase counts, curve similarity, protein accumulator detection, subnetwork export, mechanistic insights, and temporal sensitivity. These analyses are not run automatically on page load.
 
 Optional visualization packages are imported only when the affected panel is used. If a dependency is unavailable, the dashboard should show a clear message instead of failing during import.
 

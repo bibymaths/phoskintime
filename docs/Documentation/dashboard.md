@@ -37,7 +37,8 @@ The bundle stores scalar objective arrays and mode metadata, making it portable 
 
 ### `scripts/apps/run_dashboard.py`
 
-Root-level launcher script. Sets up `sys.path` and calls `networkmodel.dashboard_app.main()`.
+Launcher script. Calls `networkmodel.dashboard_app.main()`. It makes no `sys.path` changes; run it
+through pixi, whose activation puts the repository root on `PYTHONPATH`.
 
 ---
 
@@ -64,10 +65,17 @@ If `dashboard_bundle.pkl` is missing the dashboard will fail with a `FileNotFoun
 
 ## How to Launch
 
-### Option 1: Direct Streamlit invocation (recommended)
+### Option 1: Pixi task (recommended)
 
 ```bash
-streamlit run scripts/apps/run_dashboard.py -- --output-dir results_model_global_distributive_knockout
+pixi run network-dashboard --output-dir results_model_global_distributive_knockout
+```
+
+This task runs `streamlit run scripts/apps/run_dashboard.py --` (`pixi.toml`). The equivalent direct
+invocation is:
+
+```bash
+pixi run streamlit run scripts/apps/run_dashboard.py -- --output-dir results_model_global_distributive_knockout
 ```
 
 Streamlit will start a local web server. The default URL is:
@@ -78,15 +86,15 @@ http://localhost:8501
 
 ### Option 2: Via the networkmodel runner entry point
 
-`python -m networkmodel.runner` runs `networkmodel/runner.py`. All settings default to `config.toml` values
-and can be overridden via CLI arguments:
+`pixi run networkmodel` runs `python -m networkmodel.runner` (`networkmodel/runner.py`). All settings
+default to `config.toml` values and can be overridden via CLI arguments:
 
 ```bash
 # Run with defaults from config.toml
-python -m networkmodel.runner
+pixi run networkmodel
 
 # Override specific settings
-python -m networkmodel.runner \
+pixi run networkmodel \
   --output-dir results_global \
   --n-gen 500 \
   --solver jaxopt
@@ -109,21 +117,15 @@ Key arguments (all optional — defaults come from `config.toml`):
 This runs the full optimization pipeline via `networkmodel/runner.py` and saves the bundle.
 After it finishes, launch the dashboard with Option 1 above.
 
-### Option 3: Python script
-
-```bash
-python scripts/apps/run_dashboard.py --output-dir results_model_global_distributive_knockout
-```
-
 ---
 
 ## Common Failure Modes
 
 | Symptom | Likely cause |
 |---|---|
-| `FileNotFoundError: dashboard_bundle.pkl` | Run `python -m networkmodel.runner` first to generate results |
+| `FileNotFoundError: dashboard_bundle.pkl` | Run `pixi run networkmodel` first to generate results |
 | `KeyError` on bundle fields | Bundle was saved by an older version; re-run the optimizer |
-| Streamlit not found | Install streamlit: `pip install streamlit` |
+| Streamlit not found | Run through pixi (`pixi run …`); `streamlit` is a dependency in `pixi.toml` |
 | Empty plots | Result CSVs are missing; check `--output-dir` path |
 
 ---
@@ -133,7 +135,7 @@ python scripts/apps/run_dashboard.py --output-dir results_model_global_distribut
 Streamlit defaults to port **8501**. To use a different port:
 
 ```bash
-streamlit run scripts/apps/run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
+pixi run streamlit run scripts/apps/run_dashboard.py --server.port 8502 -- --output-dir results_model_global_distributive_jax
 ```
 
 ---

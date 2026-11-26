@@ -11,7 +11,7 @@ interactions.
 
 PhosKinTime includes **two separate** sensitivity analysis implementations for the two modeling stacks:
 
-| | `sensitivity/analysis.py` | `networkmodel/sensitivity.py` |
+| | `protwise/sensitivity/analysis.py` | `networkmodel/sensitivity.py` |
 |---|---|---|
 | **Scope** | Local per-protein ODE models | Global coupled network ODE model |
 | **Method** | Morris elementary effects (via SALib) | Morris elementary effects (trajectory-based perturbation) |
@@ -24,7 +24,7 @@ PhosKinTime includes **two separate** sensitivity analysis implementations for t
 
 ---
 
-## `sensitivity/analysis.py` — Local Sensitivity
+## `protwise/sensitivity/analysis.py` — Local Sensitivity
 
 ### Overview
 
@@ -49,7 +49,7 @@ This module (primarily implemented in `analysis.py`) defines functions that:
 Run as part of the local pipeline via the `model` CLI stage or directly:
 
 ```bash
-phoskintime model
+pixi run phoskintime model
 ```
 
 ---
@@ -86,7 +86,7 @@ sensitivity_metric        = "total_signal"
 Runs automatically after optimization if `sensitivity_analysis = true` in `config.toml`:
 
 ```bash
-python -m networkmodel.runner
+pixi run networkmodel
 ```
 
 Or triggered from `networkmodel/runner.py` directly.

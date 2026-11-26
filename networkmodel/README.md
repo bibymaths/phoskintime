@@ -372,11 +372,9 @@ and optimization.
 |------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `network.py`     | Topology engine. Defines the `Index` class mapping biological entities to state-vector indices. Implements proxy rewiring and builds sparse interaction structures.            |
 | `models.py`      | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics.                                                        |
-| `solvers.py`     | Numerical integration. Custom RK45-style adaptive solver with bucketed step control to handle piecewise-constant inputs without interpolation artifacts.                       |
 | `simulate.py`    | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points.                                                     |
 | `optproblem.py`  | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
 | `optproblem.py`  | JAXopt scalar objective layer. Orchestrates bounded local optimization and mode-aware loss weighting.                                                                          |
-| `lossfn.py`      | Error metrics. JIT-compiled robust losses (Huber / Charbonnier), including optional weighting schemes for early time points.                                                   |
 | `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\).                                                                     |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.).                                              |
 | `config.py`      | Central configuration loader for `config.toml` (paths, solver tolerances, bounds, time grids).                                                                                 |

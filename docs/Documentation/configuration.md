@@ -44,7 +44,7 @@ their own configuration; PhosKinTime only reads their result workbooks. See
 
 ## Section: `[ode]`
 
-Controls the per-protein ODE fitting pipeline (`models/`, `paramest/`, `sensitivity/`, `steady/`).
+Controls the per-protein ODE fitting pipeline (`protwise/models/`, `protwise/paramest/`, `protwise/sensitivity/`, `protwise/steady/`).
 
 ### `[ode.bounds]`
 
@@ -200,5 +200,5 @@ The global path uses Diffrax through `DiffraxSolverConfig`. Current solver names
 | Section | Consumer |
 |---|---|
 | `[paths]` | `config_loader.py`, all subpackages |
-| `[ode]` | `models/`, `paramest/`, `sensitivity/`, `steady/` |
+| `[ode]` | `protwise/models/`, `protwise/paramest/`, `protwise/sensitivity/`, `protwise/steady/` |
 | `[networkmodel]` | `networkmodel/config.py`, `networkmodel/runner.py` |

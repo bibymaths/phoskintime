@@ -3,23 +3,26 @@ Command‑line entry point for the phoskintime pipeline.
 
 Usage
 --------------
-# Come one level up from the package root, it should be the working directory
-# (where you can see the project directory).
+# Run from the repository root through pixi (the `phoskintime` task is
+# `python -m config.cli`; see pixi.toml).
 
 # preprocessing -> validate KinOpt/TFOpt result files -> model
-python phoskintime all
+pixi run phoskintime all
 
 # run only preprocessing
-python phoskintime prep
+pixi run phoskintime prep
 
 # KinOpt and TFOpt are separate tools (github.com/bibymaths/KinOpt and TFOpt).
 # Their result workbooks are inputs here; see the 'External tools' docs page.
 
 # run the model
-python phoskintime model
+pixi run phoskintime model
 
 # run the integrated Global Model
-python phoskintime networkmodel
+pixi run phoskintime networkmodel
+
+# remove caches and build artifacts
+pixi run phoskintime clean
 """
 import os
 import shutil
