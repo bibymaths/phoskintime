@@ -173,6 +173,7 @@ def run_one_parameter_profile(
                     "grid_index": grid_i,
                     "grid_value": float(gv),
                     "objective_value": float(value),
+                    "iterations": int(getattr(state, "iter_num", -1)),
                     "success": True,
                     "optimizer_status": "jaxopt.ProjectedGradient",
                     "failure_reason": "",
@@ -197,6 +198,7 @@ def run_one_parameter_profile(
                     "grid_index": grid_i,
                     "grid_value": float(gv),
                     "objective_value": np.inf,
+                    "iterations": -1,
                     "success": False,
                     "optimizer_status": "failed",
                     "failure_reason": repr(exc),
@@ -231,6 +233,13 @@ def run_one_parameter_profile(
             result_df["delta_objective"] = result_df["objective_value"] - finite_min
         else:
             result_df["delta_objective"] = np.inf
+
+        # N13 option A: scale label, fitted optimum and per-point convergence.
+        from networkmodel.BayesianInference import annotate_profile, objective_at
+
+        result_df = annotate_profile(result_df, theta_hat_raw=float(np.asarray(ctx.theta0)[idx]),
+                                     objective_at_theta_hat=objective_at(ctx.objective_fun, ctx.theta0),
+                                     maxiter=ctx.maxiter)
 
         result_csv = param_out / f"profile_likelihood_{param_name}.csv"
         result_df.to_csv(result_csv, index=False)

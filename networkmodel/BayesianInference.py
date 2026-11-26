@@ -547,7 +547,7 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
                     logger_obj=logger,
                 )
                 row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value,
-                       "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "",
+                       "iterations": int(getattr(state, "iter_num", -1)), "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "",
                        "optimized_free_parameters": json.dumps(params.tolist()), "data_mode": ctx.mode.data_mode,
                        "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
             except Exception as exc:
@@ -560,6 +560,8 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
         df = pd.DataFrame(rows)
         finite_min = df.loc[np.isfinite(df["objective_value"]), "objective_value"].min()
         df["delta_objective"] = df["objective_value"] - finite_min
+        df = annotate_profile(df, theta_hat_raw=float(np.asarray(ctx.theta0)[idx]),
+                              objective_at_theta_hat=objective_at(ctx.objective_fun, ctx.theta0), maxiter=ctx.maxiter)
         df.to_csv(out / f"profile_likelihood_{names[idx]}.csv", index=False)
         _plot_profile(df, plot_dir / f"profile_likelihood_{names[idx]}.png")
     summary = pd.DataFrame(all_rows)
@@ -572,14 +574,44 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
     return {"summary": summary, "output_dir": out}
 
 
+PROFILE_SCALE_NOTE = ("weighted-MSE training objective; delta_objective is relative to the grid minimum and "
+                      "is NOT -2 log L, so these profiles are not confidence intervals (KNOWN_ISSUES N13)")
+
+
+def annotate_profile(df: pd.DataFrame, *, theta_hat_raw: float, objective_at_theta_hat: float,
+                     maxiter: int) -> pd.DataFrame:
+    """N13 option A: label the profile scale, report the fitted optimum and per-point convergence."""
+    df = df.copy()
+    df["objective_scale"] = PROFILE_SCALE_NOTE
+    df["theta_hat_raw"] = float(theta_hat_raw)
+    df["objective_at_theta_hat"] = float(objective_at_theta_hat)
+    df["delta_vs_theta_hat"] = df["objective_value"] - float(objective_at_theta_hat)
+    if "iterations" in df:
+        df["converged"] = df["success"].astype(bool) & (df["iterations"] < int(maxiter))
+    return df
+
+
+def objective_at(objective_fun, theta) -> float:
+    """Objective at the fitted optimum (eager evaluation), for the profile reference."""
+    import jax.numpy as jnp
+
+    try:
+        return float(objective_fun(jnp.asarray(theta, dtype=jnp.float64)))
+    except Exception:  # reported, not hidden: the column then reads NaN
+        logger.exception("[Profile] Objective at the fitted optimum could not be evaluated.")
+        return float("nan")
+
+
 def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.plot(df["grid_value"], df["objective_value"], marker="o", label="objective")
-    ax.set_xlabel("profiled parameter value")
-    ax.set_ylabel("objective")
+    ax.set_xlabel("profiled parameter (raw softplus coordinate)")
+    ax.set_ylabel("training objective (weighted MSE)")
+    if "theta_hat_raw" in df:
+        ax.axvline(float(df["theta_hat_raw"].iloc[0]), color="grey", linestyle=":", label="fitted optimum")
     ax2 = ax.twinx()
     ax2.plot(df["grid_value"], df["delta_objective"], color="tab:orange", marker="x", label="delta")
-    ax2.set_ylabel("delta objective")
+    ax2.set_ylabel("Δ training objective (not −2 log L)")
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)
