@@ -45,6 +45,7 @@ nav:
   - Documentation:
       - Architecture & Data Flow: Documentation/architecture.md
       - Configuration Reference: Documentation/configuration.md
+      - External Tools (KinOpt, TFOpt): Documentation/external_tools.md
       - Processing & Mapping: Documentation/processing/README.md
       - Configuration: Documentation/config/README.md
       - Protein Wise Models: Documentation/models/README.md

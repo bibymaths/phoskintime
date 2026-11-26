@@ -15,7 +15,7 @@ PhosKinTime includes **two separate** sensitivity analysis implementations for t
 |---|---|---|
 | **Scope** | Local per-protein ODE models | Global coupled network ODE model |
 | **Method** | Morris elementary effects (via SALib) | Morris elementary effects (trajectory-based perturbation) |
-| **Workflow** | Local pipeline (`kinopt` → `model` → `sensitivity`) | Global pipeline (`networkmodel` → post-analysis) |
+| **Workflow** | Local pipeline (KinOpt result workbook → `model` → `sensitivity`) | Global pipeline (`networkmodel` → post-analysis) |
 | **Input** | Per-protein fitted parameters, ODE definitions | Global model parameters, full network state vector |
 | **Output** | Per-protein sensitivity indices (μ*, σ), diagnostic plots | Global sensitivity indices over full trajectory, perturbation cloud plots |
 | **When to use** | Identifying critical parameters for individual protein/site ODE fits | Identifying critical global parameters driving network-scale dynamics |

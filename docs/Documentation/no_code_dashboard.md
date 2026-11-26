@@ -25,13 +25,13 @@ The launcher registry exposes only structured, known commands. It builds argumen
 | Workflow | What it launches | Typical inputs |
 | --- | --- | --- |
 | `prep` | preprocessing cleanup task | files referenced by the current project config |
-| `kinopt-local` | `python -m kinopt.local` | phosphosite/protein tables, kinase network data, optional config |
-| `tfopt-local` | `python -m tfopt.local` | RNA/mRNA tables, TF network data, optional config |
 | `protwise-model` | `python -m protwise.runner.main` | protein/phosphosite data and optional config |
 | `networkmodel` | `python -m networkmodel.runner` | kinase network, TF network, omics tables, optional config |
 | `phoskintime-all` | `python -m config.cli all` | project-level configuration and data files |
 
 The dashboard does not invent new CLI flags. If an option is not listed in the workflow registry, it is not generated.
+
+KinOpt and TFOpt are separate tools and are not run from the dashboard. Their result workbooks can still be browsed (see [Workflow-specific panels](#workflow-specific-panels)) and passed to `networkmodel` as inputs. See [External tools](external_tools.md).
 
 ## Result directory contract
 
@@ -50,7 +50,7 @@ results/<run_id>/
 └── artifacts/
 ```
 
-The result browser also recognizes practical legacy layouts, including Networkmodel top-level CSVs such as `scalar_objective.csv`, `convergence_history.csv`, prediction CSVs, `optimization/`, `profiles/`, `posterior/`, and legacy `kinopt_results.xlsx` or `tfopt_results.xlsx` files.
+The result browser also recognizes practical legacy layouts, including Networkmodel top-level CSVs such as `scalar_objective.csv`, `convergence_history.csv`, prediction CSVs, `optimization/`, `profiles/`, `posterior/`, and `kinopt_results.xlsx` or `tfopt_results.xlsx` workbooks produced by the external KinOpt/TFOpt tools.
 
 ## Upload behavior
 
@@ -88,8 +88,8 @@ If standard contract files are missing, the browser reports them clearly and sti
 
 The result browser includes workflow tabs for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses.
 
-- **KinOpt** displays discovered KinOpt result workbooks, alpha/beta-related tables where available, observed-vs-estimated output files, and existing plots.
-- **TFOpt** displays TFOpt result workbooks, TF alpha/beta or equivalent tables, latent activity/dominance/knockout outputs when present, and existing plots.
+- **KinOpt** displays a `kinopt_results.xlsx` workbook produced by the external KinOpt tool, read through the file contract in `common/external_results.py`: contract warnings, the file's SHA-256, its sheets, and existing plots.
+- **TFOpt** displays a `tfopt_results.xlsx` workbook produced by the external TFOpt tool, read the same way.
 - **ProtWise** displays ODE prediction tables, residual/fits files, sensitivity outputs, and generated plots or reports.
 - **Networkmodel** supports both the standardized result layout and legacy Networkmodel outputs such as `dashboard_bundle.pkl`, scalar objective CSVs, convergence history, predictions, optimization summaries, profiles, and posterior outputs.
 - **Advanced analysis** exposes parameterized command wrappers for existing scripts such as curve similarity, protein accumulator detection, subnetwork export, mechanistic insights, temporal sensitivity, and mechanism comparison. These analyses are not run automatically on page load.
@@ -106,31 +106,13 @@ Optional visualization packages are imported only when the affected panel is use
 4. Select a run folder.
 5. Review metadata, tables, plots, logs, reports, artifacts, and workflow-specific tabs.
 
-### Run KinOpt
-
-1. Open **Run workflow**.
-2. Select `KinOpt local (kinopt-local)`.
-3. Upload or select phosphosite/protein and kinase-network inputs as required by the current CLI/config.
-4. Preview uploaded tables.
-5. Confirm validation passes.
-6. Review the command preview.
-7. Click **Run workflow**.
-8. When the process completes, the result browser opens the run directory.
-
-### Run TFOpt
-
-1. Select `TFOpt local (tfopt-local)`.
-2. Upload or select RNA/mRNA and TF-network inputs.
-3. Pass a config file through the existing config argument when needed.
-4. Review and run the generated command.
-5. Inspect TFOpt tables, plots, logs, and workflow tabs after completion.
-
 ### Run ProtWise/model
 
-1. Select `ProtWise model (protwise-model)`.
-2. Assign the required protein/phosphosite inputs and optional config file.
-3. Preview the command and run it.
-4. Use the ProtWise panel to inspect predictions, residuals, fits, sensitivity files, plots, and reports.
+1. Open **Run workflow**.
+2. Select `ProtWise model (protwise-model)`.
+3. Assign the required protein/phosphosite inputs and optional config file.
+4. Preview the command and run it.
+5. Use the ProtWise panel to inspect predictions, residuals, fits, sensitivity files, plots, and reports.
 
 ### Run Networkmodel
 

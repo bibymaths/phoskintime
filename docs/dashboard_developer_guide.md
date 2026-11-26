@@ -58,7 +58,7 @@ Important file-format examples:
 
 - ProtWise protein input is CSV because the runner reads it with `pd.read_csv`.
 - Networkmodel network/data inputs are CSV because `networkmodel.io.load_data` uses default `pd.read_csv`.
-- Previous KinOpt/TFOpt prior result inputs are Excel workbooks where the backend uses Excel readers.
+- Previous KinOpt/TFOpt prior result inputs are Excel workbooks where the backend uses Excel readers. KinOpt and TFOpt are external tools and have no launchable registry entry; see [External tools](Documentation/external_tools.md).
 
 ## Command builder
 
@@ -100,7 +100,7 @@ Interactive cancellation is intentionally limited until a robust background job 
 - standard files: `metadata.json`, `command.txt`, `console.log`, `config_resolved.yaml`;
 - standard folders: `tables/`, `plots/`, `logs/`, `reports/`, `artifacts/`;
 - legacy Networkmodel outputs such as `scalar_objective.csv`, prediction CSVs, `optimization/`, `profiles/`, `posterior/`, and `plots/`;
-- legacy local result workbooks such as `kinopt_results.xlsx` and `tfopt_results.xlsx`.
+- result workbooks of the external KinOpt/TFOpt tools: `kinopt_results.xlsx` and `tfopt_results.xlsx`. The KinOpt/TFOpt panels read them through the file contract in `common/external_results.py`.
 
 Load file contents only inside viewer components after the user selects a file.
 
@@ -110,8 +110,6 @@ Workflow panels should present existing outputs and call reusable backend functi
 
 Existing apps and scripts to consider when adding or improving panels:
 
-- `scripts/apps/kinopt_results_app.py`
-- `scripts/apps/tfopt_results_app.py`
 - `networkmodel/dashboard_app.py`
 - `scripts/legacy/compare_mechanisms.py`
 
@@ -157,6 +155,7 @@ tests/dashboard/test_runner.py
 tests/dashboard/test_upload_validation.py
 tests/dashboard/test_workflow_panels.py
 tests/test_result_contract.py
+tests/test_external_results.py
 tests/test_networkmodel_runner_config.py
 tests/test_protwise_config_handling.py
 ```

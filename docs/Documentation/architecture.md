@@ -14,8 +14,10 @@ PhosKinTime provides two complementary but distinct modeling workflows:
 Fits individual protein ODE models to per-site phosphoproteomics time series. Each protein/site
 is handled independently. Optimization uses SciPy (local) or Pymoo evolutionary algorithms (evol).
 
-Packages involved: `processing`, `kinopt`, `tfopt`, `models`, `paramest`, `sensitivity`, `steady`,
-`plotting`.
+Packages involved: `processing`, `models`, `paramest`, `sensitivity`, `steady`, `plotting`.
+
+KinOpt and TFOpt are separate tools. Their result workbooks are inputs to this workflow and to the
+global workflow; see [External tools](external_tools.md).
 
 ### Global (network-scale) workflow
 
@@ -37,9 +39,9 @@ flowchart TD
         C["map.py\n• TF-mRNA mapping\n• kinase-phospho mapping\n• Cytoscape export"]
     end
 
+    D["KinOpt / TFOpt result workbooks\n(external tools, read via\ncommon/external_results.py)"]
+
     subgraph local ["Local Per-Protein Workflow"]
-        D["tfopt/\n• TF→mRNA constrained opt\n• local (SciPy) or evol (Pymoo)"]
-        E["kinopt/\n• kinase-phospho opt\n• local (SciPy) or evol (Pymoo)\n• optimality/ post-processing"]
         F["models/\n• ODE models\n• paramest/normest.py\n• sensitivity/analysis.py (Morris)"]
         G["plotting/\n• fits, PCA, t-SNE,\n• sensitivity indices, reports"]
     end
@@ -59,12 +61,9 @@ flowchart TD
 
     A --> prep
     prep --> D
-    prep --> E
-    E --> F
     D --> F
     F --> G
     prep --> H
-    E --> H
     D --> H
     H --> I
     I --> J
@@ -76,8 +75,8 @@ flowchart TD
     G --> M
 ```
 
-> **Note:** The `all` CLI command runs `prep → tfopt → kinopt → model` only. It does **not** invoke
-> `networkmodel`. Run `python -m networkmodel.runner` separately after
+> **Note:** The `all` CLI command runs `prep → check KinOpt/TFOpt result files → model` only. It
+> does not run KinOpt or TFOpt, and it does **not** invoke `networkmodel`. Run `python -m networkmodel.runner` separately after
 > the local pipeline completes.
 
 ---
@@ -87,8 +86,6 @@ flowchart TD
 | Package | Role |
 |---|---|
 | `processing/` | Raw data cleaning and network mapping |
-| `tfopt/` | TF→mRNA optimization (local or evolutionary) |
-| `kinopt/` | Kinase→phospho optimization (local or evolutionary) |
 | `models/` | Per-protein ODE definitions and solvers |
 | `paramest/` | Parameter estimation (`normest.py`); bootstrap confidence intervals |
 | `sensitivity/` | Morris sensitivity analysis (local ODE models) |
@@ -107,9 +104,10 @@ flowchart TD
 
 | Goal | Use |
 |---|---|
-| Fit individual protein phosphorylation dynamics | Local workflow (`kinopt` + `models`) |
-| Fit TF → mRNA regulation | `tfopt` |
-| System-level network simulation | `networkmodel` (requires kinopt/tfopt outputs) |
+| Fit kinase → phosphosite contributions | External KinOpt tool ([External tools](external_tools.md)) |
+| Fit TF → mRNA regulation | External TFOpt tool ([External tools](external_tools.md)) |
+| Fit individual protein phosphorylation dynamics | Local workflow (`models`) |
+| System-level network simulation | `networkmodel` (requires KinOpt/TFOpt result workbooks) |
 | Sensitivity of individual ODE parameters | `sensitivity/analysis.py` |
 | Sensitivity of global coupled model parameters | `networkmodel/sensitivity.py` |
 | Interactive exploration of results | `scripts/apps/run_dashboard.py` (Streamlit) |
@@ -124,8 +122,6 @@ phoskintime/
 ├── config_loader.py    Shared config.toml loader
 ├── config.toml         Project configuration
 ├── processing/         Data preprocessing and mapping
-├── tfopt/              TF optimization (local + evol)
-├── kinopt/             Kinase optimization (local + evol)
 ├── models/             Per-protein ODE models
 ├── paramest/           Parameter estimation routines
 ├── sensitivity/        Morris sensitivity analysis
@@ -144,11 +140,5 @@ phoskintime/
 
 ## Technical Debt Notes
 
-- **Logging**: Five near-identical `logconf.py` files exist across `config/`, `kinopt/local/config/`,
-  `kinopt/evol/config/`, `tfopt/local/config/`, and `tfopt/evol/config/`. They cannot be trivially
-  consolidated because each imports `LOG_DIR` and `format_duration` from its own subpackage, and the
-  top-level version adds a `mp_file_logging` parameter. The duplicated loader behavior is documented in each file.
 - **Configuration overlap**: `config_loader.py` and `networkmodel/config.py` both load sections of
   `config.toml`. The latter should eventually import from the former to avoid duplication.
-- **`kinopt/` and `tfopt/` mirroring**: Both subpackages expose identical `local/` and `evol/`
-  sub-interfaces. A shared strategy abstraction would reduce duplication but is deferred.

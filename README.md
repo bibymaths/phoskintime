@@ -44,7 +44,8 @@ the [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/), a
 submitted thesis focused on `kinopt`, while related components of the broader modelling framework were developed in
 parallel during that period and continued afterwards.
 
-The implemented version of `kinopt` was developed as the core thesis-stage component. The `tfopt` and `protwise`
+The implemented version of `kinopt` was developed as the core thesis-stage component and now lives in the standalone
+KinOpt repository. The `tfopt` and `protwise`
 components were developed by me during the same broader project period and subsequent continuation of the work. The
 `networkmodel` component was later designed and implemented independently after that period as an extension of the
 original modelling framework.
@@ -52,7 +53,7 @@ original modelling framework.
 The initial distributive, successive, and combinatorial ODE formulations came from the thesis-stage modelling framework,
 while the saturation model was added independently at a later stage as an extension of the system.
 
-The subpackage `tfopt` is an optimized and extended derivative
+The former subpackage `tfopt`, now the standalone TFOpt tool, is an optimized and extended derivative
 of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my
 colleague [Julius Normann](https://github.com/Normann-BPh), adapted with permission.
 
@@ -76,6 +77,21 @@ mechanistic hypotheses, including:
 
 --- 
 
+## KinOpt and TFOpt (standalone tools)
+
+KinOpt (kinase-phosphosite optimization) and TFOpt (TF-mRNA optimization) are separate tools and are not part of this
+repository. PhosKinTime does not run them. It reads their result workbooks (`kinopt_results.xlsx`,
+`tfopt_results.xlsx`) through the file contract in `common/external_results.py`.
+
+- **KinOpt**: <https://github.com/bibymaths/KinOpt> (no release tagged yet; refer to a commit).
+- **TFOpt**: repository not yet public.
+
+See [External tools](docs/Documentation/external_tools.md) for how PhosKinTime uses these result files.
+
+The `kinopt/` and `tfopt/` code was last included in PhosKinTime at commit `6eb04fa`.
+
+---
+
 ## Educational notebooks
 
 The repository includes executable educational Jupyter notebooks that demonstrate the core modeling workflows with tiny
@@ -84,8 +100,6 @@ JAX/JAXopt/Diffrax implementation.
 
 | Notebook                                               | Module                     | What it demonstrates                                                                                                                                                                                                                                      |
 |--------------------------------------------------------|----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `notebooks/01_kinopt_educational_workflow.ipynb`       | `kinopt`                   | Kinase/phosphosite-style input tables, KinOpt preprocessing arrays, alpha/beta constraints, local optimization, a ranked multistart solution ensemble, parameter export, and fit plots.                                                                   |
-| `notebooks/02_tfopt_educational_workflow.ipynb`        | `tfopt`                    | TF-target regulatory networks, TF protein/phosphosite effect matrices, constrained local optimization, ranked multistart outputs, regulatory-effect visualization, and saved tables.                                                                      |
 | `notebooks/03_protwise_educational_workflow.ipynb`     | `phoskintime.protwise`     | Protein-wise ODE modeling with mRNA/protein/phosphosite modalities, mode-aware fitting logic, Diffrax-based ODE solving, JAXopt parameter estimation, multistart ranking, residual plots, and CSV/JSON exports.                                           |
 | `notebooks/04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal data handling, adjacency construction, alpha/beta projection utilities, missing-modality cases, Diffrax/JAX-based solving, local constrained optimization, ranked multistart outputs, mode exports, and network/parameter plots. |
 

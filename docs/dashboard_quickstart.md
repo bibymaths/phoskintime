@@ -91,11 +91,11 @@ pixi run -e dev test
 Workflow examples:
 
 ```bash
-pixi run kinopt-local --outdir results/example_kinopt
-pixi run tfopt-local --outdir results/example_tfopt
 pixi run model --conf config.toml --outdir results/example_protwise
 pixi run networkmodel --conf config.toml --output-dir results/example_networkmodel
 ```
+
+KinOpt and TFOpt are separate tools and are not run from PhosKinTime or the dashboard. The dashboard can browse their result workbooks; see [External tools](Documentation/external_tools.md).
 
 ## Checklist
 

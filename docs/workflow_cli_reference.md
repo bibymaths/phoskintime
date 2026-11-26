@@ -19,11 +19,6 @@ Do not assume a custom config was used unless `metadata.json` and `config_resolv
 | Task | Purpose | Backend command/module | Example |
 | --- | --- | --- | --- |
 | `prep` | Preprocessing cleanup. | `python -m processing.cleanup` | `pixi run prep` |
-| `kinopt-local` | Local KinOpt. | `python -m kinopt.local` | `pixi run kinopt-local --outdir results/example_kinopt` |
-| `kinopt-evol` | Evolutionary KinOpt. | `python -m kinopt.evol` | `pixi run kinopt-evol` |
-| `kinopt-fitanalysis` | KinOpt fit analysis. | `python -m kinopt.fitanalysis` | `pixi run kinopt-fitanalysis` |
-| `tfopt-local` | Local TFOpt. | `python -m tfopt.local` | `pixi run tfopt-local --outdir results/example_tfopt` |
-| `tfopt-evol` | Evolutionary TFOpt. | `python -m tfopt.evol` | `pixi run tfopt-evol` |
 | `model` | ProtWise model runner. | `python -m protwise.runner.main` | `pixi run model --conf config.toml --outdir results/example_protwise` |
 | `networkmodel` | Global network model runner. | `python -m networkmodel.runner` | `pixi run networkmodel --conf config.toml --output-dir results/example_networkmodel` |
 | `phoskintime` | Typer workflow wrapper. | `python -m phoskintime.config.cli` | `pixi run phoskintime --help` |
@@ -37,6 +32,8 @@ Do not assume a custom config was used unless `metadata.json` and `config_resolv
 | `check-import` | Import smoke check. | Python one-liner | `pixi run check-import` |
 | `docs-serve` | Serve documentation. | `zensical serve` | `pixi run -e docs docs-serve` |
 | `docs-build` | Build documentation. | `zensical build` | `pixi run -e docs docs-build` |
+
+KinOpt and TFOpt are separate tools and have no Pixi task or CLI command in PhosKinTime. Their result workbooks are inputs to `model`, `networkmodel` and `all`; see [External tools](Documentation/external_tools.md).
 
 ## Typer wrapper commands (`config/cli.py`)
 
@@ -56,38 +53,6 @@ pixi run phoskintime prep
 ```
 
 Dashboard integration: registered as `prep`.
-
-### `kinopt`
-
-- Purpose: run KinOpt local or evolutionary mode.
-- Backend module: `kinopt.<mode>`.
-- Required inputs: KinOpt inputs configured in `config.toml`/backend constants.
-- Config support: `--conf`.
-- Output directory flag: `--outdir` / `--output-dir` for local mode.
-- Optional arguments: `--mode local|evol`.
-- Example:
-
-```bash
-pixi run phoskintime kinopt --mode local --conf config.toml --outdir results/example_kinopt
-```
-
-Dashboard integration: local mode registered as `kinopt-local`.
-
-### `tfopt`
-
-- Purpose: run TFOpt local or evolutionary mode.
-- Backend module: `tfopt.<mode>`.
-- Required inputs: TFOpt inputs configured in `config.toml`/backend constants.
-- Config support: `--conf`.
-- Output directory flag: `--outdir` / `--output-dir` for local mode.
-- Optional arguments: `--mode local|evol`.
-- Example:
-
-```bash
-pixi run phoskintime tfopt --mode local --conf config.toml --outdir results/example_tfopt
-```
-
-Dashboard integration: local mode registered as `tfopt-local`.
 
 ### `model`
 
@@ -121,9 +86,10 @@ Dashboard integration: registered as `networkmodel`.
 
 ### `all`
 
-- Purpose: run preprocessing, TFOpt, KinOpt, and ProtWise model stages in sequence.
-- Backend modules: `processing.cleanup`, `tfopt.<mode>`, `kinopt.<mode>`, `protwise.runner.main`.
-- Config support: `--tf-conf`, `--kin-conf`, `--model-conf`.
+- Purpose: run preprocessing, check the KinOpt/TFOpt result files, then run the ProtWise model stage. It does not run KinOpt or TFOpt.
+- Backend modules: `processing.cleanup`, the result-file check in `common/external_results.py`, `protwise.runner.main`.
+- Config support: `--model-conf`. The same file locates the KinOpt/TFOpt result workbooks (`[ode.inputs]`).
+- If a result workbook is missing or does not meet the file contract, the command stops before the model stage with exit code 2.
 - Output directory flag: `--outdir` / `--output-dir` as a base directory for stage outputs.
 - Example:
 
@@ -161,45 +127,12 @@ Dashboard integration: not a dashboard workflow.
 - Expected outputs: preprocessing outputs defined by `processing.cleanup`.
 - Dashboard status: executable from dashboard registry; result browsing is limited unless outputs follow the result contract.
 
-### KinOpt local
+### KinOpt and TFOpt results
 
-- Command name: `kinopt-local`.
-- Purpose: local kinase/phosphosite optimization.
-- Backend module: `kinopt.local`.
-- Required inputs: configured KinOpt input files, commonly CSV files under `data/`.
-- Optional arguments include `--conf`, `--lower_bound`, `--upper_bound`, `--loss_type`, and `--method` where supported.
-- Output directory flag: `--outdir` / `--output-dir`.
-- Expected outputs: `kinopt_results.xlsx`, tables, plots, reports, logs, provenance.
-- Dashboard status: executable and result-browsable.
-
-### KinOpt evol
-
-- Command name: `kinopt-evol`.
-- Purpose: evolutionary KinOpt optimization.
-- Backend module: `kinopt.evol`.
-- Inputs/config: backend-defined.
-- Output directory flag: not dashboard-standardized in the Pixi task.
-- Dashboard status: not directly registered for dashboard execution; produced folders can be browsed if layout is recognized.
-
-### TFOpt local
-
-- Command name: `tfopt-local`.
-- Purpose: local TF/mRNA optimization.
-- Backend module: `tfopt.local`.
-- Required inputs: configured TFOpt files, commonly CSV files under `data/`.
-- Optional arguments include `--conf`, `--lower_bound`, `--upper_bound`, and `--loss_type` where supported.
-- Output directory flag: `--outdir` / `--output-dir`.
-- Expected outputs: `tfopt_results.xlsx`, tables, plots, reports, logs, provenance.
-- Dashboard status: executable and result-browsable.
-
-### TFOpt evol
-
-- Command name: `tfopt-evol`.
-- Purpose: evolutionary TFOpt optimization.
-- Backend module: `tfopt.evol`.
-- Inputs/config: backend-defined.
-- Output directory flag: not dashboard-standardized in the Pixi task.
-- Dashboard status: not directly registered for dashboard execution; produced folders can be browsed if layout is recognized.
+- KinOpt and TFOpt are separate tools; PhosKinTime does not run them.
+- Their result workbooks (`kinopt_results.xlsx`, `tfopt_results.xlsx`) are read through the file contract in `common/external_results.py`.
+- Dashboard status: result-browsable in the KinOpt and TFOpt panels; not executable.
+- See [External tools](Documentation/external_tools.md).
 
 ### ProtWise / model
 
@@ -276,13 +209,8 @@ The `scripts/` directory contains standalone utilities, including:
 - `curve_similarity.py`
 - `export_subnetworks.py`
 - `find_protein_accumulators.py`
-- `kinopt_network_readout.py`
-- `kinopt_network_viz.py`
-- `make_kinopt_diagram.py`
 - `mechanistic_insights.py`
 - `temporal_sensitivity.py`
-- `tfopt_network_readout.py`
-- `tfopt_network_viz.py`
 
 These are not all Pixi tasks. Run them directly only after reading each script's arguments and expected inputs. When integrating a script into the dashboard, parameterize input/output paths and write outputs into the selected run directory under `tables/`, `plots/`, `reports/`, or `artifacts/`.
 

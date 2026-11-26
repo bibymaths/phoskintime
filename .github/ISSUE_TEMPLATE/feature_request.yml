@@ -50,8 +50,7 @@ body:
       description: Which module(s) would this feature affect?
       multiple: true
       options:
-        - kinopt
-        - tfopt
+        - external results (KinOpt/TFOpt workbooks)
         - protwise
         - networkmodel
         - common

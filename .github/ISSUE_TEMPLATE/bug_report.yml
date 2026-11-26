@@ -7,13 +7,16 @@ body:
       value: |
         Thank you for taking the time to report a bug.
         Please fill in as much detail as possible to help reproduce and fix the issue.
+        KinOpt and TFOpt are separate tools: report bugs in them to their own repositories
+        (KinOpt: https://github.com/bibymaths/KinOpt). Problems reading their result
+        workbooks in PhosKinTime belong here.
 
   - type: input
     id: summary
     attributes:
       label: Bug Summary
       description: A short, clear description of the bug.
-      placeholder: "e.g. kinopt.local crashes with a NaN in the Jacobian"
+      placeholder: "e.g. pixi run model stops with a KeyError while reading the input workbook"
     validations:
       required: true
 
@@ -23,8 +26,7 @@ body:
       label: Affected Module
       description: Which module or component is affected?
       options:
-        - kinopt
-        - tfopt
+        - external results (KinOpt/TFOpt workbooks)
         - protwise
         - networkmodel
         - common
@@ -57,7 +59,7 @@ body:
     attributes:
       label: Pixi Command Used
       description: The exact `pixi run` command that triggered the bug.
-      placeholder: "pixi run -e dev kinopt-local"
+      placeholder: "pixi run model --conf config.toml"
     validations:
       required: false
 

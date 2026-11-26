@@ -17,13 +17,9 @@ The dashboard should be used for convenience and reproducibility. The CLI and ba
 | Workflow | Purpose | Expected inputs | Accepted execution formats | Output location | Runtime class | Dashboard execution | Result-only viewing |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `prep` | Run preprocessing cleanup via `processing.cleanup`. | Files referenced by repository configuration and preprocessing conventions. | Config/data dependent. | Existing preprocessing outputs; no dedicated dashboard output flag. | Short | Yes | Limited |
-| `kinopt-local` / `kinopt` | Local kinase-to-phosphosite optimization. | Protein/kinase abundance CSV, phosphosite CSV/network data, optional config. | Registered config files passed as `--conf`: `.toml`; workflow data follows backend config. | `results/kinopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
-| `kinopt-evol` | Evolutionary KinOpt mode exposed as a Pixi task. | Same family of KinOpt inputs, governed by backend config. | Backend dependent. | Backend-defined outputs. | Medium/long | Not directly registered in dashboard launcher | Result folders can be browsed if contract/legacy layout is present |
-| `tfopt-local` / `tfopt` | Local TF-to-mRNA optimization. | mRNA/RNA CSV, TF network CSV, optional config. | Registered config files passed as `--conf`: `.toml`; workflow data follows backend config. | `results/tfopt-local/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium | Yes | Yes |
-| `tfopt-evol` | Evolutionary TFOpt mode exposed as a Pixi task. | Same family of TFOpt inputs, governed by backend config. | Backend dependent. | Backend-defined outputs. | Medium/long | Not directly registered in dashboard launcher | Result folders can be browsed if contract/legacy layout is present |
-| `protwise-model` / `model` | Protein-wise ODE fitting downstream of KinOpt/TFOpt. | Protein CSV, phosphosite Excel workbook, RNA/TFOpt Excel workbook, optional TOML config. | Protein input: `.csv`; phosphosite and RNA result inputs: `.xlsx`; config passed as `--conf`: `.toml`. | `results/protwise-model/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium/long | Yes | Yes |
+| `protwise-model` / `model` | Protein-wise ODE fitting downstream of the external KinOpt/TFOpt tools. | Protein CSV, phosphosite Excel workbook, RNA/TFOpt Excel workbook, optional TOML config. | Protein input: `.csv`; phosphosite and RNA result inputs: `.xlsx`; config passed as `--conf`: `.toml`. | `results/protwise-model/<run_id>/` when launched by dashboard; CLI `--outdir` supported. | Medium/long | Yes | Yes |
 | `networkmodel` | Coupled kinase-signaling and TF/RNA global network model. | Kinase network CSV, TF network CSV, MS/protein CSV, RNA CSV, optional phosphoproteomics CSV, optional KinOpt/TFOpt Excel priors, TOML config. | Network/data inputs read by backend with `pandas.read_csv`: `.csv` only; prior result workbooks: `.xlsx`. | `results/networkmodel/<run_id>/` when launched by dashboard; CLI `--output-dir`/`--outdir` supported. | Long | Yes | Yes |
-| `phoskintime-all` | Typer wrapper for preprocessing, local TFOpt, local KinOpt, and ProtWise. | Stage-specific configs for TFOpt/KinOpt/ProtWise. | Config assignment for CLI execution: `.toml`. | `results/phoskintime-all/<run_id>/` when launched by dashboard. | Long | Yes | Stage result folders can be browsed |
+| `phoskintime-all` | Typer wrapper for preprocessing, a check of the external KinOpt/TFOpt result files, and ProtWise. It does not run KinOpt or TFOpt. | ProtWise config (`--model-conf`), which also locates the KinOpt/TFOpt result files. | Config assignment for CLI execution: `.toml`. | `results/phoskintime-all/<run_id>/` when launched by dashboard. | Long | Yes | Stage result folders can be browsed |
 | Advanced analysis scripts | Existing analysis utilities such as curve similarity, protein accumulator detection, subnetwork export, mechanistic insights, temporal sensitivity, and mechanism comparison. | Existing result folders/tables, depending on script. | Script-specific; do not assume upload conversion. | Selected run directory under `tables/`, `plots/`, `reports/`, or `artifacts/` when integrated. | Medium/long | Exposed as parameterized wrappers where available; not run automatically | Yes |
 
 ## Launching the dashboard
@@ -94,14 +90,6 @@ Workflow execution validation is stricter and follows backend readers:
 The dashboard-generated command is shown before execution. These are representative commands using actual Pixi task names from `pixi.toml`:
 
 ```bash
-pixi run kinopt-local --outdir results/example_kinopt
-```
-
-```bash
-pixi run tfopt-local --outdir results/example_tfopt
-```
-
-```bash
 pixi run model --conf config.toml --outdir results/example_protwise
 ```
 
@@ -113,10 +101,10 @@ Additional actual tasks include:
 
 ```bash
 pixi run prep
-pixi run kinopt-evol
-pixi run tfopt-evol
 pixi run phoskintime-all
 ```
+
+KinOpt and TFOpt are separate tools and have no Pixi task or dashboard launcher in PhosKinTime. Their result workbooks are inputs here; see [External tools](Documentation/external_tools.md).
 
 Use long-running workflows with care. Networkmodel and full integrated runs can take substantially longer than local parsing or result browsing.
 
@@ -143,7 +131,7 @@ Common output groups:
 | `reports/` | HTML, Markdown, or PDF reports. |
 | `artifacts/` | Pickles, serialized bundles, intermediate arrays, and files that are useful for reloading or debugging. |
 
-Workflow-specific tabs add convenience views for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses when recognized files are present.
+Workflow-specific tabs add convenience views for KinOpt and TFOpt result workbooks (from the external tools), ProtWise, Networkmodel, and advanced analyses when recognized files are present.
 
 ## Downloading results
 

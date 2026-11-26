@@ -9,7 +9,8 @@ be run directly with Python from the project root.
 ## When to Run These Scripts
 
 Run scripts **after** the main pipeline has produced result files (Excel exports, CSV predictions,
-JSON parameters). The scripts require outputs from `kinopt`, `tfopt`, or `networkmodel`.
+JSON parameters). The scripts require outputs from `networkmodel` or the result workbooks of the
+external KinOpt and TFOpt tools (see [External tools](external_tools.md)).
 
 ---
 
@@ -20,7 +21,7 @@ JSON parameters). The scripts require outputs from `kinopt`, `tfopt`, or `networ
 **Purpose:** Analyze TF and kinase counts in beta values and target gene data from optimization
 results. Computes phosphosite (PSite) statistics per entity.
 
-**When to run:** After `tfopt` and/or `kinopt` have produced their results Excel files.
+**When to run:** After the external TFOpt and/or KinOpt tools have produced their results Excel files.
 
 **Inputs:**
 - `data/tfopt_results.xlsx` (default) — TF optimization results
@@ -70,7 +71,7 @@ streamlit run scripts/legacy/compare_mechanisms.py
 **Purpose:** Compute per-row discrete Fréchet distances between "Observed" and "Estimated" curves
 from `tfopt_results.xlsx` and `kinopt_results.xlsx`. Useful for ranking best/worst model fits.
 
-**When to run:** After `tfopt` or `kinopt` optimization.
+**When to run:** After the external TFOpt or KinOpt tools have produced their results Excel files.
 
 **Inputs:**
 - Excel file(s) with sheets named `"Observed"` and `"Estimated"` (wide format: one row per
@@ -227,7 +228,7 @@ Major backend workflows accept an explicit `--outdir`/`--output-dir` option so a
 
 ## Unified dashboard integration and legacy script status
 
-The unified dashboard now provides workflow-specific result panels for KinOpt, TFOpt, ProtWise, Networkmodel, and advanced analyses. Legacy visualization/readout scripts such as `kinopt_network_viz.py`, `tfopt_network_viz.py`, `kinopt_network_readout.py`, and `tfopt_network_readout.py` are retained for batch reproducibility, but interactive exploration should prefer the unified dashboard panels and the existing `scripts/apps/kinopt_results_app.py` / `scripts/apps/tfopt_results_app.py` logic where available. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
+The unified dashboard provides workflow-specific result panels for KinOpt and TFOpt result workbooks (produced by the external tools; see [External tools](external_tools.md)), ProtWise, Networkmodel, and advanced analyses. Analysis scripts remain callable backends; the dashboard builds parameterized commands and writes outputs under the selected run directory instead of duplicating scientific computations in Streamlit.
 
 # PhosKinTime fitted SBML exporter — saved-topology fix
 

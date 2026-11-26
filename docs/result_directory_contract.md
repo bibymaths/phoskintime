@@ -86,34 +86,21 @@ The dashboard result parser recognizes selected legacy outputs so older runs can
 
 - Networkmodel top-level `scalar_objective.csv`, `convergence_history.csv`, `pred_prot_picked.csv`, `pred_rna_picked.csv`, `pred_phospho_picked.csv`.
 - Networkmodel `optimization/`, `profiles/`, `posterior/`, and `plots/` folders.
-- Legacy `kinopt_results.xlsx` and `tfopt_results.xlsx` workbooks.
+- `kinopt_results.xlsx` and `tfopt_results.xlsx` workbooks produced by the external KinOpt/TFOpt tools.
 - Top-level `report.html` where present.
 
 Legacy support is compatibility behavior. New workflow code should still write the standard folders and provenance files.
 
-Integrated `phoskintime-all` runs may contain child workflow result folders such as `tfopt/`, `kinopt/`, and `protwise/` beneath the parent run directory. The parent directory records launcher-level provenance, while each child directory remains independently browseable with its own tables, plots, reports, logs, artifacts, and provenance where produced.
+Integrated `phoskintime-all` runs may contain a child workflow result folder `protwise/` beneath the parent run directory. KinOpt and TFOpt are not run by `phoskintime-all`. The parent directory records launcher-level provenance, while each child directory remains independently browseable with its own tables, plots, reports, logs, artifacts, and provenance where produced.
 
 ## Workflow-specific expected outputs
 
-### KinOpt
+### KinOpt and TFOpt
 
-Expected outputs include:
-
-- `kinopt_results.xlsx` or a mirrored copy under `tables/`;
-- alpha/beta or equivalent parameter tables;
-- observed-vs-estimated sheets/tables when available;
-- fit and diagnostic plots under `plots/`;
-- logs and provenance files.
-
-### TFOpt
-
-Expected outputs include:
-
-- `tfopt_results.xlsx` or a mirrored copy under `tables/`;
-- TF alpha/beta or equivalent tables;
-- latent activity, dominance, knockout, or fit outputs when generated;
-- plots and reports under standard folders;
-- logs and provenance files.
+KinOpt and TFOpt are separate tools and their result folders are not written by PhosKinTime. The
+dashboard's KinOpt and TFOpt panels look for `kinopt_results.xlsx` / `tfopt_results.xlsx` in the
+selected directory or its `tables/` folder and check the workbook against the file contract in
+`common/external_results.py`. See [External tools](Documentation/external_tools.md).
 
 ### ProtWise
 

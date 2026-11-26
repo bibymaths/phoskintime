@@ -13,9 +13,7 @@ phoskintime/
 │   ├── cleanup.py     # Data cleaning and preparation
 │   └── map.py         # Optimization result mapping and network table generation
 ├── raw/               # Input CSVs (CollecTRI, MS Gaussian, Rout Limma)
-├── kinopt/data/       # Kinase model inputs
-├── tfopt/data/        # TF model inputs
-└── data/              # Network export for Cytoscape
+└── data/              # Processed inputs (input1-input4) and network export for Cytoscape
 ```
 
 ---
@@ -47,7 +45,7 @@ Performs the following steps:
     - Replaces Ensembl/Entrez IDs with gene symbols (using MyGeneInfo)
 
 6. **File Management**
-    - Moves cleaned files to `kinopt/data/` and `tfopt/data/`
+    - Moves the processed `input1.csv`-`input4.csv` from `processing/` to `data/`
 
 ### `map.py`
 

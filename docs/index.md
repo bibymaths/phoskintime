@@ -22,7 +22,8 @@ the [Klipp-Linding Lab](https://rumo.biologie.hu-berlin.de/tbp/index.php/en/), a
 submitted thesis focused on `kinopt`, while related components of the broader modelling framework were developed in
 parallel during that period and continued afterwards.
 
-The implemented version of `kinopt` was developed as the core thesis-stage component. The `tfopt` and `protwise`
+The implemented version of `kinopt` was developed as the core thesis-stage component and now lives in the standalone
+KinOpt repository. The `tfopt` and `protwise`
 components were developed by me during the same broader project period and subsequent continuation of the work. The
 `networkmodel` component was later designed and implemented independently after that period as an extension of the
 original modelling framework.
@@ -30,7 +31,7 @@ original modelling framework.
 The initial distributive, successive, and combinatorial ODE formulations came from the thesis-stage modelling framework,
 while the saturation model was added independently at a later stage as an extension of the system.
 
-The subpackage `tfopt` is an optimized and extended derivative
+The former subpackage `tfopt`, now the standalone TFOpt tool, is an optimized and extended derivative
 of [original work](https://github.com/Normann-BPh/Transcription-Optimization) by my
 colleague [Julius Normann](https://github.com/Normann-BPh), adapted with permission.
 
@@ -41,12 +42,10 @@ for generous technical support with server access, package experimentation, and 
 
 ## Educational notebooks
 
-Executable educational notebooks are available under `notebooks/` and cover end-to-end dummy-data workflows for KinOpt, TFOpt, protein-wise ODE fitting, and network-level modeling.
+Executable educational notebooks are available under `notebooks/` and cover end-to-end dummy-data workflows for protein-wise ODE fitting and network-level modeling.
 
 | Notebook | Module | What it demonstrates |
 | -------- | ------ | -------------------- |
-| `01_kinopt_educational_workflow.ipynb` | `kinopt` | Kinase/phosphosite preprocessing, constrained local optimization, ranked multistart solution ensemble, exports, and plots. |
-| `02_tfopt_educational_workflow.ipynb` | `tfopt` | TF-target regulatory-effect modeling, fixed arrays, constrained local optimization, outputs, and visualization. |
 | `03_protwise_educational_workflow.ipynb` | `phoskintime.protwise` | Mode-aware protein-wise ODE fitting with Diffrax-based ODE solving and JAXopt parameter estimation. |
 | `04_networkmodel_educational_workflow.ipynb` | `phoskintime.networkmodel` | Network-level multimodal loss handling, adjacency interpretation, JAX/Diffrax solving, multistart ranking, and exports. |
 
@@ -74,13 +73,12 @@ For the full mathematical specification of the coupled global system (all equati
 [Global model documentation](Documentation/global/README.md)
 
 Package mapping:
-- **`kinopt`**: optimization + post-processing for local phosphorylation models
-- **`tfopt`**: TF→mRNA constrained optimization and reporting
 - **`networkmodel`**: coupled kinase-signaling + GRN simulation and optimization wrappers
+- **KinOpt / TFOpt** (standalone tools, not part of this repository): produce the result workbooks that the model
+  stages read as inputs; see [External tools](Documentation/external_tools.md)
 
 Typical workflows:
-- **Local phosphorylation fitting**: `prep → kinopt → model → sensitivity → plotting`
-- **TF regulation fitting**: `prep → tfopt → reports`
+- **Local phosphorylation fitting**: `prep → model → sensitivity → plotting` (reads KinOpt/TFOpt result workbooks)
 - **Global network simulation**: `prep → networkmodel → simulate → measure → KO analysis` 
 - **Global network optimization**: `prep → networkmodel → optimize → measure → KO analysis` 
 
@@ -118,58 +116,26 @@ Typical workflows:
 
 ---
  
-## Optimization Frameworks 
+## KinOpt and TFOpt (standalone tools)
 
-### kinopt
+KinOpt (kinase-phosphosite optimization) and TFOpt (TF-mRNA optimization) were part of this repository and are now
+separate tools. PhosKinTime does not run them. It reads their result workbooks (`kinopt_results.xlsx`,
+`tfopt_results.xlsx`) through the file contract in `common/external_results.py`.
 
-The **kinopt** package provides advanced optimization and post-processing:
+- **KinOpt**: <https://github.com/bibymaths/KinOpt> (no release tagged yet; refer to a commit).
+- **TFOpt**: repository not yet public. TFOpt was originally implemented by Julius Normann and has been modified and
+  optimized by Abhinav Mishra.
 
-#### local
+See [External tools](Documentation/external_tools.md) for how PhosKinTime uses these result files.
 
-Local constrained optimization workflows with compact preprocessing arrays, Numba-accelerated objectives, and notebook examples that demonstrate ranked multistart solution ensembles.
-
-#### optimality
-
-Post-optimization analysis: feasibility checks, sensitivity reporting, LaTeX table generation, diagnostic plots
-
-#### fitanalysis
-
-Additional fit-evaluation utilities for residual and performance analysis
-
----
-
-### tfopt
-
-_Originally implemented by Julius Normann._
-
-_This version has been modified and optimized by Abhinav Mishra._
-
-The **tfopt** package estimates transcriptional regulation using mRNA and TF time-series data through constrained
-optimization.
-
-#### local
-
-Local constrained optimization for TF-target regulatory effects with α and β constraints, deterministic dummy-data notebooks, CSV exports, and visualization.
-- Numba-accelerated objectives and notebook-oriented CSV/plot reports
-
-#### objfn
-
-Shared objective logic and prediction functions for both backends
-
-#### optcon
-
-Data construction and constraint generation from TF–mRNA interaction files
-
-#### utils
-
-Input parsing, Excel + plot output, and HTML report generation
+The `kinopt/` and `tfopt/` code was last included in PhosKinTime at commit `6eb04fa`.
 
 ---
  
 ## Command-Line Entry Point for the Phoskintime Pipeline
 
 The `phoskintime` pipeline provides a command-line interface to execute various stages of the workflow,  
-including preprocessing, optimization, and modeling. Below are the usage instructions and examples for running  
+including preprocessing and modeling. Below are the usage instructions and examples for running  
 the pipeline.
 
 Before running any commands, ensure you are in the working directory one level above the project root (where the project  
@@ -181,35 +147,23 @@ Run the entire pipeline with the default (local) solver:
 python phoskintime all
 ```
 
-> **Note:** The `all` command runs `prep → tfopt → kinopt → model` only. It does **not** invoke the
+> **Note:** The `all` command runs `prep → check KinOpt/TFOpt result files → model` only. It does not run KinOpt or
+> TFOpt, and it stops before the model stage if their result files are missing or malformed. It does **not** invoke the
 > global network simulation (`networkmodel`). To run the global model, use the separate entry point:
 > ```bash
 > phoskintime-global
 > # or
 > python -m networkmodel.runner
 > ```
-> The global model requires outputs from `kinopt` and `tfopt` as inputs. Run `all` (or the individual
-> optimization stages) before invoking `phoskintime-global`.
+> The global model reads the KinOpt and TFOpt result workbooks named by `kinopt` and `tfopt` in the `[networkmodel]`
+> section of `config.toml`. These files come from the standalone tools; see
+> [External tools](Documentation/external_tools.md).
 
 ### Run Preprocessing Only
 Execute only the preprocessing stage:
 ```bash
 python phoskintime prep
 ```
-
-### Run Transcription-Factor-mRNA Optimization (TFOPT)
-Run TFOPT with the local solver:
-```bash
-python phoskintime tfopt --mode local
-```
-
-
-### Run Kinase-Phosphorylation Optimization (KINOPT)
-Run KINOPT with the local solver:
-```bash
-python phoskintime kinopt --mode local
-```
-
 
 ### Run the Model
 Execute the modeling stage:

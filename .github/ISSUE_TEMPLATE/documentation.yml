@@ -27,7 +27,7 @@ body:
     attributes:
       label: Page or File Affected
       description: Path or URL of the affected documentation page or file.
-      placeholder: "e.g. docs/kinopt.md or https://bibymaths.github.io/phoskintime/kinopt"
+      placeholder: "e.g. docs/Documentation/configuration.md or https://bibymaths.github.io/phoskintime/Documentation/configuration.html"
     validations:
       required: true
 
@@ -54,7 +54,7 @@ body:
       description: |
         If the documentation issue is tied to a specific module or function,
         name it here.
-      placeholder: "e.g. kinopt.local.run_optimization"
+      placeholder: "e.g. common.external_results.inspect_external_results"
     validations:
       required: false
 

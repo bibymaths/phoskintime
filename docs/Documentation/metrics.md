@@ -55,7 +55,8 @@ The final result is `cost[-1, -1]`.
   and predicted time-series trajectories for each gene. These scores are stored in the dashboard
   bundle (`frechet_scores` field) and displayed in the Streamlit dashboard.
 - **`scripts/analysis/curve_similarity.py`**: Stand-alone script that computes per-row Fréchet distances
-  between observed and estimated columns in `tfopt_results.xlsx` / `kinopt_results.xlsx`.
+  between observed and estimated columns in `tfopt_results.xlsx` / `kinopt_results.xlsx` (result
+  workbooks of the external TFOpt/KinOpt tools; see [External tools](external_tools.md)).
 
 ### Fréchet vs RMSE
 
@@ -90,23 +91,10 @@ to contextualize individual scores.
 
 ## Loss Functions (Optimization)
 
-Both local and global optimizers support configurable loss functions, but **the integer codes
-differ between the two**. See the [Configuration Reference](configuration.md) for how to set
-`loss_type` (local) or `loss` (global).
+See the [Configuration Reference](configuration.md) for how to set `loss` (global).
 
-### Local optimizer loss codes (`[tfopt]` / `[kinopt]` → `loss_type`)
-
-Used by `tfopt` and `kinopt` via SciPy least-squares or evolutionary optimizer:
-
-| Code | Name | Use case |
-|---|---|---|
-| 0 | MSE | Standard squared error |
-| 1 | MAE | Mean absolute error |
-| 2 | Soft L1 | Smooth transition MSE↔MAE |
-| 3 | Cauchy | Heavy-tail robust |
-| 4 | Arctan | Bounded outlier penalty |
-| 5 | Elastic Net | Sparsity + smoothness (default `tfopt`) |
-| 6 | Tikhonov | L2 regularization |
+The KinOpt and TFOpt loss codes (`loss_type`) belong to those separate tools and are documented
+there; see [External tools](external_tools.md).
 
 ### Global model loss terms (`networkmodel/jax_backend.py`)
 

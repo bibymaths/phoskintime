@@ -31,48 +31,15 @@ Global project paths. Used by all pipeline stages.
 | `logs_dir` | string | `"results_model/logs"` | Log files directory |
 | `ode_data_dir` | string | `"data"` | ODE model data directory |
 
-> **Tip:** Use distinct `results_dir` / `logs_dir` for each optimization mode to avoid overwriting
-> results. For example, use `results_kinopt_local` for `kinopt --mode local`.
+> **Tip:** Use distinct `results_dir` / `logs_dir` for each run to avoid overwriting results.
 
 ---
 
-## Section: `[tfopt]`
+## KinOpt and TFOpt settings
 
-Controls the TF → mRNA optimization. Consumed by `tfopt.local` and `tfopt.evol`.
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `input1` | string | `"input1.csv"` | mRNA expression data file |
-| `input3` | string | `"input3.csv"` | TF activity / Rout-Limma data |
-| `input4` | string | `"input4.csv"` | TF-gene network file |
-| `out_file` | string | `"tfopt_results.xlsx"` | Output Excel file |
-| `time_points` | list | `[4,8,15,30,60,120,240,480,960]` | Time grid (minutes) |
-| `lower_bound` | float | `-4.0` | Lower bound for TF coefficients |
-| `upper_bound` | float | `4.0` | Upper bound for TF coefficients |
-| `loss_type` | int | `5` | Loss function (see below) |
-
-**Loss type codes:**
-
-| Code | Name |
-|---|---|
-| 0 | MSE |
-| 1 | MAE |
-| 2 | Soft L1 |
-| 3 | Cauchy |
-| 4 | Arctan |
-| 5 | Elastic Net |
-| 6 | Tikhonov |
-
-Mode-specific overrides in `[tfopt.modes.local]` and `[tfopt.modes.evol]` take precedence.
-
----
-
-## Section: `[kinopt]`
-
-Controls kinase → phosphorylation optimization. Consumed by `kinopt.local` and `kinopt.evol`.
-
-Key fields mirror `[tfopt]` (input files, bounds, loss type, time points). Mode overrides in
-`[kinopt.modes.local]` and `[kinopt.modes.evol]`.
+`config.toml` has no `[tfopt]` or `[kinopt]` section. KinOpt and TFOpt are separate tools with
+their own configuration; PhosKinTime only reads their result workbooks. See
+[External tools](external_tools.md).
 
 ---
 
@@ -106,7 +73,9 @@ Plotting options.
 
 ### `[ode.inputs]` / `[ode.output]`
 
-Input file names and output directory.
+Input file names and output directory. `psite_excel` is the KinOpt result workbook and
+`rna_excel` the TFOpt result workbook; both come from the external tools
+([External tools](external_tools.md)).
 
 ---
 
@@ -133,8 +102,8 @@ Controls the global network-scale pipeline (`networkmodel/`). Consumed by `netwo
 | `ms` | string | Mass-spec protein data (`input1.csv`) |
 | `rna` | string | RNA/transcriptomics data (`input3.csv`) |
 | `phospho` | string | Phospho data (can be same as `ms`) |
-| `kinopt` | string | Previous kinopt results (Excel) |
-| `tfopt` | string | Previous tfopt results (Excel) |
+| `kinopt` | string | KinOpt result workbook (Excel), from the external KinOpt tool |
+| `tfopt` | string | TFOpt result workbook (Excel), from the external TFOpt tool |
 
 ### Optimizer settings
 
@@ -232,7 +201,5 @@ The global path uses Diffrax through `DiffraxSolverConfig`. Current solver names
 | Section | Consumer |
 |---|---|
 | `[paths]` | `config_loader.py`, all subpackages |
-| `[tfopt]` | `tfopt.local`, `tfopt.evol` |
-| `[kinopt]` | `kinopt.local`, `kinopt.evol` |
 | `[ode]` | `models/`, `paramest/`, `sensitivity/`, `steady/` |
 | `[networkmodel]` | `networkmodel/config.py`, `networkmodel/runner.py` |
