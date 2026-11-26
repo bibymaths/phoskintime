@@ -1,7 +1,7 @@
 """Diffrax-backed local phosphorylation model solver helpers."""
 from __future__ import annotations
 
-from functools import partial
+from functools import lru_cache, partial
 import numpy as np
 import jax.numpy as jnp
 
@@ -113,9 +113,17 @@ def aggregate_randmod_site_phospho(sol, num_psites: int):
 
 
 def make_local_model_rhs(model_name: str | None, num_psites: int):
-    """Return a Diffrax-compatible RHS matching the selected local ODE model."""
-    model = _canonical_model_name(model_name)
-    n = int(num_psites)
+    """Return a Diffrax-compatible RHS matching the selected local ODE model.
+
+    The same function object is returned for the same (model, number of sites), so
+    Diffrax's jit cache, which is keyed on the vector field, is reused across solves
+    instead of re-tracing and recompiling on every call.
+    """
+    return _make_local_model_rhs_cached(_canonical_model_name(model_name), int(num_psites))
+
+
+@lru_cache(maxsize=None)
+def _make_local_model_rhs_cached(model: str, n: int):
     if model in {"protwise", "distmod"}:
         return partial(_dist_rhs, num_psites=n)
     if model == "succmod":
@@ -126,7 +134,7 @@ def make_local_model_rhs(model_name: str | None, num_psites: int):
         if n == 3:
             assert subset_masks == (1, 2, 4, 3, 5, 6, 7)
         return partial(_rand_rhs, num_psites=n, subset_masks=subset_masks, mask_to_index=mask_to_index)
-    raise ValueError(f"Unsupported local ODE model: {model_name!r}")
+    raise ValueError(f"Unsupported local ODE model: {model!r}")
 
 
 def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None = None):
