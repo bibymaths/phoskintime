@@ -10,7 +10,8 @@ from dashboard.registry import get_workflow, launchable_workflows, pixi_environm
 
 def test_command_construction_for_each_launchable_workflow(tmp_path):
     keys = {workflow.key for workflow in launchable_workflows()}
-    assert {"prep", "kinopt-local", "tfopt-local", "protwise-model", "networkmodel", "phoskintime-all"} <= keys
+    assert {"prep", "protwise-model", "networkmodel", "phoskintime-all"} <= keys
+    assert not {"kinopt-local", "tfopt-local"} & keys  # KinOpt/TFOpt are external tools
 
     for key in keys:
         built = build_workflow_command(key, repo_root=tmp_path, pixi_environment="dev", run_name="my run",
@@ -42,7 +43,7 @@ def test_phoskintime_all_places_subcommand_before_options(tmp_path):
 
 
 def test_structured_arguments_reject_unknown_values():
-    workflow = get_workflow("tfopt-local")
+    workflow = get_workflow("protwise-model")
 
     with pytest.raises(ValueError, match="Unsupported arguments"):
         workflow_arguments(workflow, {"raw_shell": "rm -rf ."})
@@ -51,9 +52,9 @@ def test_structured_arguments_reject_unknown_values():
 def test_run_name_is_sanitized_and_output_dir_stays_under_base(tmp_path):
     assert sanitize_run_name("../../bad run!!") == "bad-run"
 
-    outdir = build_output_dir(tmp_path, "kinopt-local", "../../bad run!!")
+    outdir = build_output_dir(tmp_path, "protwise-model", "../../bad run!!")
 
-    assert outdir == tmp_path / "results" / "kinopt-local" / "bad-run"
+    assert outdir == tmp_path / "results" / "protwise-model" / "bad-run"
 
 
 def test_pixi_environment_selection_reads_defined_environments(tmp_path):

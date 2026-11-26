@@ -178,3 +178,41 @@ def test_networkmodel_malformed_workbook_raises(tmp_path, nm_io):
 
     with pytest.raises(ExternalResultsError, match="Beta Values"):
         nm_io.load_data(network_args(tmp_path, kin_xlsx, None))
+
+
+# --------------------------------------------------------------------------- viewer inspection
+
+def test_inspect_returns_present_sheets_and_lists_problems_without_raising(tmp_path):
+    from common.external_results import inspect_external_results
+    sheets = kinopt_sheets()
+    sheets["Observed"] = pd.DataFrame({"GeneID": ["EGFR"], "Psite": ["Y_1068"]})
+    del sheets["Beta Values"]
+    sheets["Alpha Values"] = sheets["Alpha Values"].drop(columns=["Kinase"])
+    path = write_workbook(tmp_path / "kinopt_results.xlsx", sheets)
+
+    res = inspect_external_results(path, KINOPT, ("Alpha Values", "Beta Values", "Observed", "Residuals"))
+
+    assert set(res.sheets) == {"Alpha Values", "Observed"}
+    assert res.sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
+    joined = " | ".join(res.problems)
+    assert "missing contract sheet 'Beta Values'" in joined
+    assert "sheet 'Alpha Values': missing contract column(s) ['Kinase']" in joined
+
+
+def test_inspect_valid_workbook_has_no_problems(tmp_path):
+    from common.external_results import inspect_external_results
+    path = write_workbook(tmp_path / "tfopt_results.xlsx", tfopt_sheets())
+
+    res = inspect_external_results(path, TFOPT, ("Alpha Values", "Beta Values", "Estimated"))
+
+    assert res.problems == [] and set(res.sheets) == {"Alpha Values", "Beta Values", "Estimated"}
+
+
+def test_inspect_unreadable_workbook_reports_problem(tmp_path):
+    from common.external_results import inspect_external_results
+    path = tmp_path / "kinopt_results.xlsx"
+    path.write_bytes(b"xlsx")  # the dashboard tests use such placeholder files
+
+    res = inspect_external_results(path, KINOPT, ("Alpha Values",))
+
+    assert res.sheets == {} and len(res.problems) == 1 and "could not be read" in res.problems[0]

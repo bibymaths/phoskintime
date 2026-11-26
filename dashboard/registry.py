@@ -52,7 +52,8 @@ class WorkflowDescriptor:
 
 
 WORKFLOWS: dict[str, WorkflowDescriptor] = {
-    # Result-browser descriptors retained for backwards-compatible metadata inference.
+    # Result-browser descriptors retained for backwards-compatible metadata inference
+    # (e.g. result folders of the external KinOpt/TFOpt tools). KinOpt/TFOpt are not run from here.
     "kinopt.local": WorkflowDescriptor(
         "kinopt.local", "KinOpt local", "Local kinase-phosphorylation optimisation results.",
         result_workflow_keys=("kinopt.local",), expected_output_folder="results",
@@ -83,47 +84,6 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
         output_dir_arg=None,
         expected_output_folder="results/prep",
         result_workflow_keys=("prep",),
-    ),
-    "kinopt-local": WorkflowDescriptor(
-        key="kinopt-local",
-        label="KinOpt local",
-        description="Run local kinase-phosphorylation optimisation via kinopt.local.",
-        pixi_task="kinopt-local",
-        python_module="kinopt.local",
-        accepted_arguments=(
-            ArgumentSpec("conf", "--conf", "path", "Optional TOML configuration file."),
-            ArgumentSpec("lower_bound", "--lower_bound", "float", "Lower optimisation bound."),
-            ArgumentSpec("upper_bound", "--upper_bound", "float", "Upper optimisation bound."),
-            ArgumentSpec("loss_type", "--loss_type", "str", "Loss function name."),
-            ArgumentSpec("method", "--method", "str", "Optimisation method."),
-        ),
-        required_inputs=("input1.csv", "input2.csv"),
-        input_assignments=(
-            InputSpec("config", "TOML config file", "conf", "Optional kinopt TOML config file.", extensions=(".toml",)),
-        ),
-        output_dir_arg="--outdir",
-        expected_output_folder="results/kinopt-local",
-        result_workflow_keys=("kinopt.local",),
-    ),
-    "tfopt-local": WorkflowDescriptor(
-        key="tfopt-local",
-        label="TFOpt local",
-        description="Run local transcription-factor optimisation via tfopt.local.",
-        pixi_task="tfopt-local",
-        python_module="tfopt.local",
-        accepted_arguments=(
-            ArgumentSpec("conf", "--conf", "path", "Optional TOML configuration file."),
-            ArgumentSpec("lower_bound", "--lower_bound", "float", "Lower optimisation bound."),
-            ArgumentSpec("upper_bound", "--upper_bound", "float", "Upper optimisation bound."),
-            ArgumentSpec("loss_type", "--loss_type", "int", "Loss function identifier."),
-        ),
-        required_inputs=("input1.csv", "input3.csv", "input4.csv"),
-        input_assignments=(
-            InputSpec("config", "TOML config file", "conf", "Optional tfopt TOML config file.", extensions=(".toml",)),
-        ),
-        output_dir_arg="--outdir",
-        expected_output_folder="results/tfopt-local",
-        result_workflow_keys=("tfopt.local",),
     ),
     "protwise-model": WorkflowDescriptor(
         key="protwise-model",

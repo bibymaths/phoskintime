@@ -31,17 +31,18 @@ def test_registered_workflows_contains_result_and_launcher_entries():
     keys = {descriptor.key for descriptor in registered_workflows()}
 
     assert {"kinopt.local", "tfopt.local", "protwise.runner", "networkmodel.runner", "unknown"} <= keys
-    assert {"prep", "kinopt-local", "tfopt-local", "protwise-model", "networkmodel", "phoskintime-all"} <= keys
+    assert {"prep", "protwise-model", "networkmodel", "phoskintime-all"} <= keys
+    assert not {"kinopt-local", "tfopt-local"} & keys  # KinOpt/TFOpt are external tools
 
 
 def test_launchable_registry_entries_include_command_metadata():
     workflows = {workflow.key: workflow for workflow in launchable_workflows()}
 
-    kinopt = workflows["kinopt-local"]
-    assert kinopt.pixi_task == "kinopt-local"
-    assert kinopt.python_module == "kinopt.local"
-    assert kinopt.output_dir_arg == "--outdir"
-    assert kinopt.accepted_arguments
+    protwise = workflows["protwise-model"]
+    assert protwise.pixi_task == "model"
+    assert protwise.python_module == "protwise.runner.main"
+    assert protwise.output_dir_arg == "--outdir"
+    assert protwise.accepted_arguments
     assert get_workflow("networkmodel").output_dir_arg == "--output-dir"
 
 
@@ -69,8 +70,6 @@ def test_networkmodel_input_specs_match_csv_backend_readers():
 
 def test_config_input_specs_match_toml_only_runners():
     for workflow_key, roles in {
-        "kinopt-local": ("config",),
-        "tfopt-local": ("config",),
         "protwise-model": ("config",),
         "networkmodel": ("config",),
         "phoskintime-all": ("tf_config", "kin_config", "model_config"),

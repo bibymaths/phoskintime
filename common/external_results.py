@@ -195,3 +195,51 @@ def read_external_results(path: Any, contract: ToolContract, sheets: Iterable[st
         metadata = _read_metadata_sheet(xls)
 
     return ExternalResults(tool=contract.tool, path=p, sha256=file_sha256(p), sheets=frames, metadata=metadata)
+
+
+@dataclass
+class ExternalResultsInspection:
+    """What a viewer can show from an external result workbook, with contract problems listed."""
+
+    tool: str
+    path: Path
+    sha256: str | None
+    sheets: dict[str, pd.DataFrame]
+    metadata: dict[str, Any] | None
+    problems: list[str]
+
+
+def inspect_external_results(path: Any, contract: ToolContract, sheets: Iterable[str]) -> ExternalResultsInspection:
+    """Read whichever of *sheets* exist, and list contract violations instead of raising.
+
+    For result viewers (dashboard panels): sheets outside the contract (e.g. "Observed",
+    "Residuals") are shown if present; missing contract sheets or columns are reported in
+    ``problems``. An unreadable workbook gives no sheets and one problem.
+    """
+    p = Path(str(path)).expanduser()
+    if is_absent(path):
+        return ExternalResultsInspection(contract.tool, p, None, {}, None,
+                                         [f"{contract.tool} result file not found: {p}. {DOCS_HINT}"])
+    try:
+        xls = pd.ExcelFile(p)
+    except Exception as exc:  # unreadable or not an Excel workbook
+        return ExternalResultsInspection(contract.tool, p, file_sha256(p), {}, None,
+                                         [f"{p} could not be read as an Excel workbook: {exc}. {DOCS_HINT}"])
+    problems: list[str] = []
+    frames: dict[str, pd.DataFrame] = {}
+    with xls:
+        for sheet in sheets:
+            if sheet in xls.sheet_names:
+                frames[sheet] = pd.read_excel(xls, sheet_name=sheet)
+        for sheet, cols in contract.sheets.items():
+            if sheet not in xls.sheet_names:
+                problems.append(f"missing contract sheet '{sheet}'")
+                continue
+            df = frames[sheet] if sheet in frames else pd.read_excel(xls, sheet_name=sheet, nrows=0)
+            missing = [c for c in cols if c not in df.columns]
+            if missing:
+                problems.append(f"sheet '{sheet}': missing contract column(s) {missing}")
+        metadata = _read_metadata_sheet(xls)
+    if problems:
+        problems.append(DOCS_HINT)
+    return ExternalResultsInspection(contract.tool, p, file_sha256(p), frames, metadata, problems)

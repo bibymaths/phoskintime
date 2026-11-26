@@ -28,7 +28,7 @@ def test_validation_panel_helper_reports_duplicate_and_unknown_role(tmp_path):
     two = tmp_path / "a-file.csv"
     one.write_text("a\n1\n", encoding="utf-8")
     two.write_text("a\n2\n", encoding="utf-8")
-    workflow = get_workflow("tfopt-local")
+    workflow = get_workflow("protwise-model")
 
     problems = validate_dashboard_setup(workflow, [one, two], {"unknown": str(one)})
 
@@ -110,8 +110,6 @@ def test_workflow_config_inputs_accept_only_toml(tmp_path):
     json_config = _write_file(tmp_path / "config.json")
 
     for workflow_key, role in (
-            ("kinopt-local", "config"),
-            ("tfopt-local", "config"),
             ("protwise-model", "config"),
             ("networkmodel", "config"),
             ("phoskintime-all", "tf_config"),

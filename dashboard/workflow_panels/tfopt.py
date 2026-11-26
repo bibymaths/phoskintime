@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from common.external_results import TFOPT, inspect_external_results
 from dashboard.workflow_panels.common import WorkflowPanelData, _first_existing, _inventory
 
 TFOPT_SHEETS = ("Alpha Values", "Beta Values", "Observed", "Estimated", "Residuals", "Optimization Results")
@@ -19,8 +20,12 @@ def discover_tfopt_panel(root: str | Path) -> WorkflowPanelData:
 
 
 def render(root: str | Path) -> None:
-    """Render TFOpt-specific outputs without recomputing analyses."""
-    import pandas as pd
+    """Render TFOpt-specific outputs without recomputing analyses.
+
+    The workbook is read through the external-results file contract
+    (common/external_results.py): contract problems are shown as warnings, and the
+    file's SHA-256 and optional Metadata sheet are displayed.
+    """
     import streamlit as st
 
     data = discover_tfopt_panel(root)
@@ -29,11 +34,16 @@ def render(root: str | Path) -> None:
         st.info(message)
     if data.primary_result:
         st.caption(f"Workbook: `{data.primary_result}`")
+        workbook = inspect_external_results(data.primary_result, TFOPT, TFOPT_SHEETS)
+        st.caption(f"SHA-256: `{workbook.sha256}`")
+        if workbook.metadata:
+            st.caption("Metadata: " + ", ".join(f"{k}={v}" for k, v in workbook.metadata.items()))
+        for problem in workbook.problems:
+            st.warning(problem)
         for sheet in TFOPT_SHEETS:
-            try:
-                df = pd.read_excel(data.primary_result, sheet_name=sheet)
-            except Exception:
+            if sheet not in workbook.sheets:
                 continue
+            df = workbook.sheets[sheet]
             with st.expander(sheet, expanded=sheet in {"Alpha Values", "Beta Values"}):
                 st.dataframe(df, use_container_width=True)
     if data.plots:
