@@ -159,6 +159,23 @@ def _split_predictions(sol_grid, num_psites, t_idx, rna_idx, model_name: str | N
     return r_fit, pr, ph
 
 
+def _has_nan(target) -> bool:
+    """True if any target value is NaN (decided once, outside the traced computation)."""
+    return any(np.isnan(np.asarray(v, dtype=np.float64)).any() for v in target.values())
+
+
+def count_nan_targets(target) -> dict:
+    """Number of NaN (masked) targets per layer (P8)."""
+    return {k: int(np.isnan(np.asarray(v, dtype=np.float64)).sum()) for k, v in target.items()}
+
+
+def _masked_mse(pred, obs):
+    obs = jnp.asarray(obs, dtype=jnp.float64)
+    finite = jnp.isfinite(obs)
+    n = jnp.maximum(jnp.sum(finite), 1)
+    return jnp.sum(jnp.where(finite, (pred - jnp.where(finite, obs, 0.0)) ** 2, 0.0)) / n
+
+
 def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_weights, model_name: str | None = None):
     model = _canonical_model_name(model_name)
     params = from_opt_space(theta, model)
@@ -173,12 +190,20 @@ def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_w
     )
     r_fit, pr_fit, ph_fit = _split_predictions(sol, num_psites, t_idx, rna_idx, model)
     total = jnp.asarray(0.0, dtype=jnp.float64)
-    if mode_weights["fit_mrna"]:
-        total += jnp.mean((r_fit.reshape(-1) - target["mrna"]) ** 2) / mode_weights["scale_mrna"]
-    if mode_weights["fit_protein"]:
-        total += jnp.mean((pr_fit.reshape(-1) - target["protein"]) ** 2) / mode_weights["scale_protein"]
-    if mode_weights["fit_phospho"]:
-        total += jnp.mean((ph_fit.reshape(-1) - target["phospho"]) ** 2) / mode_weights["scale_phospho"]
+    if not _has_nan(target):
+        # No missing targets: the original expressions (bit-identical to before P8).
+        if mode_weights["fit_mrna"]:
+            total += jnp.mean((r_fit.reshape(-1) - target["mrna"]) ** 2) / mode_weights["scale_mrna"]
+        if mode_weights["fit_protein"]:
+            total += jnp.mean((pr_fit.reshape(-1) - target["protein"]) ** 2) / mode_weights["scale_protein"]
+        if mode_weights["fit_phospho"]:
+            total += jnp.mean((ph_fit.reshape(-1) - target["phospho"]) ** 2) / mode_weights["scale_phospho"]
+    else:
+        # P8: NaN targets are masked (mean over the finite targets of each layer; counted by the caller).
+        for key, pred, scale in (("mrna", r_fit, "scale_mrna"), ("protein", pr_fit, "scale_protein"),
+                                 ("phospho", ph_fit, "scale_phospho")):
+            if mode_weights[f"fit_{key}"]:
+                total += _masked_mse(pred.reshape(-1), target[key]) / mode_weights[scale]
     if USE_REGULARIZATION:
         total += REGULARIZATION_WEIGHT * jnp.mean(params * params)
     return jnp.asarray(total, dtype=jnp.float64)
@@ -220,6 +245,9 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     upper_opt = to_opt_space(upper_phys, model)
 
     target = {"mrna": jnp.asarray(mrna), "protein": jnp.asarray(pr), "phospho": jnp.asarray(ph)}
+    masked = count_nan_targets(target)
+    if any(masked.values()):
+        logger.warning("[%s] Masked NaN targets (P8): %s", gene, masked)
 
     def objective(x):
         return protwise_objective(x, target, init_cond, num_psites, time_points, mode, model)

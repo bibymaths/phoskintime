@@ -91,10 +91,17 @@ def process_gene(
     )
 
     # Error Metrics
-    mse = mean_squared_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
-                             seq_model_fit.flatten())
-    mae = mean_absolute_error(np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())),
-                              seq_model_fit.flatten())
+    _obs = np.concatenate((R_data.flatten(), Pr_data.flatten(), P_data.flatten())).astype(np.float64)
+    _fin = np.isfinite(_obs)
+    if _fin.all():
+        mse = mean_squared_error(_obs, seq_model_fit.flatten())
+        mae = mean_absolute_error(_obs, seq_model_fit.flatten())
+    else:  # P8: metrics over the finite (unmasked) targets only
+        mse = mean_squared_error(_obs[_fin], seq_model_fit.flatten()[_fin])
+        mae = mean_absolute_error(_obs[_fin], seq_model_fit.flatten()[_fin])
+    masked_targets = {"mrna": int(np.isnan(np.asarray(R_data, float)).sum()),
+                      "protein": int(np.isnan(np.asarray(Pr_data, float)).sum()),
+                      "phospho": int(np.isnan(np.asarray(P_data, float)).sum())}
 
     logger.info("           --------------------------------")
     logger.info(f"[{gene}]      MSE: {mse:.4f} | MAE: {mae:.4f}")
@@ -233,6 +240,7 @@ def process_gene(
         "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,
+        "masked_targets": masked_targets,
         "mae": mae,
         "pca_result": pca_result,
         "ev": ev,

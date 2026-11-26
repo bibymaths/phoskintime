@@ -5,8 +5,6 @@ import inspect
 import numpy as np
 import pytest
 
-P8 = pytest.mark.xfail(reason="P8: NaN targets abort the fit; one failing gene aborts the run", strict=True)
-
 
 def _setup():
     import jax.numpy as jnp
@@ -24,7 +22,6 @@ def _setup():
     return jnp, t, to_opt_space(params, "distmod"), target, mode
 
 
-@P8
 def test_nan_targets_are_masked():
     from protwise.paramest.normest import protwise_objective
 
@@ -45,9 +42,10 @@ def test_no_nan_objective_unchanged_formula():
     assert "jnp.mean((r_fit.reshape(-1) - target[\"mrna\"]) ** 2)" in src  # the no-NaN branch keeps the exact formula
 
 
-@P8
 def test_runner_isolates_failing_genes_and_records_masks():
-    import protwise.runner.main as m
+    import importlib
+    import sys
 
-    src = inspect.getsource(m.main)
+    importlib.import_module("protwise.runner.main")
+    src = inspect.getsource(sys.modules["protwise.runner.main"].main)
     assert "failed_genes" in src and "masked_targets" in src

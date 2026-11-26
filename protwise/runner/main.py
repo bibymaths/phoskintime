@@ -260,23 +260,34 @@ def main(argv: list[str] | None = None):
         return
 
     results = []
+    failed_genes = {}
     for gene in genes:
         logger.info(f"[{gene}]      Processing...")
-        result = process_gene_wrapper(
-            gene,
-            protein_data,
-            kinase_data,
-            mrna_data,
-            config["time_points"],
-            config["bounds"],
-            out_dir=out_dir,
-            seed=config["seed"],
-        )
+        try:
+            result = process_gene_wrapper(
+                gene,
+                protein_data,
+                kinase_data,
+                mrna_data,
+                config["time_points"],
+                config["bounds"],
+                out_dir=out_dir,
+                seed=config["seed"],
+            )
+        except Exception as exc:  # P8 (c): isolate the gene, report it, continue
+            logger.exception(f"[{gene}]      Failed; continuing with the other genes (P8).")
+            failed_genes[str(gene)] = repr(exc)
+            continue
         results.append(result)
+
+    masked_targets = {str(r["gene"]): r.get("masked_targets", {}) for r in results if any(r.get("masked_targets", {}).values())}
+    update_metadata(out_dir, {"failed_genes": failed_genes, "masked_targets": masked_targets})
+    if failed_genes:
+        logger.error("%d gene(s) failed: %s (see metadata.json failed_genes)", len(failed_genes), sorted(failed_genes))
 
     if not results:
         logger.error("No results found after processing.")
-        return
+        raise RuntimeError(f"All genes failed: {failed_genes}")
 
     save_result(results, excel_filename=out_results_dir)
     merged_df = merge_obs_est(out_results_dir)
