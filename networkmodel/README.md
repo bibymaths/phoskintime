@@ -373,9 +373,9 @@ and optimization.
 | `network.py`     | Topology engine. Defines the `Index` class mapping biological entities to state-vector indices. Implements proxy rewiring and builds sparse interaction structures.            |
 | `models.py`      | Physics kernels. Numba JIT-compiled RHS functions for distributive, sequential, combinatorial, and saturating kinetics.                                                        |
 | `simulate.py`    | Simulation orchestration. Runs the ODE solve and produces measured/observable outputs aligned to experimental time points.                                                     |
-| `optproblem.py`  | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
-| `optproblem.py`  | JAXopt scalar objective layer. Orchestrates bounded local optimization and mode-aware loss weighting.                                                                          |
-| `steadystate.py` | Initialization routines. Computes \(x_0\) by algebraic equilibrium or by mapping measured data at \(t=0\).                                                                     |
+| `OptimizationProblem.py` | Scalar JAXopt objective wrapper. `GlobalODEScalarObjective` handles mode-aware loss aggregation and bounded optimization; `GlobalODE_MOO` is a deprecated compatibility alias. |
+| `InitialConditions.py` | Builds the initial state vector, optionally from observed baseline data. |
+| `SteadyStateAnalysis.py` | Simulates the system to a long time horizon and writes steady-state diagnostic plots. |
 | `sensitivity.py` | Analysis. Global sensitivity (e.g., Morris method) to quantify influential parameters (kinase gains, regulation strengths, etc.).                                              |
 | `config.py`      | Central configuration loader for `config.toml` (paths, solver tolerances, bounds, time grids).                                                                                 |
 
