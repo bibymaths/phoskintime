@@ -97,9 +97,11 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
     def _bidx(t0: float) -> int:
         return int(np.argmin(np.abs(times - float(t0))))
 
-    prot_b = _bidx(0.0)
-    rna_b = _bidx(4.0)
-    pho_b = _bidx(0.0)
+    from networkmodel.baselines import baseline_index, model_fold_change  # baseline times defined once (N7)
+
+    prot_b = baseline_index(times, "protein")
+    rna_b = baseline_index(times, "rna")
+    pho_b = baseline_index(times, "phospho")
 
     rows_p, rows_r, rows_pho = [], [], []
 
@@ -107,7 +109,7 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
         st = int(idx.offset_y[i])
 
         R = Y[:, st]
-        fc_r = np.maximum(R, 1e-12) / np.maximum(R[rna_b], 1e-12)
+        fc_r = model_fold_change(R, R[rna_b])
         rows_r.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_r}))
 
         if MODEL == 2:
@@ -117,7 +119,7 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
 
             states = Y[:, p0:p0 + ns]
             tot = states.sum(axis=1)
-            fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
+            fc_p = model_fold_change(tot, tot[prot_b])
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
             if n_sites > 0:
@@ -125,7 +127,7 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
                 for s_idx, psite in enumerate(idx.sites[i]):
                     weights = ((masks >> np.uint64(s_idx)) & np.uint64(1)).astype(np.float64, copy=False)
                     sig = states @ weights
-                    fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
+                    fc = model_fold_change(sig, sig[pho_b])
                     rows_pho.append(
                         pd.DataFrame(
                             {
@@ -152,14 +154,14 @@ def measure_trajectory(Y, idx, times, t_points_p, t_points_r, t_points_pho):
                 pho_total = np.zeros_like(P0)
 
             tot = P0 + pho_total
-            fc_p = np.maximum(tot, 1e-12) / np.maximum(tot[prot_b], 1e-12)
+            fc_p = model_fold_change(tot, tot[prot_b])
             rows_p.append(pd.DataFrame({"protein": gene, "time": times, "pred_fc": fc_p}))
 
             if P_sites is not None:
                 for s_idx, psite in enumerate(idx.sites[i]):
                     # N20: sequential state k holds k+1 sites (in site order) -> site occupancy = sum of states s..n-1
                     sig = P_sites[:, s_idx:].sum(axis=1) if MODEL == 1 else P_sites[:, s_idx]
-                    fc = np.maximum(sig, 1e-12) / np.maximum(sig[pho_b], 1e-12)
+                    fc = model_fold_change(sig, sig[pho_b])
                     rows_pho.append(
                         pd.DataFrame(
                             {

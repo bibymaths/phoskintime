@@ -101,7 +101,7 @@ def normalize_fc_to_t0(df):
     return df.dropna(subset=["fc"])
 
 
-def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start', epsilon=1e-3):
+def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start', epsilon=1e-3, report=None):
     """Convert wide raw data into scaled tidy time-series data
     
     Args:
@@ -142,10 +142,25 @@ def process_and_scale_raw_data(df, time_points, id_cols, scale_method='fc_start'
     if scale_method in ['raw', 'none']:
         pass  # Do nothing to values
 
-    # 1. Standard Fold-Change (x / x0)
+    # 1. Standard Fold-Change (x / x0): divide by the series' own value at the baseline time (the first time
+    #    point of this grid; networkmodel.baselines.BASELINE_TIMES). Zero, near-zero or non-finite baselines are
+    #    never divided by: those series are skipped and counted (N7).
     elif scale_method == 'fc_start':
-        start_vals = df_work[x_cols[0]].replace(0, epsilon)
+        from networkmodel.baselines import DATA_BASELINE_NEAR_ZERO
+
+        start_vals = df_work[x_cols[0]]
+        bad = ~np.isfinite(start_vals.to_numpy(dtype=float)) | (np.abs(start_vals.to_numpy(dtype=float))
+                                                                 < DATA_BASELINE_NEAR_ZERO)
+        n_bad = int(bad.sum())
+        if n_bad:
+            logger.warning(f"[Scaled] fc_start: {n_bad} of {len(df_work)} series have a zero, near-zero or missing "
+                           f"baseline at t={t_map[x_cols[0]]} and are skipped (N7).")
+        df_work = df_work.loc[~bad].copy()
+        start_vals = start_vals.loc[~bad]
         df_work[x_cols] = df_work[x_cols].div(start_vals, axis=0)
+        if report is not None:
+            report.update({"scale_method": "fc_start", "baseline_time": float(t_map[x_cols[0]]),
+                           "series_total": int(len(bad)), "skipped_series": n_bad})
 
     # 2. Robust Fold-Change
     elif scale_method == 'robust_fc':

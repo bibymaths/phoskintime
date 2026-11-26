@@ -519,8 +519,10 @@ def _extract_offsets(prot_map):
 
 
 def _safe_fold_change(values, base_values):
-    """Handle internal safe fold change"""
-    return jnp.maximum(values, 1e-12) / jnp.maximum(base_values, 1e-12)
+    """Model fold change (shared definition: networkmodel.baselines.model_fold_change; N7)"""
+    from networkmodel.baselines import model_fold_change
+
+    return model_fold_change(values, base_values, xp=jnp)
 
 
 def _global_networkmodel_observable(Y, offsets, counts, n_sites, protein_idx, time_idx, *, layer, site_idx=None,

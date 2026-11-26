@@ -9,17 +9,14 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-N7 = pytest.mark.xfail(reason="N7: raw scaling, hard-coded 4.0 baselines, epsilon-replaced zero baselines", strict=True)
 
 
-@N7
 def test_config_uses_fc_start():
     from config_loader import load_config_toml
 
     assert load_config_toml(ROOT / "config.toml").scaling_method == "fc_start"
 
 
-@N7
 def test_baseline_times_defined_once():
     import networkmodel.config as nc
     from networkmodel.baselines import BASELINE_TIMES, baseline_index
@@ -30,7 +27,6 @@ def test_baseline_times_defined_once():
     assert baseline_index(times, "rna") == 2 and baseline_index(times, "protein") == 0
 
 
-@N7
 @pytest.mark.parametrize("module", ["networkmodel.runner", "networkmodel.PosteriorObjective", "networkmodel.simulate"])
 def test_no_hard_coded_baseline_times(module):
     import importlib
@@ -39,7 +35,6 @@ def test_no_hard_coded_baseline_times(module):
     assert "_base_idx(solver_times, 4.0)" not in src and "_bidx(4.0)" not in src
 
 
-@N7
 def test_fc_start_skips_bad_baselines_and_counts_them():
     from networkmodel.utils import process_and_scale_raw_data
 

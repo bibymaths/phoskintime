@@ -573,6 +573,8 @@ def main():
     from common.results import update_metadata
     import networkmodel.io as _nm_io
     update_metadata(args.output_dir, {"external_results": list(_nm_io.EXTERNAL_RESULTS_PROVENANCE)})
+    # N7: how the observations were scaled (method, baseline time, series skipped for a bad baseline).
+    update_metadata(args.output_dir, {"scaling": {k: dict(v) for k, v in _nm_io.SCALING_REPORT.items()}})
 
     if args.normalize_fc_steady:
         df_prot = normalize_fc_to_t0(df_prot)
@@ -763,6 +765,11 @@ def main():
         f"RNA: {n_rna_before} → {len(df_rna)}, "
         f"Phospho: {n_pho_before} → {len(df_pho)}"
     )
+    # N7: the scaled observations used by the fit are saved with the run (raw input files are untouched).
+    _obs_dir = os.path.join(args.output_dir, "observations_scaled")
+    os.makedirs(_obs_dir, exist_ok=True)
+    for _name, _df in (("protein", df_prot), ("rna", df_rna), ("phospho", df_pho)):
+        _df.to_csv(os.path.join(_obs_dir, f"{_name}.csv"), index=False)
 
     # -------------------------------------------------------------------------
     # Build kinase input using observed protein trajectories
@@ -987,9 +994,11 @@ def main():
     solver_times = np.unique(np.concatenate([args.time_points_protein, args.time_points_rna, args.time_points_phospho]))
 
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
-    loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
-    loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
-    loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+    from networkmodel.baselines import baseline_index  # baseline times defined once (N7)
+
+    loss_data["prot_base_idx"] = baseline_index(solver_times, "protein")
+    loss_data["rna_base_idx"] = baseline_index(solver_times, "rna")
+    loss_data["pho_base_idx"] = baseline_index(solver_times, "phospho")
     logger.info(
         "[GlobalObjective] Loss data mapped with %s state layout; phospho rows=%d; lambda_phospho=%g",
         loss_data.get("state_layout", "standard"),

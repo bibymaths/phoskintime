@@ -13,6 +13,8 @@ logger = setup_logger(log_dir=RESULTS_DIR)
 # Provenance of the external KinOpt/TFOpt result files used by the last load_data() call.
 # The runner records it in metadata.json ("external_results").
 EXTERNAL_RESULTS_PROVENANCE: list[dict] = []
+# Per-layer scaling report of the last load (scale method, baseline time, skipped series; N7).
+SCALING_REPORT: dict[str, dict] = {}
 
 
 def _load_prior_workbook(path, contract, role):
@@ -201,11 +203,13 @@ def load_data(args):
     df_ms_raw = pd.read_csv(args.ms)
 
     # Process raw data: normalize, log-transform if needed, and handle replicates
+    SCALING_REPORT["ms"] = {}
     df_ms = process_and_scale_raw_data(
         df_ms_raw,
         time_points=TIME_POINTS_PROTEIN,
         id_cols=["GeneID", "Psite"],
-        scale_method=SCALING_METHOD
+        scale_method=SCALING_METHOD,
+        report=SCALING_REPORT["ms"],
     )
     df_ms = _normcols(df_ms)
 
@@ -287,11 +291,13 @@ def load_data(args):
         df_rna_raw = df_rna_raw.rename(columns={gcol: "protein"})
 
         # 4. Process: scale -> map time -> melt
+        SCALING_REPORT["rna"] = {}
         df_rna = process_and_scale_raw_data(
             df_rna_raw,
             time_points=TIME_POINTS_RNA,
             id_cols=["protein"],
-            scale_method=SCALING_METHOD
+            scale_method=SCALING_METHOD,
+            report=SCALING_REPORT["rna"],
         )
 
         df_rna = _normcols(df_rna)

@@ -619,7 +619,10 @@ use_initial_condition_from_data = true
 # Recommended:
 #   - Use "raw" only if preprocessing was already done externally.
 #   - Use "fc_start" or "robust_fc" for most fold-change time-course runs.
-scaling_method = "raw"
+# Set deliberately to "fc_start" (owner decision N7): data and model are both divided by their own value
+# at the baseline time (t = 0 for protein/phospho, the first RNA time for RNA). Series with a zero, near-zero
+# or missing baseline are skipped and counted (logged, metadata.json "scaling"). Previously "raw".
+scaling_method = "fc_start"
 
 
 # ------------------------------------------------------------

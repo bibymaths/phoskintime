@@ -282,9 +282,11 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
     )
 
     loss_data = prepare_fast_loss_data(idx, df_prot, df_rna, df_pho, solver_times)
-    loss_data["prot_base_idx"] = _base_idx(solver_times, 0.0)
-    loss_data["rna_base_idx"] = _base_idx(solver_times, 4.0)
-    loss_data["pho_base_idx"] = _base_idx(solver_times, 0.0)
+    from networkmodel.baselines import baseline_index  # baseline times defined once (N7)
+
+    loss_data["prot_base_idx"] = baseline_index(solver_times, "protein")
+    loss_data["rna_base_idx"] = baseline_index(solver_times, "rna")
+    loss_data["pho_base_idx"] = baseline_index(solver_times, "phospho")
 
     custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
     theta0_build, slices, xl_build, xu_build = init_raw_params(defaults, custom_bounds=custom_bounds)
