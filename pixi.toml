@@ -83,6 +83,11 @@ mkdocs-jupyter = ">=0.24.6,<0.25"
 [feature.docs.pypi-dependencies]
 zensical = "==0.0.42"
 
+# Regenerate the notebook pages under docs/notebooks/ from notebooks/ without executing
+# them (stored outputs are exported as they are).
+[feature.docs.tasks]
+docs-notebooks = "jupyter nbconvert --to markdown --output-dir docs/notebooks notebooks/*.ipynb"
+
 [feature.viz.dependencies]
 optuna-dashboard = "==0.20.0"
 gravis = "==0.1.0"
