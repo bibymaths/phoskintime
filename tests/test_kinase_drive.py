@@ -72,3 +72,30 @@ def test_export_uses_the_same_drive():
 
     src = inspect.getsource(ex.export_kinase_activities)
     assert "interp1d" not in src and "KinaseDrive" in src
+
+
+def test_baseline_extrapolation_decays_to_one_and_hold_is_default():
+    from networkmodel.kinase_drive import KinaseDrive
+
+    K = _K(2)
+    hold = KinaseDrive(GRID, K, extrapolation="hold", tau=60.0)
+    base = KinaseDrive(GRID, K, extrapolation="baseline", tau=60.0)
+    np.testing.assert_array_equal(hold.evaluate(2000.0), K[:, -1])
+    t = 960.0 + 60.0
+    np.testing.assert_allclose(base.evaluate(t), 1.0 + (K[:, -1] - 1.0) * np.exp(-1.0), rtol=1e-14)
+    np.testing.assert_allclose(base.evaluate(960.0), K[:, -1], rtol=1e-14)  # continuous at the last knot
+    inner = np.linspace(0, 960, 501)
+    np.testing.assert_array_equal(base.evaluate_many(inner), hold.evaluate_many(inner))
+    with pytest.raises(ValueError):
+        KinaseDrive(GRID, K, extrapolation="linear", tau=1.0)
+
+
+def test_simulation_past_last_knot_warns(caplog):
+    import logging
+
+    from networkmodel.simulate import _warn_past_last_knot
+
+    sysn = SimpleNamespace(kin=SimpleNamespace(grid=GRID))
+    with caplog.at_level(logging.WARNING, logger="networkmodel.simulate"):
+        _warn_past_last_knot(sysn, np.array([0.0, 2000.0]))
+    assert "drive_extrapolation" in caplog.text

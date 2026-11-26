@@ -629,6 +629,16 @@ scaling_method = "fc_start"
 # by. 1e-12 is the value in effect since N7; fold-change data are of order 1.
 fc_baseline_near_zero = 1e-12
 
+# Kinase drive after the last measured time point (the drive is a PCHIP curve through the
+# measured kinase fold changes; KNOWN_ISSUES N17):
+#   "hold"     (default) keep the last measured value. Justified for this dataset: the
+#              stimulation is sustained (not withdrawn) during and after the time course.
+#   "baseline" decay to fold change 1 with time constant drive_baseline_tau (minutes).
+# Any simulation past the last knot (e.g. the 14-day steady-state check) logs a WARNING;
+# the policy is recorded in metadata.json.
+drive_extrapolation = "hold"
+drive_baseline_tau = 60.0
+
 
 # ------------------------------------------------------------
 # DATA WEIGHTING

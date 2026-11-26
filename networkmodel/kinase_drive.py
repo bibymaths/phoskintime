@@ -4,15 +4,18 @@ of the observed kinase fold-change series (KNOWN_ISSUES N17, owner decision: PCH
 One definition is used everywhere: the JAX right-hand side of the fit and the exports evaluate the same coefficients
 with the same formula (xp = jax.numpy or numpy).
 
-Extrapolation (PENDING OWNER DECISION, logged in the session reports): outside the knot range the drive is held
-constant at the first/last knot value ("hold last value", as the former step drive did after the last knot). This
-affects any simulation past the last knot (e.g. the 14-day steady-state run and the 72 h forward scripts).
+Extrapolation after the last knot ([networkmodel] drive_extrapolation, owner decision):
+- "hold" (default): K(t) = K(t_last). Justified for this dataset because the stimulation is sustained (the
+  stimulus is not withdrawn during or after the measured time course).
+- "baseline": K(t) = 1 + (K(t_last) − 1)·exp(−(t − t_last)/τ), a decay to fold change 1 with time constant
+  τ = [networkmodel] drive_baseline_tau (minutes).
+Before the first knot the first value is held. Simulations past the last knot log a WARNING (simulate_diffrax).
 """
 from __future__ import annotations
 
 import numpy as np
 
-EXTRAPOLATION_POLICY = "hold the first/last knot value outside the knot range (pending owner decision)"
+EXTRAPOLATION_POLICIES = ("hold", "baseline")
 
 
 def pchip_slopes(x, Y):
@@ -46,7 +49,18 @@ def pchip_slopes(x, Y):
 class KinaseDrive:
     """K(t) for all kinases from knots ``grid`` (n,) and values ``Kmat`` (n_kinases, n)."""
 
-    def __init__(self, grid, Kmat):
+    def __init__(self, grid, Kmat, extrapolation=None, tau=None):
+        if extrapolation is None or tau is None:
+            from networkmodel.config import DRIVE_BASELINE_TAU, DRIVE_EXTRAPOLATION
+
+            extrapolation = DRIVE_EXTRAPOLATION if extrapolation is None else extrapolation
+            tau = DRIVE_BASELINE_TAU if tau is None else tau
+        if extrapolation not in EXTRAPOLATION_POLICIES:
+            raise ValueError(f"drive_extrapolation must be one of {EXTRAPOLATION_POLICIES}, got {extrapolation!r}.")
+        if extrapolation == "baseline" and not float(tau) > 0.0:
+            raise ValueError(f"drive_baseline_tau must be > 0 for drive_extrapolation = 'baseline', got {tau}.")
+        self.extrapolation = str(extrapolation)
+        self.tau = float(tau)
         self.grid = np.asarray(grid, dtype=np.float64)
         self.Kmat = np.atleast_2d(np.asarray(Kmat, dtype=np.float64))
         if self.grid.ndim != 1 or self.grid.size < 2 or np.any(np.diff(self.grid) <= 0):
@@ -67,7 +81,12 @@ class KinaseDrive:
         h10 = s * (1.0 - s) ** 2
         h01 = s * s * (3.0 - 2.0 * s)
         h11 = s * s * (s - 1.0)
-        return h00 * K[:, i] + h10 * h * d[:, i] + h01 * K[:, i + 1] + h11 * h * d[:, i + 1]
+        inside = h00 * K[:, i] + h10 * h * d[:, i] + h01 * K[:, i + 1] + h11 * h * d[:, i + 1]
+        if self.extrapolation == "hold":
+            return inside
+        last = K[:, n - 1]
+        decay = 1.0 + (last - 1.0) * xp.exp(-xp.maximum(t - g[n - 1], 0.0) / self.tau)
+        return xp.where(t > g[n - 1], decay, inside)
 
     def evaluate_many(self, times):
         """K at many times, shape (n_kinases, n_times) (numpy)."""

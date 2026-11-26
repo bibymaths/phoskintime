@@ -413,8 +413,9 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
                                                ("phospho", _nmc.TIME_POINTS_PHOSPHO))},
         "baseline_times": {k: float(v) for k, v in __import__("networkmodel.baselines", fromlist=["x"]).BASELINE_TIMES.items()},
         "kinase_drive": "monotone cubic Hermite (PCHIP, Fritsch-Carlson) through the kinase knots, shared by fit and "
-                        "export (networkmodel.kinase_drive); held constant outside the knot range (extrapolation "
-                        "policy pending owner decision); no jump_ts",
+                        "export (networkmodel.kinase_drive); first value held before the first knot; no jump_ts",
+        "drive_extrapolation": str(_nmc.DRIVE_EXTRAPOLATION),
+        "drive_baseline_tau": float(_nmc.DRIVE_BASELINE_TAU),
         "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
         "model_code": int(args.model_code) if hasattr(args, "model_code") else None,
     }})

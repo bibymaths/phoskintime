@@ -36,6 +36,21 @@ def combinatorial_site_signals_streaming(states, n_sites):
     return out
 
 
+
+def _warn_past_last_knot(sys, t_eval):
+    """Simulations past the last kinase knot use the extrapolation policy: say so (N17, item 4)."""
+    import logging
+
+    from networkmodel.config import DRIVE_BASELINE_TAU, DRIVE_EXTRAPOLATION
+
+    last = float(np.asarray(sys.kin.grid, dtype=float)[-1])
+    t_end = float(np.asarray(t_eval, dtype=float)[-1])
+    if t_end > last:
+        policy = DRIVE_EXTRAPOLATION + (f" (tau = {DRIVE_BASELINE_TAU:g} min)" if DRIVE_EXTRAPOLATION == "baseline" else "")
+        logging.getLogger("networkmodel.simulate").warning(
+            "[Drive] Simulating to t = %g min, past the last kinase knot (%g min): drive_extrapolation = %s.",
+            t_end, last, policy)
+
 def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_name="Kvaerno4"):
     """Simulate a System over requested time points with Diffrax
     
@@ -58,6 +73,7 @@ def simulate_diffrax(sys, t_eval, rtol=None, atol=None, max_steps=None, solver_n
         max_steps=int(ODE_MAX_STEPS if max_steps is None else max_steps),
         root_max_steps=20,
     )
+    _warn_past_last_knot(sys, t_eval)
     params = (sys.c_k, sys.A_i, sys.B_i, sys.C_i, sys.D_i, sys.Dp_i, sys.E_i,
               np.asarray([sys.tf_scale], dtype=np.float64))
     rhs = getattr(sys, "_cached_jax_rhs", None)

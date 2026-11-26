@@ -140,6 +140,8 @@ class PhosKinConfig:
     # Data scaling & weighting
     scaling_method: str = "none"
     fc_baseline_near_zero: float = 1e-12
+    drive_extrapolation: str = "hold"
+    drive_baseline_tau: float = 60.0
     weighting_method_protein: str = "uniform"
     weighting_method_rna: str = "uniform"
     weighting_method_phospho: str = "uniform"
@@ -393,6 +395,12 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # -------------------------
     scaling_method = str(cfg.get("scaling_method", "none"))
     fc_baseline_near_zero = float(cfg.get("fc_baseline_near_zero", 1e-12))
+    drive_extrapolation = str(cfg.get("drive_extrapolation", "hold"))
+    drive_baseline_tau = float(cfg.get("drive_baseline_tau", 60.0))
+    if drive_extrapolation not in ("hold", "baseline"):
+        raise ValueError(f"[networkmodel] drive_extrapolation must be 'hold' or 'baseline', got {drive_extrapolation!r}.")
+    if drive_extrapolation == "baseline" and not drive_baseline_tau > 0.0:
+        raise ValueError(f"[networkmodel] drive_baseline_tau must be > 0, got {drive_baseline_tau}.")
     if not fc_baseline_near_zero >= 0.0:
         raise ValueError(f"[networkmodel] fc_baseline_near_zero must be >= 0, got {fc_baseline_near_zero}.")
     weighting_method_protein = str(cfg.get("weighting_method_protein", "uniform"))
@@ -496,6 +504,8 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
         scaling_method=scaling_method,
         fc_baseline_near_zero=fc_baseline_near_zero,
+        drive_extrapolation=drive_extrapolation,
+        drive_baseline_tau=drive_baseline_tau,
 
         weighting_method_protein=weighting_method_protein,
         weighting_method_rna=weighting_method_rna,
