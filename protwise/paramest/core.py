@@ -226,7 +226,9 @@ def process_gene(
         "psite_labels": psite_values,
         "estimated_params": estimated_params,
         "model_fits": sol_full,
-        "seq_model_fit": seq_model_fit[23:].reshape(num_psites, len(TIME_POINTS)),
+        # Phospho block = the last num_psites x len(time_points) values; the vector holds only the layers
+        # with data, so a fixed offset (23 = 9 RNA + 14 protein) misreads genes without RNA or protein (P2).
+        "seq_model_fit": _phospho_tail(seq_model_fit, num_psites, len(time_points)),
         "observed_data": P_data,
         "errors": errors,
         "final_params": final_params,
@@ -242,6 +244,15 @@ def process_gene(
         "knockout_results": knockout_results,
         "regularization": regularization_val
     }
+
+
+def _phospho_tail(seq_model_fit, num_psites, n_t):
+    """Phospho block of the flat fit vector [RNA? | protein? | phospho] as (num_psites, n_t) (P2)."""
+    flat = np.asarray(seq_model_fit).reshape(-1)
+    n = int(num_psites) * int(n_t)
+    if flat.size < n:
+        raise ValueError(f"fit vector has {flat.size} values; need {n} phospho values.")
+    return flat[flat.size - n:].reshape(int(num_psites), int(n_t))
 
 
 def process_gene_wrapper(gene, protein_data, kinase_data, mrna_data, time_points, bounds, bootstraps, out_dir=OUT_DIR,
