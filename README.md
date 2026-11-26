@@ -151,7 +151,7 @@ pixi run -e dev test       # run the test suite
 pixi run -e dev test-cov   # run the tests with coverage
 ```
 
-Test coverage: 70% on 13 core files, 22% overall. The coverage badge is computed only over the 13 files listed under
+Test coverage: 70% on 13 core files, 37% overall (all Python files outside `tests/`; measured 2026-11-26). The coverage badge is computed only over the 13 files listed under
 `[tool.coverage.report] include` in `pyproject.toml`.
 
 ## Known limitations
