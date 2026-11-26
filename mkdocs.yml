@@ -39,6 +39,7 @@ nav:
   - Contributing: repository/contributing.md
   - API Reference: reference.md
   - Changelog: repository/changelog.md
+  - Repository Layout: repository/layout.md
   - Tutorials:
       - ProtWise: notebooks/03_protwise_educational_workflow.md
       - Network Model: notebooks/04_networkmodel_educational_workflow.md
@@ -78,6 +79,9 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
   - pymdownx.extra
   - attr_list
   - def_list

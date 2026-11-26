@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Repository audit (2026-11), summary
+
+- KinOpt and TFOpt split out: the `kinopt/` and `tfopt/` packages were removed (last commit containing them: `6eb04fa`). KinOpt is a separate public repository (https://github.com/bibymaths/KinOpt); TFOpt is a separate tool whose repository is not yet public. PhosKinTime no longer runs either tool.
+- File contract for their result workbooks: `common/external_results.py` checks `kinopt_results.xlsx` / `tfopt_results.xlsx` (required sheets and columns, optional `Metadata` sheet, SHA-256). `phoskintime all` now runs preprocessing, checks these files, then runs the model. The dashboard keeps result viewers for both workbooks but no longer launches KinOpt or TFOpt.
+- Scripts reorganised into `scripts/analysis/`, `scripts/apps/`, `scripts/export/`, `scripts/figures/egfr_cbc2026/` and `scripts/legacy/`, each with a README. The KinOpt/TFOpt result apps, figure scripts and tutorial notebooks were removed with the packages.
+- Direct dependencies dropped from `pixi.toml`: `pymoo`, `statsmodels`, `cobyqa`, `optuna`, `py2cytoscape`.
+- Documentation updated: removed KinOpt/TFOpt commands and pages, added the External tools page and a repository layout page, corrected stale paths and commands, and the docs changelog page now includes this file.
+
 
 
 ### Documentation
