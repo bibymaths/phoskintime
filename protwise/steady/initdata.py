@@ -76,10 +76,16 @@ def measured_t0_vector(model, num_psites, protein_t0_series, site_series):
     s0 = _t0(site_series) if num_psites else None
     if num_psites and s0 is not None:
         if model == "randmod":
-            from protwise.steady.initdata import randmod_states_from_occupancy
-
+            # Independence rule (Round 2 item 14): the protein t0 value is taken as the total, occupancies are the
+            # site t0 values divided by it (projected into [0, 1], logged); see randmod_independent_states.
             if np.all(np.isfinite(s0[:num_psites])) and np.isfinite(m[1]):
-                m[2:] = randmod_states_from_occupancy(s0[:num_psites], num_psites)
+                total = m[1]
+                occ = s0[:num_psites] / total
+                occ_p = np.clip(occ, 0.0, 1.0)
+                if not np.allclose(occ_p, occ):
+                    logger.warning("[IC] randmod occupancies %s outside [0, 1]; projected to %s (Round 2 item 14).",
+                                   np.round(occ, 6).tolist(), np.round(occ_p, 6).tolist())
+                m[1], m[2:] = randmod_independent_states(total, occ_p)
         else:
             for i in range(num_psites):
                 if i < s0.size and np.isfinite(s0[i]) and s0[i] >= 0:
@@ -87,15 +93,20 @@ def measured_t0_vector(model, num_psites, protein_t0_series, site_series):
     return m
 
 
-def randmod_states_from_occupancy(occ, num_psites):
-    """randmod t0 subset states from site occupancies (single-site subsets carry the site values, others 0)."""
+def randmod_independent_states(total, occ):
+    """randmod t0 states by the INDEPENDENCE rule (Round 2 item 14): sites are phosphorylated independently, so the
+    mass of subset m is total · Π_{j∈m} occ_j · Π_{j∉m} (1 − occ_j). Returns (unphosphorylated mass, subset masses in
+    randmod_subset_masks order). States sum to ``total``; the marginal of site j is total · occ_j."""
     from config.helpers import randmod_subset_masks
 
-    masks = randmod_subset_masks(num_psites)
-    out = np.zeros(len(masks))
-    for i in range(num_psites):
-        out[masks.index(1 << i)] = float(occ[i])
-    return out
+    occ = np.asarray(occ, dtype=np.float64)
+    n = occ.size
+    masks = randmod_subset_masks(n)
+
+    def mass(m):
+        return float(total) * float(np.prod([occ[j] if m >> j & 1 else 1.0 - occ[j] for j in range(n)]))
+
+    return mass(0), np.asarray([mass(m) for m in masks], dtype=np.float64)
 
 
 class InitialCondition:

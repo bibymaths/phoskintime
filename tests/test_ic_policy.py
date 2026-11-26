@@ -8,6 +8,9 @@ import pytest
 def test_steady_state_fills_unmeasured_species():
     import jax.numpy as jnp
 
+    from networkmodel.backend import ensure_jax_float64
+
+    ensure_jax_float64()
     from protwise.steady.initdata import InitialCondition
 
     ic = InitialCondition("G", "distmod", 2, np.array([[1.3, 1.0]]), np.array([[0.7, 1.0], [np.nan, 1.0]]),

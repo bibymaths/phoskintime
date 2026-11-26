@@ -263,3 +263,9 @@ baseline enters the model is set by the initial conditions (KNOWN_ISSUES P4).
 - BioModels Documentation: [https://www.ebi.ac.uk/biomodels/docs/](https://www.ebi.ac.uk/biomodels/docs/)
 
 ---
+### Random-order model: initial states (Round 2 item 14)
+
+The randmod initial state follows an **independence assumption**: each site is phosphorylated independently of the
+others, so the initial mass of subset state m is total · Π_{j∈m} occ_j · Π_{j∉m} (1 − occ_j). The protein value at
+t = 0 is taken as the total and occ_j = (site j value at t = 0) / total, projected into [0, 1] (logged). The states sum
+to the total and the site marginals reproduce the site data at t = 0 exactly.

@@ -3,10 +3,8 @@ mass(m) = total · Π_{j∈m} occ_j · Π_{j∉m} (1 − occ_j); states sum to t
 import numpy as np
 import pytest
 
-R14 = pytest.mark.xfail(reason="R2-14: randmod t0 states use single-site allocation", strict=True)
 
 
-@R14
 @pytest.mark.parametrize("n", [1, 2, 3, 4])
 def test_independence_rule_sums_and_marginals(n):
     from config.helpers import randmod_subset_masks
@@ -24,7 +22,6 @@ def test_independence_rule_sums_and_marginals(n):
     assert p0 == pytest.approx(total * np.prod(1 - occ), rel=1e-14)
 
 
-@R14
 def test_measured_vector_uses_independence_and_projects_out_of_range():
     from protwise.steady.initdata import measured_t0_vector
 
