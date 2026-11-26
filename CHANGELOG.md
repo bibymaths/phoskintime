@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Scientific and correctness fixes (2026-11-26, branch sci/2026-12)
+
+Each fix has a test and a before/after comparison against reference runs (B1–B5); see KNOWN_ISSUES.md.
+
+- **N1** networkmodel: the JAX right-hand side had no sequential (MODEL 1) branch, so sequential fits used the
+  distributive equations. Added; matches the numba `sequential_rhs` to 1e-12. Sequential results change.
+- **P1** protwise: RNA predictions are read at the RNA observation times (15 min, not 16) in the objective, the final fit
+  and the export, for the configured time grids. protwise fits change slightly.
+- **P2** protwise: the flat fit vector is split from the grids instead of hard-coded offsets 9/14/23.
+- **P7 (S7)** one seed (`--seed`) for the Morris sensitivity sampling and confidence intervals in both workflows
+  (protwise gains `--seed`; networkmodel now honours it).
+- **X11** logs, diagrams and sensitivity plots go to the run's output folder; concurrent runs no longer share or create
+  `results/` or `results_ABL2_network_hybrid/`.
+- **N11** the post-fit steady-state log checks each protein over time (it read the wrong array axis). Logs only.
+- **N16** the c_k correlation/boxplot and tf_scale plots show physical parameter values. Plots only.
+- **X13 (performance)** RHS objects are reused and JAX's persistent compilation cache is enabled (bit-identical results).
+  Jitting the post-fit objective evaluations (PERF-2) was tried and reverted: warm gain below 5 %.
+
 ### Repository audit (2026-11), summary
 
 - KinOpt and TFOpt split out: the `kinopt/` and `tfopt/` packages were removed (last commit containing them: `6eb04fa`). KinOpt is a separate public repository (https://github.com/bibymaths/KinOpt); TFOpt is a separate tool whose repository is not yet public. PhosKinTime no longer runs either tool.
