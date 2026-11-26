@@ -73,33 +73,23 @@ def test_randmod_public_solve_helper_matches_objective_aggregation():
     )
 
 
-def test_randmod_solve_output_normalizes_after_site_aggregation(monkeypatch):
+def test_randmod_solve_output_aggregates_sites_without_rescaling(monkeypatch):
+    """P3: no output normalisation; randmod site columns are the raw subset aggregation."""
     import protwise.models.diffrax_solver as dfs
 
     raw_sol = np.asarray([
         [2.0, 3.0, 1.0, 2.0, 3.0, 10.0, 20.0, 30.0, 100.0],
         [4.0, 6.0, 2.0, 4.0, 6.0, 20.0, 40.0, 60.0, 200.0],
     ])
-
-    monkeypatch.setattr(dfs, "NORMALIZE_MODEL_OUTPUT", True)
+    assert not hasattr(dfs, "NORMALIZE_MODEL_OUTPUT")
     monkeypatch.setattr(dfs, "solve_diffrax", lambda *args, **kwargs: raw_sol)
     sol_site, flat = dfs.solve_protwise_ode(np.ones(get_num_params("randmod", 3)), raw_sol[0], 3, [0.0, 1.0],
                                             model_name="randmod")
-    # r has 2 points, protein has 2 points, then 3 site-level phospho curves.
-    phospho_flat = flat[4:]
-    expected = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
-    np.testing.assert_allclose(
-        np.asarray(phospho_flat.reshape(3, 2).tolist(), dtype=float),
-        np.asarray(expected, dtype=float),
-        rtol=1e-8,
-        atol=1e-10,
-    )
-    np.testing.assert_allclose(
-        np.asarray(sol_site[:, 2:5].T.tolist(), dtype=float),
-        np.asarray(expected, dtype=float),
-        rtol=1e-8,
-        atol=1e-10,
-    )
+    # masks (1, 2, 4, 3, 5, 6, 7) -> site 0: 1+10+20+100, site 1: 2+10+30+100, site 2: 3+20+30+100 (row 2 doubled)
+    expected = [[131.0, 262.0], [142.0, 284.0], [153.0, 306.0]]
+    np.testing.assert_allclose(flat[4:].reshape(3, 2), expected, rtol=1e-12)
+    np.testing.assert_allclose(sol_site[:, 2:5].T, expected, rtol=1e-12)
+    np.testing.assert_allclose(sol_site[:, :2], raw_sol[:, :2], rtol=0)
 
 
 def test_mechanism_wrappers_pass_explicit_model_name(monkeypatch):

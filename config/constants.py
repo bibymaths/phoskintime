@@ -94,7 +94,9 @@ TIME_POINTS_RNA = np.asarray(
 
 # Fit controls
 _fit = _CFG.get("fit", {}) or {}
-NORMALIZE_MODEL_OUTPUT = bool(_fit.get("normalize_model_output", False))
+if "normalize_model_output" in _fit:
+    raise ValueError("[ode.fit] normalize_model_output was removed: it rescaled only the reported curves, "
+                     "not the fit (see KNOWN_ISSUES.md P3). Remove the key from the config.")
 USE_CUSTOM_WEIGHTS = bool(_fit.get("use_custom_weights", False))
 USE_REGULARIZATION = bool(_fit.get("use_regularization", True))
 

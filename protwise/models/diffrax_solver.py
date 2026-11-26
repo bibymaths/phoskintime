@@ -6,7 +6,7 @@ import numpy as np
 import jax.numpy as jnp
 
 from networkmodel.backend import solve_diffrax, DiffraxSolverConfig
-from config.constants import NORMALIZE_MODEL_OUTPUT, get_num_params
+from config.constants import get_num_params
 from config.helpers import randmod_subset_masks
 
 
@@ -213,24 +213,15 @@ def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None 
     sol_raw = np.clip(sol_grid[t_idx], 0, None)
     r_raw = np.clip(sol_grid[rna_idx, 0], 0, None)
 
-    if NORMALIZE_MODEL_OUTPUT:
-        norm_init = np.asarray(init_cond, dtype=sol_raw.dtype)
-        norm_init = np.where(norm_init == 0, 1.0, norm_init)
-        sol_out = sol_raw / norm_init[np.newaxis, :]
-        r_fitted = r_raw / norm_init[0]
-    else:
-        sol_out = sol_raw.copy()
-        r_fitted = r_raw.copy()
+    sol_out = sol_raw.copy()
+    r_fitted = r_raw.copy()
 
     if model == "randmod" and num_psites:
         # Sensitivity/plotting callers read solution[:, 2:2+num_psites] as
         # site-level phospho. Randmod stores subset states internally, so expose a
         # site-level view in those columns while keeping the flattened fit matched
-        # to the JAX objective. Normalize after aggregation when requested.
+        # to the JAX objective.
         p_fitted = aggregate_randmod_site_phospho(sol_raw, num_psites)
-        if NORMALIZE_MODEL_OUTPUT:
-            init_vals = p_fitted[:, 0:1]
-            p_fitted = np.where(init_vals != 0, p_fitted / init_vals, p_fitted)
         sol_out[:, 2:2 + num_psites] = p_fitted.T
     else:
         p_fitted = sol_out[:, 2:2 + num_psites].T if num_psites else np.asarray([], dtype=sol_out.dtype)

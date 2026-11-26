@@ -67,7 +67,7 @@ def _effective_settings(config: dict) -> dict:
     """Settings actually used by the protwise fit (META), not the requested config values."""
     from dataclasses import asdict
 
-    from config.constants import NORMALIZE_MODEL_OUTPUT, ODE_MODEL, SENSITIVITY_ANALYSIS, TIME_POINTS_RNA, \
+    from config.constants import ODE_MODEL, SENSITIVITY_ANALYSIS, TIME_POINTS_RNA, \
         USE_REGULARIZATION
     from networkmodel.backend import DiffraxSolverConfig
     from protwise.paramest.normest import REGULARIZATION_WEIGHT
@@ -81,7 +81,6 @@ def _effective_settings(config: dict) -> dict:
         "bounds": config.get("bounds"),
         "weighting": "none (unweighted per-layer means)",
         "rna_times": [float(x) for x in TIME_POINTS_RNA],
-        "normalize_model_output": bool(NORMALIZE_MODEL_OUTPUT),
         "sensitivity_analysis": bool(SENSITIVITY_ANALYSIS),
         "seeds": {"sensitivity": config.get("seed")},
     }

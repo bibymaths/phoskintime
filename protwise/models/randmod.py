@@ -1,6 +1,5 @@
 import numpy as np
 from numba import njit
-from config.constants import NORMALIZE_MODEL_OUTPUT
 from functools import lru_cache
 
 

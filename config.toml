@@ -110,15 +110,8 @@ rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 # Controls how model predictions are compared against observed data.
 [ode.fit]
 
-# Normalize model predictions before computing the fitting loss.
-#
-# false:
-#   Compare model output directly to processed input values.
-#
-# true:
-#   Normalize predictions before scoring. Use only when the data and
-#   model outputs are intended to be compared on a normalized scale.
-normalize_model_output = false
+# Model predictions are compared directly with the processed input values.
+# (The former normalize_model_output option was removed; KNOWN_ISSUES P3.)
 
 # Use custom time-point or modality weights during fitting.
 #
