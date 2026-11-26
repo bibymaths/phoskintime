@@ -85,6 +85,11 @@ The model supports multiple kinetic topologies to capture different biological m
 Common parameters used across models:
 - $\delta_{g,s}$: dephosphorylation (or reverse transition) rate for site/state $s$ on protein $g$.
 - $\gamma_{g,s}$: degradation/turnover rate for site/state $s$ on protein $g$ (optional, when the state is explicitly tracked).
+
+**Code symbols (KNOWN_ISSUES N8).** In the code, $\delta_{g,s}$ is `E_i`: one dephosphorylation rate per protein,
+shared by all its sites (not per site). $\gamma_{g,s}$ is `Dp_i[s] + D_i` for a phosphorylated state (`D_i` = protein
+degradation, applied to every state; `Dp_i[s]` = extra per-site loss of the phosphorylated form), and $\gamma_{g,0}$ is
+`D_i`.
 - $\rho_g$: basal protein turnover (for total protein).
 - $\kappa_{g,s}$: effective forward phosphorylation rate scaling for site/state $s$ (often absorbed into $\pi_{g,s}$ depending on implementation).
 

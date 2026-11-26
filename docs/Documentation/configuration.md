@@ -178,9 +178,9 @@ Kinetic parameter bounds for the global ODE. Each entry is `[min, max]`.
 | `A_i` | Basal mRNA transcription rate |
 | `B_i` | mRNA degradation rate |
 | `C_i` | Translation rate |
-| `D_i` | Protein deactivation rate |
-| `Dp_i` | Phospho-site dephosphorylation rate |
-| `E_i` | Transcriptional efficacy |
+| `D_i` | Protein degradation rate (every state) |
+| `Dp_i` | Per-site loss rate of the phosphorylated form |
+| `E_i` | Dephosphorylation rate (one per protein, shared by its sites) |
 | `tf_scale` | TF scaling factor |
 
 ### `[networkmodel.models]`

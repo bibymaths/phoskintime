@@ -1702,8 +1702,8 @@ def main():
         'A_i': 'Transcription Rates (A)',
         'B_i': 'RNA Degradation Rates (B)',
         'C_i': 'Translation Rates (C)',
-        'D_i': 'Protein Degradation Rates (D)',
-        'E_i': 'Initial Condition Multipliers (E)'
+        'D_i': 'Protein Degradation Rates (D, every state)',
+        'E_i': 'Dephosphorylation Rates (E, one per protein, shared by its sites)'
     }
 
     for p_key, p_desc in rate_labels.items():
@@ -1716,7 +1716,7 @@ def main():
 
     # 3. Phosphatase Rates
     if 'Dp_i' in params:
-        logger.info("De-phosphorylation Rates (Dp):")
+        logger.info("Phospho-form Loss Rates (Dp, per site; does not return to the unphosphorylated pool):")
         logger.info("-" * 80)
         flat_idx = 0
         for i, p_name in enumerate(sys.idx.proteins):

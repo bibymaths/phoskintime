@@ -83,7 +83,9 @@ protein_deg = 20
 # Maximum phosphorylation production / activation rate.
 phospho_prod = 20
 
-# Maximum phosphosite dephosphorylation / decay rate.
+# Maximum phospho-state degradation rate D(i) (loss of the phosphorylated form).
+# Dephosphorylation itself is a fixed rate of 1.0 per minute in the protwise
+# models, not a fitted parameter (KNOWN_ISSUES P9).
 phospho_deg = 20
 
 

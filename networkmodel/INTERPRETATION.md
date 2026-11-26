@@ -71,9 +71,9 @@ The main parameter groups are:
 | `A_i`      | Basal mRNA production parameters.                                 |
 | `B_i`      | mRNA degradation parameters.                                      |
 | `C_i`      | Protein production parameters.                                    |
-| `D_i`      | Protein deactivation or turnover parameters.                      |
-| `Dp_i`     | Phosphosite dephosphorylation parameters.                         |
-| `E_i`      | Transcriptional efficacy parameters.                              |
+| `D_i`      | Protein degradation rate, applied to the unphosphorylated and every phosphorylated state. |
+| `Dp_i`     | Per-site loss rate of the phosphorylated form (it does not return to the unphosphorylated pool). |
+| `E_i`      | Dephosphorylation rate, one per protein, shared by all its sites (returns the phospho form to the unphosphorylated pool). |
 | `tf_scale` | Transcription-factor scaling parameter.                           |
 
 A parameter near a configured lower or upper bound should be read as a constrained optimum for the current objective,

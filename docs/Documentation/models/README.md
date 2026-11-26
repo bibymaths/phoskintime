@@ -13,7 +13,8 @@ mechanistic hypothesis about how phosphorylation occurs.
 - $P_i$: phosphorylated site $i$
 - $A, B, C, D$: rate constants
 - $S_i$: phosphorylation rate for site $i$
-- $D_i$: dephosphorylation rate for site $i$
+- $D_i$: degradation rate of the phosphorylated form at site $i$; dephosphorylation is the fixed rate 1 in
+  $(1 + D_i)$ (KNOWN_ISSUES P9)
 
 Equations:
 
