@@ -326,49 +326,6 @@ def make_networkmodel_rhs(sys, slices=None):
             R = y[off]
             synth = _synth(par["A_i"][i], par["tf_scale"], TF_inputs[i])
             dy = dy.at[off].set(synth - par["B_i"][i] * R)
-            # if model_id == 2:
-            #     # Combinatorial model: mirror models.combinatorial_rhs for the
-            #     # Diffrax/JAX path. Translation feeds only mask 0, while explicit
-            #     # phosphorylation transitions and implicit bit dephosphorylation
-            #     # transitions move mass among all 2^n mask states.
-            #     p0 = off + 1
-            #     nst = n_states[i]
-            #     if max_states > 0:
-            #         P0 = y[p0]
-            #         dy = dy.at[p0].add(par["C_i"][i] * R - par["D_i"][i] * P0)
-            #
-            #     # Dephosphorylation and per-site phospho-state decay for masks m > 0.
-            #     for m in range(1, max_states):
-            #         valid_m = m < nst
-            #         pos_m = jnp.minimum(p0 + m, y.shape[0] - 1)
-            #         Pm = jnp.where(valid_m, y[pos_m], 0.0)
-            #         dp_rate = 0.0
-            #         for j in range(max_sites):
-            #             bit_set = ((m >> j) & 1) != 0
-            #             valid_bit = valid_m & (j < ns) & bit_set
-            #             flat_j = jnp.minimum(s_off + j, par["Dp_i"].shape[0] - 1)
-            #             to = m ^ (1 << j)
-            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
-            #             flux = jnp.where(valid_bit, par["E_i"][i] * Pm, 0.0)
-            #             dy = dy.at[pos_m].add(-flux)
-            #             dy = dy.at[pos_to].add(flux)
-            #             dp_rate = dp_rate + jnp.where(valid_bit, par["Dp_i"][flat_j] + par["D_i"][i], 0.0)
-            #         dy = dy.at[pos_m].add(-dp_rate * Pm)
-            #
-            #     # Explicit phosphorylation transitions, generated per protein
-            #     # in the same mask/site order as the historical dense arrays.
-            #     for m in range(max_states):
-            #         valid_m = m < nst
-            #         for j in range(max_sites):
-            #             bit_unset = ((m >> j) & 1) == 0
-            #             valid_tr = valid_m & (j < ns) & bit_unset
-            #             to = m | (1 << j)
-            #             pos_frm = jnp.minimum(p0 + m, y.shape[0] - 1)
-            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
-            #             flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
-            #             flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
-            #             dy = dy.at[pos_frm].add(-flux)
-            #             dy = dy.at[pos_to].add(flux)
             if model_id == 2:
                 # Vectorized combinatorial MODEL == 2 RHS.
                 # This avoids Python loops over max_states inside JAX tracing.
