@@ -11,22 +11,45 @@ def _expected():
     return {"rtol": float(nc.ODE_REL_TOL), "atol": float(nc.ODE_ABS_TOL), "max_steps": int(nc.ODE_MAX_STEPS)}
 
 
+_CHECK = """
+import json, os
+os.environ.pop("PHOSKINTIME_NETWORKMODEL_CONFIG", None)
+import networkmodel.config as nc
+from networkmodel.backend import networkmodel_solver_config
+from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
+from networkmodel.simulate import EXPORT_SOLVER_SETTINGS
+c = networkmodel_solver_config()
+print(json.dumps({"cfg": [c.solver_name, c.rtol, c.atol, c.max_steps],
+                  "export": EXPORT_SOLVER_SETTINGS, "steady": STEADY_STATE_SOLVER_SETTINGS,
+                  "nc": [nc.ODE_REL_TOL, nc.ODE_ABS_TOL, nc.ODE_MAX_STEPS]}))
+"""
+
+
+def _fresh():
+    # Clean process: other tests set PHOSKINTIME_NETWORKMODEL_CONFIG to fixture configs (pre-existing leak).
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    env = {k: v for k, v in os.environ.items() if k != "PHOSKINTIME_NETWORKMODEL_CONFIG"}
+    out = subprocess.run([sys.executable, "-c", _CHECK], cwd=Path(__file__).resolve().parents[1], env=env,
+                         capture_output=True, text=True, check=True)
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
 def test_config_values_are_1e8():
-    exp = _expected()
-    assert exp["rtol"] == 1e-8 and exp["atol"] == 1e-8
+    d = _fresh()
+    assert d["nc"][0] == 1e-8 and d["nc"][1] == 1e-8
 
 
 def test_one_config_everywhere():
-    from networkmodel.backend import networkmodel_solver_config
-    from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
-    from networkmodel.simulate import EXPORT_SOLVER_SETTINGS
-
-    cfg = networkmodel_solver_config()
-    exp = _expected()
-    assert (cfg.rtol, cfg.atol, cfg.max_steps) == (exp["rtol"], exp["atol"], exp["max_steps"])
-    for s in (EXPORT_SOLVER_SETTINGS, STEADY_STATE_SOLVER_SETTINGS):
-        assert {k: s[k] for k in ("rtol", "atol", "max_steps")} == exp
-        assert s["solver_name"] == cfg.solver_name
+    d = _fresh()
+    name, rtol, atol, max_steps = d["cfg"]
+    assert [rtol, atol, max_steps] == d["nc"]
+    for s in (d["export"], d["steady"]):
+        assert [s["rtol"], s["atol"], s["max_steps"]] == d["nc"] and s["solver_name"] == name
 
 
 def test_fit_objective_passes_the_config():
