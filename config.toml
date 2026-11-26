@@ -641,40 +641,8 @@ scaling_method = "raw"
 # ------------------------------------------------------------
 # DATA WEIGHTING
 # ------------------------------------------------------------
-# Time-point weighting schemes for each modality.
-#
-# These control whether early, late, baseline-proximal, or central time points
-# contribute more strongly to the loss.
-#
-# Options:
-#   "uniform"
-#     All time points receive equal weight.
-#
-#   "linear_early", "exp_early", "quad_early", "log_early"
-#     Earlier time points receive more weight.
-#
-#   "linear_late", "exp_late", "quad_late"
-#     Later time points receive more weight.
-#
-#   "inv_time", "inv_sqrt_time"
-#     Earlier time points receive stronger inverse-time weighting.
-#
-#   "piecewise_early_boost"
-#     Early phase receives a fixed boost.
-#
-#   "gaussian_center", "logistic_center"
-#     Middle/transition-region time points receive more weight.
-#
-#   "distance_from_baseline"
-#     Weights depend on distance from baseline.
-#
-# Recommended default:
-#   "uniform"
-#
-# Note:
-#   In the runner code shown earlier, protein and RNA weighting are passed
-#   into build_weight_functions(). Confirm that phospho weighting is also
-#   wired into the objective before relying on weighting_method_phospho.
+# Time-point weighting per modality. Only "uniform" (all time points weigh the same)
+# is implemented; any other value is rejected at start-up (KNOWN_ISSUES N4).
 weighting_method_protein = "uniform"
 weighting_method_rna     = "uniform"
 weighting_method_phospho = "uniform"

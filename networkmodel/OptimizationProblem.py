@@ -100,6 +100,12 @@ def build_weight_functions(method_protein="uniform", method_rna="uniform", time_
     Returns:
         Computed result from this routine.
     """
+    for name, method in (("protein", method_protein), ("rna", method_rna)):
+        if method != "uniform":
+            raise ValueError(
+                f"Weighting method {method!r} for {name} is not supported: only 'uniform' weighting is "
+                "implemented (see KNOWN_ISSUES.md N4)."
+            )
     return {"protein": method_protein, "rna": method_rna, "time_grid": time_grid}
 
 

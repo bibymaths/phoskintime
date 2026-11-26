@@ -36,7 +36,7 @@ profile_grid_size = 5
 posterior_sampling = true
 posterior_num_warmup = 6
 posterior_num_samples = 7
-weighting_method_protein = "variance"
+weighting_method_protein = "uniform"
 weighting_method_rna = "uniform"
 sensitivity_metric = "total_signal"
 

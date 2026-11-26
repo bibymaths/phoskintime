@@ -361,6 +361,14 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     weighting_method_protein = str(cfg.get("weighting_method_protein", "uniform"))
     weighting_method_rna = str(cfg.get("weighting_method_rna", "uniform"))
     weighting_method_phospho = str(cfg.get("weighting_method_phospho", "uniform"))
+    for _key, _val in (("weighting_method_protein", weighting_method_protein),
+                       ("weighting_method_rna", weighting_method_rna),
+                       ("weighting_method_phospho", weighting_method_phospho)):
+        if _val != "uniform":
+            raise ValueError(
+                f"[networkmodel] {_key} = {_val!r} is not supported: only 'uniform' weighting is implemented "
+                "(see KNOWN_ISSUES.md N4)."
+            )
 
     # -------------------------
     # 11) Sensitivity analysis
