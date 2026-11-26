@@ -430,6 +430,15 @@ def make_networkmodel_rhs(sys, slices=None):
     return rhs
 
 
+def networkmodel_solver_config() -> DiffraxSolverConfig:
+    """The one networkmodel solver configuration (N5): [networkmodel.solver] tolerances and max_steps,
+    used by the fit, the export, the steady-state run, sensitivity and the posterior/profile rebuild."""
+    from networkmodel.config import ODE_ABS_TOL, ODE_MAX_STEPS, ODE_REL_TOL
+
+    return DiffraxSolverConfig(solver_name="Kvaerno4", rtol=float(ODE_REL_TOL), atol=float(ODE_ABS_TOL),
+                               max_steps=int(ODE_MAX_STEPS))
+
+
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
     """Solve an ODE trajectory with Diffrax
     
@@ -892,16 +901,17 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
             f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
     model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
     defaults_j = _defaults_vector_jax(defaults, slices)
+    solver_cfg = networkmodel_solver_config()  # N5: same config as export and diagnostics
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
         if model_rhs is not None:
             physical_params = _unpack_theta_jax(theta, slices)
             rates = _flatten_params_for_slices_jax(physical_params, slices)
-            Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs)
+            Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs, config=solver_cfg)
         else:
             rates = jax.nn.softplus(theta)
-            Y = solve_diffrax(y0, t, params=rates)
+            Y = solve_diffrax(y0, t, params=rates, config=solver_cfg)
         if Y.shape[1] != state_dim:
             raise ValueError(f"Solved trajectory state width {Y.shape[1]} does not match expected {state_dim}.")
         total, breakdown = multimodal_loss_from_trajectory(
