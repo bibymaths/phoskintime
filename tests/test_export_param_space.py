@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-N16 = pytest.mark.xfail(reason="N16: plots from raw optimizer coordinates", strict=True)
-
 SLICES = {"A_i": slice(0, 2), "B_i": slice(2, 4), "C_i": slice(4, 6), "D_i": slice(6, 8), "E_i": slice(8, 10),
           "c_k": slice(10, 13), "tf_scale": slice(13, 14), "Dp_i": slice(14, 16)}
 
@@ -32,7 +30,6 @@ def _sp(x):
     return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0.0)
 
 
-@N16
 def test_kinase_correlation_uses_physical_c_k(monkeypatch, tmp_path):
     ex, cap, res, idx = _setup(monkeypatch)
     ex.export_param_correlations(res, SLICES, idx, str(tmp_path))
@@ -40,7 +37,6 @@ def test_kinase_correlation_uses_physical_c_k(monkeypatch, tmp_path):
     np.testing.assert_allclose(cap["heatmap"][0].to_numpy(), expected.to_numpy(), rtol=1e-12)
 
 
-@N16
 def test_distributions_use_physical_c_k_and_tf_scale(monkeypatch, tmp_path):
     ex, cap, res, idx = _setup(monkeypatch)
     ex.export_parameter_distributions(res, SLICES, idx, str(tmp_path))

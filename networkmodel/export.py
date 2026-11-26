@@ -1501,6 +1501,13 @@ def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
     plt.close()
 
 
+def _physical_rows(X, slices, name):
+    """Physical values of parameter group ``name`` for every row of the raw optimizer matrix X (N16)."""
+    rows = [np.atleast_1d(np.asarray(unpack_params(np.asarray(x, dtype=float), slices)[name], dtype=float))
+            for x in np.atleast_2d(X)]
+    return np.vstack(rows) if rows else np.zeros((0, 0))
+
+
 def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
     """Export parameter-correlation diagnostics
     
@@ -1515,8 +1522,8 @@ def export_param_correlations(res, slices, idx, output_dir, best_idx=None):
 
     # --- Plot 1: Kinase Parameter Correlation (scalar objective table) ---
     # This shows if kinases are "fighting" each other or identifiable
-    kin_slice = slices["c_k"]
-    X_kin = X[:, kin_slice]
+    # Physical c_k (softplus of the raw optimizer coordinates), as in every other export (N16).
+    X_kin = _physical_rows(X, slices, "c_k")
 
     if X_kin.shape[1] > 0:
         df_kin = pd.DataFrame(X_kin, columns=idx.kinases)
@@ -1660,8 +1667,8 @@ def export_parameter_distributions(res, slices, idx, output_dir):
     X = res.X
 
     # --- 1. Kinase Multipliers (c_k) ---
-    kin_slice = slices["c_k"]
-    X_kin = X[:, kin_slice]
+    # Physical values (softplus of the raw optimizer coordinates), not raw coordinates (N16).
+    X_kin = _physical_rows(X, slices, "c_k")
 
     if X_kin.shape[1] > 0:
         df_kin = pd.DataFrame(X_kin, columns=idx.kinases)
@@ -1679,8 +1686,7 @@ def export_parameter_distributions(res, slices, idx, output_dir):
 
     # --- 2. Global Parameters (tf_scale) ---
     # Check if tf_scale varies
-    tf_slice = slices["tf_scale"]
-    X_tf = X[:, tf_slice]
+    X_tf = _physical_rows(X, slices, "tf_scale")
 
     plt.figure(figsize=(6, 5))
     sns.violinplot(data=X_tf, color="lightgreen")
