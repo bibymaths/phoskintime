@@ -1438,6 +1438,29 @@ def process_convergence_history(res, output_dir):
     return df_hist
 
 
+def export_dense_diagnostics(sys, idx, output_dir, n_points=1001):
+    """Diagnostic only (not used in the loss; N17): kinase drive K(t)·c_k and all model states on a dense grid of
+    ``n_points`` points over the kinase knot range, plus the knots themselves, written to <output>/diagnostics/."""
+    from networkmodel.simulate import simulate_diffrax
+
+    grid = np.asarray(sys.kin.grid, dtype=float)
+    t = np.unique(np.concatenate([np.linspace(grid[0], grid[-1], int(n_points)), grid]))
+    out = os.path.join(output_dir, "diagnostics")
+    os.makedirs(out, exist_ok=True)
+    drive = np.stack([np.asarray(sys.kin.eval(float(ti)), dtype=float) for ti in t], axis=0) * np.asarray(sys.c_k)
+    pd.DataFrame(drive, columns=list(idx.kinases)).assign(time=t)[["time", *idx.kinases]].to_csv(
+        os.path.join(out, "dense_kinase_drive.csv"), index=False)
+    Y = simulate_diffrax(sys, t)
+    names = []
+    for i, p in enumerate(idx.proteins):
+        st = int(idx.offset_y[i])
+        width = (int(idx.offset_y[i + 1]) if i + 1 < idx.N else Y.shape[1]) - st
+        names += [f"{p}:R"] + [f"{p}:state{k}" for k in range(width - 1)]
+    pd.DataFrame(Y, columns=names).assign(time=t)[["time", *names]].to_csv(
+        os.path.join(out, "dense_trajectories.csv"), index=False)
+    logger.info("[Output] Saved dense diagnostic grid (%d points; not used in the loss) to %s", t.size, out)
+
+
 def export_kinase_activities(sys, idx, output_dir, t_max=120, n_points=121):
     """Export kinase activity trajectories
     

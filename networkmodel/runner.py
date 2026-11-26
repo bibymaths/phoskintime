@@ -1553,6 +1553,8 @@ def main():
     # 1. Export Dynamic Kinase Activities (Mechanism check)
     export_kinase_activities(sys, idx, args.output_dir, t_max=120)
     logger.info("[Output] Saved dynamic kinase activities.")
+    from networkmodel.export import export_dense_diagnostics
+    export_dense_diagnostics(sys, idx, args.output_dir)
 
     # 2. Export Parameter Correlations (Identifiability check)
     export_param_correlations(res, slices, idx, args.output_dir, best_idx=I)
