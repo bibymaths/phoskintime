@@ -3,7 +3,10 @@ import pandas as pd
 from numba import njit
 from scipy.ndimage import uniform_filter1d
 from pathlib import Path
-from config.constants import USE_CUSTOM_WEIGHTS
+from config.constants import USE_CUSTOM_WEIGHTS, TIME_POINTS_RNA
+
+# Number of RNA entries at the front of the flat target vector (P2; was a hard-coded 9).
+_N_RNA = len(TIME_POINTS_RNA)
 
 current_dir = Path(__file__).resolve().parent
 
@@ -158,7 +161,7 @@ def full_weight(p_data_weight, use_regularization, reg_len):
     Returns:
         numpy.ndarray: The full weight array.
     """
-    base = np.concatenate([np.ones(9), p_data_weight])
+    base = np.concatenate([np.ones(_N_RNA), p_data_weight])
     if use_regularization:
         base = np.concatenate([base, np.ones(reg_len)])
     return base
@@ -194,26 +197,26 @@ def get_weight_options(target, t_target, num_psites, use_regularization, reg_len
         flat_region_penalty = 1 / np.maximum(np.abs(target), 1e-5)  # inverse signal intensity
 
     base_weights = {
-        "inverse": full_weight(1 / np.maximum(np.abs(target[9:]), 1e-5), use_regularization, reg_len),
-        "exponential_decay": full_weight(np.exp(-0.5 * target[9:]), use_regularization, reg_len),
-        "inverse_log_scale": full_weight(1 / np.maximum(log_scale[9:], 1e-5), use_regularization, reg_len),
-        "inverse_time_diff": full_weight(1 / np.maximum(np.abs(np.diff(target[9:], prepend=target[9])), 1e-5),
+        "inverse": full_weight(1 / np.maximum(np.abs(target[_N_RNA:]), 1e-5), use_regularization, reg_len),
+        "exponential_decay": full_weight(np.exp(-0.5 * target[_N_RNA:]), use_regularization, reg_len),
+        "inverse_log_scale": full_weight(1 / np.maximum(log_scale[_N_RNA:], 1e-5), use_regularization, reg_len),
+        "inverse_time_diff": full_weight(1 / np.maximum(np.abs(np.diff(target[_N_RNA:], prepend=target[_N_RNA])), 1e-5),
                                          use_regularization, reg_len),
-        "inverse_moving_avg": full_weight(1 / np.maximum(np.abs(target[9:] - uniform_filter1d(target[9:], 3)), 1e-5),
+        "inverse_moving_avg": full_weight(1 / np.maximum(np.abs(target[_N_RNA:] - uniform_filter1d(target[_N_RNA:], 3)), 1e-5),
                                           use_regularization, reg_len),
 
         "sigmoid_decay": full_weight(1 / (1 + np.exp((time_indices - 5))), use_regularization, reg_len),
         "exponential_early_decay": full_weight(np.exp(-0.5 * time_indices), use_regularization, reg_len),
         "polynomial_time_decay": full_weight(1 / (1 + 0.5 * time_indices), use_regularization, reg_len),
 
-        "signal_noise": full_weight(1 / sqrt_signal[9:], use_regularization, reg_len),
-        "inverse_variance": full_weight(1 / (np.maximum(np.abs(target[9:]), 1e-5) ** 0.7), use_regularization, reg_len),
-        "flat_penalty": full_weight(flat_region_penalty[9:], use_regularization, reg_len) if flat_region_penalty.shape[
+        "signal_noise": full_weight(1 / sqrt_signal[_N_RNA:], use_regularization, reg_len),
+        "inverse_variance": full_weight(1 / (np.maximum(np.abs(target[_N_RNA:]), 1e-5) ** 0.7), use_regularization, reg_len),
+        "flat_penalty": full_weight(flat_region_penalty[_N_RNA:], use_regularization, reg_len) if flat_region_penalty.shape[
                                                                                                  0] == target.shape[
                                                                                                  0] else flat_region_penalty,
 
         "steady_decay": full_weight(np.exp(-0.1 * time_indices), use_regularization, reg_len),
-        "inverse_square_root_data": full_weight(1 / sqrt_signal[9:], use_regularization, reg_len),
+        "inverse_square_root_data": full_weight(1 / sqrt_signal[_N_RNA:], use_regularization, reg_len),
 
         "early_moderate_decay": full_weight(
             np.linspace(1.0, 0.3, len(time_indices)),

@@ -3,10 +3,6 @@ not from the hard-coded 9/14/23 offsets."""
 import numpy as np
 import pytest
 
-P2 = pytest.mark.xfail(reason="P2: hard-coded 9/14/23 offsets", strict=True)
-
-
-@P2
 @pytest.mark.parametrize("n_rna,n_t,num_psites", [(9, 14, 3), (5, 10, 2), (0, 7, 1), (4, 6, 0)])
 def test_split_flat_fit_roundtrip(n_rna, n_t, num_psites):
     from protwise.models.diffrax_solver import split_flat_fit
@@ -21,7 +17,6 @@ def test_split_flat_fit_roundtrip(n_rna, n_t, num_psites):
     np.testing.assert_array_equal(ph2, ph)
 
 
-@P2
 def test_split_flat_fit_rejects_wrong_length():
     from protwise.models.diffrax_solver import split_flat_fit
 
@@ -29,7 +24,6 @@ def test_split_flat_fit_rejects_wrong_length():
         split_flat_fit(np.zeros(10), 1, 4, 3)
 
 
-@P2
 def test_split_flat_fit_defaults_to_configured_rna_grid():
     from config.constants import TIME_POINTS, TIME_POINTS_RNA
     from protwise.models.diffrax_solver import split_flat_fit

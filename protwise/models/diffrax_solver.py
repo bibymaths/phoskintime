@@ -159,6 +159,23 @@ def rna_time_grid(time_points, n_rna: int | None = None, rna_times=None):
     return grid, np.searchsorted(grid, t), np.searchsorted(grid, r)
 
 
+def split_flat_fit(flat, num_psites: int, n_t: int, n_rna: int | None = None):
+    """Split the flat protwise fit vector ``[RNA (n_rna) | protein (n_t) | phospho (num_psites x n_t)]``
+    returned by :func:`solve_protwise_ode` (P2: sizes from the grids, not hard-coded 9/14/23).
+    ``n_rna`` defaults to the configured RNA grid.
+    """
+    from config.constants import TIME_POINTS_RNA  # defer to avoid circular imports at module load
+
+    flat = np.asarray(flat).reshape(-1)
+    n_r = len(TIME_POINTS_RNA) if n_rna is None else int(n_rna)
+    n_t, num_psites = int(n_t), int(num_psites)
+    expected = n_r + n_t + num_psites * n_t
+    if flat.size != expected:
+        raise ValueError(f"fit vector has {flat.size} values; expected {n_r} RNA + {n_t} protein + "
+                         f"{num_psites}x{n_t} phospho = {expected}.")
+    return flat[:n_r], flat[n_r:n_r + n_t], flat[n_r + n_t:].reshape(num_psites, n_t)
+
+
 def solve_protwise_ode(params, init_cond, num_psites, t, model_name: str | None = None):
     """Solve the selected local ODE model with the centralized Diffrax backend."""
     from config.constants import ODE_MODEL  # defer to avoid circular imports at module load

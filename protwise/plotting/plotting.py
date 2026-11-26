@@ -203,7 +203,8 @@ class Plotter:
         Plots the model fit for mRNA, protein, and phosphorylated species across time.
 
         Args:
-            model_fit (np.ndarray): Flattened model fit data (length = 9 + 14 + 14*num_psites).
+            model_fit (np.ndarray): Flattened model fit data [RNA | protein | phospho], split with
+                protwise.models.diffrax_solver.split_flat_fit (sizes from the configured grids).
             Pr_data (np.ndarray): Protein data (14,).
             P_data (np.ndarray): Phosphorylation data (num_psites + 2, 14).
             R_data (np.ndarray): mRNA data (9,).
@@ -213,9 +214,8 @@ class Plotter:
             time_points (np.ndarray): Time points (14,).
         """
         # Split model_fit
-        R_fit = model_fit[:9]
-        Pr_fit = model_fit[9:23]
-        P_fit = model_fit[23:].reshape(num_psites, 14)
+        from protwise.models.diffrax_solver import split_flat_fit
+        R_fit, Pr_fit, P_fit = split_flat_fit(model_fit, num_psites, len(time_points))
 
         cutoff_idx = 8
         fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
@@ -410,13 +410,14 @@ class Plotter:
             num_psites (int): Number of phosphorylation sites.
             psite_labels (list): List of phosphorylation site labels.
         """
+        from protwise.models.diffrax_solver import split_flat_fit
         marker_cycle = itertools.cycle(available_markers)
         time_points = results_dict['WT'][0]
         fig, axes = plt.subplots(2, 2, figsize=(16, 10), sharex='col')
         (ax_rp_zoom, ax_rp_full), (ax_ph_zoom, ax_ph_full) = axes
         time_cutoff = 8
         for label, (t, sol, p_fit) in results_dict.items():
-            p_fit = p_fit[23:].reshape(num_psites, 14)
+            p_fit = split_flat_fit(p_fit, num_psites, len(t))[2]
             marker = next(marker_cycle)
             # -- Last 'n' time range plots
             ax_rp_full.plot(t[time_cutoff:], sol[time_cutoff:, 0], label=f"{label} (mRNA)", linewidth=0.5,
