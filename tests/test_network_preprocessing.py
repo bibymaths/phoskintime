@@ -189,9 +189,11 @@ def test_pruned_worker_csv_matches_retained_triplet_diagnostics(tmp_path):
     pruned_df.to_csv(worker_csv, index=False)
 
     retained = pd.read_csv(tmp_path / "tables" / "networkpruning" / "retained_triplets.csv")
+    # ``.str.split(...).str[i]`` indexes into lists and returns object dtype under
+    # pandas 3 (infer_string), whereas read_csv yields ``str`` columns; cast back to str.
     retained_keys = retained.assign(
-        protein=retained["site"].str.split(":", n=1).str[0],
-        psite=retained["site"].str.split(":", n=1).str[1],
+        protein=retained["site"].str.split(":", n=1).str[0].astype(str),
+        psite=retained["site"].str.split(":", n=1).str[1].astype(str),
     )[["kinase", "protein", "psite", "alpha"]].sort_values(["kinase", "protein", "psite"]).reset_index(drop=True)
     worker_keys = pd.read_csv(worker_csv)[["kinase", "protein", "psite", "alpha"]].sort_values(
         ["kinase", "protein", "psite"]).reset_index(drop=True)
