@@ -2,7 +2,7 @@ import os
 import argparse
 import numpy as np
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 
 try:
     import tomllib
@@ -16,7 +16,7 @@ from config.constants import (
     GAMMA_WEIGHT,
     DELTA_WEIGHT,
     INPUT_EXCEL_PROTEIN,
-    INPUT_EXCEL_PSITE, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, TIME_POINTS, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
+    INPUT_EXCEL_PSITE, DEV_TEST, MU_WEIGHT, INPUT_EXCEL_RNA, BOOTSTRAPS, UB_mRNA_prod, UB_mRNA_deg,
     UB_Protein_prod, UB_Protein_deg, UB_Phospho_prod
 )
 
@@ -50,31 +50,6 @@ def parse_bound_pair(val):
         return lower, upper
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Invalid bound pair '{val}': {e}")
-
-
-def parse_fix_value(val):
-    """
-    Parse a fixed value or a list of fixed values from a string.
-    If the input is a single value, it returns that value as a float.
-    If the input is a comma-separated list, it returns a list of floats.
-    Raises ValueError if the input is not in the correct format.
-    Args:
-        val (str): The string to parse, e.g., "1.0" or "1.0,2.0".
-    Returns:
-        float or list: The parsed fixed value(s) as a float or a list of floats.
-    """
-    if val is None:
-        return None
-    if ',' in val:
-        try:
-            return [float(x) for x in val.split(',')]
-        except Exception as e:
-            raise argparse.ArgumentTypeError(f"Invalid fixed value list '{val}': {e}")
-    else:
-        try:
-            return float(val)
-        except Exception as e:
-            raise argparse.ArgumentTypeError(f"Invalid fixed value '{val}': {e}")
 
 
 def ensure_output_directory(directory):
@@ -357,24 +332,3 @@ def score_fit(params, target, prediction,
     score = delta * mse + alpha * rmse + beta * mae + gamma * variance + mu * l2_norm
 
     return score
-
-
-def future_times(n_new: int, ratio: Optional[float] = None, tp: np.ndarray = TIME_POINTS) -> np.ndarray:
-    """
-    Extend ttime points by n_new points, each spaced by multiplying the previous interval by ratio.
-    If ratio is None, it is inferred from the last two points.
-
-    Args:
-        n_new (int): Number of new time points to generate.
-        ratio (float, optional): Ratio to multiply the previous interval. Defaults to None.
-        tp (np.ndarray, optional): Existing time points. Defaults to TIME_POINTS.
-    Returns:
-        np.ndarray: Extended time points.
-    """
-    times = tp.tolist()
-    if ratio is None:
-        # avoid divide-by-zero if the last point is zero
-        ratio = times[-1] / times[-2]
-    for _ in range(n_new):
-        times.append(times[-1] * ratio)
-    return np.array(times)

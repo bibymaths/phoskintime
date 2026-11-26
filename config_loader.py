@@ -75,29 +75,6 @@ def load(mode: str, section: str) -> dict[str, Any]:
     return merged
 
 
-def ensure_dirs() -> None:
-    """
-    Ensure that the necessary directories exist for the project.
-
-    Returns:
-        None
-    """
-    root = _project_root()
-    with (root / "config.toml").open("rb") as f:
-        raw = tomllib.load(f)
-
-    paths = raw.get("paths", {}) or {}
-
-    data_dir = paths.get("data_dir", "data")
-    results_dir = paths.get("results_dir", "results")
-    logs_dir = paths.get("logs_dir", "results/logs")
-    ode_data_dir = paths.get("ode_data_dir", "data")
-
-    (root / data_dir).mkdir(parents=True, exist_ok=True)
-    (root / results_dir).mkdir(parents=True, exist_ok=True)
-    (root / logs_dir).mkdir(parents=True, exist_ok=True)
-    (root / ode_data_dir).mkdir(parents=True, exist_ok=True)
-
 # Phokintime Global Config
 # sync with networkmodel/config.py
 # TODO: Both config_loader.py and networkmodel/config.py load overlapping configuration
