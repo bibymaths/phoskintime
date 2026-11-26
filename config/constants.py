@@ -99,6 +99,11 @@ if "normalize_model_output" in _fit:
                      "not the fit (see KNOWN_ISSUES.md P3). Remove the key from the config.")
 USE_CUSTOM_WEIGHTS = bool(_fit.get("use_custom_weights", False))
 USE_REGULARIZATION = bool(_fit.get("use_regularization", True))
+# Initial-condition policy for species without a t = 0 measurement (Round 2 item 13): "steady_state" | "estimate".
+IC_POLICY = str(_fit.get("ic_policy", "steady_state"))
+if IC_POLICY not in ("steady_state", "estimate"):
+    raise ValueError(f"[ode.fit] ic_policy must be 'steady_state' or 'estimate', got {IC_POLICY!r}.")
+IC_ESTIMATE_BOUNDS = tuple(float(v) for v in _fit.get("ic_estimate_bounds", [1e-3, 10.0]))
 
 # Composite weights
 _w = _fit.get("composite_weights", {}) or {}

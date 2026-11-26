@@ -3,10 +3,8 @@ steady state from the current parameters, inside the objective; e.g. R(0) = A/B)
 import numpy as np
 import pytest
 
-IC = pytest.mark.xfail(reason="R2-13: initial-condition policy not implemented", strict=True)
 
 
-@IC
 def test_steady_state_fills_unmeasured_species():
     import jax.numpy as jnp
 
@@ -28,7 +26,6 @@ def test_steady_state_fills_unmeasured_species():
     assert y0[3] == pytest.approx(ss[3], rel=1e-12)
 
 
-@IC
 def test_estimate_policy_adds_bounded_parameters():
     from protwise.steady.initdata import InitialCondition
 
@@ -36,7 +33,6 @@ def test_estimate_policy_adds_bounded_parameters():
     assert ic.rules == ["estimate", "measured_t0", "measured_t0"] and ic.n_estimate == 1
 
 
-@IC
 def test_policy_recorded_and_configurable():
     from config.constants import IC_POLICY
 

@@ -134,6 +134,16 @@ use_custom_weights = false
 #   Fit only to data without regularization penalty.
 use_regularization = true
 
+# Initial conditions per species: a value measured at t = 0 is used as is; otherwise
+#   "steady_state" (default): the model's own steady state under the t = 0 inputs, computed
+#                 from the current parameters inside the objective (exact linear solve; e.g.
+#                 R(0) = A/B, since there is no RNA datum at t = 0);
+#   "estimate":   the initial value is a bounded free parameter (ic_estimate_bounds); opt-in.
+# The first observation is never shifted to t = 0. The rule used per species is recorded in
+# metadata.json (initial_conditions).
+ic_policy = "steady_state"
+ic_estimate_bounds = [0.001, 10.0]
+
 
 # ------------------------------------------------------------
 # COMPOSITE LOSS WEIGHTS

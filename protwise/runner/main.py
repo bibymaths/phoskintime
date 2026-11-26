@@ -281,7 +281,8 @@ def main(argv: list[str] | None = None):
         results.append(result)
 
     masked_targets = {str(r["gene"]): r.get("masked_targets", {}) for r in results if any(r.get("masked_targets", {}).values())}
-    update_metadata(out_dir, {"failed_genes": failed_genes, "masked_targets": masked_targets})
+    update_metadata(out_dir, {"failed_genes": failed_genes, "masked_targets": masked_targets,
+                              "initial_conditions": {str(r["gene"]): r.get("initial_conditions") for r in results}})
     if failed_genes:
         logger.error("%d gene(s) failed: %s (see metadata.json failed_genes)", len(failed_genes), sorted(failed_genes))
 

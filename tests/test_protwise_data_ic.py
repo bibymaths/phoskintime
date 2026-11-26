@@ -25,7 +25,8 @@ def test_randmod_single_site_subsets_and_fallback():
     np.testing.assert_allclose(y0, [1.0, 0.25, 0.4, 0.9, 0.0])  # protein t0 missing -> fallback kept
 
 
-def test_core_uses_data_initial_condition():
+def test_core_uses_the_initial_condition_policy():
+    """P4's t0 data now enter through the Round 2 IC policy (measured t0 first, then steady state / estimate)."""
     import protwise.paramest.core as core
 
-    assert "data_initial_condition(" in inspect.getsource(core.process_gene)
+    assert "InitialCondition(" in inspect.getsource(core.process_gene)

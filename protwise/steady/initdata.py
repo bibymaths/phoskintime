@@ -62,3 +62,81 @@ def data_initial_condition(gene, model, num_psites, protein_t0_series, site_seri
     if kept:
         logger.warning("[%s] Initial condition: no usable t0 datum for %s; kept the former constant (P4).", gene, kept)
     return y0.tolist()
+
+
+# --- Round 2, item 13: initial-condition policy (measured t0 → steady state or estimate) --------------------------
+
+def measured_t0_vector(model, num_psites, protein_t0_series, site_series):
+    """t0 values per state (NaN where not measured). R has no t0 datum (the first RNA time is later)."""
+    n = 2 + ((1 << int(num_psites)) - 1 if model == "randmod" else int(num_psites))
+    m = np.full(n, np.nan)
+    p0 = _t0(protein_t0_series)
+    if p0 is not None and np.isfinite(p0[0]) and p0[0] > 0:
+        m[1] = float(p0[0])
+    s0 = _t0(site_series) if num_psites else None
+    if num_psites and s0 is not None:
+        if model == "randmod":
+            from protwise.steady.initdata import randmod_states_from_occupancy
+
+            if np.all(np.isfinite(s0[:num_psites])) and np.isfinite(m[1]):
+                m[2:] = randmod_states_from_occupancy(s0[:num_psites], num_psites)
+        else:
+            for i in range(num_psites):
+                if i < s0.size and np.isfinite(s0[i]) and s0[i] >= 0:
+                    m[2 + i] = float(s0[i])
+    return m
+
+
+def randmod_states_from_occupancy(occ, num_psites):
+    """randmod t0 subset states from site occupancies (single-site subsets carry the site values, others 0)."""
+    from config.helpers import randmod_subset_masks
+
+    masks = randmod_subset_masks(num_psites)
+    out = np.zeros(len(masks))
+    for i in range(num_psites):
+        out[masks.index(1 << i)] = float(occ[i])
+    return out
+
+
+class InitialCondition:
+    """Callable initial state y0(params[, ic_params]) for a protwise gene under ``policy`` (Round 2, item 13)."""
+
+    def __init__(self, gene, model, num_psites, protein_t0_series, site_series, policy="steady_state"):
+        from common.initial_conditions import rules_for
+
+        self.gene, self.model, self.num_psites, self.policy = gene, model, int(num_psites), policy
+        self.measured = measured_t0_vector(model, num_psites, protein_t0_series, site_series)
+        self.state_dim = self.measured.size
+        self.rules = rules_for(self.measured, policy)
+        self.n_estimate = sum(r == "estimate" for r in self.rules)
+        self.estimated = None  # filled after a fit with policy "estimate"
+
+    def __call__(self, params, ic_params=None, xp=None):
+        import jax.numpy as jnp
+
+        from common.initial_conditions import initial_state, linear_steady_state
+        from protwise.models.diffrax_solver import make_local_model_rhs
+
+        xp = jnp if xp is None else xp
+        if self.policy == "steady_state":
+            rhs = make_local_model_rhs(self.model, self.num_psites)
+            steady = linear_steady_state(lambda y: rhs(0.0, y, jnp.asarray(params, dtype=jnp.float64)),
+                                         self.state_dim, jnp)
+            return initial_state(self.measured, policy="steady_state", steady=steady, xp=jnp)
+        est = self.estimated if ic_params is None else ic_params
+        full = jnp.zeros(self.state_dim, dtype=jnp.float64)
+        if self.n_estimate:
+            idx = np.flatnonzero(~np.isfinite(self.measured))
+            full = full.at[idx].set(jnp.asarray(est, dtype=jnp.float64))
+        return initial_state(self.measured, policy="estimate", estimated=full, xp=jnp)
+
+    def value(self, params):
+        """Numeric y0 at the given (final) parameters."""
+        return np.asarray(self(params), dtype=np.float64)
+
+    def record(self):
+        names = ["R", "P"] + [f"X{i}" for i in range(self.state_dim - 2)]
+        rec = {"policy": self.policy, "rules": dict(zip(names, self.rules))}
+        if self.estimated is not None:
+            rec["estimated"] = [float(v) for v in np.asarray(self.estimated)]
+        return rec

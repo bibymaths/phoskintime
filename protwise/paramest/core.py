@@ -9,7 +9,6 @@ from protwise.models.diagram import illustrate
 from protwise.paramest.toggle import estimate_parameters
 from protwise.sensitivity import sensitivity_analysis
 from protwise.models import solve_ode
-from protwise.steady import initial_condition
 from protwise.plotting import Plotter
 from config.logconf import setup_logger
 
@@ -80,13 +79,14 @@ def process_gene(
     # Get the FC value for TIME_POINTS_RNA
     R_data = rna_data.iloc[:, 1:].values
 
-    # Get initial conditions
-    # P4 (option b): the state at t0 is taken from the t0 data (former constant IC as fallback per state).
+    # Initial conditions. Round 2 item 13: per species, measured t0 value, else the ic_policy (default: the model's steady state from the
+    # current parameters, computed inside the objective). The numeric y0 at the final parameters is used afterwards.
+    from config.constants import IC_POLICY
     from protwise.models.diffrax_solver import _canonical_model_name
-    from protwise.steady.initdata import data_initial_condition
+    from protwise.steady.initdata import InitialCondition
 
-    init_cond = data_initial_condition(gene, _canonical_model_name(ODE_MODEL), num_psites, Pr_data, P_data,
-                                       initial_condition(num_psites))
+    ic = InitialCondition(gene, _canonical_model_name(ODE_MODEL), num_psites, Pr_data, P_data, policy=IC_POLICY)
+    init_cond = ic
 
     logger.info(f"[{gene}]      Fitting to data...")
 
@@ -114,6 +114,7 @@ def process_gene(
 
     # Solve Full ODE with Final Params
     final_params = np.asarray(estimated_params[-1])
+    init_cond = ic.value(final_params)  # numeric initial state at the fitted parameters (Round 2 item 13)
 
     # Insert labels of the protein and phosphorylation sites
     param_names = get_param_names(num_psites, ODE_MODEL)
@@ -245,6 +246,7 @@ def process_gene(
         "param_df": df_params,
         "gene_psite_data": gene_psite_dict_local,
         "mse": mse,
+        "initial_conditions": ic.record(),
         "masked_targets": masked_targets,
         "mae": mae,
         "pca_result": pca_result,

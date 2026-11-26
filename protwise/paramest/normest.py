@@ -178,11 +178,17 @@ def _masked_mse(pred, obs):
 
 def protwise_objective(theta, target, init_cond, num_psites, time_points, mode_weights, model_name: str | None = None):
     model = _canonical_model_name(model_name)
-    params = from_opt_space(theta, model)
+    if callable(init_cond):  # Round 2 item 13: initial state from the IC policy, from the current parameters
+        n_model = get_num_params(model, num_psites)
+        params = from_opt_space(jnp.asarray(theta)[:n_model], model)
+        y0 = init_cond(params, jnp.asarray(theta)[n_model:] if getattr(init_cond, "n_estimate", 0) else None)
+    else:
+        params = from_opt_space(theta, model)
+        y0 = jnp.asarray(init_cond, dtype=jnp.float64)
     rhs = make_local_model_rhs(model, num_psites)
     grid, t_idx, rna_idx = rna_time_grid(time_points, int(mode_weights["n_rna"]), mode_weights.get("rna_times"))
     sol = solve_diffrax(
-        jnp.asarray(init_cond, dtype=jnp.float64),
+        y0,
         jnp.asarray(grid, dtype=jnp.float64),
         params=params,
         rhs=rhs,
@@ -213,9 +219,11 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     """Estimate local-model parameters with a deterministic JAXopt projected-gradient path."""
     model = _canonical_model_name(ODE_MODEL)
     expected_state = 2 + ((1 << int(num_psites)) - 1 if model == "randmod" else int(num_psites))
-    if len(init_cond) != expected_state:
+    ic_dim = init_cond.state_dim if callable(init_cond) else len(init_cond)
+    if ic_dim != expected_state:
         raise ValueError(
-            f"[{gene}] Initial condition length {len(init_cond)} does not match {model} state dimension {expected_state}.")
+            f"[{gene}] Initial condition length {ic_dim} does not match {model} state dimension {expected_state}.")
+    n_ic = int(getattr(init_cond, "n_estimate", 0)) if callable(init_cond) and init_cond.policy == "estimate" else 0
 
     pr = np.asarray(pr_data, dtype=np.float64).reshape(-1)
     ph = np.asarray(p_data, dtype=np.float64).reshape(-1)
@@ -243,6 +251,12 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
     theta0 = to_opt_space(theta0_phys, model)
     lower_opt = to_opt_space(lower_phys, model)
     upper_opt = to_opt_space(upper_phys, model)
+    if n_ic:  # Round 2 item 13, ic_policy = "estimate": bounded free initial values for the unmeasured species
+        from config.constants import IC_ESTIMATE_BOUNDS
+
+        ic_lo = np.full(n_ic, float(IC_ESTIMATE_BOUNDS[0])); ic_hi = np.full(n_ic, float(IC_ESTIMATE_BOUNDS[1]))
+        theta0 = np.concatenate([theta0, 0.5 * (ic_lo + ic_hi)])
+        lower_opt = np.concatenate([lower_opt, ic_lo]); upper_opt = np.concatenate([upper_opt, ic_hi])
 
     target = {"mrna": jnp.asarray(mrna), "protein": jnp.asarray(pr), "phospho": jnp.asarray(ph)}
     masked = count_nan_targets(target)
@@ -253,12 +267,17 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
         return protwise_objective(x, target, init_cond, num_psites, time_points, mode, model)
 
     initial_value = float(objective(theta0))
-    scaled_initial_value = float(objective(np.clip(theta0_phys * 2.0, lower_phys, upper_phys)))
+    scaled_initial_value = float(objective(np.concatenate([np.clip(theta0_phys * 2.0, lower_phys, upper_phys),
+                                                           np.asarray(theta0)[n_params:]])))
     logger.info("[%s] Initial scalar objective value: %.8g", gene, initial_value)
     logger.info("[%s] Objective at doubled/clipped initial physical parameters: %.8g", gene, scaled_initial_value)
 
     best, state, value = optimize_scalar_objective(objective, theta0, lower_opt, upper_opt, maxiter=200, tol=1e-7,
                                                    logger_obj=logger)
+    best = np.asarray(best, dtype=np.float64)
+    if n_ic:
+        init_cond.estimated = np.clip(best[n_params:], lower_opt[n_params:], upper_opt[n_params:])
+        best = best[:n_params]
     final_params = np.asarray(from_opt_space(best, model), dtype=np.float64)
     final_params = np.clip(final_params, lower_phys, upper_phys)
     at_lower = np.mean(final_params <= (lower_phys + 1e-7 * np.maximum(1.0, np.abs(lower_phys))))
@@ -268,7 +287,8 @@ def normest(gene, pr_data, p_data, r_data, init_cond, num_psites, time_points, b
 
     rhs = make_local_model_rhs(model, num_psites)
     grid, t_idx, rna_idx = rna_time_grid(time_points, mrna.size)
-    sol_grid = np.asarray(solve_diffrax(np.asarray(init_cond, dtype=np.float64), grid,
+    y0_final = init_cond.value(final_params) if callable(init_cond) else np.asarray(init_cond, dtype=np.float64)
+    sol_grid = np.asarray(solve_diffrax(y0_final, grid,
                                         params=final_params, rhs=rhs, config=DiffraxSolverConfig()), dtype=np.float64)
     sol = sol_grid[t_idx]
     r_fit = sol_grid[rna_idx, 0].reshape(-1) if mrna.size else np.asarray([], dtype=np.float64)
