@@ -232,6 +232,37 @@ def _parse_hyperedge_preprocessing_config(cfg: dict[str, Any]) -> dict[str, Any]
     }
 
 
+# Keys load_config_toml reads directly from the [networkmodel] table (X8).
+_NETWORKMODEL_TOP_LEVEL_KEYS = frozenset({
+    "app_name", "version", "parent_package", "citation", "doi", "github_url", "docs_url", "cores", "seed",
+    "kinase_net", "tf_net", "ms", "rna", "phospho", "kinopt", "tfopt", "output_dir", "output_directory",
+    "normalize_fc_steady", "use_initial_condition_from_data", "hyperparam_scan", "n_gen", "loss", "n_starts",
+    "profile_likelihood", "profile_indices", "profile_grid_size", "posterior_sampling", "posterior_num_warmup",
+    "posterior_num_samples", "scaling_method", "weighting_method_protein", "weighting_method_rna",
+    "weighting_method_phospho", "sensitivity_analysis", "sensitivity_levels", "sensitivity_metric",
+    "sensitivity_perturbation", "sensitivity_top_curves", "sensitivity_trajectories", "enable_pinn",
+    "lambda_prior", "lambda_protein", "lambda_rna", "lambda_phospho",
+})
+
+
+def _warn_misplaced_networkmodel_keys(cfg: dict) -> None:
+    """Warn when a known [networkmodel] key sits in a sub-table, where the loader never reads it (X8)."""
+    import warnings
+
+    for sub_name, sub in cfg.items():
+        if not isinstance(sub, dict):
+            continue
+        # "rna"/"phospho"/"protein" are also legitimate time-grid names in [networkmodel.timepoints].
+        legit = {"rna", "phospho", "protein"} if sub_name == "timepoints" else set()
+        misplaced = sorted(k for k in sub if k in _NETWORKMODEL_TOP_LEVEL_KEYS and k not in legit)
+        if misplaced:
+            warnings.warn(
+                f"config: {misplaced} sit under [networkmodel.{sub_name}] but are read from [networkmodel]; "
+                "they are ignored there (see KNOWN_ISSUES.md X8).",
+                UserWarning, stacklevel=3,
+            )
+
+
 def load_config_toml(path: str | Path) -> PhosKinConfig:
     path = Path(path)
 
@@ -239,6 +270,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         full_cfg = tomllib.load(f)
 
     cfg = (full_cfg or {}).get("networkmodel", {}) or {}
+    _warn_misplaced_networkmodel_keys(cfg)
 
     # -------------------------
     # 0) Metadata

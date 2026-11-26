@@ -687,6 +687,67 @@ sensitivity_metric = "l2_norm"
 
 
 # ------------------------------------------------------------
+# INFERENCE / POST-OPTIMIZATION ANALYSES
+# ------------------------------------------------------------
+
+# Number of optimization restarts.
+#
+# 1:
+#   Single-start local optimization.
+#
+# >1:
+#   Multistart local optimization. Runs multiple initializations and keeps
+#   the best solution according to the scalar objective.
+#
+# Recommended:
+#   Use n_starts > 1 for non-convex ODE models.
+n_starts = 1
+
+
+# ------------------------------------------------------------
+# PROFILE LIKELIHOOD
+# ------------------------------------------------------------
+# Enable profile likelihood after optimization.
+#
+# false:
+#   Skip profile likelihood.
+#
+# true:
+#   Profile selected parameters listed in profile_indices.
+profile_likelihood = false
+
+# Comma-separated parameter indices to profile.
+#
+# Example:
+#   profile_indices = "0,1,5,10"
+#
+# Leave empty to disable profiling even if profile_likelihood is true.
+profile_indices = ""
+
+# Number of grid points per profiled parameter.
+# Higher values give smoother profiles but increase runtime.
+# (Was 5 under the wrong table, so every run used the loader default 10; X8.)
+profile_grid_size = 10
+
+
+# ------------------------------------------------------------
+# POSTERIOR SAMPLING
+# ------------------------------------------------------------
+# Enable posterior sampling after optimization.
+#
+# Requires NumPyro and a working posterior objective.
+# This is useful for uncertainty quantification, but is substantially slower
+# than deterministic optimization.
+posterior_sampling = false
+
+# Number of warmup/adaptation samples for posterior sampling.
+posterior_num_warmup = 20
+
+# Number of retained posterior samples.
+posterior_num_samples = 30
+
+
+# ------------------------------------------------------------
 # HYPEREDGE / NETWORK PREPROCESSING
 # ------------------------------------------------------------
 # Optional pure-JAX preprocessing that discovers, scores, prunes, annotates,
@@ -737,64 +798,6 @@ plot_generation = true
 csv_export = true
 
 
-# ------------------------------------------------------------
-# INFERENCE / POST-OPTIMIZATION ANALYSES
-# ------------------------------------------------------------
-
-# Number of optimization restarts.
-#
-# 1:
-#   Single-start local optimization.
-#
-# >1:
-#   Multistart local optimization. Runs multiple initializations and keeps
-#   the best solution according to the scalar objective.
-#
-# Recommended:
-#   Use n_starts > 1 for non-convex ODE models.
-n_starts = 1
-
-
-# ------------------------------------------------------------
-# PROFILE LIKELIHOOD
-# ------------------------------------------------------------
-# Enable profile likelihood after optimization.
-#
-# false:
-#   Skip profile likelihood.
-#
-# true:
-#   Profile selected parameters listed in profile_indices.
-profile_likelihood = false
-
-# Comma-separated parameter indices to profile.
-#
-# Example:
-#   profile_indices = "0,1,5,10"
-#
-# Leave empty to disable profiling even if profile_likelihood is true.
-profile_indices = ""
-
-# Number of grid points per profiled parameter.
-# Higher values give smoother profiles but increase runtime.
-profile_grid_size = 5
-
-
-# ------------------------------------------------------------
-# POSTERIOR SAMPLING
-# ------------------------------------------------------------
-# Enable posterior sampling after optimization.
-#
-# Requires NumPyro and a working posterior objective.
-# This is useful for uncertainty quantification, but is substantially slower
-# than deterministic optimization.
-posterior_sampling = false
-
-# Number of warmup/adaptation samples for posterior sampling.
-posterior_num_warmup = 20
-
-# Number of retained posterior samples.
-posterior_num_samples = 30
 
 
 # ------------------------------------------------------------
