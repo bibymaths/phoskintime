@@ -825,67 +825,11 @@ rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 # ------------------------------------------------------------
 # PARAMETER BOUNDS
 # ------------------------------------------------------------
-# Bounds define the feasible range for each optimized parameter group.
-#
-# Keep bounds biologically plausible but not so tight that the optimizer
-# cannot fit real dynamics.
-#
-# Format:
-#   parameter = [lower_bound, upper_bound]
-[networkmodel.bounds]
-
-# Kinase activity multiplier.
-# Scales kinase input/activity relative to the prior/default.
-#
-# Recommended:
-#   Lower bound > 0 to avoid inactive or numerically unstable kinase drivers.
-#   Upper bound around 4.0 allows strong but not extreme activation.
-c_k = [1e-3, 4.0]
-
-# Basal transcription rate.
-# Controls mRNA production.
-#
-# Wide range allows both low- and high-expression genes.
-A_i = [1e-6, 10.0]
-
-# mRNA degradation rate.
-# Controls RNA decay.
-#
-# Approximate interpretation:
-#   1e-3 = slow degradation
-#   1.0  = fast degradation
-B_i = [1e-3, 1.0]
-
-# Translation rate.
-# Controls protein production from mRNA.
-#
-# Keep the upper bound moderate to avoid unrealistic protein blow-up.
-C_i = [1e-3, 2.0]
-
-# Protein degradation/deactivation rate.
-# Controls decay/reset of protein-level state.
-#
-# Avoid extremely small lower bounds if long-term simulations show runaway
-# or non-decaying protein trajectories.
-D_i = [0.1, 0.5]
-
-# Phosphosite dephosphorylation rate.
-# Usually faster than total protein degradation/deactivation.
-Dp_i = [0.05, 5.0]
-
-# Initial condition / state scaling parameter.
-# Allows protein-specific adjustment of initial state magnitude.
-#
-# Use a positive lower bound to avoid zero-state collapse.
-E_i = [1e-4, 10.0]
-
-# Global TF scaling parameter.
-# Controls the strength of transcriptional regulatory coupling.
-#
-# Current bounds allow positive amplification only.
-# If signed TF scaling is intended, use symmetric bounds such as [-2.0, 2.0]
-# and confirm the model equations support negative values.
-tf_scale = [2.0, 10.0]
+# The optimizer bounds of all eight parameter groups (A_i, B_i, C_i, D_i, E_i,
+# c_k, tf_scale, Dp_i) are computed from the data and network by
+# networkmodel.utils.calculate_bio_bounds and logged at the start of each run;
+# they are recorded in metadata.json (effective_settings.bounds). A bounds
+# table under [networkmodel] is not used and is rejected (KNOWN_ISSUES N2).
 
 
 # ------------------------------------------------------------

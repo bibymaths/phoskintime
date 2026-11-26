@@ -51,8 +51,6 @@ TIME_POINTS_RNA = cfg.time_points_rna
 # TIME_POINTS_PHOSPHO: np.ndarray; default cfg.time_points_phospho; controls phospho observation times in minutes.
 TIME_POINTS_PHOSPHO = cfg.time_points_phospho
 
-# BOUNDS_CONFIG: dict[str, tuple[float, float]]; default cfg.bounds_config; controls projected optimizer bounds by parameter group.
-BOUNDS_CONFIG = cfg.bounds_config
 
 # MODEL: int; default derived from cfg.model; controls internal topology code where 0 distributive, 1 sequential, 2 combinatorial, and 4 saturation.
 MODEL = 0 if cfg.model == "distributive" else (

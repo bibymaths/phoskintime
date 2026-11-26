@@ -2,7 +2,6 @@
 
 import numpy as np
 
-from networkmodel.config import BOUNDS_CONFIG
 from networkmodel.utils import inv_softplus, softplus
 
 
@@ -39,11 +38,11 @@ def init_raw_params(defaults, custom_bounds=None):
         slices[k] = slice(curr, curr + length)
         curr += length
 
-        # Determine physical bounds: Priority: Custom Bounds > Global Config
-        if k in custom_bounds:
-            phys_min, phys_max = custom_bounds[k]
-        else:
-            phys_min, phys_max = BOUNDS_CONFIG[k]
+        # Physical bounds come from calculate_bio_bounds (N2); there is no config fallback.
+        if k not in custom_bounds:
+            raise ValueError(f"No bounds for parameter group {k!r}: pass calculate_bio_bounds(...) as custom_bounds "
+                             "(see KNOWN_ISSUES.md N2).")
+        phys_min, phys_max = custom_bounds[k]
 
         # Convert physical bounds to raw (softplus-inverse) space
         # We assume bounds are uniform for all elements in the vector 'k'

@@ -346,12 +346,13 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
         else:
             bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 10.0))
 
+    # Log the final bounds of all eight groups (after model-specific adjustments) (N2).
     logger.info("-" * 60)
-    logger.info(f"{'Param':<10} | {'Min':<10} | {'Max':<10} | {'Constraint Logic'}")
+    logger.info(f"{'Param':<10} | {'Min':<10} | {'Max':<10}")
     logger.info("-" * 60)
-    logger.info(f"{'C_i':<10} | {c_min:<10.4f} | {c_max:<10.4f} | {'Linked to D_max * MaxFC'}")
-    logger.info(f"{'D_i':<10} | {d_min:<10.4f} | {d_max:<10.4f} | {'Floor raised to 0.01'}")
-    logger.info(f"{'tf_scale':<10} | {tf_scale_min:<10.3f} | {tf_scale_max:<10.3f} | {'Clamped for stability'}")
+    for name in ("A_i", "B_i", "C_i", "D_i", "E_i", "c_k", "tf_scale", "Dp_i"):
+        lo, hi = bounds_dict[name]
+        logger.info(f"{name:<10} | {lo:<10.4g} | {hi:<10.4g}")
     logger.info("=" * 60)
 
     return bounds_dict

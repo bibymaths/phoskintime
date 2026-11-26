@@ -347,12 +347,13 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # -------------------------
     # 9) Bounds
     # -------------------------
-    b = cfg.get("bounds", {}) or {}
+    if cfg.get("bounds"):
+        raise ValueError(
+            "[networkmodel.bounds] is not used: the optimizer bounds are computed from the data by "
+            "networkmodel.utils.calculate_bio_bounds (logged at run start, recorded in metadata.json). "
+            "Remove the [networkmodel.bounds] table; see KNOWN_ISSUES.md N2."
+        )
     bounds_config: dict[str, tuple[float, float]] = {}
-    for k, v in b.items():
-        if not (isinstance(v, list) and len(v) == 2):
-            raise ValueError(f"bounds.{k} must be a 2-element array [min, max], got: {v}")
-        bounds_config[k] = (float(v[0]), float(v[1]))
 
     # -------------------------
     # 10) Scaling & weighting
