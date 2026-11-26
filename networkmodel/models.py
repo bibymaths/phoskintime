@@ -403,13 +403,11 @@ def combinatorial_rhs(
                 dy[base + m] -= flux
                 dy[base + to] += flux
 
-                # per-site decay contribution (sink)
-                # Added protein degradation term to each phospho state decay
-                # Explanation - Phosphorylated protein is still the same protein, but has a different state
-                dp_rate += Dp_i[s_start + j] + Di
+                # per-site loss of the phosphorylated form (sink); Dp only (N9)
+                dp_rate += Dp_i[s_start + j]
 
-            # apply summed per-site decay to this mask
-            dy[base + m] -= dp_rate * Pm
+            # decay of state m = D_i (protein turnover, once per molecule; N9) + sum of its sites' Dp
+            dy[base + m] -= (Di + dp_rate) * Pm
 
         # --- Phosphorylation Loop (Forward Transitions) ---
         # Enumerate the same hypercube edges in the same order as the former

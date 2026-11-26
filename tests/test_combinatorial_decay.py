@@ -6,8 +6,6 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
-N9 = pytest.mark.xfail(reason="N9: D_i counted once per set bit", strict=True)
-
 
 def _sys(model, n_sites):
     nst = 2 ** n_sites
@@ -43,11 +41,10 @@ def _solve(rhs, y0, par, ts, rtol=1e-12):
 
     from networkmodel.backend import DiffraxSolverConfig, solve_diffrax
 
-    cfg = DiffraxSolverConfig(solver_name="Kvaerno5", rtol=rtol, atol=1e-14, max_steps=1_000_000)
+    cfg = DiffraxSolverConfig(solver_name="Kvaerno5", rtol=rtol, atol=1e-16, max_steps=1_000_000)
     return np.asarray(solve_diffrax(jnp.asarray(y0), jnp.asarray(ts), params=par, rhs=rhs, config=cfg))
 
 
-@N9
 def test_a_total_protein_decays_at_D(monkeypatch):
     """(a) all transition/synthesis rates zero, Dp = 0: total protein decays at exactly D_i for any initial
     distribution over the 2^3 states."""
@@ -55,7 +52,7 @@ def test_a_total_protein_decays_at_D(monkeypatch):
     D = 0.3
     y0 = np.concatenate([[0.0], np.random.default_rng(1).uniform(0.1, 1.0, 8)])  # R = 0, all masks populated
     ts = np.linspace(0.0, 10.0, 21)
-    Y = _solve(rhs, y0, _par(3, D_i=[D]), ts)
+    Y = _solve(rhs, y0, _par(3, D_i=[D]), ts, rtol=1e-14)
     total = Y[:, 1:].sum(axis=1)
     np.testing.assert_allclose(total, total[0] * np.exp(-D * ts), rtol=1e-10)
 

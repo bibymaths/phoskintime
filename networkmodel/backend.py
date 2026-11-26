@@ -405,8 +405,8 @@ def make_networkmodel_rhs(sys, slices=None):
                     dy_block = dy_block - flux_back
                     dy_block = dy_block.at[to_clear].add(flux_back)
 
-                    # Per-site phospho-state decay for states where bit is set.
-                    decay = (par["Dp_i"][flat_j] + par["D_i"][i]) * from_set
+                    # Per-site loss of the phosphorylated form for states where bit is set (Dp only; N9).
+                    decay = par["Dp_i"][flat_j] * from_set
                     dy_block = dy_block - decay
 
                     # Phosphorylation transition:
@@ -417,6 +417,10 @@ def make_networkmodel_rhs(sys, slices=None):
 
                     dy_block = dy_block - flux_fwd
                     dy_block = dy_block.at[to_set].add(flux_fwd)
+
+                # Protein degradation D_i once per molecule for every phosphorylated state (N9); mask 0
+                # already has -D_i * P[0] above. Decay of state m = D_i + sum_{j in m} Dp_i[j].
+                dy_block = dy_block - par["D_i"][i] * jnp.where(states > 0, P, 0.0)
 
                 dy = dy.at[p0:p0 + nst_i].add(dy_block)
             elif model_id == 1:
