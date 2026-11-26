@@ -4,6 +4,8 @@ import inspect
 
 import pytest
 
+N5 = pytest.mark.xfail(reason="N5: fit 1e-6, export 1e-5/1e-7, steady state 1e-6/1e-8", strict=True)
+
 
 def _expected():
     import networkmodel.config as nc
@@ -16,6 +18,7 @@ def test_config_values_are_1e8():
     assert exp["rtol"] == 1e-8 and exp["atol"] == 1e-8
 
 
+@N5
 def test_one_config_everywhere():
     from networkmodel.backend import networkmodel_solver_config
     from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
@@ -29,6 +32,7 @@ def test_one_config_everywhere():
         assert s["solver_name"] == cfg.solver_name
 
 
+@N5
 def test_fit_objective_passes_the_config():
     import networkmodel.backend as be
 

@@ -12,11 +12,8 @@ from config.config import setup_logger
 logger = setup_logger(log_dir=RESULTS_DIR)
 
 
-# Solver settings of the 14-day steady-state simulation = the fit's (N5); the dense grid is a SaveAt only.
-from networkmodel.config import ODE_ABS_TOL as _ATOL, ODE_MAX_STEPS as _MAXS, ODE_REL_TOL as _RTOL  # noqa: E402
-
-STEADY_STATE_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": float(_RTOL), "atol": float(_ATOL),
-                                "max_steps": int(_MAXS)}
+# Solver settings of the 14-day steady-state simulation; recorded in metadata.json.
+STEADY_STATE_SOLVER_SETTINGS = {"solver_name": "Kvaerno4", "rtol": 1e-6, "atol": 1e-8, "max_steps": 50000}
 
 def _pinn_mode(pinn_config) -> str:
     if pinn_config is None:

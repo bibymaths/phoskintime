@@ -326,6 +326,49 @@ def make_networkmodel_rhs(sys, slices=None):
             R = y[off]
             synth = _synth(par["A_i"][i], par["tf_scale"], TF_inputs[i])
             dy = dy.at[off].set(synth - par["B_i"][i] * R)
+            # if model_id == 2:
+            #     # Combinatorial model: mirror models.combinatorial_rhs for the
+            #     # Diffrax/JAX path. Translation feeds only mask 0, while explicit
+            #     # phosphorylation transitions and implicit bit dephosphorylation
+            #     # transitions move mass among all 2^n mask states.
+            #     p0 = off + 1
+            #     nst = n_states[i]
+            #     if max_states > 0:
+            #         P0 = y[p0]
+            #         dy = dy.at[p0].add(par["C_i"][i] * R - par["D_i"][i] * P0)
+            #
+            #     # Dephosphorylation and per-site phospho-state decay for masks m > 0.
+            #     for m in range(1, max_states):
+            #         valid_m = m < nst
+            #         pos_m = jnp.minimum(p0 + m, y.shape[0] - 1)
+            #         Pm = jnp.where(valid_m, y[pos_m], 0.0)
+            #         dp_rate = 0.0
+            #         for j in range(max_sites):
+            #             bit_set = ((m >> j) & 1) != 0
+            #             valid_bit = valid_m & (j < ns) & bit_set
+            #             flat_j = jnp.minimum(s_off + j, par["Dp_i"].shape[0] - 1)
+            #             to = m ^ (1 << j)
+            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
+            #             flux = jnp.where(valid_bit, par["E_i"][i] * Pm, 0.0)
+            #             dy = dy.at[pos_m].add(-flux)
+            #             dy = dy.at[pos_to].add(flux)
+            #             dp_rate = dp_rate + jnp.where(valid_bit, par["Dp_i"][flat_j] + par["D_i"][i], 0.0)
+            #         dy = dy.at[pos_m].add(-dp_rate * Pm)
+            #
+            #     # Explicit phosphorylation transitions, generated per protein
+            #     # in the same mask/site order as the historical dense arrays.
+            #     for m in range(max_states):
+            #         valid_m = m < nst
+            #         for j in range(max_sites):
+            #             bit_unset = ((m >> j) & 1) == 0
+            #             valid_tr = valid_m & (j < ns) & bit_unset
+            #             to = m | (1 << j)
+            #             pos_frm = jnp.minimum(p0 + m, y.shape[0] - 1)
+            #             pos_to = jnp.minimum(p0 + to, y.shape[0] - 1)
+            #             flat_j = jnp.minimum(s_off + j, S_all.shape[0] - 1)
+            #             flux = jnp.where(valid_tr, S_all[flat_j] * y[pos_frm], 0.0)
+            #             dy = dy.at[pos_frm].add(-flux)
+            #             dy = dy.at[pos_to].add(flux)
             if model_id == 2:
                 # Vectorized combinatorial MODEL == 2 RHS.
                 # This avoids Python loops over max_states inside JAX tracing.
@@ -428,15 +471,6 @@ def make_networkmodel_rhs(sys, slices=None):
         return dy
 
     return rhs
-
-
-def networkmodel_solver_config() -> DiffraxSolverConfig:
-    """The one networkmodel solver configuration (N5): [networkmodel.solver] tolerances and max_steps,
-    used by the fit, the export, the steady-state run, sensitivity and the posterior/profile rebuild."""
-    from networkmodel.config import ODE_ABS_TOL, ODE_MAX_STEPS, ODE_REL_TOL
-
-    return DiffraxSolverConfig(solver_name="Kvaerno4", rtol=float(ODE_REL_TOL), atol=float(ODE_ABS_TOL),
-                               max_steps=int(ODE_MAX_STEPS))
 
 
 def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
@@ -901,17 +935,16 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
             f"Initial state dimension {y0.shape[0]} does not match prot_map-derived dimension {state_dim}.")
     model_rhs = make_networkmodel_rhs(sys, slices) if sys is not None and slices is not None else None
     defaults_j = _defaults_vector_jax(defaults, slices)
-    solver_cfg = networkmodel_solver_config()  # N5: same config as export and diagnostics
 
     def objective(theta):
         theta = jnp.asarray(theta, dtype=jnp.float64)
         if model_rhs is not None:
             physical_params = _unpack_theta_jax(theta, slices)
             rates = _flatten_params_for_slices_jax(physical_params, slices)
-            Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs, config=solver_cfg)
+            Y = solve_diffrax(y0, t, params=theta, rhs=model_rhs)
         else:
             rates = jax.nn.softplus(theta)
-            Y = solve_diffrax(y0, t, params=rates, config=solver_cfg)
+            Y = solve_diffrax(y0, t, params=rates)
         if Y.shape[1] != state_dim:
             raise ValueError(f"Solved trajectory state width {Y.shape[1]} does not match expected {state_dim}.")
         total, breakdown = multimodal_loss_from_trajectory(

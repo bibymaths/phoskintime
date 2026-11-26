@@ -373,7 +373,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
     import numpy as np
 
     from common.results import update_metadata
-    from networkmodel.backend import networkmodel_solver_config
+    from networkmodel.backend import DiffraxSolverConfig
     from networkmodel.config import SCALING_METHOD
     from networkmodel.SteadyStateAnalysis import STEADY_STATE_SOLVER_SETTINGS
     from networkmodel.simulate import EXPORT_SOLVER_SETTINGS
@@ -399,7 +399,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
                          "penalty (networkmodel.backend objective)",
         "lambdas": {"protein": float(args.lambda_protein), "rna": float(args.lambda_rna),
                     "phospho": float(args.lambda_phospho), "prior": float(args.lambda_prior)},
-        "solver_fit": asdict(networkmodel_solver_config()),
+        "solver_fit": asdict(DiffraxSolverConfig()),
         "solver_export_observation_times": dict(EXPORT_SOLVER_SETTINGS),
         "solver_steady_state": dict(STEADY_STATE_SOLVER_SETTINGS),
         "bounds_source": "networkmodel.utils.calculate_bio_bounds (data-derived)",

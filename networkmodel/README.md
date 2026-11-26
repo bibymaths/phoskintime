@@ -103,8 +103,6 @@ degradation, applied to every state; `Dp_i[s]` = extra per-site loss of the phos
 - $\rho_g$: basal protein turnover (for total protein).
 - $\kappa_{g,s}$: effective forward phosphorylation rate scaling for site/state $s$ (often absorbed into $\pi_{g,s}$
   depending on implementation).
-For the combinatorial model the decay of state $m$ is $\gamma_{g,m} = D_i + \sum_{s \in m} \mathrm{Dp}_i[s]$: protein
-turnover $D_i$ once per molecule, independent of phosphorylation, plus the loss of each phosphorylated site (N9).
 
 The propensities $\pi_{g,s}(t)$ drive forward fluxes; dephosphorylation provides reverse fluxes.
 
