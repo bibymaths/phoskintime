@@ -150,14 +150,14 @@ class InitialCondition:
     def __call__(self, params, ic_params=None, xp=None):
         import jax.numpy as jnp
 
-        from common.initial_conditions import initial_state, linear_steady_state
+        from common.initial_conditions import conditional_linear_steady_state, initial_state
         from protwise.models.diffrax_solver import make_local_model_rhs
 
         xp = jnp if xp is None else xp
         if self.policy == "steady_state":
             rhs = make_local_model_rhs(self.model, self.num_psites)
-            steady = linear_steady_state(lambda y: rhs(0.0, y, jnp.asarray(params, dtype=jnp.float64)),
-                                         self.state_dim, jnp)
+            steady = conditional_linear_steady_state(
+                lambda y: rhs(0.0, y, jnp.asarray(params, dtype=jnp.float64)), self.measured, jnp)
             return initial_state(self.measured, policy="steady_state", steady=steady, xp=jnp)
         est = self.estimated if ic_params is None else ic_params
         full = jnp.zeros(self.state_dim, dtype=jnp.float64)
@@ -167,8 +167,12 @@ class InitialCondition:
         return initial_state(self.measured, policy="estimate", estimated=full, xp=jnp)
 
     def value(self, params):
-        """Numeric y0 at the given (final) parameters."""
-        return np.asarray(self(params), dtype=np.float64)
+        """Numeric y0 at the given (final) parameters; a non-finite value is an error, never used silently."""
+        y0 = np.asarray(self(params), dtype=np.float64)
+        if not np.all(np.isfinite(y0)):
+            raise RuntimeError(f"[{self.gene}] Initial state under ic_policy={self.policy!r} is not finite at the fitted "
+                               f"parameters ({y0.tolist()}); the steady-state block is singular (a rate at a zero bound).")
+        return y0
 
     def record(self):
         names = ["R", "P"] + [f"X{i}" for i in range(self.state_dim - 2)]
