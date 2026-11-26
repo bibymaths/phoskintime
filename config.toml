@@ -84,8 +84,9 @@ protein_deg = 20
 phospho_prod = 20
 
 # Maximum phospho-state degradation rate D(i) (loss of the phosphorylated form).
-# Dephosphorylation itself is a fixed rate of 1.0 per minute in the protwise
-# models, not a fitted parameter (KNOWN_ISSUES P9).
+# Dephosphorylation itself is a fixed rate k = 1.0 per minute in the protwise
+# models, not a fitted parameter: it is not identifiable from these data
+# (KNOWN_ISSUES P9: a fitted k stayed at 1.04-1.27 without improving the fit).
 phospho_deg = 20
 
 

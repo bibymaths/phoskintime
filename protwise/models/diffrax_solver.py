@@ -17,6 +17,8 @@ def _canonical_model_name(model_name: str | None) -> str:
     return aliases.get(model, model)
 
 
+# Dephosphorylation rate k = 1.0 /min is a fixed constant in all three local models (the "1.0" below), not a fitted
+# parameter: it is not identifiable from the current data (KNOWN_ISSUES P9; fitted k 1.04-1.27, no improvement).
 def _dist_rhs(t, y, params, num_psites: int):
     A, B, C, D = params[0], params[1], params[2], params[3]
     s = params[4: 4 + num_psites]

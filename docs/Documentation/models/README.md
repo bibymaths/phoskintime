@@ -14,7 +14,9 @@ mechanistic hypothesis about how phosphorylation occurs.
 - $A, B, C, D$: rate constants
 - $S_i$: phosphorylation rate for site $i$
 - $D_i$: degradation rate of the phosphorylated form at site $i$; dephosphorylation is the fixed rate 1 in
-  $(1 + D_i)$ (KNOWN_ISSUES P9)
+  $(1 + D_i)$ (KNOWN_ISSUES P9). The 1 is a fixed constant k = 1.0 min⁻¹, not a fitted parameter: in a test on
+  three genes (ABL2, MAPK1, GRK2) a fitted k stayed near 1 (1.04–1.27), did not lower the objective, and was not
+  identifiable from these data (flat directions of the objective's Hessian).
 
 Equations:
 
