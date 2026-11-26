@@ -9,7 +9,7 @@ def test_networkmodel_effective_settings_written(tmp_path):
     from common.results import write_metadata
     from networkmodel.runner import _record_effective_settings
 
-    write_metadata(tmp_path, workflow="test")
+    write_metadata(tmp_path, workflow="test", extra={"effective_settings": {"cores": 80, "model": "distributive"}})
     args = SimpleNamespace(output_dir=str(tmp_path), lambda_protein=1.0, lambda_rna=1.0, lambda_phospho=1.0,
                            lambda_prior=0.1, seed=42, pinn_seed=42, model_code=0)
     slices = {"A_i": slice(0, 2), "c_k": slice(2, 3)}
@@ -25,6 +25,7 @@ def test_networkmodel_effective_settings_written(tmp_path):
     assert eff["weighting"] == {"protein": "uniform", "rna": "uniform"}
     assert eff["seeds"]["seed"] == 42 and "kinase_drive" in eff and "scaling_method" in eff
     assert "weighted mean squared error" in eff["loss_function"]
+    assert eff["cores"] == 80 and eff["model"] == "distributive"  # existing block is merged, not replaced
 
 
 def test_protwise_effective_settings():

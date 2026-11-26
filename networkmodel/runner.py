@@ -386,7 +386,15 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
                 lo, hi = custom_bounds[name]
                 entry.update({"physical_lower": float(lo), "physical_upper": float(hi)})
             bounds[name] = entry
-    update_metadata(args.output_dir, {"effective_settings": {
+    # Merge into the existing effective_settings block (written by initialize_run_contract), never replace it.
+    import json as _json
+    from pathlib import Path as _Path
+
+    _meta_path = _Path(args.output_dir) / "metadata.json"
+    _existing = {}
+    if _meta_path.is_file():
+        _existing = dict(_json.loads(_meta_path.read_text(encoding="utf-8")).get("effective_settings") or {})
+    update_metadata(args.output_dir, {"effective_settings": _existing | {
         "loss_function": "weighted mean squared error per modality (protein, RNA, phospho) + lambda_prior * prior "
                          "penalty (networkmodel.backend objective)",
         "lambdas": {"protein": float(args.lambda_protein), "rna": float(args.lambda_rna),
@@ -401,7 +409,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "kinase_drive": "zero-order hold at the kinase knots (searchsorted side='right'); value held after the last "
                         "knot; no jump_ts",
         "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
-        "model": int(args.model_code) if hasattr(args, "model_code") else None,
+        "model_code": int(args.model_code) if hasattr(args, "model_code") else None,
     }})
 
 
