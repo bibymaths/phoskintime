@@ -22,7 +22,7 @@ BASELINE_TIMES = {
 FC_FLOOR = 1e-12
 # Data baselines with |value| below this (or not finite) are not divided by: the series is skipped and counted.
 # Set by [networkmodel] fc_baseline_near_zero (default 1e-12, the value in effect since N7).
-from networkmodel.config import FC_BASELINE_NEAR_ZERO as DATA_BASELINE_NEAR_ZERO  # noqa: E402
+from networkmodel.config import FC_BASELINE_NEAR_ZERO as DATA_BASELINE_NEAR_ZERO  # noqa: E402, F401
 
 
 def baseline_index(times, layer: str, baseline_times=None):

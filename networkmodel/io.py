@@ -1,6 +1,7 @@
 """Load network, protein, RNA, and phospho input tables from configured paths; it does not describe planned backends or execute unrelated optimization workflows on import, and it depends on networkmodel.config, networkmodel.utils."""
 
 import os
+import numpy as np
 import pandas as pd
 import re
 from networkmodel.utils import _normcols, _find_col, process_and_scale_raw_data

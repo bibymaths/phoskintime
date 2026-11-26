@@ -33,15 +33,13 @@ from networkmodel.backend import detect_data_mode
 from networkmodel.cache import prepare_fast_loss_data
 from networkmodel.config import (
     TIME_POINTS_PROTEIN,
-    TIME_POINTS_RNA,
-    TIME_POINTS_PHOSPHO,
     WEIGHTING_METHOD_PROTEIN,
     WEIGHTING_METHOD_RNA,
 )
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.params import init_raw_params
-from networkmodel.utils import normalize_fc_to_t0, _base_idx, calculate_bio_bounds
+from networkmodel.utils import normalize_fc_to_t0, calculate_bio_bounds
 
 from config.config import setup_logger
 
