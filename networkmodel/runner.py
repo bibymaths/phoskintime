@@ -407,6 +407,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "bounds": bounds,
         "weighting": {"protein": str(weight_cfg.get("protein")), "rna": str(weight_cfg.get("rna"))},
         "scaling_method": str(SCALING_METHOD),
+        "fc_baseline_near_zero": float(_nmc.FC_BASELINE_NEAR_ZERO),
         "time_points": {layer: [float(x) for x in getattr(args, f"time_points_{layer}", default)]
                         for layer, default in (("protein", _nmc.TIME_POINTS_PROTEIN), ("rna", _nmc.TIME_POINTS_RNA),
                                                ("phospho", _nmc.TIME_POINTS_PHOSPHO))},

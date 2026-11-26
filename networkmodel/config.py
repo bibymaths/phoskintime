@@ -120,6 +120,9 @@ POSTERIOR_NUM_SAMPLES = int(getattr(cfg, "posterior_num_samples", 30))
 
 # SCALING_METHOD: str; default "none"; controls raw-data scaling before loss preparation.
 SCALING_METHOD = getattr(cfg, "scaling_method", "none")
+# FC_BASELINE_NEAR_ZERO: float; data series whose baseline |value| is below this (or not finite) are skipped by
+# fc_start scaling (N7, item 6b).
+FC_BASELINE_NEAR_ZERO = float(getattr(cfg, "fc_baseline_near_zero", 1e-12))
 # WEIGHTING_METHOD_PROTEIN: str; default "uniform"; controls protein time-point weights.
 WEIGHTING_METHOD_PROTEIN = getattr(cfg, "weighting_method_protein", "uniform")
 # WEIGHTING_METHOD_RNA: str; default "uniform"; controls RNA time-point weights.

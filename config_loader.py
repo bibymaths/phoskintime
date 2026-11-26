@@ -139,6 +139,7 @@ class PhosKinConfig:
 
     # Data scaling & weighting
     scaling_method: str = "none"
+    fc_baseline_near_zero: float = 1e-12
     weighting_method_protein: str = "uniform"
     weighting_method_rna: str = "uniform"
     weighting_method_phospho: str = "uniform"
@@ -391,6 +392,9 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # 10) Scaling & weighting
     # -------------------------
     scaling_method = str(cfg.get("scaling_method", "none"))
+    fc_baseline_near_zero = float(cfg.get("fc_baseline_near_zero", 1e-12))
+    if not fc_baseline_near_zero >= 0.0:
+        raise ValueError(f"[networkmodel] fc_baseline_near_zero must be >= 0, got {fc_baseline_near_zero}.")
     weighting_method_protein = str(cfg.get("weighting_method_protein", "uniform"))
     weighting_method_rna = str(cfg.get("weighting_method_rna", "uniform"))
     weighting_method_phospho = str(cfg.get("weighting_method_phospho", "uniform"))
@@ -491,6 +495,7 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         posterior_num_samples=posterior_num_samples,
 
         scaling_method=scaling_method,
+        fc_baseline_near_zero=fc_baseline_near_zero,
 
         weighting_method_protein=weighting_method_protein,
         weighting_method_rna=weighting_method_rna,

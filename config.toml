@@ -624,6 +624,11 @@ use_initial_condition_from_data = true
 # or missing baseline are skipped and counted (logged, metadata.json "scaling"). Previously "raw".
 scaling_method = "fc_start"
 
+# fc_start: a data series whose value at the baseline time is not finite or has |value| below
+# this threshold is skipped (counted in the log and in metadata.json "scaling"), never divided
+# by. 1e-12 is the value in effect since N7; fold-change data are of order 1.
+fc_baseline_near_zero = 1e-12
+
 
 # ------------------------------------------------------------
 # DATA WEIGHTING

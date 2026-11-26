@@ -46,3 +46,12 @@ def test_fc_start_skips_bad_baselines_and_counts_them():
     assert set(out["GeneID"]) == {"A"}
     np.testing.assert_allclose(out.sort_values("time")["fc"].to_numpy(), [1.0, 2.0, 0.5])
     assert report["skipped_series"] == 3 and report["baseline_time"] == 0.0
+
+
+def test_near_zero_threshold_is_a_config_key():
+    from config_loader import load_config_toml
+
+    import networkmodel.baselines as nb
+
+    assert load_config_toml(ROOT / "config.toml").fc_baseline_near_zero == 1e-12
+    assert isinstance(nb.DATA_BASELINE_NEAR_ZERO, float)
