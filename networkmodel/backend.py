@@ -751,7 +751,7 @@ class JaxoptResult:
 
 
 def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20000, tol=1e-6, fixed_mask=None,
-                              fixed_values=None, logger_obj=None, verbose=1):
+                              fixed_values=None, logger_obj=None, verbose=0):
     """Optimize a scalar objective with jaxopt.ProjectedGradient
     
     Args:
@@ -764,7 +764,8 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         fixed_mask: Input value used by this routine.
         fixed_values: Input value used by this routine.
         logger_obj: Input value used by this routine.
-        verbose: Input value used by this routine.
+        verbose: jaxopt per-iteration printing (0 = off). Printing is a host callback, and JAX does
+            not write executables with host callbacks to the persistent compilation cache.
     
     Returns:
         Computed result from this routine.
@@ -799,7 +800,7 @@ def optimize_scalar_objective(objective_fun, theta0, lower, upper, *, maxiter=20
         maxiter=maxiter,
         maxls=30,  # max line search steps per iteration
         tol=tol,
-        verbose=1,
+        verbose=verbose,
         implicit_diff=True,
         jit=True,
     )

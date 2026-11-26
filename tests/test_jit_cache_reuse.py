@@ -61,3 +61,24 @@ def test_configure_cache_sets_jax_config(tmp_path):
     finally:
         jax.config.update("jax_compilation_cache_dir", old_dir)
         jax.config.update("jax_persistent_cache_min_compile_time_secs", old_min)
+
+
+def test_optimizer_has_no_host_callback_by_default(monkeypatch):
+    """PERF-1c: jaxopt printing (a host callback) is off unless asked for."""
+    import jaxopt
+    import numpy as np
+    import jax.numpy as jnp
+    from networkmodel.backend import optimize_scalar_objective
+
+    seen = []
+    real = jaxopt.ProjectedGradient
+
+    def spy(*a, **k):
+        seen.append(k.get("verbose"))
+        return real(*a, **k)
+
+    monkeypatch.setattr(jaxopt, "ProjectedGradient", spy)
+    optimize_scalar_objective(lambda x: jnp.sum((x - 0.3) ** 2), np.ones(2) * 0.5, np.zeros(2), np.ones(2), maxiter=2)
+    optimize_scalar_objective(lambda x: jnp.sum((x - 0.3) ** 2), np.ones(2) * 0.5, np.zeros(2), np.ones(2), maxiter=2,
+                              verbose=1)
+    assert seen == [0, 1]
