@@ -22,12 +22,14 @@ jobs:
           pixi-version: latest
           cache: true
 
-      - name: Install Pixi environment
-        run: pixi install
+      # The dev environment has pytest; --locked fails if pixi.lock does not match pixi.toml, so the lock attached
+      # to the release is the one the tests ran with.
+      - name: Install Pixi dev environment
+        run: pixi install -e dev --locked
 
+      # A test failure fails the workflow: no release is created.
       - name: Run tests
-        run: |
-          pixi run test || echo "No Pixi test task configured; skipping tests."
+        run: pixi run -e dev test
 
       - name: Create release archive
         run: |
@@ -46,7 +48,6 @@ jobs:
           if [ -f README.md ]; then cp README.md release_assets/; fi
           if [ -f LICENSE ]; then cp LICENSE release_assets/; fi
           if [ -f CITATION.cff ]; then cp CITATION.cff release_assets/; fi
-          if [ -f .zenodo.json ]; then cp .zenodo.json release_assets/; fi
 
       - name: Create GitHub release and upload assets
         env:
