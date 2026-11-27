@@ -1047,15 +1047,17 @@ def main():
     _zi = zero_influence_parameters(idx, W_global, tf_mat)
     xl, xu, zero_influence_mask, _zi_names = apply_zero_influence_mask(_zi, idx, slices, theta0, xl, xu)
     for _n in _zi_names:
-        logger.warning("[Identifiability] %s: %s (all edge weights <= %g; fixed at its start value).", _n,
-                       ZERO_INFLUENCE_LABEL, _zi["threshold"])
+        _why = (f"all edge weights <= {_zi['threshold']:g}" if _n.startswith("c_k[")
+                else "protein without phosphosites; E_i acts only on site states")
+        logger.warning("[Identifiability] %s: %s (%s; fixed at its start value).", _n, ZERO_INFLUENCE_LABEL, _why)
     for _s in _zi["sites_without_kinase_inflow"]:
         logger.warning("[Identifiability] site %s has no kinase inflow (all edge weights <= %g); its Dp_i only sets "
                        "the decay of its initial value (N24).", _s, _zi["threshold"])
     from common.results import update_metadata as _upd_meta
 
     _upd_meta(args.output_dir, {"zero_influence": {
-        "threshold": _zi["threshold"], "rule": "|W| <= threshold * max(1, max|W|) counts as no edge",
+        "threshold": _zi["threshold"], "rule": "c_k: |W| <= threshold * max(1, max|W|) counts as no edge and no TF output "
+                                          "via the driver map; E_i: protein without phosphosites",
         "label": ZERO_INFLUENCE_LABEL, "fixed_parameters": _zi_names,
         "sites_without_kinase_inflow": _zi["sites_without_kinase_inflow"]}})
 
