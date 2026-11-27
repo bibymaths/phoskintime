@@ -141,6 +141,7 @@ class _Stop(Exception):
     pass
 def _capture(self, theta0, maxiter=50, tol=1e-6):
     box["p"] = self
+    box["theta0"] = np.asarray(theta0, dtype=float)
     raise _Stop()
 OP.GlobalODEScalarObjective.solve = _capture
 import networkmodel.BayesianInference as BI
@@ -156,18 +157,27 @@ import jax
 import jax.numpy as jnp
 p = box["p"]
 lo, hi = p.xl, p.xu
-theta = lo + np.linspace(0.2, 0.8, lo.size) * (hi - lo)   # an interior point of the B4 box
+# Point: the runner's start (default parameters), an interior point of the B4 box (owner decision, P3). The former
+# point (20-80 % of the box) lies at stiff rates in the sampling-design box, where the objective is noisy.
+theta = np.clip(box["theta0"], lo, hi)
 f = jax.jit(p.objective)
 g = np.asarray(jax.jit(jax.grad(p.objective))(jnp.asarray(theta)))
-steps = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+F = lambda x: float(f(jnp.asarray(x)))  # noqa: E731
+f0 = F(theta)
+steps = [1e-1, 3e-2, 1e-2, 3e-3, 1e-3]
 rows = []
-for i in range(theta.size):
-    errs = []
-    for h in steps:
+for i in np.flatnonzero(hi > lo):  # fixed (masked) coordinates have no derivative to check
+    def d(h):
         e = np.zeros_like(theta); e[i] = h
-        fd = (float(f(jnp.asarray(theta + e))) - float(f(jnp.asarray(theta - e)))) / (2 * h)
-        errs.append(abs(fd - g[i]) / max(abs(g[i]), 1e-8))
-    rows.append({"i": int(i), "grad": float(g[i]), "rel_err": errs})
+        return F(theta + e), F(theta - e)
+    vals = [d(h) for h in steps]
+    fds = [(fp - fm) / (2 * h) for h, (fp, fm) in zip(steps, vals)]
+    # solver noise of f along i: second differences at the two smallest steps used (curvature adds ~f'' h^2 there)
+    noise = max(abs(fp - 2 * f0 + fm) / 2 for fp, fm in vals[-2:]) + 1e-15
+    # error bound of the central difference at step h: noise / h + truncation estimate |fd(h) - fd(neighbour step)|
+    nb = lambda k: k + 1 if k + 1 < len(steps) else k - 1  # noqa: E731
+    bounds = [noise / h + abs(fds[k] - fds[nb(k)]) for k, h in enumerate(steps)]
+    rows.append({"i": int(i), "grad": float(g[i]), "fd": fds, "bound": bounds, "noise": noise})
 print("FDJSON" + json.dumps({"steps": steps, "rows": rows}))
 """
 
@@ -180,10 +190,19 @@ def test_jax_gradient_matches_central_fd_at_interior_point_of_b4(tmp_path):
     line = next((ln for ln in proc.stdout.splitlines() if ln.startswith("FDJSON")), None)
     assert line, proc.stdout[-3000:] + proc.stderr[-3000:]
     res = json.loads(line[len("FDJSON"):])
+    # Noise-aware rule (owner decision, P3): at the step with the smallest error bound (noise/h + truncation
+    # estimate), the jax gradient must agree with the central difference within 3 x that bound + 1e-4 |g|.
+    def ok(g, row):
+        k = min(range(len(row["bound"])), key=lambda j: row["bound"][j])
+        return abs(row["fd"][k] - g) <= 3 * row["bound"][k] + 1e-4 * abs(g)
+
     for row in res["rows"]:
-        best = min(row["rel_err"])
-        # central FD is O(h^2) and limited by the ODE solver tolerance (1e-8): the best step must agree to 1e-4
-        assert best < 1e-4 or abs(row["grad"]) < 1e-10, row
+        assert ok(row["grad"], row), json.dumps(row)
+    # Sensitivity: the rule must reject a gradient that is 10 % off wherever the gradient is not tiny.
+    big = [r for r in res["rows"] if abs(r["grad"]) > 1e-3]
+    assert big
+    for row in big:
+        assert not ok(1.1 * row["grad"], row), row
 
 
 def test_lbfgsb_ftol_stop_is_converged_only_at_a_first_order_point():
