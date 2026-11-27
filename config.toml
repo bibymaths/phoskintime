@@ -504,8 +504,9 @@ n_gen = 200
 #
 # "lbfgsb":
 #   scipy L-BFGS-B on the same raw box bounds with the jax gradient; stops on
-#   ftol 1e-10 / pgtol 1e-6 (maxiter 15000, maxfun 30000; see
-#   networkmodel/optimizers.py LBFGSB_DEFAULTS). n_gen does not apply.
+#   pgtol 1e-6 (max projected-gradient component) or ftol 1e-15 (maxiter 15000,
+#   maxfun 30000; see networkmodel/optimizers.py LBFGSB_DEFAULTS). n_gen does
+#   not apply.
 #
 # The optimizer used and its stop reason are recorded in metadata.json.
 optimizer = "projected_gradient"

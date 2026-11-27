@@ -119,7 +119,8 @@ selected by `[networkmodel] optimizer` or `--optimizer`. The default is `jaxopt.
 `projection=project_bounds`; it stops after `n_gen` iterations (`--n-gen`, the iteration limit) or when its error
 (the norm of the projected-gradient step) is at most 1e-6. `"lbfgsb"` runs `scipy.optimize.minimize(method="L-BFGS-B")`
 on the same raw box bounds with the jax gradient (float64); fixed parameters stay exactly fixed. It stops on
-`ftol` 1e-10 or `pgtol` 1e-6 (maximum projected-gradient component), with `maxiter` 15000 and `maxfun` 30000 as caps;
+`pgtol` 1e-6 (maximum projected-gradient component) or `ftol` 1e-15 (near machine precision), with `maxiter` 15000
+and `maxfun` 30000 as caps;
 optional keys `lbfgsb_maxiter`, `lbfgsb_maxfun`, `lbfgsb_ftol`, `lbfgsb_pgtol`, `lbfgsb_maxcor`, `lbfgsb_maxls`
 override these. The optimizer, its criteria (`effective_settings.optimizer_criteria`) and its stop reason, KKT residual
 and active set (`optimizer_result`) are recorded in `metadata.json`.

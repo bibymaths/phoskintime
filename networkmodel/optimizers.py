@@ -13,7 +13,7 @@ Optimizers (``[networkmodel] optimizer``):
 - ``"lbfgsb"``: ``scipy.optimize.minimize(method="L-BFGS-B")`` with the raw box bounds, value and gradient from a
   jitted ``jax.value_and_grad`` (float64). Only the free coordinates are optimized; fixed coordinates keep exactly
   their fixed values. Stopping: scipy's ``ftol`` (relative reduction of f), ``gtol`` (= pgtol: max |projected
-  gradient component|), ``maxiter``, ``maxfun``.
+  gradient component|; the intended stop), ``ftol`` near machine precision, ``maxiter``, ``maxfun``.
 
 The fit's numerics (objective, bounds, transform, start, fixed mask) are not changed by either optimizer.
 """
@@ -29,8 +29,11 @@ OPTIMIZERS = ("projected_gradient", "lbfgsb")
 OPTIMIZER_LABELS = {"projected_gradient": "jaxopt.ProjectedGradient", "lbfgsb": "scipy.optimize.minimize L-BFGS-B"}
 
 # L-BFGS-B stopping criteria (defaults; overridable by [networkmodel] lbfgsb_maxiter / lbfgsb_maxfun / lbfgsb_ftol /
-# lbfgsb_pgtol / lbfgsb_maxcor / lbfgsb_maxls). maxiter is set high so that the fit stops on ftol/pgtol, not the cap.
-LBFGSB_DEFAULTS = {"maxiter": 15000, "maxfun": 30000, "ftol": 1e-10, "pgtol": 1e-6, "maxcor": 10, "maxls": 20}
+# lbfgsb_pgtol / lbfgsb_maxcor / lbfgsb_maxls). maxiter is set high so that the fit stops on a tolerance, not the cap.
+# The intended stop is pgtol (max |projected gradient component| <= 1e-6). ftol is set near machine precision
+# (1e-15, scipy factr ~4.5): with ftol 1e-10 the B4-B6 fits stopped after one small-reduction iteration with a KKT
+# residual of ~3e-3 although f still decreased smoothly along the projected gradient (.opt P1 benchmark).
+LBFGSB_DEFAULTS = {"maxiter": 15000, "maxfun": 30000, "ftol": 1e-15, "pgtol": 1e-6, "maxcor": 10, "maxls": 20}
 
 # Coordinates within this relative distance of a bound (|theta - b| <= ACTIVE_TOL * (1 + |b|)) are in the active set.
 ACTIVE_TOL = 1e-12
