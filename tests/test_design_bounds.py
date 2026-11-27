@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 import scipy.sparse as sp
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N22-D1: rate bounds from the sampling design")
 
 GRIDS = {
     "protein": [0.0, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0],

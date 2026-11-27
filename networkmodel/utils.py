@@ -246,19 +246,83 @@ def inv_softplus(y):
     return out
 
 
-def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
-    """Calculate biologically constrained optimizer bounds
-    
+# N22 (P3 decision 1): the first-order rate constants (unit 1/min) and the observation grid that resolves each.
+#   B_i  mRNA degradation                      -> RNA grid
+#   D_i  protein degradation                   -> protein grid
+#   E_i  dephosphorylation (site -> unphospho) -> phospho grid
+#   Dp_i extra decay of a phosphorylated state -> phospho grid
+#   c_k  phosphorylation rate per unit kinase drive (K(0) = 1 since N7) -> phospho grid (lower bound only; the
+#        upper bound is the c_k rule below, decision 3)
+# Not rates of this kind: A_i (zero-order mRNA synthesis, FC/min), C_i (translation, coupled to R; decision 2),
+# tf_scale (dimensionless gain).
+DESIGN_RATE_GRIDS = {"B_i": "rna", "D_i": "protein", "E_i": "phospho", "Dp_i": "phospho", "c_k": "phospho"}
+# delta: the smallest change the data resolve, as a fraction. Owner rule: the median relative SD across replicates if
+# replicate data exist; the networkmodel inputs carry no replicates, so delta = 0.1 is an ASSUMPTION.
+DESIGN_DELTA_ASSUMED = 0.1
+
+
+def design_rate_bounds(time_points=None, delta=None):
+    """Sampling-design bounds for first-order rate constants (N22, P3 decision 1).
+
+    A rate k is resolvable if its process completes at least delta of its course over the observed span T
+    (k >= -ln(1 - delta) / T) and at most 1 - delta within the shortest sampling interval dt_min
+    (k <= -ln(delta) / dt_min). T = max(t) - min(t) and dt_min = min(diff(t)) of the configured observation grid of
+    the modality that sees the rate (DESIGN_RATE_GRIDS).
+
     Args:
-        idx: Input value used by this routine.
-        df_prot: Input value used by this routine.
-        df_rna: Input value used by this routine.
-        tf_mat: Input value used by this routine.
-        kin_in: Input value used by this routine.
-    
+        time_points: dict with "protein", "rna", "phospho" grids (minutes); default: networkmodel.config grids.
+        delta: resolution fraction; default DESIGN_DELTA_ASSUMED (assumption: no replicate data).
+
     Returns:
-        Computed result from this routine.
+        dict with delta, delta_source, per-grid T/dt_min/k_min/k_max and per-group bounds and half-lives (minutes).
     """
+    if time_points is None:
+        from networkmodel.config import TIME_POINTS_PHOSPHO, TIME_POINTS_PROTEIN, TIME_POINTS_RNA
+
+        time_points = {"protein": TIME_POINTS_PROTEIN, "rna": TIME_POINTS_RNA, "phospho": TIME_POINTS_PHOSPHO}
+    if delta is None:
+        delta, source = DESIGN_DELTA_ASSUMED, "assumption: no replicate data in the networkmodel inputs"
+    else:
+        source = "given"
+    delta = float(delta)
+    if not 0.0 < delta < 0.5:
+        raise ValueError(f"design delta must lie in (0, 0.5), got {delta}")
+    grids = {}
+    for name in ("protein", "rna", "phospho"):
+        t = np.unique(np.asarray(time_points[name], dtype=float))
+        if t.size < 2:
+            raise ValueError(f"time grid {name!r} needs at least two distinct points for the design bounds")
+        T, dt = float(t.max() - t.min()), float(np.min(np.diff(t)))
+        grids[name] = {"T_min": T, "dt_min_min": dt, "k_min": float(-np.log1p(-delta) / T),
+                       "k_max": float(-np.log(delta) / dt)}
+    groups = {}
+    for g, grid in DESIGN_RATE_GRIDS.items():
+        k_lo, k_hi = grids[grid]["k_min"], grids[grid]["k_max"]
+        groups[g] = {"grid": grid, "k_min": k_lo, "k_max": k_hi, "half_life_max_min": float(np.log(2) / k_lo),
+                     "half_life_min_min": float(np.log(2) / k_hi)}
+    return {"delta": delta, "delta_source": source, "grids": grids, "groups": groups,
+            "formula": "k_min = -ln(1-delta)/T, k_max = -ln(delta)/dt_min"}
+
+
+def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=None, delta=None):
+    """Calculate the optimizer bounds (physical) of every parameter group.
+
+    Rate constants (DESIGN_RATE_GRIDS) take the sampling-design bounds of design_rate_bounds (N22).
+
+    Args:
+        idx: network index (idx.N).
+        df_prot: protein data (column fc) of the model proteins.
+        df_rna: RNA data (column fc) of the model proteins.
+        tf_mat: TF matrix (sparse).
+        kin_in: kinase drive (Kmat).
+        time_points: observation grids for the design bounds (default: networkmodel.config).
+        delta: design resolution fraction (default: DESIGN_DELTA_ASSUMED).
+
+    Returns:
+        dict group -> (min, max), physical.
+    """
+    _design_info = design_rate_bounds(time_points, delta)
+    design = _design_info["groups"]
     logger.info("=" * 60)
     logger.info("[Bounds] CALCULATION: Performing Topological & Kinetic Analysis")
 
@@ -274,57 +338,59 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     # 2. mRNA KINETICS (A_i, B_i)
     # Bounds: 0.005 (~2.3h) to 0.1 (~7min)
     # We raise the floor to prevent 'stuck' mRNA
-    b_min, b_max = 0.005, 0.15
+    # Rate bounds: sampling design (N22). The former constants 0.005-0.15 are kept only for A_i until N22 decision 2.
+    b_min, b_max = design["B_i"]["k_min"], design["B_i"]["k_max"]
+    _b_min_a, _b_max_a = 0.005, 0.15
 
     # A_i (Basal Synthesis)
     # Synthesis must balances Degradation at steady state (FC=1).
     # A_i approx B_i. We allow slight deviation for basal repression/activation.
-    a_min = b_min * 0.1
-    a_max = b_max * safe_rna_max
+    a_min = _b_min_a * 0.1
+    a_max = _b_max_a * safe_rna_max
 
     # 3. PROTEIN KINETICS (C_i, D_i)
     # CRITICAL FIX: Raise the degradation floor.
     # If proteins degrade too slowly, errors accumulate over 960 minutes.
     # New Floor: 0.01 (approx 70 min half-life). Nothing lives forever.
-    d_min, d_max = 0.01, 0.10
+    # Rate bounds: sampling design (N22). The former constants 0.01-0.1 are kept only for C_i until N22 decision 2.
+    d_min, d_max = design["D_i"]["k_min"], design["D_i"]["k_max"]
+    _d_min_c, _d_max_c = 0.01, 0.10
 
     # C_i (Translation)
     # Strict linkage: Synthesis cannot exceed Degradation * Max_Fold_Change
     # C_max = D_max * Max_FC.
     # If D=0.1 and MaxFC=5, C cannot exceed 0.5.
-    c_min = d_min * 0.1
-    c_max = d_max * safe_prot_max
+    c_min = _d_min_c * 0.1
+    c_max = _d_max_c * safe_prot_max
 
-    # 4. TOPOLOGICAL SENSITIVITY (E_i, tf_scale)
+    # 4. TOPOLOGICAL SENSITIVITY (tf_scale; E_i is a rate since N22)
     # For large networks (200+ nodes), additive inputs can be huge.
     n_edges = tf_mat.nnz
     avg_density = n_edges / max(1, idx.N)
 
     if avg_density < 2.0:
         # Sparse (Sub-network): Allow higher gain
-        e_max = 20.0
         tf_scale_min, tf_scale_max = 0.5, 5.0
     else:
         # Dense (Global): Clamp gain hard to prevent feedback explosions
-        e_max = 5.0  # Reduced from 20.0
         tf_scale_min, tf_scale_max = 0.1, 2.5  # Reduced from 10.0
 
     # 5. SIGNALING VELOCITY (c_k, Dp_i)
     # Phospho is working well, keep these bounds wide to maintain signal fit.
-    dp_min, dp_max = 0.01, 5.0
+    dp_min, dp_max = design["Dp_i"]["k_min"], design["Dp_i"]["k_max"]  # sampling design (N22)
 
     # Check input variance. If inputs are flat, we need higher c_k.
     kin_variance = np.var(kin_in.Kmat)
     ck_max = 15.0 if kin_variance < 0.02 else 5.0
 
     bounds_dict = {
-        "c_k": (0.01, ck_max),
+        "c_k": (design["c_k"]["k_min"], ck_max),  # lower: sampling design (N22)
         "A_i": (a_min, a_max),
         "B_i": (b_min, b_max),
         "C_i": (c_min, c_max),
         "D_i": (d_min, d_max),
         "Dp_i": (dp_min, dp_max),
-        "E_i": (0.0, e_max),
+        "E_i": (design["E_i"]["k_min"], design["E_i"]["k_max"]),  # sampling design (N22)
         "tf_scale": (tf_scale_min, tf_scale_max)
     }
 
@@ -332,26 +398,20 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     # MODEL: 0 distributive, 1 sequential, 2 combinatorial, 4 saturating
     if MODEL == 1:
         # Sequential: tighter kinase gain, faster phospho turnover
-        bounds_dict["Dp_i"] = (0.01, 5.0)
+        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
         ck_lo, ck_hi = bounds_dict["c_k"]
         bounds_dict["c_k"] = (ck_lo, max(3.0, 0.75 * ck_hi))
 
     elif MODEL == 2:
         # Combinatorial: clamp hard (many transitions per state)
-        bounds_dict["Dp_i"] = (0.01, 5.0)
+        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
         ck_lo, ck_hi = bounds_dict["c_k"]
         bounds_dict["c_k"] = (ck_lo, min(2.5, ck_hi))
-
-        # E_i is dephosph/backflow; keep smaller to avoid stiff cycling
-        e_lo, e_hi = bounds_dict["E_i"]
-        if avg_density >= 2.0:
-            bounds_dict["E_i"] = (e_lo, min(e_hi, 2.5))
-        else:
-            bounds_dict["E_i"] = (e_lo, min(e_hi, 8.0))
+        # E_i: sampling design for every model (N22); the former clamp to 2.5 / 8.0 is removed.
 
     elif MODEL == 4:
         # Saturating: bounded forward flux allows more kinase gain and TF scale
-        bounds_dict["Dp_i"] = (0.01, 5.0)
+        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
         ck_lo, ck_hi = bounds_dict["c_k"]
         bounds_dict["c_k"] = (ck_lo, min(10.0, 1.5 * ck_hi))
 
@@ -368,6 +428,11 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in):
     for name in ("A_i", "B_i", "C_i", "D_i", "E_i", "c_k", "tf_scale", "Dp_i"):
         lo, hi = bounds_dict[name]
         logger.info(f"{name:<10} | {lo:<10.4g} | {hi:<10.4g}")
+    logger.info("[Bounds] Rate constants (1/min) from the sampling design (N22): delta=%g (%s); %s",
+                _design_info["delta"], _design_info["delta_source"], _design_info["formula"])
+    for name, g in design.items():
+        logger.info("[Bounds]   %-5s grid=%-7s k=[%.4g, %.4g] half-life=[%.4g, %.4g] min", name, g["grid"],
+                    g["k_min"], g["k_max"], g["half_life_min_min"], g["half_life_max_min"])
     logger.info("=" * 60)
 
     return bounds_dict

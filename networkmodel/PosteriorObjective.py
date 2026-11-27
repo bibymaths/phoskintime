@@ -302,7 +302,10 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
     loss_data["rna_base_idx"] = baseline_index(solver_times, "rna", run_eff["baseline_times"])
     loss_data["pho_base_idx"] = baseline_index(solver_times, "phospho", run_eff["baseline_times"])
 
-    custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
+    custom_bounds = calculate_bio_bounds(
+        idx, df_prot, df_rna, tf_mat, kin_in,
+        time_points={"protein": args.time_points_protein, "rna": args.time_points_rna,
+                     "phospho": args.time_points_phospho})
     theta0_build, slices, xl_build, xu_build = init_raw_params(defaults, custom_bounds=custom_bounds)
 
     if theta0_build.shape != theta0.shape:

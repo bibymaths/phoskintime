@@ -1031,7 +1031,10 @@ def main():
     # 6) Decision vector bounds
 
     # Calculate optimal bounds based on network topology and data constraints
-    custom_bounds = calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in)
+    custom_bounds = calculate_bio_bounds(
+        idx, df_prot, df_rna, tf_mat, kin_in,
+        time_points={"protein": args.time_points_protein, "rna": args.time_points_rna,
+                     "phospho": args.time_points_phospho})
 
     # Initialize raw params using these custom bounds for optimization.
     # The theta layout intentionally excludes network alpha/beta construction weights.
