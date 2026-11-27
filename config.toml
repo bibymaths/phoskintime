@@ -859,6 +859,19 @@ rna = [4.0, 8.0, 15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0]
 # networkmodel.utils.calculate_bio_bounds and logged at the start of each run;
 # they are recorded in metadata.json (effective_settings.bounds). A bounds
 # table under [networkmodel] is not used and is rejected (KNOWN_ISSUES N2).
+#
+# Rule (KNOWN_ISSUES N22, owner decisions):
+#   - Rate constants B_i (RNA grid), D_i (protein grid), E_i, Dp_i and the
+#     c_k lower bound (phospho grid), unit 1/min: sampling design,
+#     k_min = -ln(1 - delta)/T, k_max = -ln(delta)/dt_min, from the grids in
+#     [networkmodel.timepoints] (T = span, dt_min = shortest interval);
+#     delta = 0.1 (assumption: no replicate data).
+#   - A_i, C_i: coupled to those rates and to the fold-change range of the
+#     data (x/÷ 1.5), so every steady state in the data range is reachable.
+#   - c_k upper: clip(0.1 / var(kinase drive), 5, 15), then model limits.
+#   - tf_scale: by network density.
+# A fitted value within 1 % of a sampling-design bound is labelled "below /
+# above resolvable rate" (parameter_status.csv), not reported as an estimate.
 
 
 # ------------------------------------------------------------
