@@ -103,10 +103,10 @@ DOCS_URL = getattr(cfg, "docs_url", "")
 # HYPERPARAM_SCAN: bool; default False; controls compatibility hyperparameter scan execution.
 HYPERPARAM_SCAN = _as_bool(getattr(cfg, "hyperparam_scan", False))
 
-# N_STARTS: int; default 1; controls multistart optimization count.
-N_STARTS = int(getattr(cfg, "n_starts", 1))
-# OPTIMIZER: "projected_gradient" (default, jaxopt) | "lbfgsb" (scipy L-BFGS-B); see networkmodel.optimizers (O01).
-OPTIMIZER = str(getattr(cfg, "optimizer", "projected_gradient"))
+# N_STARTS: int; default 5 (P3 decision 6); controls multistart optimization count.
+N_STARTS = int(getattr(cfg, "n_starts", 5))
+# OPTIMIZER: "lbfgsb" (default since P3 decision 6, scipy L-BFGS-B) | "projected_gradient" (jaxopt); see networkmodel.optimizers (O01).
+OPTIMIZER = str(getattr(cfg, "optimizer", "lbfgsb"))
 # LBFGSB_CRITERIA: optional [networkmodel] lbfgsb_* overrides of networkmodel.optimizers.LBFGSB_DEFAULTS (None = default).
 LBFGSB_CRITERIA = {k: getattr(cfg, f"lbfgsb_{k}", None) for k in ("maxiter", "maxfun", "ftol", "pgtol", "maxcor", "maxls")}
 # PROFILE_LIKELIHOOD: bool; default False; controls profile-likelihood execution.

@@ -1287,6 +1287,21 @@ def main():
     if args.n_starts > 1:
         try:
             ms = run_multistart(ctx, n_starts=args.n_starts, seed=args.seed, max_workers=args.cores)
+            # P3 decision 6: the status of every start and the start kept (lowest objective) in metadata.json.
+            from common.results import update_metadata as _upd_ms
+
+            _ms_cols = ["start_id", "seed", "convergence_status", "final_objective", "kkt_residual",
+                        "number_of_iterations", "stop_reason", "selected_best"]
+            _ms_rows = ms["summary"].reindex(columns=_ms_cols).to_dict(orient="records")
+            _upd_ms(args.output_dir, {"multistart": {
+                "optimizer": args.optimizer, "n_starts": int(args.n_starts), "seed": int(args.seed),
+                "start_rule": "start 0 = default parameters; start i >= 1 uniform in the raw box",
+                "best_start_id": int(ms["best_start_id"]), "starts": _ms_rows,
+                "status_counts": ms["summary"]["convergence_status"].value_counts().to_dict()}})
+            for _r in _ms_rows:
+                logger.info("[Multistart] start %s: %s, objective %.10g, KKT %.3g%s", _r["start_id"],
+                            _r["convergence_status"], _r["final_objective"], _r.get("kkt_residual", float("nan")),
+                            " (kept)" if _r["selected_best"] else "")
             best_row = ms["best"].drop(
                 columns=["start_id", "seed", "success", "selected_best"],
                 errors="ignore",

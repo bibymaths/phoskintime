@@ -7,20 +7,19 @@ import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-XF = pytest.mark.xfail(strict=True, reason="N22-D6: L-BFGS-B multistart default, near-converged status")
 
 
-@XF
+
 def test_config_defaults():
     from config_loader import load_config_toml
 
     cfg = load_config_toml(ROOT / "config.toml")
     assert cfg.optimizer == "lbfgsb"
     assert cfg.n_starts >= 5
-    assert cfg.n_gen == 200
+    assert cfg.maximum_iterations == 200  # n_gen not raised
 
 
-@XF
+
 def test_loader_fallback_defaults(tmp_path):
     from config_loader import load_config_toml
 
@@ -32,7 +31,7 @@ def test_loader_fallback_defaults(tmp_path):
     assert cfg.optimizer == "lbfgsb" and cfg.n_starts == 5
 
 
-@XF
+
 @pytest.mark.parametrize("status,kkt,reason,expected", [
     ("converged", 5e-7, "", "converged"),
     ("not_converged", 3e-6, "ABNORMAL", "near_converged"),

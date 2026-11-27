@@ -129,8 +129,8 @@ class PhosKinConfig:
     hyperparam_scan: bool = False
 
     # Inference / post-optimization analyses
-    n_starts: int = 1
-    optimizer: str = "projected_gradient"
+    n_starts: int = 5
+    optimizer: str = "lbfgsb"
     # Optional L-BFGS-B stopping criteria (None = networkmodel.optimizers.LBFGSB_DEFAULTS).
     lbfgsb_maxiter: int | None = None
     lbfgsb_maxfun: int | None = None
@@ -362,8 +362,8 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         )
 
     # Inference / post-optimization analyses
-    n_starts = int(cfg.get("n_starts", 1))
-    optimizer = str(cfg.get("optimizer", "projected_gradient")).strip().lower()
+    n_starts = int(cfg.get("n_starts", 5))
+    optimizer = str(cfg.get("optimizer", "lbfgsb")).strip().lower()
     if optimizer not in ("projected_gradient", "lbfgsb"):
         raise ValueError(f"[networkmodel] optimizer must be 'projected_gradient' or 'lbfgsb', got {optimizer!r}.")
     lbfgsb = {}

@@ -49,7 +49,7 @@ class OptimizerResult:
     theta: np.ndarray
     optimizer: str
     label: str
-    status: str  # "converged" | "not_converged"
+    status: str  # "converged" | "near_converged" | "not_converged" (convergence_class)
     stop_reason: str
     iterations: int
     n_fun_evals: int | None  # None: not measured (jaxopt does not expose it)
@@ -74,6 +74,21 @@ class OptimizerResult:
             d.pop(k, None)
         d["active_set_size"] = len(self.active_lower) + len(self.active_upper)
         return d
+
+
+# P3 decision 6: a run that stops with pgtol < KKT residual <= NEAR_CONVERGED_KKT (and only finite evaluations) is
+# "near_converged"; above it, "not_converged". "converged" keeps its meaning (KKT residual <= pgtol / tol reached).
+NEAR_CONVERGED_KKT = 1e-5
+
+
+def convergence_class(status: str, kkt_residual: float, stop_reason: str = "") -> str:
+    """converged | near_converged | not_converged (see NEAR_CONVERGED_KKT)."""
+    if status == "converged":
+        return "converged"
+    kkt = float(kkt_residual)
+    if np.isfinite(kkt) and kkt <= NEAR_CONVERGED_KKT and "non-finite" not in str(stop_reason):
+        return "near_converged"
+    return "not_converged"
 
 
 _VG_CACHE: dict = {}
@@ -247,6 +262,10 @@ def minimize_bounded(objective, theta0, lower, upper, *, fixed_mask=None, fixed_
         except Exception as exc:  # reported, not hidden: the fit itself succeeded (O01 review R3)
             log.warning("[Optimizer] KKT diagnostics failed after the fit: %s", exc)
             reason = f"{reason}; KKT diagnostics failed: {exc}"
+    new_status = convergence_class(status, diag["kkt_residual"], reason)
+    if new_status != status:
+        reason = f"{reason}; near-converged: KKT residual {diag['kkt_residual']:.3g} <= {NEAR_CONVERGED_KKT:g}"
+        status = new_status
     result = OptimizerResult(theta=theta, optimizer=name, label=OPTIMIZER_LABELS[name], status=status,
                              stop_reason=reason, iterations=it, n_fun_evals=nfev, n_grad_evals=ngev,
                              final_objective=value, criteria=criteria, wall_time_s=wall, state=state, **diag)

@@ -498,18 +498,19 @@ n_gen = 200
 
 # Bounded optimizer of the fit, multistart and profiles (KNOWN_ISSUES O01).
 #
-# "projected_gradient" (default):
-#   jaxopt.ProjectedGradient; stops after n_gen iterations or when its error
-#   (norm of the projected-gradient step) is <= 1e-6.
-#
-# "lbfgsb":
+# "lbfgsb" (default; owner decision, N22 P3 decision 6):
 #   scipy L-BFGS-B on the same raw box bounds with the jax gradient; stops on
 #   pgtol 1e-6 (max projected-gradient component) or ftol 1e-15 (maxiter 15000,
 #   maxfun 30000; see networkmodel/optimizers.py LBFGSB_DEFAULTS). n_gen does
-#   not apply.
+#   not apply. Status: converged (KKT residual <= 1e-6), near_converged
+#   (1e-6 < KKT <= 1e-5), not_converged.
+#
+# "projected_gradient":
+#   jaxopt.ProjectedGradient; stops after n_gen iterations or when its error
+#   (norm of the projected-gradient step) is <= 1e-6.
 #
 # The optimizer used and its stop reason are recorded in metadata.json.
-optimizer = "projected_gradient"
+optimizer = "lbfgsb"
 
 
 # ------------------------------------------------------------
@@ -727,9 +728,12 @@ sensitivity_metric = "l2_norm"
 #   Multistart local optimization. Runs multiple initializations and keeps
 #   the best solution according to the scalar objective.
 #
-# Recommended:
-#   Use n_starts > 1 for non-convex ODE models.
-n_starts = 1
+# Default 5 (owner decision, N22 P3 decision 6): start 0 is the default
+# parameter vector, starts 1-4 are drawn uniformly in the raw box with seed,
+# seed+1, ...; the start with the lowest objective is kept. Each start's status
+# (converged / near_converged / not_converged) is in
+# optimization/multistart_summary.csv and metadata.json.
+n_starts = 5
 
 
 # ------------------------------------------------------------

@@ -143,6 +143,10 @@ def _capture(self, theta0, maxiter=50, tol=1e-6):
     box["p"] = self
     raise _Stop()
 OP.GlobalODEScalarObjective.solve = _capture
+import networkmodel.BayesianInference as BI
+def _no_multistart(*a, **k):
+    raise RuntimeError("test: use the single-start path to capture the problem")
+BI.run_multistart = _no_multistart  # default n_starts = 5 (P3 decision 6); the runner then calls problem.solve
 import networkmodel.runner as R
 try:
     R.main()
@@ -163,7 +167,7 @@ for i in range(theta.size):
         e = np.zeros_like(theta); e[i] = h
         fd = (float(f(jnp.asarray(theta + e))) - float(f(jnp.asarray(theta - e)))) / (2 * h)
         errs.append(abs(fd - g[i]) / max(abs(g[i]), 1e-8))
-    rows.append({"i": i, "grad": float(g[i]), "rel_err": errs})
+    rows.append({"i": int(i), "grad": float(g[i]), "rel_err": errs})
 print("FDJSON" + json.dumps({"steps": steps, "rows": rows}))
 """
 
