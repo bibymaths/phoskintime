@@ -19,7 +19,7 @@ GRIDS = {
 
 
 def _inputs(var_scale=0.1):
-    idx = SimpleNamespace(N=2)
+    idx = SimpleNamespace(N=2, n_sites=[1, 1])
     df_prot = pd.DataFrame({"fc": [1.0, 1.2, 0.8]})
     df_rna = pd.DataFrame({"fc": [1.0, 1.5, 0.6]})
     tf_mat = sp.csr_matrix(np.zeros((2, 2)))

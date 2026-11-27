@@ -413,7 +413,9 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
     # C_i = [D_min P_lo / R_hi, (D_max + kappa Dp_max) P_hi / R_lo]; saturating model (translation C R/(1+R)): the
     # same times (1 + R_hi) and (1 + R_lo).
     dp_hi = float(bounds_dict["Dp_i"][1])
-    kappa = max([int(x) for x in getattr(idx, "n_sites", [1])] + [1]) if MODEL == 2 else 1
+    if MODEL == 2 and getattr(idx, "n_sites", None) is None:  # review m1: no silent kappa = 1
+        raise ValueError("calculate_bio_bounds: the combinatorial model (MODEL 2) needs idx.n_sites for the C_i bound.")
+    kappa = max([int(x) for x in idx.n_sites] + [1]) if MODEL == 2 else 1
     c_min, c_max = d_min * p_lo / r_hi, (d_max + kappa * dp_hi) * p_hi / r_lo
     if MODEL == 4:
         c_min, c_max = c_min * (1.0 + r_hi), c_max * (1.0 + r_lo)
