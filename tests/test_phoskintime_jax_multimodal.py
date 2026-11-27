@@ -269,10 +269,13 @@ def test_dashboard_bundle_and_dashboard_loader_accept_scalar_fields(tmp_path, mo
 
 
 def test_old_config_options_warn(caplog):
+    caplog.set_level("INFO")
     warn_deprecated_backend_options({"optimizer": "pymoo", "n_gen": 2, "pop": 4, "use_custom_solver": True})
     text = "\n".join(r.message for r in caplog.records)
     assert "mapped to jaxopt.ProjectedGradient" in text
     assert "ignored" in text
+    n_gen_lines = [line for line in text.splitlines() if "n_gen" in line]
+    assert n_gen_lines and all("iteration limit" in line and "ignored" not in line for line in n_gen_lines)
 
 
 def test_forbidden_stack_not_in_active_networkmodel_protwise_paths():

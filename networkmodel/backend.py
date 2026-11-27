@@ -1011,7 +1011,7 @@ def make_simple_objective(loss_data: Mapping, mode: DataMode, time_grid: Sequenc
 
 
 def warn_deprecated_backend_options(options: Mapping | object | None, logger_obj=None):
-    """Warn about accepted-but-ignored backend options
+    """Warn about accepted-but-ignored backend options (and log what n_gen means: the iteration limit)
     
     Args:
         options: Input value used by this routine.
@@ -1026,7 +1026,13 @@ def warn_deprecated_backend_options(options: Mapping | object | None, logger_obj
         msg = f"[Solver] Deprecated solver option '{optimizer}' mapped to jaxopt.ProjectedGradient."
         log.warning(msg)
         logging.getLogger().warning(msg)
-    for key in ("n_gen", "pop", "population_size", "use_custom_solver", "odeint", "solve_ivp"):
+    n_gen = get("n_gen", None)
+    if n_gen is not None:
+        # n_gen is used: it is the optimizer's iteration limit (maxiter) of the networkmodel fit.
+        msg = f"[Config] n_gen={n_gen!r} is the optimizer iteration limit (maxiter) of the networkmodel fit."
+        log.info(msg)
+        logging.getLogger().info(msg)
+    for key in ("pop", "population_size", "use_custom_solver", "odeint", "solve_ivp"):
         val = get(key, None)
         if val is not None:
             msg = f"[Deprecated Config] {key}={val!r} is accepted but ignored by the JAXopt/Diffrax PhosKinTime path."
