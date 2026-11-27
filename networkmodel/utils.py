@@ -551,7 +551,12 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
             dg = design.get(g)
             design_lo = dg is not None and np.isclose(a, dg["k_min"], rtol=1e-9)
             design_hi = dg is not None and g != "c_k" and np.isclose(b, dg["k_max"], rtol=1e-9)
-            if near_lo and design_lo:
+            if near_lo and design_lo and g == "c_k":
+                # c_k is a gain on a production rate (S = sum_k W c_k K), not a decay: state its time constant
+                status = "below_resolvable_rate"
+                label = (f"below resolvable rate (time constant 1/c_k > {_fmt_half_life(1.0 / dg['k_min'])} "
+                         "at unit drive and weight)")
+            elif near_lo and design_lo:
                 status = "below_resolvable_rate"
                 label = f"below resolvable rate (half-life > {_fmt_half_life(dg['half_life_max_min'])})"
             elif near_hi and design_hi:

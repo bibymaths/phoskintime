@@ -1293,12 +1293,14 @@ def main():
             # P3 decision 6: the status of every start and the start kept (lowest objective) in metadata.json.
             from common.results import update_metadata as _upd_ms
 
-            _ms_cols = ["start_id", "seed", "convergence_status", "final_objective", "kkt_residual",
+            _ms_cols = ["start_id", "convergence_status", "final_objective", "kkt_residual",
                         "number_of_iterations", "stop_reason", "selected_best"]
             _ms_rows = ms["summary"].reindex(columns=_ms_cols).to_dict(orient="records")
             _upd_ms(args.output_dir, {"multistart": {
                 "optimizer": args.optimizer, "n_starts": int(args.n_starts), "seed": int(args.seed),
-                "start_rule": "start 0 = default parameters; start i >= 1 uniform in the raw box",
+                "start_rule": "start 0 = default parameters; start i >= 1 = the i-th uniform draw in the raw box from "
+                              "numpy.random.default_rng(seed) (one stream; the per-start 'seed' column of "
+                              "multistart_summary.csv is a label, not the stream seed)",
                 "best_start_id": int(ms["best_start_id"]), "starts": _ms_rows,
                 "status_counts": ms["summary"]["convergence_status"].value_counts().to_dict()}})
             for _r in _ms_rows:

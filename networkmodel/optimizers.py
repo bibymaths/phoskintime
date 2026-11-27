@@ -134,6 +134,7 @@ def kkt_diagnostics(objective, theta, lower, upper, fixed_mask=None, grad=None):
         _, grad = _value_and_grad(objective)(theta)
     g = np.asarray(grad, dtype=np.float64)
     free = np.ones(theta.size, bool) if fixed_mask is None else ~np.asarray(fixed_mask, bool)
+    free = free & (lower != upper)  # a degenerate box (l == u, e.g. a zero-influence mask) is fixed, not active
     at_lo = free & (np.abs(theta - lower) <= ACTIVE_TOL * (1.0 + np.abs(lower)))
     at_hi = free & (np.abs(theta - upper) <= ACTIVE_TOL * (1.0 + np.abs(upper))) & ~at_lo
     pg = np.where(at_lo, np.minimum(g, 0.0), np.where(at_hi, np.maximum(g, 0.0), g))

@@ -74,3 +74,24 @@ def test_exported_tables_carry_the_labels(tmp_path):
     ps = pd.read_csv(tmp_path / "model_parameters_genes_psites.csv")
     assert ps.loc[0, "Dp_status"] == "estimate"
     assert (tmp_path / "parameter_status.csv").exists()
+
+
+def test_ck_label_is_a_time_constant_and_prefix_collision():
+    """Review D-4 (c_k wording) and D-5 (protein X vs X_2 in the Dp flags)."""
+    from networkmodel.export import annotate_parameter_tables
+    from networkmodel.utils import parameter_status
+
+    d, names, slices, th, xl, xu = _case()
+    st = parameter_status(names, th, xl, xu, slices, d, fixed_names=["c_k[K3]"]).set_index("parameter")
+    assert st.loc["c_k[K2]", "label"].startswith("below resolvable rate (time constant 1/c_k > ")
+    assert "half-life" not in st.loc["c_k[K2]", "label"]
+    st = pd.DataFrame([{"parameter": "Dp_i[X_s1]", "label": "estimate"},
+                       {"parameter": "Dp_i[X_2_s1]", "label": "below resolvable rate (half-life > 1 h)"}])
+    import tempfile, os
+    with tempfile.TemporaryDirectory() as t:
+        pd.DataFrame({"Protein_Gene": ["X", "X_2"], "Protein_Degradation_D": [0.1, 0.1]}).to_csv(
+            os.path.join(t, "model_parameters_genes.csv"), index=False)
+        annotate_parameter_tables(t, st, {"X": ["s1"], "X_2": ["s1"]})
+        g = pd.read_csv(os.path.join(t, "model_parameters_genes.csv")).fillna("")
+        assert g.loc[0, "Not_point_estimates"] == ""
+        assert "Dp_i[X_2_s1]" in g.loc[1, "Not_point_estimates"]
