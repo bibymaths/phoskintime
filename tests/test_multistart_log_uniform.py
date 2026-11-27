@@ -14,7 +14,6 @@ def _inv_sp(y):
     return y + np.log(-np.expm1(-y))
 
 
-@pytest.mark.xfail(strict=True, reason="C1-3")
 def test_starts_are_log_uniform_in_physical_space():
     from scipy.stats import kstest
 
@@ -32,7 +31,6 @@ def test_starts_are_log_uniform_in_physical_space():
     assert 0.45 < np.mean(_sp(s[:, 0]) < np.sqrt(lo_p[0] * hi_p[0])) < 0.55
 
 
-@pytest.mark.xfail(strict=True, reason="C1-3")
 def test_first_start_and_fixed_coordinates_and_seed():
     from networkmodel.BayesianInference import generate_multistart_initials
 

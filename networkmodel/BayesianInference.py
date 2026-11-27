@@ -136,13 +136,21 @@ def configure_jax_parallelism(max_workers: int | None = None, logger_obj=None) -
 
 def generate_multistart_initials(theta0, lower, upper, n_starts: int, seed: int, fixed_mask=None, fixed_values=None) -> \
         list[np.ndarray]:
+    """Start 0: theta0 projected on the box; starts 1..n-1: log-uniform in physical space (softplus of the raw
+    coordinate) within [softplus(lower), softplus(upper)], mapped back with the inverse softplus (DECISIONS_C1 3)."""
     rng = np.random.default_rng(int(seed))
     theta0 = np.asarray(theta0, dtype=np.float64)
     lower = np.asarray(lower, dtype=np.float64)
     upper = np.asarray(upper, dtype=np.float64)
     starts = [np.asarray(project_bounds(theta0, lower, upper, fixed_mask, fixed_values), dtype=np.float64)]
+    # DECISIONS_C1 item 3: log-uniform in physical space (softplus of the raw coordinate) within the bounds; the
+    # former uniform-in-raw draws put almost all starts in the top decade of a wide rate box.
+    lo_p = _np_softplus(np.minimum(lower, upper))
+    hi_p = _np_softplus(np.maximum(lower, upper))
+    log_lo, log_hi = np.log(lo_p), np.log(hi_p)
     for _ in range(1, int(n_starts)):
-        candidate = rng.uniform(lower, upper)
+        phys = np.exp(rng.uniform(log_lo, log_hi))
+        candidate = np.clip(_np_softplus_inv(phys), lower, upper)
         starts.append(np.asarray(project_bounds(candidate, lower, upper, fixed_mask, fixed_values), dtype=np.float64))
     return starts
 
@@ -655,6 +663,12 @@ def _np_softplus(x: np.ndarray) -> np.ndarray:
     """Stable NumPy softplus: log(1 + exp(x))."""
     x = np.asarray(x, dtype=np.float64)
     return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0.0)
+
+
+def _np_softplus_inv(y: np.ndarray) -> np.ndarray:
+    """Stable inverse softplus for y > 0: log(exp(y) - 1) = y + log(1 - exp(-y))."""
+    y = np.asarray(y, dtype=np.float64)
+    return y + np.log(-np.expm1(-y))
 
 
 def _theta_to_unit_interval(theta, lower, upper, *, eps: float = 1e-6) -> np.ndarray:
