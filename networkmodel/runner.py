@@ -1298,7 +1298,8 @@ def main():
             _ms_rows = ms["summary"].reindex(columns=_ms_cols).to_dict(orient="records")
             _upd_ms(args.output_dir, {"multistart": {
                 "optimizer": args.optimizer, "n_starts": int(args.n_starts), "seed": int(args.seed),
-                "start_rule": "start 0 = default parameters; start i >= 1 = the i-th uniform draw in the raw box from "
+                "start_rule": "start 0 = default parameters; start i >= 1 = the i-th log-uniform draw in physical space "
+                              "(softplus of the raw box; DECISIONS_C1 item 3) from "
                               "numpy.random.default_rng(seed) (one stream; the per-start 'seed' column of "
                               "multistart_summary.csv is a label, not the stream seed)",
                 "best_start_id": int(ms["best_start_id"]), "starts": _ms_rows,
