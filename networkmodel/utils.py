@@ -373,9 +373,11 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
     # Phospho is working well, keep these bounds wide to maintain signal fit.
     dp_min, dp_max = design["Dp_i"]["k_min"], design["Dp_i"]["k_max"]  # sampling design (N22)
 
-    # Check input variance. If inputs are flat, we need higher c_k.
-    kin_variance = np.var(kin_in.Kmat)
-    ck_max = 15.0 if kin_variance < 0.02 else 5.0
+    # c_k upper bound: continuous rule clip(0.1 / var(Kmat), 5, 15) (N25/N23, P3 decision 3). It replaces the step
+    # 15 if var < 0.02 else 5, which jumped at the threshold (N7 moved the ABL2 data across it); the end points and
+    # the threshold value (0.1 / 0.02 = 5) are kept. Flatter drives allow a larger gain.
+    kin_variance = float(np.var(kin_in.Kmat))
+    ck_max = 15.0 if kin_variance <= 0.0 else float(np.clip(0.1 / kin_variance, 5.0, 15.0))
 
     bounds_dict = {
         "c_k": (design["c_k"]["k_min"], ck_max),  # lower: sampling design (N22)

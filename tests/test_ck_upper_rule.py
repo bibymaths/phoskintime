@@ -6,7 +6,6 @@ import pytest
 
 from tests.test_design_bounds import GRIDS, _inputs
 
-XF = pytest.mark.xfail(strict=True, reason="N25: continuous c_k upper bound")
 
 
 def _ck_hi(monkeypatch, var, model=0):
@@ -26,19 +25,16 @@ def test_ck_upper_end_points(monkeypatch, var, expected):
     assert np.isclose(_ck_hi(monkeypatch, var), expected, rtol=1e-12)
 
 
-@XF
 @pytest.mark.parametrize("var,expected", [(0.00906, 0.1 / 0.00906), (0.01, 10.0)])
 def test_ck_upper_is_continuous_rule(monkeypatch, var, expected):
     assert np.isclose(_ck_hi(monkeypatch, var), expected, rtol=1e-12)
 
 
-@XF
 def test_no_jump_at_former_threshold(monkeypatch):
     lo, hi = _ck_hi(monkeypatch, 0.02 - 1e-9), _ck_hi(monkeypatch, 0.02 + 1e-9)
     assert abs(lo - hi) < 1e-5
 
 
-@XF
 def test_model_adjustments_apply_to_the_rule(monkeypatch):
     v = 0.01  # rule: 10
     assert np.isclose(_ck_hi(monkeypatch, v, model=1), max(3.0, 0.75 * 10.0))
