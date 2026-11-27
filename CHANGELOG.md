@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### C1 decisions (owner, branch opt/2026-12) — changed results
+
+- Profile likelihoods are data-only: the prior is off for the reference optimum (a data-only refit from the fitted
+  values, `profiles/profile_reference.json`) and for every profile refit. The grid is log-spaced in physical units,
+  centred on that reference, out to both bounds (≥ 3 points within one decade); each side is walked outward. Only
+  converged refits count; a side with fewer than two is "not assessed" (new labels "upper/lower limit only (other
+  side not assessed)"); points below the reference are flagged in metadata, not refitted. Threshold
+  χ²(1, 0.95)·f_ref/n_eff (n_eff = residuals without baseline rows): approximate; no proper likelihood yet (N6).
+  Changes every profile and identifiability label; fitted values unchanged.
+- Multistart starts 1..n−1 are log-uniform in physical space within the bounds (were uniform in the raw softplus box).
+  **Changed results**: different starts and kept fits on B2 and B4–B7 (kept objective +1e-5 to +8.5e-5 on B4–B6; flat
+  Dp_i move by up to ×1000).
+- The saturating model's tf_scale ceiling override (6 / 10) is removed; tf_scale and the A_i box follow one rule for
+  every model. **Changed results** for model 4 (B7: objective change < 1e-6).
+- metadata.json `solver_stats`: ODE solver steps, accepted/rejected steps and the max_steps fraction of one solve at
+  the fitted optimum. model_parameters_kinases.csv gains `Is_estimate`. Model 2 bounds raise without `idx.n_sites`.
+  The profile rebuild is cross-checked against the fit's data terms (`rebuild_check`).
+
 ### Renamed: `n_gen` → `max_iter` (no result change)
 
 - The iteration limit of the ProjectedGradient optimizer is now `[networkmodel] max_iter` and `--max-iter`.
