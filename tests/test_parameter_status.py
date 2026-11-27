@@ -1,7 +1,6 @@
 """N22 (P3 decision 5): parameters within 1 % of a design bound are labelled, never presented as point estimates."""
 import numpy as np
 import pandas as pd
-import pytest
 
 from tests.test_design_bounds import GRIDS
 

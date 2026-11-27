@@ -8,7 +8,6 @@ has no kinase inflow: reported (its Dp_i still sets the decay of the site's init
 from types import SimpleNamespace
 
 import numpy as np
-import pytest
 import scipy.sparse as sp
 
 
