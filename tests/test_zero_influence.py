@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N24: zero-influence parameters masked at construction")
 
 
 def _net(tf_col_for_k1=False):

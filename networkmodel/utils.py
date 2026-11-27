@@ -434,6 +434,67 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
     return bounds_dict
 
 
+# N24 (P3 decision 4): an edge weight counts as absent if |W| <= ZERO_INFLUENCE_THRESHOLD * max(1, max |W|).
+ZERO_INFLUENCE_THRESHOLD = 1e-12
+ZERO_INFLUENCE_LABEL = "not identifiable: no data influence"
+
+
+def zero_influence_parameters(idx, W_global, tf_mat, threshold=ZERO_INFLUENCE_THRESHOLD):
+    """Detect parameters without data influence at network construction (N24, P3 decision 4).
+
+    c_k[k] enters the model only through S = W @ (c_k * K) and, when kinase k drives a model protein (driver map:
+    the protein itself or an orphan proxied by k), through that protein's TF output. It has no data influence if every
+    edge of k is absent (|W| <= threshold * max(1, max |W|)) and no protein it drives has a TF edge.
+    A site whose edges are all absent has no kinase inflow (KinOpt alpha = 0); it is reported, not masked: its Dp_i
+    still sets the decay of the site's initial value.
+
+    Returns:
+        dict: threshold, c_k (kinase names, in idx.kinases order), sites_without_kinase_inflow (protein_site names).
+    """
+    W = W_global.toarray() if hasattr(W_global, "toarray") else np.asarray(W_global, dtype=float)
+    W = np.abs(np.asarray(W, dtype=float))
+    tol = float(threshold) * max(1.0, float(W.max()) if W.size else 0.0)
+    present = W > tol
+    TF = tf_mat.toarray() if hasattr(tf_mat, "toarray") else np.asarray(tf_mat, dtype=float)
+    tf_out = np.abs(np.asarray(TF, dtype=float)).sum(axis=0) > 0  # column i: protein i regulates someone
+    drives_tf = np.zeros(len(idx.kinases), dtype=bool)
+    drivers = {}
+    for k_name in idx.kinases:
+        if k_name in idx.p2i:
+            drivers[idx.p2i[k_name]] = idx.k2i[k_name]
+    for orphan, proxy in getattr(idx, "proxy_map", {}).items():
+        if orphan in idx.p2i and proxy in idx.k2i:
+            drivers[idx.p2i[orphan]] = idx.k2i[proxy]
+    for p_i, k_i in drivers.items():
+        if p_i < tf_out.size and tf_out[p_i]:
+            drives_tf[k_i] = True
+    has_edge = present.any(axis=0) if present.size else np.zeros(len(idx.kinases), dtype=bool)
+    ck = [k for j, k in enumerate(idx.kinases) if not has_edge[j] and not drives_tf[j]]
+    site_names = [f"{p}_{s}" for p, sites in zip(idx.proteins, idx.sites) for s in sites]
+    inflow = present.any(axis=1) if present.size else np.zeros(len(site_names), dtype=bool)
+    no_inflow = [n for n, ok in zip(site_names, inflow) if not ok]
+    return {"threshold": float(threshold), "c_k": ck, "sites_without_kinase_inflow": no_inflow}
+
+
+def apply_zero_influence_mask(zero_influence, idx, slices, theta0, xl, xu):
+    """Fix the zero-influence c_k at their start values (lower = upper = theta0; N24, P3 decision 4).
+
+    Returns:
+        (xl, xu, mask, names): new bound arrays (inputs untouched), the boolean mask over theta and parameter names.
+    """
+    xl, xu = np.array(xl, dtype=float, copy=True), np.array(xu, dtype=float, copy=True)
+    mask = np.zeros(np.asarray(theta0).shape[0], dtype=bool)
+    names = []
+    sl = slices["c_k"]
+    for k_name in zero_influence["c_k"]:
+        j = sl.start + idx.k2i[k_name]
+        mask[j] = True
+        names.append(f"c_k[{k_name}]")
+    xl[mask] = np.asarray(theta0, dtype=float)[mask]
+    xu[mask] = np.asarray(theta0, dtype=float)[mask]
+    return xl, xu, mask, names
+
+
 def _nondegenerate(mask_xl, mask_xu, eps=1e-14):
     """Handle internal nondegenerate"""
     return (mask_xu - mask_xl) > eps

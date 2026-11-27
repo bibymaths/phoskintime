@@ -1040,6 +1040,24 @@ def main():
     # The theta layout intentionally excludes network alpha/beta construction weights.
     theta0, slices, xl, xu = init_raw_params(defaults, custom_bounds=custom_bounds)
 
+    # N24 (P3 decision 4): parameters without data influence are fixed at their start value and reported.
+    from networkmodel.utils import ZERO_INFLUENCE_LABEL, apply_zero_influence_mask, zero_influence_parameters
+
+    _zi = zero_influence_parameters(idx, W_global, tf_mat)
+    xl, xu, zero_influence_mask, _zi_names = apply_zero_influence_mask(_zi, idx, slices, theta0, xl, xu)
+    for _n in _zi_names:
+        logger.warning("[Identifiability] %s: %s (all edge weights <= %g; fixed at its start value).", _n,
+                       ZERO_INFLUENCE_LABEL, _zi["threshold"])
+    for _s in _zi["sites_without_kinase_inflow"]:
+        logger.warning("[Identifiability] site %s has no kinase inflow (all edge weights <= %g); its Dp_i only sets "
+                       "the decay of its initial value (N24).", _s, _zi["threshold"])
+    from common.results import update_metadata as _upd_meta
+
+    _upd_meta(args.output_dir, {"zero_influence": {
+        "threshold": _zi["threshold"], "rule": "|W| <= threshold * max(1, max|W|) counts as no edge",
+        "label": ZERO_INFLUENCE_LABEL, "fixed_parameters": _zi_names,
+        "sites_without_kinase_inflow": _zi["sites_without_kinase_inflow"]}})
+
     pinn_config = None
     pinn_spec = None
 
