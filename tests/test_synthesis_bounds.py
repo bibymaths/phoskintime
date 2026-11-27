@@ -13,7 +13,6 @@ import pytest
 
 from tests.test_design_bounds import GRIDS, _inputs
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N22-D2: A_i/C_i coupled to rate bounds and data range")
 
 S = 1.5
 

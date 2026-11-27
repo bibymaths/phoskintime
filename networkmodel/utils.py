@@ -326,42 +326,36 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
     logger.info("=" * 60)
     logger.info("[Bounds] CALCULATION: Performing Topological & Kinetic Analysis")
 
-    # 1. ANALYZE DATA DYNAMIC RANGE
-    # Cap the maximum Fold Change the model is ALLOWED to reach.
-    max_prot_fc = df_prot['fc'].max() if (df_prot is not None and not df_prot.empty) else 5.0
-    max_rna_fc = df_rna['fc'].max() if (df_rna is not None and not df_rna.empty) else 5.0
+    # 1. DATA RANGE (fold changes of the model proteins), widened by s = 1.5 on each side; always contains 1.
+    # Empty modality: range [1/5, 5] (former fallback of 5.0).
+    s_buf = 1.5
 
-    # Safety buffer: Tighter than before (1.5x instead of 2.0x)
-    safe_prot_max = max(2.0, max_prot_fc * 1.5)
-    safe_rna_max = max(2.0, max_rna_fc * 1.5)
+    def _fc_range(df):
+        if df is None or df.empty:
+            return 1.0 / 5.0, 5.0
+        fc = np.asarray(df["fc"], dtype=float)
+        fc = fc[np.isfinite(fc) & (fc > 0)]
+        if fc.size == 0:
+            return 1.0 / 5.0, 5.0
+        return min(1.0, float(fc.min())) / s_buf, max(1.0, float(fc.max())) * s_buf
 
-    # 2. mRNA KINETICS (A_i, B_i)
-    # Bounds: 0.005 (~2.3h) to 0.1 (~7min)
-    # We raise the floor to prevent 'stuck' mRNA
-    # Rate bounds: sampling design (N22). The former constants 0.005-0.15 are kept only for A_i until N22 decision 2.
+    r_lo, r_hi = _fc_range(df_rna)
+    p_lo, p_hi = _fc_range(df_prot)
+
+    # 2. mRNA KINETICS: B_i is a rate (sampling design, N22). A_i (zero-order synthesis) is coupled (N22 decision 2):
+    # steady state without TF modulation R = A/B, so A_i = [B_min R_lo, B_max R_hi] contains every A with a steady
+    # level inside the data range for every B in its box.
     b_min, b_max = design["B_i"]["k_min"], design["B_i"]["k_max"]
-    _b_min_a, _b_max_a = 0.005, 0.15
+    a_min, a_max = b_min * r_lo, b_max * r_hi
 
-    # A_i (Basal Synthesis)
-    # Synthesis must balances Degradation at steady state (FC=1).
-    # A_i approx B_i. We allow slight deviation for basal repression/activation.
-    a_min = _b_min_a * 0.1
-    a_max = _b_max_a * safe_rna_max
-
-    # 3. PROTEIN KINETICS (C_i, D_i)
-    # CRITICAL FIX: Raise the degradation floor.
-    # If proteins degrade too slowly, errors accumulate over 960 minutes.
-    # New Floor: 0.01 (approx 70 min half-life). Nothing lives forever.
-    # Rate bounds: sampling design (N22). The former constants 0.01-0.1 are kept only for C_i until N22 decision 2.
+    # 3. PROTEIN KINETICS: D_i is a rate (sampling design). C_i (translation) is coupled: P = C R / D, so
+    # C_i = [D_min P_lo / R_hi, D_max P_hi / R_lo]; saturating model (MODEL 4: translation C R/(1+R)):
+    # C_i = [D_min P_lo (1 + R_hi) / R_hi, D_max P_hi (1 + R_lo) / R_lo].
     d_min, d_max = design["D_i"]["k_min"], design["D_i"]["k_max"]
-    _d_min_c, _d_max_c = 0.01, 0.10
-
-    # C_i (Translation)
-    # Strict linkage: Synthesis cannot exceed Degradation * Max_Fold_Change
-    # C_max = D_max * Max_FC.
-    # If D=0.1 and MaxFC=5, C cannot exceed 0.5.
-    c_min = _d_min_c * 0.1
-    c_max = _d_max_c * safe_prot_max
+    if MODEL == 4:
+        c_min, c_max = d_min * p_lo * (1.0 + r_hi) / r_hi, d_max * p_hi * (1.0 + r_lo) / r_lo
+    else:
+        c_min, c_max = d_min * p_lo / r_hi, d_max * p_hi / r_lo
 
     # 4. TOPOLOGICAL SENSITIVITY (tf_scale; E_i is a rate since N22)
     # For large networks (200+ nodes), additive inputs can be huge.
