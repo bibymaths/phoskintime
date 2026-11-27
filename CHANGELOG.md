@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Parameter bounds and identifiability (N22, owner decisions, branch opt/2026-12) — changed results
+
+- Rate constants B_i, D_i, E_i, Dp_i (1/min) and the c_k lower bound now come from the sampling design:
+  k_min = -ln(1-δ)/T, k_max = -ln(δ)/Δt_min of the modality's configured observation grid, δ = 0.1 (assumption: no
+  replicate data). For the default grids: 1.1e-4 to 9.21 /min (protein, phospho), 1.1e-4 to 0.576 /min (RNA). Replaces
+  the hard-coded constants (B_i 0.005–0.15, D_i 0.01–0.1, Dp_i 0.01–5, c_k ≥ 0.01, E_i 0–20/5/8). All networkmodel
+  fits change (B4–B6 objective −50 %, mainly phospho).
+
 ### Bounded optimizer (O01)
 
 No fitted result changes with the default settings (B2 and B4–B6 outputs are bit-identical).
