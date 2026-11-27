@@ -1,7 +1,6 @@
 """DECISIONS_C1 item 3: networkmodel multistart starts are log-uniform in physical space (softplus of the raw
 coordinate) within the bounds, replacing uniform-in-raw (uniform-in-softplus-coordinate) draws."""
 import numpy as np
-import pytest
 
 
 def _sp(x):
