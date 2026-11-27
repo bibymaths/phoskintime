@@ -17,7 +17,6 @@ import scipy.sparse as sp
 
 from tests.test_design_bounds import GRIDS, _inputs
 
-pytestmark = pytest.mark.xfail(strict=True, reason="pre-merge 2: TF factor in A_i, phospho outflux in C_i")
 S = 1.5
 
 

@@ -342,20 +342,10 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
     r_lo, r_hi = _fc_range(df_rna)
     p_lo, p_hi = _fc_range(df_prot)
 
-    # 2. mRNA KINETICS: B_i is a rate (sampling design, N22). A_i (zero-order synthesis) is coupled (N22 decision 2):
-    # steady state without TF modulation R = A/B, so A_i = [B_min R_lo, B_max R_hi] contains every A with a steady
-    # level inside the data range for every B in its box.
+    # 2./3. Rates B_i, D_i: sampling design. A_i and C_i are set after the model adjustments (below), because their
+    # coupling uses the final tf_scale and Dp_i bounds (pre-merge item 2).
     b_min, b_max = design["B_i"]["k_min"], design["B_i"]["k_max"]
-    a_min, a_max = b_min * r_lo, b_max * r_hi
-
-    # 3. PROTEIN KINETICS: D_i is a rate (sampling design). C_i (translation) is coupled: P = C R / D, so
-    # C_i = [D_min P_lo / R_hi, D_max P_hi / R_lo]; saturating model (MODEL 4: translation C R/(1+R)):
-    # C_i = [D_min P_lo (1 + R_hi) / R_hi, D_max P_hi (1 + R_lo) / R_lo].
     d_min, d_max = design["D_i"]["k_min"], design["D_i"]["k_max"]
-    if MODEL == 4:
-        c_min, c_max = d_min * p_lo * (1.0 + r_hi) / r_hi, d_max * p_hi * (1.0 + r_lo) / r_lo
-    else:
-        c_min, c_max = d_min * p_lo / r_hi, d_max * p_hi / r_lo
 
     # 4. TOPOLOGICAL SENSITIVITY (tf_scale; E_i is a rate since N22)
     # For large networks (200+ nodes), additive inputs can be huge.
@@ -381,9 +371,9 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
 
     bounds_dict = {
         "c_k": (design["c_k"]["k_min"], ck_max),  # lower: sampling design (N22)
-        "A_i": (a_min, a_max),
+        "A_i": (np.nan, np.nan),  # set below (coupled)
         "B_i": (b_min, b_max),
-        "C_i": (c_min, c_max),
+        "C_i": (np.nan, np.nan),  # set below (coupled)
         "D_i": (d_min, d_max),
         "Dp_i": (dp_min, dp_max),
         "E_i": (design["E_i"]["k_min"], design["E_i"]["k_max"]),  # sampling design (N22)
@@ -416,6 +406,27 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
             bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 6.0))
         else:
             bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 10.0))
+
+    # A_i, C_i coupled to the rate bounds and the data range (N22 decision 2; pre-merge item 2).
+    # mRNA: R_ss = A f / B, f the TF modulation of backend._synth: u = u_raw/(1+|u_raw|) in (-1, 1); activation
+    # f = 1 + tf u/(1+u) in [1, 1 + tf/2), repression f = 1/(1 + tf |u|) in (1/(1 + tf), 1]. With tf_max the final
+    # tf_scale upper bound and any TF edge: A_i = [B_min R_lo / (1 + tf_max/2), B_max R_hi (1 + tf_max)]; without TF
+    # edges f = 1 and A_i = [B_min R_lo, B_max R_hi].
+    tf_max = float(bounds_dict["tf_scale"][1])
+    f_hi, f_lo = (1.0 + tf_max / 2.0, 1.0 / (1.0 + tf_max)) if tf_mat.nnz > 0 else (1.0, 1.0)
+    bounds_dict["A_i"] = (b_min * r_lo / f_hi, b_max * r_hi / f_lo)
+    # Protein: the observable is the total T over all states; dT/dt = trans - D T - sum_j Dp_j x_j. E_i moves a
+    # site back to the unphosphorylated pool inside T, so it has no net term in T (it is not an outflux of the
+    # observable). T_ss = trans / (D + Dp_eff), 0 <= Dp_eff <= kappa Dp_max: kappa = 1 for models 0, 1, 4 (one Dp per
+    # state, the states sum to T), kappa = max sites per protein for model 2 (a state decays D + sum of its Dp).
+    # C_i = [D_min P_lo / R_hi, (D_max + kappa Dp_max) P_hi / R_lo]; saturating model (translation C R/(1+R)): the
+    # same times (1 + R_hi) and (1 + R_lo).
+    dp_hi = float(bounds_dict["Dp_i"][1])
+    kappa = max([int(x) for x in getattr(idx, "n_sites", [1])] + [1]) if MODEL == 2 else 1
+    c_min, c_max = d_min * p_lo / r_hi, (d_max + kappa * dp_hi) * p_hi / r_lo
+    if MODEL == 4:
+        c_min, c_max = c_min * (1.0 + r_hi), c_max * (1.0 + r_lo)
+    bounds_dict["C_i"] = (c_min, c_max)
 
     # Log the final bounds of all eight groups (after model-specific adjustments) (N2).
     logger.info("-" * 60)

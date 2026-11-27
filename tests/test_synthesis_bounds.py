@@ -28,10 +28,11 @@ def test_synthesis_bounds_follow_rates_and_data(monkeypatch, model):
     p_lo, p_hi = min(1.0, df_prot.fc.min()) / S, max(1.0, df_prot.fc.max()) * S
     (b_lo, b_hi), (d_lo, d_hi) = b["B_i"], b["D_i"]
     np.testing.assert_allclose(b["A_i"], (b_lo * r_lo, b_hi * r_hi), rtol=1e-12)
+    dp_hi = b["Dp_i"][1]  # pre-merge item 2: phospho outflux in the C_i upper bound (kappa = 1: no n_sites here)
     if model == 4:
-        c = (d_lo * p_lo * (1 + r_hi) / r_hi, d_hi * p_hi * (1 + r_lo) / r_lo)
+        c = (d_lo * p_lo * (1 + r_hi) / r_hi, (d_hi + dp_hi) * p_hi * (1 + r_lo) / r_lo)
     else:
-        c = (d_lo * p_lo / r_hi, d_hi * p_hi / r_lo)
+        c = (d_lo * p_lo / r_hi, (d_hi + dp_hi) * p_hi / r_lo)
     np.testing.assert_allclose(b["C_i"], c, rtol=1e-12)
 
 
