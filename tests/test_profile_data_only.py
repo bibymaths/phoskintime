@@ -18,7 +18,6 @@ CHI2 = 3.841458820694124
 
 
 # ---------------------------------------------------------------- item 1
-@pytest.mark.xfail(strict=True, reason="C1-1")
 def test_threshold_is_chi2_times_reference_over_n_eff():
     from networkmodel.utils import profile_threshold
 
@@ -26,7 +25,6 @@ def test_threshold_is_chi2_times_reference_over_n_eff():
     assert profile_threshold(f_ref=float("nan"), n_eff=10) != profile_threshold(f_ref=float("nan"), n_eff=10)
 
 
-@pytest.mark.xfail(strict=True, reason="C1-1")
 def test_n_eff_counts_residuals_of_active_terms_without_baseline_rows():
     from networkmodel.utils import n_eff_from_loss_data
 
@@ -40,21 +38,21 @@ def test_n_eff_counts_residuals_of_active_terms_without_baseline_rows():
     assert n_eff_from_loss_data(ld, mode) == 6
 
 
-@pytest.mark.xfail(strict=True, reason="C1-1")
 def test_reference_is_data_only_refit_from_theta_hat():
     from networkmodel.ProfileWorker import reference_refit
 
+    import jax.numpy as jnp
+
     a = np.array([0.5, -1.0, 2.0])
-    obj = lambda th: float(((np.asarray(th) - a) ** 2).sum())  # data-only objective, minimum at a
+    obj = lambda th: jnp.sum((jnp.asarray(th) - a) ** 2)  # data-only objective, minimum at a
     theta_hat = a + np.array([0.3, 0.2, -0.1])  # MAP: pulled away from a by the prior
     ref = reference_refit(obj, theta_hat, -5 * np.ones(3), 5 * np.ones(3), fixed_mask=None, maxiter=500,
                           tol=1e-10, optimizer="lbfgsb")
     np.testing.assert_allclose(ref["theta_ref"], a, atol=1e-6)
-    assert ref["f_ref"] < obj(theta_hat) and ref["converged"]
-    assert np.isclose(ref["f_at_theta_hat"], obj(theta_hat))
+    assert ref["f_ref"] < float(obj(theta_hat)) and ref["converged"]
+    assert np.isclose(ref["f_at_theta_hat"], float(obj(theta_hat)))
 
 
-@pytest.mark.xfail(strict=True, reason="C1-1")
 def test_profile_note_says_approximate_no_proper_likelihood():
     from networkmodel.BayesianInference import PROFILE_SCALE_NOTE
     from networkmodel.utils import PROFILE_RULE
@@ -65,7 +63,6 @@ def test_profile_note_says_approximate_no_proper_likelihood():
 
 
 # ---------------------------------------------------------------- item 2
-@pytest.mark.xfail(strict=True, reason="C1-2")
 @pytest.mark.parametrize("v,lo,hi", [(0.07, 1e-4, 50.0), (2.0, 1.5, 3.0), (1e-3, 1e-4, 1e4)])
 def test_grid_is_log_spaced_to_both_bounds_with_three_points_per_decade(v, lo, hi):
     from networkmodel.utils import profile_grid_physical
@@ -79,7 +76,6 @@ def test_grid_is_log_spaced_to_both_bounds_with_three_points_per_decade(v, lo, h
     assert np.all(below < v) and np.all(above > v) and np.all(below >= lo) and np.all(above <= hi)
 
 
-@pytest.mark.xfail(strict=True, reason="C1-2")
 def test_grid_side_is_empty_at_a_bound():
     from networkmodel.utils import profile_grid_physical
 
@@ -98,7 +94,6 @@ def _prof(below_f, above_f, conv_b=None, conv_a=None):
         "parameter_name": "p"})
 
 
-@pytest.mark.xfail(strict=True, reason="C1-2")
 @pytest.mark.parametrize("b,a,label", [
     ([1.2, 2.0], [1.3, 3.0], "estimate (two-sided)"),
     ([1.0, 1.0], [1.3, 3.0], "upper limit only"),
@@ -115,7 +110,6 @@ def test_side_rules(b, a, label):
     assert out["label"] == label
 
 
-@pytest.mark.xfail(strict=True, reason="C1-2")
 def test_non_converged_points_do_not_count():
     from networkmodel.utils import identifiability_from_profile
 
@@ -125,7 +119,6 @@ def test_non_converged_points_do_not_count():
     assert out["sides"] == {"below": "not assessed", "above": "not assessed"}
 
 
-@pytest.mark.xfail(strict=True, reason="C1-2")
 def test_nonfinite_reference_or_threshold_is_not_assessed():
     from networkmodel.utils import identifiability_from_profile
 
@@ -134,7 +127,6 @@ def test_nonfinite_reference_or_threshold_is_not_assessed():
             "not assessed"
 
 
-@pytest.mark.xfail(strict=True, reason="C1-2")
 def test_points_better_than_reference_are_flagged():
     from networkmodel.utils import identifiability_from_profile
 

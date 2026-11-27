@@ -521,38 +521,121 @@ def _fmt_half_life(minutes):
     return f"{minutes / 60.0:.1f} h"
 
 
-# Pre-merge item 5: identifiability labels from profile likelihoods.
+# Pre-merge item 5 / DECISIONS_C1 items 1-2: identifiability labels from data-only profile likelihoods.
 PROFILE_CHI2_95 = 3.841458820694124  # chi-square quantile, 1 degree of freedom, 0.95
-IDENTIFIABILITY_LABELS = ("estimate (two-sided)", "upper limit only", "lower limit only", "not identifiable (flat)")
+IDENTIFIABILITY_LABELS = ("estimate (two-sided)", "upper limit only", "lower limit only", "not identifiable (flat)",
+                          "upper limit only (lower side not assessed)", "lower limit only (upper side not assessed)")
 NOT_ASSESSED = "not assessed"
+PROFILE_RULE = (
+    "data-only profiles (prior off for the reference and every refit; reference = data-only refit from theta-hat); "
+    "threshold = chi2(1, 0.95) x f_ref / n_eff, Gaussian approximation with one variance estimated from the data "
+    "residuals; the objective sum_m lambda_m MSE_m implies a residual variance sigma^2 x n_m / lambda_m for "
+    "modality m (n_m its residual count), so sigma^2-hat = f_ref / n_eff with n_eff the number of residuals "
+    "(baseline rows with residual 0 by construction excluded); approximate; no proper likelihood yet (N6)")
 
 
-def profile_threshold(total, prior, n_obs):
-    """Profile threshold on the training objective (approximation, the objective is not a normalized likelihood, N6):
-    with Gaussian errors of one pooled variance estimated by the data misfit per observation, a likelihood-ratio
-    change of chi2_1(0.95) corresponds to Delta objective = 3.84 x (total - prior) / n_obs."""
-    return PROFILE_CHI2_95 * max(float(total) - float(prior), 0.0) / max(int(n_obs), 1)
+def profile_threshold(f_ref, n_eff):
+    """Profile threshold on the data-only objective (DECISIONS_C1 item 1): chi2(1, 0.95) x f_ref / n_eff.
 
-
-def identifiability_from_profile(profile, theta_hat_raw, f_hat, threshold):
-    """Label one parameter from its profile (columns grid_value [raw], objective_value).
-
-    A side (grid values below / above theta-hat) is bounded if the objective rises by >= threshold above f_hat
-    somewhere on it. Both -> "estimate (two-sided)"; only above -> "upper limit only"; only below -> "lower limit
-    only"; neither -> "not identifiable (flat)".
+    Gaussian approximation (see PROFILE_RULE): approximate; no proper likelihood yet (N6). NaN propagates.
     """
-    df = profile[np.isfinite(profile["objective_value"])]
-    d = df["objective_value"].to_numpy(dtype=float) - float(f_hat)
-    g = df["grid_value"].to_numpy(dtype=float)
-    lower = bool(np.any(d[g < theta_hat_raw] >= threshold))
-    upper = bool(np.any(d[g > theta_hat_raw] >= threshold))
-    if lower and upper:
-        return IDENTIFIABILITY_LABELS[0]
-    if upper:
-        return IDENTIFIABILITY_LABELS[1]
-    if lower:
-        return IDENTIFIABILITY_LABELS[2]
-    return IDENTIFIABILITY_LABELS[3]
+    f_ref = float(f_ref)
+    if not np.isfinite(f_ref):
+        return float("nan")
+    return PROFILE_CHI2_95 * max(f_ref, 0.0) / max(int(n_eff), 1)
+
+
+def n_eff_from_loss_data(loss_data, mode):
+    """Number of residuals that enter the active data terms (positive weight), without baseline rows whose observed
+    fold change is exactly 1 (the model observable is 1 there by construction, so the residual is identically 0)."""
+    n = 0
+    for flag, key, base in (("fit_protein", "prot", "prot_base_idx"), ("fit_mrna", "rna", "rna_base_idx"),
+                            ("fit_phospho", "pho", "pho_base_idx")):
+        if not getattr(mode, flag, False):
+            continue
+        t = np.asarray(loss_data[f"t_{key}"])
+        obs = np.asarray(loss_data[f"obs_{key}"], dtype=float)
+        w = np.asarray(loss_data.get(f"w_{key}", np.ones_like(obs)), dtype=float)
+        zero = (t == int(loss_data.get(base, 0))) & (obs == 1.0)
+        n += int(np.sum((w > 0) & ~zero))
+    return n
+
+
+def profile_grid_physical(v, lo, hi, n_per_side, decade_points=3):
+    """Profile grid in physical space (DECISIONS_C1 item 2): log-spaced, centred on ``v`` (the data-only optimum),
+    out to both bounds. Each side is ordered outward from ``v`` and ends at its bound. A side that spans more than one
+    decade gets ``decade_points`` points within the first decade (log steps of 1/decade_points decade) and the rest
+    evenly log-spaced from one decade out to the bound; a side within one decade is evenly log-spaced. A side is empty
+    when ``v`` sits at that bound.
+
+    Returns:
+        (below, above): two float arrays, physical values.
+    """
+    v, lo, hi = float(v), float(lo), float(hi)
+    n = max(int(n_per_side), decade_points + 1)
+
+    def side(bound):
+        if not (np.isfinite(bound) and bound > 0 and v > 0) or np.isclose(bound, v, rtol=1e-12, atol=0.0):
+            return np.zeros(0)
+        span = np.log10(bound / v)
+        if abs(span) <= 1.0:
+            offs = span * np.arange(1, n + 1) / n
+        else:
+            sgn = np.sign(span)
+            first = sgn * np.arange(1, decade_points + 1) / decade_points
+            rest = sgn + (span - sgn) * np.arange(1, n - decade_points + 1) / (n - decade_points)
+            offs = np.concatenate([first, rest])
+        pts = v * 10.0 ** offs
+        pts[-1] = bound
+        return np.clip(pts, min(lo, v), max(hi, v))
+
+    return side(lo), side(hi)
+
+
+def identifiability_from_profile(profile, f_ref, threshold, min_points=2):
+    """Label one parameter from its data-only profile (DECISIONS_C1 items 1-2).
+
+    ``profile`` columns: side ("below"/"above" the reference value), objective_value (data-only), converged (bool),
+    grid_value_physical, parameter_name. Only converged, finite refits count. Per side: fewer than ``min_points``
+    such points -> "not assessed"; any point with objective >= f_ref + threshold -> "bounded"; else "flat".
+    Labels: both bounded -> "estimate (two-sided)"; bounded above + flat below -> "upper limit only" (and the
+    mirror); both flat -> "not identifiable (flat)"; bounded on one side, the other not assessed -> "... (other side
+    not assessed)"; otherwise "not assessed". A non-finite reference or threshold -> "not assessed".
+    Converged points below f_ref are reported in ``better_points`` (parameter, side, grid_value_physical, objective,
+    delta); they are not refitted.
+
+    Returns:
+        dict: label, sides {below, above}, n_converged {below, above}, better_points (list of dicts).
+    """
+    out = {"label": NOT_ASSESSED, "sides": {"below": NOT_ASSESSED, "above": NOT_ASSESSED},
+           "n_converged": {"below": 0, "above": 0}, "better_points": []}
+    f_ref, threshold = float(f_ref), float(threshold)
+    if not (np.isfinite(f_ref) and np.isfinite(threshold)):
+        return out
+    df = profile[profile["converged"].astype(bool) & np.isfinite(profile["objective_value"].astype(float))]
+    for side in ("below", "above"):
+        d = df.loc[df["side"] == side, "objective_value"].to_numpy(dtype=float) - f_ref
+        out["n_converged"][side] = int(d.size)
+        if d.size >= int(min_points):
+            out["sides"][side] = "bounded" if bool(np.any(d >= threshold)) else "flat"
+    for r in df[df["objective_value"].astype(float) < f_ref].itertuples():
+        out["better_points"].append({"parameter": str(getattr(r, "parameter_name", "")), "side": str(r.side),
+                                     "grid_value_physical": float(r.grid_value_physical),
+                                     "objective": float(r.objective_value), "delta": float(r.objective_value) - f_ref})
+    lo, up = out["sides"]["below"], out["sides"]["above"]
+    if lo == "bounded" and up == "bounded":
+        out["label"] = IDENTIFIABILITY_LABELS[0]
+    elif up == "bounded" and lo == "flat":
+        out["label"] = IDENTIFIABILITY_LABELS[1]
+    elif lo == "bounded" and up == "flat":
+        out["label"] = IDENTIFIABILITY_LABELS[2]
+    elif lo == "flat" and up == "flat":
+        out["label"] = IDENTIFIABILITY_LABELS[3]
+    elif up == "bounded":
+        out["label"] = IDENTIFIABILITY_LABELS[4]
+    elif lo == "bounded":
+        out["label"] = IDENTIFIABILITY_LABELS[5]
+    return out
 
 
 def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fixed_names=(),

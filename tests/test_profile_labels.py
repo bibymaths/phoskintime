@@ -10,11 +10,11 @@ def test_annotate_profile_columns():
     df = pd.DataFrame({"grid_value": [0.0, 1.0, 2.0], "objective_value": [0.3, 0.2, np.inf],
                        "delta_objective": [0.1, 0.0, np.inf], "iterations": [10, 100, -1],
                        "success": [True, True, False]})
-    out = annotate_profile(df, theta_hat_raw=0.9, objective_at_theta_hat=0.15, maxiter=100)
+    out = annotate_profile(df, theta_ref_raw=0.8, f_ref=0.15, theta_hat_raw=0.9, maxiter=100)
     assert out["objective_scale"].str.contains("NOT -2 log L").all()
-    np.testing.assert_allclose(out["delta_vs_theta_hat"][:2], [0.15, 0.05])
+    np.testing.assert_allclose(out["delta_vs_reference"][:2], [0.15, 0.05])
     assert out["converged"].tolist() == [True, False, False]
-    assert (out["theta_hat_raw"] == 0.9).all() and (out["objective_at_theta_hat"] == 0.15).all()
+    assert (out["theta_hat_raw"] == 0.9).all() and (out["f_ref"] == 0.15).all() and (out["theta_ref_raw"] == 0.8).all()
 
 
 def test_objective_at_reports_nan_on_failure():

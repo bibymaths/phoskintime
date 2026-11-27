@@ -39,7 +39,7 @@ from networkmodel.config import (
 from networkmodel.io import load_data
 from networkmodel.network import Index, KinaseInput, System
 from networkmodel.params import init_raw_params
-from networkmodel.utils import normalize_fc_to_t0, calculate_bio_bounds
+from networkmodel.utils import normalize_fc_to_t0, calculate_bio_bounds, n_eff_from_loss_data
 
 from config.config import setup_logger
 
@@ -152,10 +152,12 @@ def _load_data_for_posterior_context(args, cfg: dict):
     return df_kin, df_tf, df_prot, df_pho, df_rna, kin_beta_map, tf_beta_map
 
 
-def build_networkmodel_posterior_context(run_config_path: str | Path, chain_output_dir: str | Path) -> InferenceContext:
+def build_networkmodel_posterior_context(run_config_path: str | Path, chain_output_dir: str | Path,
+                                        *, prior_off: bool = False) -> InferenceContext:
     """Rebuild an InferenceContext from saved posterior run config.
 
-    This function intentionally reconstructs the objective in a fresh process.
+    This function intentionally reconstructs the objective in a fresh process. ``prior_off=True`` rebuilds the
+    data-only objective (prior weight 0), used by the profile likelihood (DECISIONS_C1 item 1).
     """
     run_config_path = Path(run_config_path)
     with open(run_config_path) as f:
@@ -325,7 +327,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         "protein": float(cfg["lambdas"]["protein"]),
         "rna": float(cfg["lambdas"]["rna"]),
         "phospho": float(cfg["lambdas"]["phospho"]),
-        "prior": float(cfg["lambdas"]["prior"]),
+        "prior": 0.0 if prior_off else float(cfg["lambdas"]["prior"]),
     }
 
     mode = detect_data_mode(loss_data=loss_data, logger_obj=logger)
@@ -354,6 +356,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         maxiter=int(cfg.get("max_iter", cfg.get("n_gen", 50))),
         tol=float(cfg.get("tol", 1e-6)),
         optimizer=str(cfg.get("optimizer", "projected_gradient")),
+        n_eff=n_eff_from_loss_data(loss_data, mode),
     )
 
     return ctx

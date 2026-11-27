@@ -1359,6 +1359,7 @@ def main():
     )
 
     profile_summary = None  # pre-merge item 5: profile results feed the identifiability labels
+    profile_reference = None  # DECISIONS_C1 item 1: data-only reference optimum and threshold
     if args.profile_likelihood and args.profile_indices.strip():
         try:
             logger.info("[Profile] Profile likelihood requested for indices: %s", args.profile_indices)
@@ -1386,6 +1387,7 @@ def main():
                 profile_result["output_dir"],
             )
             profile_summary = profile_result["summary"]
+            profile_reference = profile_result.get("reference")
 
         except Exception:
             logger.exception("[Profile] Profile likelihood failed.")
@@ -1683,21 +1685,32 @@ def main():
     _design_info = design_rate_bounds({"protein": args.time_points_protein, "rna": args.time_points_rna,
                                        "phospho": args.time_points_phospho})
     # Pre-merge item 5: identifiability from profile likelihoods when they were run, else "not assessed".
-    from networkmodel.utils import identifiability_from_profile, profile_threshold
+    from networkmodel.utils import PROFILE_RULE, identifiability_from_profile
 
     _ident, _ident_meta = {}, {"profiles_run": False}
-    if profile_summary is not None and len(profile_summary):
-        _bd = getattr(res, "loss_breakdown", {}) or {}
-        _thr = profile_threshold(total=float(best_f), prior=float(_bd.get("prior", 0.0)), n_obs=n_total_obs)
+    if profile_summary is not None and len(profile_summary) and profile_reference is not None:
+        # DECISIONS_C1 items 1-2: data-only profiles, labels against the data-only reference.
+        _f_ref, _thr = float(profile_reference["f_ref"]), float(profile_reference["threshold"])
+        _details, _better = {}, []
         for _pname, _pdf in profile_summary.groupby("parameter_name"):
-            _j = parameter_names.index(_pname)
-            _fhat = float(_pdf["objective_at_theta_hat"].iloc[0]) if "objective_at_theta_hat" in _pdf else float(best_f)
-            _ident[_pname] = identifiability_from_profile(_pdf, theta_hat_raw=float(theta_best[_j]), f_hat=_fhat,
-                                                          threshold=_thr)
-        _ident_meta = {"profiles_run": True, "threshold": _thr, "n_obs": int(n_total_obs),
-                       "rule": "a side is bounded if the profile objective rises >= threshold above f_hat; threshold "
-                               "= 3.84 x (total - prior) / n_obs (pooled Gaussian approximation; the objective is "
-                               "not a normalized likelihood)", "labels": _ident}
+            _r = identifiability_from_profile(_pdf, f_ref=_f_ref, threshold=_thr)
+            _ident[_pname] = _r["label"]
+            _details[_pname] = {"sides": _r["sides"], "n_converged": _r["n_converged"]}
+            _better += _r["better_points"]
+        for _bp in _better:
+            logger.warning("[Identifiability] profile point beats the data-only reference: %s = %.6g (side %s), "
+                           "objective %.10g, delta %.3g (not refitted)", _bp["parameter"],
+                           _bp["grid_value_physical"], _bp["side"], _bp["objective"], _bp["delta"])
+        _ident_meta = {"profiles_run": True, "threshold": _thr, "f_ref": _f_ref,
+                       "f_at_theta_hat_data_only": float(profile_reference.get("f_at_theta_hat", float("nan"))),
+                       "reference_status": profile_reference.get("status"),
+                       "reference_converged": bool(profile_reference.get("converged", False)),
+                       "n_eff": int(profile_reference.get("n_eff", 0)), "n_obs_incl_baseline": int(n_total_obs),
+                       "rule": PROFILE_RULE + "; a side counts only with >= 2 converged refits (else 'not "
+                               "assessed'); a side is bounded if a converged refit rises >= threshold above f_ref",
+                       "labels": _ident, "sides": _details, "better_than_reference": _better}
+    elif profile_summary is not None and len(profile_summary):
+        _ident_meta = {"profiles_run": True, "error": "no data-only reference; every label 'not assessed'"}
     param_status = parameter_status(parameter_names, theta_best, xl, xu, slices, _design_info,
                                     fixed_names=_zi_names, identifiability=_ident)
     for _r in param_status.itertuples():

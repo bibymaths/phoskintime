@@ -51,6 +51,7 @@ class InferenceContext:
     maxiter: int = 50
     tol: float = 1e-6
     optimizer: str = "projected_gradient"  # networkmodel.optimizers.OPTIMIZERS ([networkmodel] optimizer)
+    n_eff: int | None = None  # residuals in the active data terms (DECISIONS_C1 item 1; utils.n_eff_from_loss_data)
 
     def build_worker_kwargs(self, start_id: int, seed: int, theta_start: np.ndarray) -> dict:
         """Create an immutable per-worker copy of numeric residual/loss metadata."""
@@ -358,7 +359,7 @@ def run_profile_likelihood_standalone_processes(
     statuses = []
 
     def _start_worker(param_idx: int):
-        worker_dir = worker_root / f"param_{param_idx:04d}"
+        worker_dir = worker_root / (f"param_{param_idx:04d}" if param_idx >= 0 else "reference")
         worker_dir.mkdir(parents=True, exist_ok=True)
 
         worker_log = worker_dir / "worker_stdout_stderr.log"
@@ -369,11 +370,11 @@ def run_profile_likelihood_standalone_processes(
             "networkmodel.ProfileWorker",
             "--run-config",
             str(run_config_path),
-            "--parameter-index",
-            str(param_idx),
-            "--grid-size",
-            str(int(grid_size)),
         ]
+        if param_idx >= 0:
+            cmd += ["--parameter-index", str(param_idx), "--grid-size", str(int(grid_size))]
+        else:  # DECISIONS_C1 item 1: data-only reference optimum and threshold, before any parameter
+            cmd += ["--reference"]
 
         env = os.environ.copy()
         env.setdefault("OMP_NUM_THREADS", "1")
@@ -396,6 +397,20 @@ def run_profile_likelihood_standalone_processes(
         )
 
         return param_idx, proc, fh, worker_log
+
+    # DECISIONS_C1 item 1: the data-only reference is computed once, before the parameter workers.
+    ref_path = out / "profile_reference.json"
+    _, ref_proc, ref_fh, ref_log = _start_worker(-1)
+    ref_rc = ref_proc.wait(timeout=timeout_seconds or None) if hasattr(ref_proc, "wait") else None
+    while ref_rc is None:
+        ref_rc = ref_proc.poll()
+        if ref_rc is None:
+            time.sleep(2.0)
+    ref_fh.close()
+    if int(ref_rc) != 0 or not ref_path.exists():
+        raise RuntimeError(f"Profile reference worker failed (return code {ref_rc}); see {ref_log}.")
+    with open(ref_path) as f:
+        reference = json.load(f)
 
     # Keep only max_workers active at once.
     while pending or running:
@@ -475,19 +490,8 @@ def run_profile_likelihood_standalone_processes(
         )
 
     summary = pd.concat(result_dfs, ignore_index=True)
-
-    summary["delta_objective"] = np.inf
-    finite_mask = np.isfinite(summary["objective_value"])
-
-    if finite_mask.any():
-        mins = (
-            summary.loc[finite_mask]
-            .groupby("parameter_name")["objective_value"]
-            .transform("min")
-        )
-        summary.loc[finite_mask, "delta_objective"] = (
-                summary.loc[finite_mask, "objective_value"].to_numpy() - mins.to_numpy()
-        )
+    # DECISIONS_C1 item 1: deltas relative to the data-only reference, not the grid minimum.
+    summary["delta_objective"] = summary["objective_value"] - float(reference["f_ref"])
 
     summary.to_csv(out / "profile_likelihood_summary.csv", index=False)
 
@@ -510,6 +514,7 @@ def run_profile_likelihood_standalone_processes(
         "summary": summary,
         "worker_status": status_df,
         "output_dir": out,
+        "reference": reference,
     }
 
 
@@ -569,8 +574,11 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
         df = pd.DataFrame(rows)
         finite_min = df.loc[np.isfinite(df["objective_value"]), "objective_value"].min()
         df["delta_objective"] = df["objective_value"] - finite_min
-        df = annotate_profile(df, theta_hat_raw=float(np.asarray(ctx.theta0)[idx]),
-                              objective_at_theta_hat=objective_at(ctx.objective_fun, ctx.theta0), maxiter=ctx.maxiter)
+        # In-process helper: profiles ctx.objective_fun as given, centred on ctx.theta0 (no data-only reference
+        # refit, no labels). The runner uses the standalone workers (DECISIONS_C1 items 1-2).
+        df = annotate_profile(df, theta_ref_raw=float(np.asarray(ctx.theta0)[idx]),
+                              f_ref=objective_at(ctx.objective_fun, ctx.theta0),
+                              theta_hat_raw=float(np.asarray(ctx.theta0)[idx]), maxiter=ctx.maxiter)
         df.to_csv(out / f"profile_likelihood_{names[idx]}.csv", index=False)
         _plot_profile(df, plot_dir / f"profile_likelihood_{names[idx]}.png")
     summary = pd.DataFrame(all_rows)
@@ -583,18 +591,22 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
     return {"summary": summary, "output_dir": out}
 
 
-PROFILE_SCALE_NOTE = ("weighted-MSE training objective; delta_objective is relative to the grid minimum and "
-                      "is NOT -2 log L, so these profiles are not confidence intervals (KNOWN_ISSUES N13)")
+PROFILE_SCALE_NOTE = ("data-only weighted-MSE objective (prior off); delta_objective is relative to the data-only "
+                      "reference f_ref (refit from theta-hat with the prior off) and is NOT -2 log L; labels use "
+                      "the threshold chi2(1, 0.95) x f_ref / n_eff: approximate; no proper likelihood yet (N6) "
+                      "(KNOWN_ISSUES N13)")
 
 
-def annotate_profile(df: pd.DataFrame, *, theta_hat_raw: float, objective_at_theta_hat: float,
+def annotate_profile(df: pd.DataFrame, *, theta_ref_raw: float, f_ref: float, theta_hat_raw: float,
                      maxiter: int) -> pd.DataFrame:
-    """N13 option A: label the profile scale, report the fitted optimum and per-point convergence."""
+    """N13 option A / DECISIONS_C1 item 1: label the profile scale, report the data-only reference (centre and
+    objective), the fitted (penalized) optimum, and per-point convergence (the optimizer's status "converged")."""
     df = df.copy()
     df["objective_scale"] = PROFILE_SCALE_NOTE
+    df["theta_ref_raw"] = float(theta_ref_raw)
+    df["f_ref"] = float(f_ref)
     df["theta_hat_raw"] = float(theta_hat_raw)
-    df["objective_at_theta_hat"] = float(objective_at_theta_hat)
-    df["delta_vs_theta_hat"] = df["objective_value"] - float(objective_at_theta_hat)
+    df["delta_vs_reference"] = df["objective_value"] - float(f_ref)
     if "convergence_status" in df:  # the optimizer's own stop criterion (networkmodel.optimizers)
         df["converged"] = df["success"].astype(bool) & (df["convergence_status"] == "converged")
     elif "iterations" in df:
@@ -615,14 +627,25 @@ def objective_at(objective_fun, theta) -> float:
 
 def _plot_profile(df: pd.DataFrame, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(4, 3))
-    ax.plot(df["grid_value"], df["objective_value"], marker="o", label="objective")
-    ax.set_xlabel("profiled parameter (raw softplus coordinate)")
-    ax.set_ylabel("training objective (weighted MSE)")
-    if "theta_hat_raw" in df:
+    if "grid_value_physical" in df:  # data-only profile (DECISIONS_C1): physical, log axis
+        d = df.sort_values("grid_value_physical")
+        ax.plot(d["grid_value_physical"], d["objective_value"], marker="o", label="objective")
+        if "converged" in d:
+            nc = d[~d["converged"].astype(bool)]
+            ax.plot(nc["grid_value_physical"], nc["objective_value"], "x", color="red", label="not converged")
+        ax.set_xscale("log")
+        ax.set_xlabel("profiled parameter (physical, log scale)")
+        if "theta_ref_raw" in d:
+            ax.axvline(float(_np_softplus(d["theta_ref_raw"].iloc[0])), color="grey", linestyle=":",
+                       label="data-only reference")
+        ax.set_ylabel("data-only objective (weighted MSE)")
+        ax.set_title("approximate; no proper likelihood yet (N6)", fontsize=7)
+    else:
+        ax.plot(df["grid_value"], df["objective_value"], marker="o", label="objective")
+        ax.set_xlabel("profiled parameter (raw softplus coordinate)")
+        ax.set_ylabel("training objective (weighted MSE)")
+    if "theta_hat_raw" in df and "grid_value_physical" not in df:
         ax.axvline(float(df["theta_hat_raw"].iloc[0]), color="grey", linestyle=":", label="fitted optimum")
-    ax2 = ax.twinx()
-    ax2.plot(df["grid_value"], df["delta_objective"], color="tab:orange", marker="x", label="delta")
-    ax2.set_ylabel("Δ training objective (not −2 log L)")
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)

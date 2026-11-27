@@ -44,9 +44,12 @@ def test_profile_likelihood_standalone_processes_merges_worker_outputs(tmp_path,
             self.cmd = cmd
             self.returncode = None
             self.pid = 1234
-            self.param_idx = int(cmd[cmd.index("--parameter-index") + 1])
+            self.param_idx = int(cmd[cmd.index("--parameter-index") + 1]) if "--parameter-index" in cmd else -1
 
         def poll(self):
+            if self.returncode is None and self.param_idx < 0:  # data-only reference worker (C1 item 1)
+                (tmp_path / "profiles" / "profile_reference.json").write_text(json.dumps({"f_ref": 1.0}))
+                self.returncode = 0
             if self.returncode is None:
                 worker_dir = tmp_path / "profile_workers" / f"param_{self.param_idx:04d}"
                 csv_path = worker_dir / f"profile_likelihood_param_{self.param_idx}.csv"
@@ -85,6 +88,8 @@ def test_profile_likelihood_standalone_processes_merges_worker_outputs(tmp_path,
     assert (tmp_path / "profiles" / "profile_likelihood_summary.csv").exists()
     assert (tmp_path / "profiles" / "profile_worker_status.csv").exists()
     assert set(result["summary"]["parameter_index"]) == {0, 2}
+    assert result["reference"] == {"f_ref": 1.0}
+    assert result["summary"]["delta_objective"].tolist() == pytest.approx([0.5, 2.5])
     assert result["summary"].loc[result["summary"]["parameter_index"] == 2, "objective_value"].iloc[0] == pytest.approx(
         3.5)
 
