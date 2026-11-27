@@ -100,13 +100,13 @@ def test_optimizer_key_is_the_bounded_optimizer_choice(tmp_path):
     import pytest
 
     cfg = load_config_toml("config.toml")
-    assert cfg.optimizer == "projected_gradient"  # the default stays ProjectedGradient (owner decision)
+    assert cfg.optimizer == "lbfgsb"  # default L-BFGS-B since N22 P3 decision 6 (owner decision)
     text = open("config.toml").read()
-    for value in ("lbfgsb", "pymoo"):
+    for value in ("projected_gradient", "pymoo"):
         p = tmp_path / f"c_{value}.toml"
-        p.write_text(text.replace('optimizer = "projected_gradient"', f'optimizer = "{value}"', 1))
-        if value == "lbfgsb":
-            assert load_config_toml(p).optimizer == "lbfgsb"
+        p.write_text(text.replace('optimizer = "lbfgsb"', f'optimizer = "{value}"', 1))
+        if value == "projected_gradient":
+            assert load_config_toml(p).optimizer == "projected_gradient"
         else:
             with pytest.raises(ValueError, match="optimizer must be"):
                 load_config_toml(p)
