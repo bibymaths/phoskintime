@@ -81,12 +81,18 @@ class OptimizerResult:
 NEAR_CONVERGED_KKT = 1e-5
 
 
-def convergence_class(status: str, kkt_residual: float, stop_reason: str = "") -> str:
-    """converged | near_converged | not_converged (see NEAR_CONVERGED_KKT)."""
+def convergence_class(status: str, kkt_residual: float, stop_reason: str = "", pgtol: float = 1e-6) -> str:
+    """Owner's classes (P3 decision 6) by the KKT residual of a run with only finite evaluations:
+    converged (KKT <= pgtol, or the optimizer's own convergence), near_converged (pgtol < KKT <= NEAR_CONVERGED_KKT),
+    not_converged (otherwise)."""
     if status == "converged":
         return "converged"
     kkt = float(kkt_residual)
-    if np.isfinite(kkt) and kkt <= NEAR_CONVERGED_KKT and "non-finite" not in str(stop_reason):
+    if not np.isfinite(kkt) or "non-finite" in str(stop_reason):
+        return "not_converged"
+    if kkt <= pgtol:
+        return "converged"
+    if kkt <= NEAR_CONVERGED_KKT:
         return "near_converged"
     return "not_converged"
 
@@ -262,9 +268,11 @@ def minimize_bounded(objective, theta0, lower, upper, *, fixed_mask=None, fixed_
         except Exception as exc:  # reported, not hidden: the fit itself succeeded (O01 review R3)
             log.warning("[Optimizer] KKT diagnostics failed after the fit: %s", exc)
             reason = f"{reason}; KKT diagnostics failed: {exc}"
-    new_status = convergence_class(status, diag["kkt_residual"], reason)
+    pgtol = float(criteria.get("pgtol", LBFGSB_DEFAULTS["pgtol"])) if isinstance(criteria, dict) else 1e-6
+    new_status = convergence_class(status, diag["kkt_residual"], reason, pgtol=pgtol)
     if new_status != status:
-        reason = f"{reason}; near-converged: KKT residual {diag['kkt_residual']:.3g} <= {NEAR_CONVERGED_KKT:g}"
+        reason = f"{reason}; classed {new_status} by KKT residual {diag['kkt_residual']:.3g} (pgtol {pgtol:g}, " \
+                 f"near-converged limit {NEAR_CONVERGED_KKT:g})"
         status = new_status
     result = OptimizerResult(theta=theta, optimizer=name, label=OPTIMIZER_LABELS[name], status=status,
                              stop_reason=reason, iterations=it, n_fun_evals=nfev, n_grad_evals=ngev,

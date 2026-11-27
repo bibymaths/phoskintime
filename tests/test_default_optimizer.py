@@ -38,6 +38,8 @@ def test_loader_fallback_defaults(tmp_path):
     ("not_converged", 1e-5, "", "near_converged"),
     ("not_converged", 2e-5, "", "not_converged"),
     ("not_converged", 3e-6, "x; 2 non-finite gradient evaluation(s)", "not_converged"),
+    ("not_converged", 5e-7, "ABNORMAL", "converged"),  # review D-3: KKT <= pgtol is converged
+    ("not_converged", 1e-6, "", "converged"),
     ("not_converged", float("nan"), "", "not_converged"),
 ])
 def test_convergence_class(status, kkt, reason, expected):
