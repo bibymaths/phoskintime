@@ -45,8 +45,9 @@ def test_status_and_labels():
     assert st.loc["c_k[K2]", "status"] == "below_resolvable_rate"
     assert st.loc["c_k[K3]", "status"] == "fixed_no_data_influence"
     assert st.loc["c_k[K3]", "label"] == "not identifiable: no data influence"
-    for n in ("c_k[K1]", "Dp_i[P_s1]", "tf_scale"):
-        assert st.loc[n, "status"] == "estimate" and st.loc[n, "is_estimate"]
+    for n in ("c_k[K1]", "Dp_i[P_s1]", "tf_scale"):  # pre-merge 5: interior, not assessed without profiles
+        assert st.loc[n, "status"] == "interior" and st.loc[n, "label"] == "not assessed"
+        assert not st.loc[n, "is_estimate"]
     np.testing.assert_allclose(st.loc["c_k[K1]", "value"], 0.3, rtol=1e-12)
 
 
@@ -67,11 +68,11 @@ def test_exported_tables_carry_the_labels(tmp_path):
     assert "below resolvable rate (half-life > 105.3 h)" in g.loc[0, "Not_point_estimates"]
     assert "mRNA_Degradation_B: above resolvable rate" in g.loc[0, "Not_point_estimates"]
     k = pd.read_csv(tmp_path / "model_parameters_kinases.csv").set_index("Kinase")
-    assert k.loc["K1", "Status"] == "estimate"
+    assert k.loc["K1", "Status"] == "not assessed"
     assert k.loc["K2", "Status"].startswith("below resolvable rate")
     assert k.loc["K3", "Status"] == "not identifiable: no data influence"
     ps = pd.read_csv(tmp_path / "model_parameters_genes_psites.csv")
-    assert ps.loc[0, "Dp_status"] == "estimate"
+    assert ps.loc[0, "Dp_status"] == "not assessed"
     assert (tmp_path / "parameter_status.csv").exists()
 
 
@@ -84,8 +85,9 @@ def test_ck_label_is_a_time_constant_and_prefix_collision():
     st = parameter_status(names, th, xl, xu, slices, d, fixed_names=["c_k[K3]"]).set_index("parameter")
     assert st.loc["c_k[K2]", "label"].startswith("below resolvable rate (time constant 1/c_k > ")
     assert "half-life" not in st.loc["c_k[K2]", "label"]
-    st = pd.DataFrame([{"parameter": "Dp_i[X_s1]", "label": "estimate"},
-                       {"parameter": "Dp_i[X_2_s1]", "label": "below resolvable rate (half-life > 1 h)"}])
+    st = pd.DataFrame([{"parameter": "Dp_i[X_s1]", "label": "estimate (two-sided)", "is_estimate": True},
+                       {"parameter": "Dp_i[X_2_s1]", "label": "below resolvable rate (half-life > 1 h)",
+                        "is_estimate": False}])
     import tempfile, os
     with tempfile.TemporaryDirectory() as t:
         pd.DataFrame({"Protein_Gene": ["X", "X_2"], "Protein_Degradation_D": [0.1, 0.1]}).to_csv(

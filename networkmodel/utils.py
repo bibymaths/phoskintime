@@ -521,14 +521,51 @@ def _fmt_half_life(minutes):
     return f"{minutes / 60.0:.1f} h"
 
 
+# Pre-merge item 5: identifiability labels from profile likelihoods.
+PROFILE_CHI2_95 = 3.841458820694124  # chi-square quantile, 1 degree of freedom, 0.95
+IDENTIFIABILITY_LABELS = ("estimate (two-sided)", "upper limit only", "lower limit only", "not identifiable (flat)")
+NOT_ASSESSED = "not assessed"
+
+
+def profile_threshold(total, prior, n_obs):
+    """Profile threshold on the training objective (approximation, the objective is not a normalized likelihood, N6):
+    with Gaussian errors of one pooled variance estimated by the data misfit per observation, a likelihood-ratio
+    change of chi2_1(0.95) corresponds to Delta objective = 3.84 x (total - prior) / n_obs."""
+    return PROFILE_CHI2_95 * max(float(total) - float(prior), 0.0) / max(int(n_obs), 1)
+
+
+def identifiability_from_profile(profile, theta_hat_raw, f_hat, threshold):
+    """Label one parameter from its profile (columns grid_value [raw], objective_value).
+
+    A side (grid values below / above theta-hat) is bounded if the objective rises by >= threshold above f_hat
+    somewhere on it. Both -> "estimate (two-sided)"; only above -> "upper limit only"; only below -> "lower limit
+    only"; neither -> "not identifiable (flat)".
+    """
+    df = profile[np.isfinite(profile["objective_value"])]
+    d = df["objective_value"].to_numpy(dtype=float) - float(f_hat)
+    g = df["grid_value"].to_numpy(dtype=float)
+    lower = bool(np.any(d[g < theta_hat_raw] >= threshold))
+    upper = bool(np.any(d[g > theta_hat_raw] >= threshold))
+    if lower and upper:
+        return IDENTIFIABILITY_LABELS[0]
+    if upper:
+        return IDENTIFIABILITY_LABELS[1]
+    if lower:
+        return IDENTIFIABILITY_LABELS[2]
+    return IDENTIFIABILITY_LABELS[3]
+
+
 def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fixed_names=(),
-                     rel=BOUND_PROXIMITY_REL):
+                     rel=BOUND_PROXIMITY_REL, identifiability=None):
     """Status of every fitted parameter (N22, P3 decision 5).
 
-    status: "estimate"; "below_resolvable_rate" / "above_resolvable_rate" (within rel of a sampling-design bound:
+    status: "interior"; "below_resolvable_rate" / "above_resolvable_rate" (within rel of a sampling-design bound:
     label "below resolvable rate (half-life > X)" / "above resolvable rate (half-life < X)"); "at_bound" (within rel
-    of a bound that is not a design bound); "fixed_no_data_influence" (masked, N24). Only "estimate" is a point
+    of a bound that is not a design bound); "fixed_no_data_influence" (masked, N24). Only "estimate (two-sided)" is a point
     estimate. Physical values (softplus of raw).
+    Interior parameters (pre-merge item 5): label = the profile result from ``identifiability`` (name -> one of
+    IDENTIFIABILITY_LABELS) or "not assessed" without a profile; is_estimate only for "estimate (two-sided)". The
+    ``identifiability`` column holds the profile result (or "not assessed") for every parameter.
 
     Returns:
         DataFrame: parameter, group, value, lower, upper, status, label, is_estimate.
@@ -547,7 +584,8 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
     for j, name in enumerate(parameter_names):
         g = group_of.get(j, "")
         v, a, b = float(val[j]), float(lo[j]), float(hi[j])
-        status, label = "estimate", "estimate"
+        ident = (identifiability or {}).get(name, NOT_ASSESSED)
+        status, label = "interior", ident
         if name in fixed:
             status, label = "fixed_no_data_influence", ZERO_INFLUENCE_LABEL
         else:
@@ -571,7 +609,8 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
                 status = "at_bound"
                 label = f"at optimizer bound ({'lower' if near_lo else 'upper'}; not a design bound)"
         rows.append({"parameter": name, "group": g, "value": v, "lower": a, "upper": b, "status": status,
-                     "label": label, "is_estimate": status == "estimate"})
+                     "label": label, "identifiability": ident,
+                     "is_estimate": status == "interior" and ident == IDENTIFIABILITY_LABELS[0]})
     return pd.DataFrame(rows)
 
 

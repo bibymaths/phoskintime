@@ -1358,6 +1358,7 @@ def main():
         optimizer=args.optimizer,
     )
 
+    profile_summary = None  # pre-merge item 5: profile results feed the identifiability labels
     if args.profile_likelihood and args.profile_indices.strip():
         try:
             logger.info("[Profile] Profile likelihood requested for indices: %s", args.profile_indices)
@@ -1384,6 +1385,7 @@ def main():
                 len(profile_result["summary"]),
                 profile_result["output_dir"],
             )
+            profile_summary = profile_result["summary"]
 
         except Exception:
             logger.exception("[Profile] Profile likelihood failed.")
@@ -1680,16 +1682,36 @@ def main():
 
     _design_info = design_rate_bounds({"protein": args.time_points_protein, "rna": args.time_points_rna,
                                        "phospho": args.time_points_phospho})
+    # Pre-merge item 5: identifiability from profile likelihoods when they were run, else "not assessed".
+    from networkmodel.utils import identifiability_from_profile, profile_threshold
+
+    _ident, _ident_meta = {}, {"profiles_run": False}
+    if profile_summary is not None and len(profile_summary):
+        _bd = getattr(res, "loss_breakdown", {}) or {}
+        _thr = profile_threshold(total=float(best_f), prior=float(_bd.get("prior", 0.0)), n_obs=n_total_obs)
+        for _pname, _pdf in profile_summary.groupby("parameter_name"):
+            _j = parameter_names.index(_pname)
+            _fhat = float(_pdf["objective_at_theta_hat"].iloc[0]) if "objective_at_theta_hat" in _pdf else float(best_f)
+            _ident[_pname] = identifiability_from_profile(_pdf, theta_hat_raw=float(theta_best[_j]), f_hat=_fhat,
+                                                          threshold=_thr)
+        _ident_meta = {"profiles_run": True, "threshold": _thr, "n_obs": int(n_total_obs),
+                       "rule": "a side is bounded if the profile objective rises >= threshold above f_hat; threshold "
+                               "= 3.84 x (total - prior) / n_obs (pooled Gaussian approximation; the objective is "
+                               "not a normalized likelihood)", "labels": _ident}
     param_status = parameter_status(parameter_names, theta_best, xl, xu, slices, _design_info,
-                                    fixed_names=_zi_names)
+                                    fixed_names=_zi_names, identifiability=_ident)
     for _r in param_status.itertuples():
-        if not _r.is_estimate:
+        if _r.status != "interior" or _r.identifiability != "not assessed":
             logger.warning("[Identifiability] %s = %.4g: %s", _r.parameter, _r.value, _r.label)
+    logger.info("[Identifiability] labels: %s", param_status["label"].value_counts().to_dict())
     _upd_meta(args.output_dir, {"parameter_status": {
         "rule": f"within {100 * 0.01:g} % (physical) of a bound; design bounds: k_min = -ln(1-delta)/T, "
-                "k_max = -ln(delta)/dt_min",
+                "k_max = -ln(delta)/dt_min; interior parameters: profile label or 'not assessed'",
         "design": _design_info,
         "counts": param_status["status"].value_counts().to_dict(),
+        "label_counts": param_status["label"].value_counts().to_dict(),
+        "identifiability": _ident_meta,
+        "point_estimates": [r.parameter for r in param_status.itertuples() if r.is_estimate],
         "not_point_estimates": {r.parameter: r.label for r in param_status.itertuples() if not r.is_estimate},
         "table": "parameter_status.csv"}})
 

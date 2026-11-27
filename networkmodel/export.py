@@ -663,7 +663,7 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
     """Add the parameter status (N22, P3 decision 5) to the exported parameter tables and write parameter_status.csv.
 
     model_parameters_genes.csv / _genes_psites.csv gain "Not_point_estimates" ("column: label; ..." for every value
-    of that row that is not a point estimate, empty otherwise); _genes_psites.csv also "Dp_status";
+    of that row that is not a point estimate, i.e. not "estimate (two-sided)" by a profile; empty otherwise); _genes_psites.csv also "Dp_status";
     model_parameters_kinases.csv gains "Status". Labels come from networkmodel.utils.parameter_status.
     sites_by_protein: {protein: [site, ...]} (idx order); without it, Dp_i names are matched by the prefix
     "Dp_i[<protein>_", which is ambiguous when one protein name is a prefix of another (P3 review D-5).
@@ -671,6 +671,7 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
     st = param_status.set_index("parameter")
     st.reset_index().to_csv(os.path.join(output_dir, "parameter_status.csv"), index=False)
     label = st["label"].to_dict()
+    est = st["is_estimate"].astype(bool).to_dict() if "is_estimate" in st else {}
     col_group = {"Synthesis_A": "A_i", "mRNA_Degradation_B": "B_i", "Translation_C": "C_i",
                  "Protein_Degradation_D": "D_i", "De-Phosphorylation_E": "E_i"}
 
@@ -681,9 +682,9 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
             if g is None:
                 continue
             lab = label.get(f"{g}[{prot}]")
-            if lab is not None and lab != "estimate":
+            if lab is not None and not est.get(f"{g}[{prot}]", False):
                 out.append(f"{col}: {lab}")
-        if "Global_TF_Scale" in columns and label.get("tf_scale", "estimate") != "estimate":
+        if "Global_TF_Scale" in columns and "tf_scale" in label and not est.get("tf_scale", False):
             out.append(f"Global_TF_Scale: {label['tf_scale']}")
         out.extend(extra)
         return "; ".join(out)
@@ -697,7 +698,7 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
                 own = {f"Dp_i[{prot}_{s}]" for s in sites_by_protein.get(prot, [])}
             else:
                 own = {n for n in label if n.startswith(f"Dp_i[{prot}_")}
-            dps = [f"{n}: {lab}" for n, lab in label.items() if n in own and lab != "estimate"]
+            dps = [f"{n}: {lab}" for n, lab in label.items() if n in own and not est.get(n, False)]
             flags.append(_row_flags(prot, df.columns, dps))
         df["Not_point_estimates"] = flags
         df.to_csv(path, index=False)

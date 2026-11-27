@@ -6,7 +6,6 @@ import pytest
 
 from tests.test_parameter_status import _case
 
-pytestmark = pytest.mark.xfail(strict=True, reason="pre-merge 5: identifiability labels")
 
 
 def _profile(shape, th=0.0, f0=1.0):
