@@ -181,7 +181,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         tfopt=cfg["tfopt"],
         output_dir=str(base_output_dir),
         cores=int(cfg.get("rebuild_cores", 1)),
-        n_gen=int(cfg.get("n_gen", 50)),
+        max_iter=int(cfg.get("max_iter", cfg.get("n_gen", 50))),  # n_gen: former name
         seed=int(cfg.get("seed", 0)),
         lambda_prior=float(cfg["lambdas"]["prior"]),
         lambda_protein=float(cfg["lambdas"]["protein"]),
@@ -351,7 +351,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         mode=mode,
         output_dir=chain_output_dir,
         parameter_names=saved_parameter_names,
-        maxiter=int(cfg.get("n_gen", 50)),
+        maxiter=int(cfg.get("max_iter", cfg.get("n_gen", 50))),
         tol=float(cfg.get("tol", 1e-6)),
         optimizer=str(cfg.get("optimizer", "projected_gradient")),
     )
@@ -390,7 +390,7 @@ def write_posterior_payload(
         "tfopt": str(runner_args.tfopt),
         "cores": int(getattr(runner_args, "cores", 1)),
         "rebuild_cores": 1,
-        "n_gen": int(getattr(runner_args, "n_gen", 50)),
+        "max_iter": int(getattr(runner_args, "max_iter", 50)),
         "seed": int(getattr(runner_args, "seed", 0)),
         "normalize_fc_steady": bool(getattr(runner_args, "normalize_fc_steady", False)),
         "use_initial_condition_from_data": bool(getattr(runner_args, "use_initial_condition_from_data", False)),

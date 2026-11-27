@@ -96,7 +96,7 @@ pixi run networkmodel
 # Override specific settings
 pixi run networkmodel \
   --output-dir results_global \
-  --n-gen 500 \
+  --max-iter 500 \
   --solver jaxopt
 ```
 
@@ -109,7 +109,7 @@ Key arguments (all optional — defaults come from `config.toml`):
 | `--ms` | Path to MS protein data |
 | `--rna` | Path to RNA data |
 | `--output-dir` | Output directory |
-| `--n-gen` | Maximum JAXopt iterations |
+| `--max-iter` | Maximum ProjectedGradient iterations (former name `--n-gen`) |
 | `--solver` | `jaxopt`; legacy values are accepted and mapped with warnings |
 | `--sensitivity` | Enable sensitivity analysis |
 | `--scan` | Run hyperparameter scan |

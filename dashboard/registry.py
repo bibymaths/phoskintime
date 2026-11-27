@@ -125,7 +125,7 @@ WORKFLOWS: dict[str, WorkflowDescriptor] = {
             ArgumentSpec("rna", "--rna", "path", "RNA data file."),
             ArgumentSpec("phospho", "--phospho", "path", "Phosphoproteomics data file."),
             ArgumentSpec("cores", "--cores", "int", "Worker/core count."),
-            ArgumentSpec("n_gen", "--n-gen", "int", "Maximum optimiser iterations."),
+            ArgumentSpec("max_iter", "--max-iter", "int", "Maximum optimiser iterations."),
             ArgumentSpec("seed", "--seed", "int", "Random seed."),
             ArgumentSpec("scan", "--scan", "bool", "Run hyperparameter scan."),
             ArgumentSpec("sensitivity", "--sensitivity", "bool", "Run sensitivity analysis."),

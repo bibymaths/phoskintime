@@ -171,7 +171,7 @@ def test_write_posterior_payload_writes_arrays_names_and_run_config(tmp_path):
         kinopt="kinopt.csv",
         tfopt="tfopt.csv",
         cores=3,
-        n_gen=7,
+        max_iter=7,
         seed=11,
         normalize_fc_steady=True,
         use_initial_condition_from_data=False,
@@ -201,7 +201,7 @@ def test_posterior_payload_includes_preprocessed_network_path(tmp_path):
     pruned.write_text("protein,psite,kinase,alpha\nB,S1,A,1.0\n", encoding="utf-8")
     args = SimpleNamespace(
         kinase_net="original.csv", tf_net="tf.csv", ms="ms.csv", rna="rna.csv",
-        phospho="phospho.csv", kinopt="", tfopt="", cores=1, n_gen=1, seed=1,
+        phospho="phospho.csv", kinopt="", tfopt="", cores=1, max_iter=1, seed=1,
         normalize_fc_steady=False, use_initial_condition_from_data=False,
         preprocessed_kinase_net=str(pruned),
     )

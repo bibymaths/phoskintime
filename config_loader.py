@@ -247,7 +247,7 @@ def _parse_hyperedge_preprocessing_config(cfg: dict[str, Any]) -> dict[str, Any]
 _NETWORKMODEL_TOP_LEVEL_KEYS = frozenset({
     "app_name", "version", "parent_package", "citation", "doi", "github_url", "docs_url", "cores", "seed",
     "kinase_net", "tf_net", "ms", "rna", "phospho", "kinopt", "tfopt", "output_dir", "output_directory",
-    "normalize_fc_steady", "use_initial_condition_from_data", "hyperparam_scan", "n_gen", "loss", "n_starts",
+    "normalize_fc_steady", "use_initial_condition_from_data", "hyperparam_scan", "max_iter", "n_gen", "loss", "n_starts",
     "optimizer", "lbfgsb_maxiter", "lbfgsb_maxfun", "lbfgsb_ftol", "lbfgsb_pgtol", "lbfgsb_maxcor", "lbfgsb_maxls",
     "profile_likelihood", "profile_indices", "profile_grid_size", "posterior_sampling", "posterior_num_warmup",
     "posterior_num_samples", "scaling_method", "weighting_method_protein", "weighting_method_rna",
@@ -351,7 +351,14 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     # -------------------------
     hyp_scan = bool(cfg.get("hyperparam_scan", False))
 
-    max_iter = int(cfg.get("n_gen", 200))
+    # Iteration limit: max_iter (n_gen is the former name, still accepted).
+    if "max_iter" in cfg and "n_gen" in cfg:
+        raise ValueError("[networkmodel] give max_iter only (n_gen is its former name).")
+    if "n_gen" in cfg:
+        import warnings
+
+        warnings.warn("[networkmodel] n_gen is deprecated: use max_iter.", DeprecationWarning, stacklevel=2)
+    max_iter = int(cfg.get("max_iter", cfg.get("n_gen", 200)))
 
     # Loss
     loss_mode = int(cfg.get("loss", 0))

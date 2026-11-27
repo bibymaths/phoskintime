@@ -9,7 +9,7 @@ Optimizers (``[networkmodel] optimizer``):
 
 - ``"projected_gradient"`` (default): jaxopt.ProjectedGradient through ``backend.optimize_scalar_objective``,
   unchanged (same call, same settings). Stopping: jaxopt's error <= ``tol`` or ``maxiter`` iterations (the
-  iteration limit, ``n_gen``). Evaluation counts are not exposed by jaxopt: reported as None ("not measured").
+  iteration limit, ``max_iter``). Evaluation counts are not exposed by jaxopt: reported as None ("not measured").
 - ``"lbfgsb"``: ``scipy.optimize.minimize(method="L-BFGS-B")`` with the raw box bounds, value and gradient from a
   jitted ``jax.value_and_grad`` (float64). Only the free coordinates are optimized; fixed coordinates keep exactly
   their fixed values. Stopping: scipy's ``ftol`` (relative reduction of f), ``gtol`` (= pgtol: max |projected

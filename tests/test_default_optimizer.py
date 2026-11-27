@@ -1,6 +1,6 @@
 """N22 / O01 (P3 decision 6): L-BFGS-B with >= 5 seeded starts is the default (best start kept); every start gets a
 status: converged (KKT residual <= pgtol), near_converged (pgtol < KKT <= 1e-5, finite run), not_converged.
-ProjectedGradient stays selectable; n_gen stays 200."""
+ProjectedGradient stays selectable; max_iter (formerly n_gen) stays 200."""
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +16,7 @@ def test_config_defaults():
     cfg = load_config_toml(ROOT / "config.toml")
     assert cfg.optimizer == "lbfgsb"
     assert cfg.n_starts >= 5
-    assert cfg.maximum_iterations == 200  # n_gen not raised
+    assert cfg.maximum_iterations == 200  # max_iter (formerly n_gen) not raised
 
 
 

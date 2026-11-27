@@ -130,7 +130,7 @@ def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path
         "tfopt": config.tfopt_results,
         "output_dir": config.results_dir,
         "cores": config.cores,
-        "n_gen": config.maximum_iterations,
+        "max_iter": config.maximum_iterations,
         "seed": config.seed,
         "lambda_prior": config.regularization_lambda,
         "lambda_protein": config.regularization_protein,
@@ -207,7 +207,8 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--tfopt", default=config_defaults["tfopt"])
     parser.add_argument("--output-dir", "--outdir", dest="output_dir", default=config_defaults["output_dir"])
     parser.add_argument("--cores", type=int, default=config_defaults["cores"])
-    parser.add_argument("--n-gen", type=int, default=config_defaults["n_gen"])
+    parser.add_argument("--max-iter", "--n-gen", dest="max_iter", type=int, default=config_defaults["max_iter"],
+                        help="Iteration limit of the ProjectedGradient optimizer (--n-gen: former name).")
     parser.add_argument("--seed", type=int, default=config_defaults["seed"])
     parser.add_argument("--lambda-prior", type=float, default=config_defaults["lambda_prior"])
     parser.add_argument("--lambda-protein", type=float, default=config_defaults["lambda_protein"])
@@ -224,7 +225,7 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--optimizer", type=str, choices=["projected_gradient", "lbfgsb"],
                         default=config_defaults["optimizer"],
                         help="Bounded optimizer of the fit (networkmodel.optimizers): projected_gradient (default, "
-                             "jaxopt, maxiter = n_gen) or lbfgsb (scipy L-BFGS-B, stops on ftol/pgtol).")
+                             "jaxopt, maxiter = max_iter) or lbfgsb (scipy L-BFGS-B, stops on ftol/pgtol).")
     parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"],
                         help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
     parser.add_argument("--enable-network-preprocessing", "--enable-hyperedge-preprocessing",
@@ -322,7 +323,7 @@ def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
         "effective_settings": {
             "output_dir": args.output_dir,
             "cores": args.cores,
-            "n_gen": args.n_gen,
+            "max_iter": args.max_iter,
             "seed": args.seed,
             "solver": args.solver,
             "lambda_prior": args.lambda_prior,
@@ -425,7 +426,7 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
         "optimizer": str(getattr(args, "optimizer", "projected_gradient")),
         "optimizer_criteria": (
-            {"optimizer": "projected_gradient", "maxiter": int(getattr(args, "n_gen", 0)), "tol": 1e-6,
+            {"optimizer": "projected_gradient", "maxiter": int(getattr(args, "max_iter", 0)), "tol": 1e-6,
              "tol_meaning": "jaxopt ProjectedGradient error (norm of the projected-gradient step) <= tol"}
             if getattr(args, "optimizer", "projected_gradient") == "projected_gradient" else
             {"optimizer": "lbfgsb", **__import__("networkmodel.optimizers", fromlist=["x"]).lbfgsb_criteria()}),
@@ -578,7 +579,7 @@ def main():
 
     logger.info(f"[Args] Output directory: {args.output_dir}")
     logger.info(f"[Args] Number of cores: {args.cores}")
-    logger.info(f"[Args] Number of generations: {args.n_gen}")
+    logger.info(f"[Args] Iteration limit (max_iter): {args.max_iter}")
     logger.info(f"[Args] Seed: {args.seed}")
     logger.info(f"[Args] Lambda prior: {args.lambda_prior}")
     logger.info(f"[Args] Lambda protein: {args.lambda_protein}")
@@ -1280,7 +1281,7 @@ def main():
         mode=mode,
         output_dir=args.output_dir,
         parameter_names=parameter_names,
-        maxiter=args.n_gen,
+        maxiter=args.max_iter,
         tol=1e-6,
         optimizer=args.optimizer,
     )
@@ -1318,9 +1319,9 @@ def main():
                 logger.warning("Could not repopulate loss breakdown after multistart: %s", e)
         except RuntimeError:
             logger.warning("Multistart failed; falling back to single-start solve.")
-            best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+            best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.max_iter)
     else:
-        best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
+        best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.max_iter)
 
     # O01: the optimizer used, its stopping criteria and why it stopped (single-start fit).
     from common.results import update_metadata as _update_metadata
@@ -1348,7 +1349,7 @@ def main():
         mode=mode,
         output_dir=args.output_dir,
         parameter_names=parameter_names,
-        maxiter=args.n_gen,
+        maxiter=args.max_iter,
         tol=1e-6,
         optimizer=args.optimizer,
     )

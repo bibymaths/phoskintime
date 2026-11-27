@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def _write_network_config(path: Path, outdir: Path) -> None:
     path.write_text(
@@ -21,7 +23,7 @@ tfopt = "custom/tfopt.xlsx"
 output_dir = "{outdir.as_posix()}"
 cores = 7
 seed = 123
-n_gen = 44
+max_iter = 44
 lambda_prior = 0.31
 lambda_protein = 0.41
 lambda_rna = 0.51
@@ -79,7 +81,7 @@ def test_custom_conf_is_used_for_networkmodel_defaults(tmp_path, monkeypatch):
     assert args.tf_net == "custom/tf_network.csv"
     assert args.output_dir == outdir.as_posix()
     assert args.cores == 7
-    assert args.n_gen == 44
+    assert args.max_iter == 44
     assert args.lambda_prior == pytest.approx(0.31)
     assert args.lambda_protein == pytest.approx(0.41)
     assert args.lambda_rna == pytest.approx(0.51)
@@ -148,3 +150,21 @@ def test_networkmodel_initialization_writes_resolved_config_and_metadata(tmp_pat
     assert metadata["effective_inputs"]["kinase_net"] == "custom/kinase_network.csv"
     assert metadata["effective_settings"]["lambda_rna"] == pytest.approx(0.51)
     assert metadata["effective_settings"]["time_points_protein"] == [0.0, 10.0, 20.0]
+
+
+def test_n_gen_is_a_deprecated_alias_of_max_iter(tmp_path):
+    """max_iter replaced n_gen (owner request); old configs keep working, with a deprecation warning."""
+    import pytest
+
+    from config_loader import load_config_toml
+
+    src = (ROOT / "config.toml").read_text()
+    assert "\nmax_iter = 200" in src and "\nn_gen =" not in src
+    old = tmp_path / "old.toml"
+    old.write_text(src.replace("\nmax_iter = 200", "\nn_gen = 33"))
+    with pytest.warns(DeprecationWarning, match="max_iter"):
+        assert load_config_toml(old).maximum_iterations == 33
+    both = tmp_path / "both.toml"
+    both.write_text(src.replace("\nmax_iter = 200", "\nmax_iter = 200\nn_gen = 33"))
+    with pytest.raises(ValueError, match="max_iter only"):
+        load_config_toml(both)

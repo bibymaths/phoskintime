@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Renamed: `n_gen` → `max_iter` (no result change)
+
+- The iteration limit of the ProjectedGradient optimizer is now `[networkmodel] max_iter` and `--max-iter`.
+  `n_gen` / `--n-gen` are still accepted (deprecation warning; giving both keys is an error); saved posterior/profile
+  run configs with `n_gen` still load.
+
 ### Parameter bounds and identifiability (N22, owner decisions, branch opt/2026-12) — changed results
 
 - Rate constants B_i, D_i, E_i, Dp_i (1/min) and the c_k lower bound now come from the sampling design:

@@ -485,28 +485,21 @@ pinn_seed = 42
 # ------------------------------------------------------------
 # OPTIMIZATION SETTINGS
 # ------------------------------------------------------------
-# Maximum number of local optimizer iterations.
-#
-# Historical name:
-#   n_gen
-#
-# Current meaning:
-#   maximum JAXopt local-optimization iterations
-#
-# This is not an evolutionary generation count anymore.
-n_gen = 200
+# Iteration limit of the ProjectedGradient optimizer (its maxiter).
+# Former name: n_gen (still accepted, with a deprecation warning).
+max_iter = 200
 
 # Bounded optimizer of the fit, multistart and profiles (KNOWN_ISSUES O01).
 #
 # "lbfgsb" (default; owner decision, N22 P3 decision 6):
 #   scipy L-BFGS-B on the same raw box bounds with the jax gradient; stops on
 #   pgtol 1e-6 (max projected-gradient component) or ftol 1e-15 (maxiter 15000,
-#   maxfun 30000; see networkmodel/optimizers.py LBFGSB_DEFAULTS). n_gen does
+#   maxfun 30000; see networkmodel/optimizers.py LBFGSB_DEFAULTS). max_iter does
 #   not apply. Status: converged (KKT residual <= 1e-6), near_converged
 #   (1e-6 < KKT <= 1e-5), not_converged.
 #
 # "projected_gradient":
-#   jaxopt.ProjectedGradient; stops after n_gen iterations or when its error
+#   jaxopt.ProjectedGradient; stops after max_iter iterations or when its error
 #   (norm of the projected-gradient step) is <= 1e-6.
 #
 # The optimizer used and its stop reason are recorded in metadata.json.
