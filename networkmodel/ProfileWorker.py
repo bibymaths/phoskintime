@@ -90,8 +90,25 @@ def reference_refit(objective, theta_hat, lower, upper, *, fixed_mask, maxiter, 
             "optimizer": res.label}
 
 
+REFERENCE_STARTS_FILE = "profile_reference_starts.npy"  # payload: up to 5 best kept multistart solutions (raw)
+
+
+def select_reference(records):
+    """DECISIONS_C1_FINAL item 2: the best (lowest objective) usable refit; usable = converged (KKT <= 1e-6) or
+    near_converged (<= 1e-5, the N26 noise level). None if no start is usable."""
+    from networkmodel.utils import USABLE_STATUSES
+
+    usable = [r for r in records if r["status"] in USABLE_STATUSES and np.isfinite(float(r["f"]))]
+    return min(usable, key=lambda r: float(r["f"])) if usable else None
+
+
 def run_reference(*, run_config_path: str | Path) -> dict:
-    """Write <output_dir>/profiles/profile_reference.json: the data-only reference and the profile threshold."""
+    """Write <output_dir>/profiles/profile_reference.json: the data-only reference and the profile threshold.
+
+    DECISIONS_C1_FINAL item 2: the data-only objective is refitted from theta-hat and from the best kept multistart
+    solutions (payload file profile_reference_starts.npy, up to 5; duplicates of theta-hat skipped); the best usable
+    refit (converged or near_converged) is the reference. No usable refit -> threshold NaN, every label
+    'not assessed'."""
     from networkmodel.utils import PROFILE_RULE, profile_threshold
 
     run_config_path = Path(run_config_path)
@@ -103,24 +120,56 @@ def run_reference(*, run_config_path: str | Path) -> dict:
     logger = setup_logger(log_dir=work)
     ctx = build_networkmodel_posterior_context(run_config_path=run_config_path, chain_output_dir=work,
                                                prior_off=True)
-    ref = reference_refit(ctx.objective_fun, ctx.theta0, ctx.lower, ctx.upper,
-                          fixed_mask=None if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask, bool),
-                          maxiter=ctx.maxiter, tol=ctx.tol, optimizer=ctx.optimizer, logger_obj=logger)
+    theta_hat = np.asarray(ctx.theta0, dtype=np.float64)
+    starts = [("theta_hat", theta_hat)]
+    extra = Path(run_cfg["payload_dir"]) / REFERENCE_STARTS_FILE
+    if extra.exists():
+        for k, th in enumerate(np.atleast_2d(np.load(extra))[:5]):
+            th = np.asarray(th, dtype=np.float64)
+            if th.shape == theta_hat.shape and not any(np.array_equal(th, s[1]) for s in starts):
+                starts.append((f"multistart_rank{k + 1}", th))
+    fixed = None if ctx.fixed_mask is None else np.asarray(ctx.fixed_mask, bool)
+    records, thetas = [], {}
+    for label, th0 in starts:
+        try:
+            r = reference_refit(ctx.objective_fun, th0, ctx.lower, ctx.upper, fixed_mask=fixed, maxiter=ctx.maxiter,
+                                tol=ctx.tol, optimizer=ctx.optimizer, logger_obj=logger)
+            thetas[label] = r["theta_ref"]
+            records.append({"start": label, "f": r["f_ref"], "status": r["status"], "kkt_residual": r["kkt_residual"],
+                            "stop_reason": r["stop_reason"], "f_at_start": r["f_at_theta_hat"]})
+        except Exception as exc:  # recorded, not hidden
+            logger.exception("[ProfileWorker] reference refit from %s failed", label)
+            records.append({"start": label, "f": float("nan"), "status": "failed", "kkt_residual": float("nan"),
+                            "stop_reason": repr(exc), "f_at_start": float("nan")})
+        logger.info("[ProfileWorker] reference start %s: %s", label, records[-1])
+    best = select_reference(records)
     n_eff = int(ctx.n_eff or 0)
-    thr = profile_threshold(f_ref=ref["f_ref"], n_eff=n_eff) if ref["converged"] else float("nan")
     names = _param_names(len(ctx.theta0), ctx.parameter_names)
-    payload = {k: v for k, v in ref.items() if k != "theta_ref"}
-    payload.update({"theta_ref": ref["theta_ref"].tolist(), "theta_hat": np.asarray(ctx.theta0, float).tolist(),
-                    "parameter_names": list(names), "n_eff": n_eff, "threshold": thr, "rule": PROFILE_RULE,
-                    "prior": "off (data-only objective)",
-                    "note": "threshold NaN when the reference refit did not converge: every label is then "
-                            "'not assessed'"})
+    th_ref = thetas[best["start"]] if best is not None else theta_hat
+    from networkmodel.BayesianInference import objective_at
+
+    payload = {
+        "f_ref": float(best["f"]) if best is not None else float("nan"),
+        "f_at_theta_hat": float(objective_at(ctx.objective_fun, theta_hat)),
+        "status": best["status"] if best is not None else "not_usable",
+        "usable": best is not None, "converged": best is not None,  # 'converged' kept for older readers
+        "reference_start": best["start"] if best is not None else None,
+        "stop_reason": best["stop_reason"] if best is not None else "",
+        "kkt_residual": float(best["kkt_residual"]) if best is not None else float("nan"),
+        "starts": records, "theta_ref": np.asarray(th_ref, float).tolist(), "theta_hat": theta_hat.tolist(),
+        "parameter_names": list(names), "n_eff": n_eff,
+        "threshold": profile_threshold(f_ref=best["f"], n_eff=n_eff) if best is not None else float("nan"),
+        "rule": PROFILE_RULE, "prior": "off (data-only objective)",
+        "note": "reference = best usable (converged or near_converged) data-only refit from theta-hat and the best "
+                "kept multistart solutions; threshold NaN when no start is usable: every label is then 'not "
+                "assessed'"}
     path = reference_path(out_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(payload, f, indent=2)
-    logger.info("[ProfileWorker] Data-only reference: f_ref=%.10g (f at theta-hat %.10g), %s, n_eff=%d, "
-                "threshold=%.6g", ref["f_ref"], ref["f_at_theta_hat"], ref["status"], n_eff, thr)
+    logger.info("[ProfileWorker] Data-only reference: f_ref=%.10g from %s (%s; f at theta-hat %.10g), n_eff=%d, "
+                "threshold=%.6g", payload["f_ref"], payload["reference_start"], payload["status"],
+                payload["f_at_theta_hat"], n_eff, payload["threshold"])
     return payload
 
 
@@ -134,7 +183,7 @@ def run_one_parameter_profile(
 
     The prior is off; the centre is the data-only reference (profile_reference.json, written by ``run_reference``).
     Grid: ``utils.profile_grid_physical`` with ceil(grid_size / 2) points per side (at least 4). Each side is walked
-    outward from the reference; every refit starts from the last converged point of that side (the reference for
+    outward from the reference; every refit starts from the last usable (converged or near-converged) point of that side (the reference for
     the first point), with the profiled coordinate fixed at the grid value.
     """
     from networkmodel.utils import profile_grid_physical
@@ -259,7 +308,7 @@ def run_one_parameter_profile(
                         "data_mode": ctx.mode.data_mode,
                         "active_loss_terms": ",".join(ctx.mode.active_loss_terms),
                     }
-                    if res.status == "converged":
+                    if res.status in ("converged", "near_converged"):  # usable (DECISIONS_C1_FINAL 2)
                         start = np.asarray(params, dtype=np.float64).copy()
                 except Exception as exc:
                     logger.exception("[ProfileWorker] Failed parameter index=%d grid=%d value=%.8g",

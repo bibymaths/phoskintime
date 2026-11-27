@@ -9,7 +9,6 @@ status "... ; fitted value set by the prior" and not a point estimate.
 """
 import numpy as np
 import pandas as pd
-import pytest
 
 from tests.test_parameter_status import _case
 
@@ -27,7 +26,6 @@ def _prof(below, above, st_b=None, st_a=None, center=1.0):
 
 
 # ---------------------------------------------------------------- item 2
-@pytest.mark.xfail(strict=True, reason="C1F-2")
 def test_reference_selection_keeps_best_usable_start():
     from networkmodel.ProfileWorker import select_reference
 
@@ -39,7 +37,6 @@ def test_reference_selection_keeps_best_usable_start():
     assert select_reference([{"start": "a", "f": 0.1, "status": "not_converged"}]) is None
 
 
-@pytest.mark.xfail(strict=True, reason="C1F-2")
 def test_near_converged_points_count_and_mark_the_label_approximate():
     from networkmodel.utils import identifiability_from_profile
 
@@ -56,7 +53,6 @@ def test_near_converged_points_count_and_mark_the_label_approximate():
         "(approximate: near-converged)")
 
 
-@pytest.mark.xfail(strict=True, reason="C1F-2")
 def test_not_converged_points_are_not_usable():
     from networkmodel.utils import identifiability_from_profile
 
@@ -66,7 +62,6 @@ def test_not_converged_points_are_not_usable():
 
 
 # ---------------------------------------------------------------- item 3
-@pytest.mark.xfail(strict=True, reason="C1F-3")
 def test_profile_interval_from_threshold_crossings():
     from networkmodel.utils import identifiability_from_profile
 
@@ -85,7 +80,6 @@ def test_profile_interval_from_threshold_crossings():
     assert np.isnan(na["interval"][0])
 
 
-@pytest.mark.xfail(strict=True, reason="C1F-3")
 def test_parameter_status_reports_fit_inside_interval():
     from networkmodel.utils import parameter_status
 

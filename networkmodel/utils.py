@@ -595,39 +595,87 @@ def profile_grid_physical(v, lo, hi, n_per_side, decade_points=3):
     return side(lo), side(hi)
 
 
-def identifiability_from_profile(profile, f_ref, threshold, min_points=2):
-    """Label one parameter from its data-only profile (DECISIONS_C1 items 1-2).
+USABLE_STATUSES = ("converged", "near_converged")  # DECISIONS_C1_FINAL item 2: KKT <= 1e-6 or <= 1e-5 (N26 noise)
+APPROXIMATE_SUFFIX = " (approximate: near-converged)"
 
-    ``profile`` columns: side ("below"/"above" the reference value), objective_value (data-only), converged (bool),
-    grid_value_physical, parameter_name. Only converged, finite refits count. Per side: fewer than ``min_points``
-    such points -> "not assessed"; any point with objective >= f_ref + threshold -> "bounded"; else "flat".
+
+def _usable_mask(profile):
+    """Usable refits: finite objective and status converged or near_converged (column convergence_status); without
+    that column, the boolean column ``converged``."""
+    fin = np.isfinite(profile["objective_value"].astype(float)).to_numpy()
+    if "convergence_status" in profile:
+        st = profile["convergence_status"].astype(str)
+        return fin & st.isin(USABLE_STATUSES).to_numpy(), (st == "near_converged").to_numpy()
+    return fin & profile["converged"].astype(bool).to_numpy(), np.zeros(len(profile), dtype=bool)
+
+
+def identifiability_from_profile(profile, f_ref, threshold, min_points=2, *, reference_status="converged",
+                                 center_physical=None, bounds_physical=None):
+    """Label one parameter from its data-only profile (DECISIONS_C1 items 1-2; DECISIONS_C1_FINAL items 2-3).
+
+    ``profile`` columns: side ("below"/"above" the reference value), objective_value (data-only), convergence_status
+    (or a boolean ``converged``), grid_value_physical, parameter_name. Usable points: finite and converged or
+    near_converged. Per side: fewer than ``min_points`` usable points -> "not assessed"; any usable point with
+    objective >= f_ref + threshold -> "bounded"; else "flat".
     Labels: both bounded -> "estimate (two-sided)"; bounded above + flat below -> "upper limit only" (and the
     mirror); both flat -> "not identifiable (flat)"; bounded on one side, the other not assessed -> "... (other side
-    not assessed)"; otherwise "not assessed". A non-finite reference or threshold -> "not assessed".
-    Finite points below f_ref (converged or not, with their status) are reported in ``better_points`` (parameter, side, grid_value_physical, objective,
-    delta); they are not refitted.
+    not assessed)"; otherwise "not assessed". A non-finite reference or threshold -> "not assessed". If an assessed
+    side uses a near-converged point, or the reference is near-converged, the label gets " (approximate:
+    near-converged)".
+    Interval (with ``center_physical``): per side, the first threshold crossing walking outward from the centre
+    (objective 0 above f_ref at the centre), interpolated linearly in log10 of the physical value between usable
+    points; a flat side extends to its bound (``bounds_physical``, else the outermost usable point); a side not
+    assessed gives NaN.
+    Finite points below f_ref (any status) are reported in ``better_points``; they are not refitted.
 
     Returns:
-        dict: label, sides {below, above}, n_converged {below, above}, better_points (list of dicts).
+        dict: label, sides, n_usable, n_converged, approximate {below, above}, interval (lower, upper),
+        better_points.
     """
     out = {"label": NOT_ASSESSED, "sides": {"below": NOT_ASSESSED, "above": NOT_ASSESSED},
-           "n_converged": {"below": 0, "above": 0}, "better_points": []}
+           "n_usable": {"below": 0, "above": 0}, "n_converged": {"below": 0, "above": 0},
+           "approximate": {"below": False, "above": False}, "interval": (float("nan"), float("nan")),
+           "better_points": []}
     f_ref, threshold = float(f_ref), float(threshold)
     if not (np.isfinite(f_ref) and np.isfinite(threshold)):
         return out
-    df = profile[profile["converged"].astype(bool) & np.isfinite(profile["objective_value"].astype(float))]
-    for side in ("below", "above"):
-        d = df.loc[df["side"] == side, "objective_value"].to_numpy(dtype=float) - f_ref
-        out["n_converged"][side] = int(d.size)
-        if d.size >= int(min_points):
-            out["sides"][side] = "bounded" if bool(np.any(d >= threshold)) else "flat"
-    # Any finite point below f_ref (converged or not) shows the reference is not the minimum (C1 review MJ-2).
+    usable, near = _usable_mask(profile)
+    interval = {}
+    for k, side in enumerate(("below", "above")):
+        m = usable & (profile["side"] == side).to_numpy()
+        sub = profile[m]
+        d = sub["objective_value"].to_numpy(dtype=float) - f_ref
+        g = sub["grid_value_physical"].to_numpy(dtype=float)
+        out["n_usable"][side] = int(d.size)
+        out["n_converged"][side] = int(np.sum(m & ~near))
+        out["approximate"][side] = bool(np.any(near[m]))
+        interval[side] = float("nan")
+        if d.size < int(min_points):
+            continue
+        out["sides"][side] = "bounded" if bool(np.any(d >= threshold)) else "flat"
+        if center_physical is None or not np.isfinite(float(center_physical)) or float(center_physical) <= 0:
+            continue
+        c = float(center_physical)
+        order = np.argsort(np.abs(np.log10(g / c)))
+        g, d = g[order], d[order]
+        if out["sides"][side] == "bounded":
+            lg_prev, d_prev = np.log10(c), 0.0
+            for gi, di in zip(g, d):
+                if di >= threshold:
+                    t = (threshold - d_prev) / (di - d_prev) if di != d_prev else 1.0
+                    interval[side] = float(10.0 ** (lg_prev + t * (np.log10(gi) - lg_prev)))
+                    break
+                lg_prev, d_prev = np.log10(gi), di
+        else:
+            interval[side] = float(bounds_physical[k]) if bounds_physical is not None else float(g[-1])
+    out["interval"] = (interval.get("below", float("nan")), interval.get("above", float("nan")))
     fin = profile[np.isfinite(profile["objective_value"].astype(float))]
     for r in fin[fin["objective_value"].astype(float) < f_ref].itertuples():
+        st = str(getattr(r, "convergence_status", "converged" if bool(getattr(r, "converged", False)) else ""))
         out["better_points"].append({"parameter": str(getattr(r, "parameter_name", "")), "side": str(r.side),
                                      "grid_value_physical": float(r.grid_value_physical),
                                      "objective": float(r.objective_value), "delta": float(r.objective_value) - f_ref,
-                                     "converged": bool(r.converged)})
+                                     "converged": st == "converged", "status": st})
     lo, up = out["sides"]["below"], out["sides"]["above"]
     if lo == "bounded" and up == "bounded":
         out["label"] = IDENTIFIABILITY_LABELS[0]
@@ -641,11 +689,18 @@ def identifiability_from_profile(profile, f_ref, threshold, min_points=2):
         out["label"] = IDENTIFIABILITY_LABELS[4]
     elif lo == "bounded":
         out["label"] = IDENTIFIABILITY_LABELS[5]
+    assessed = [s for s in ("below", "above") if out["sides"][s] != NOT_ASSESSED]
+    if out["label"] != NOT_ASSESSED and (str(reference_status) == "near_converged"
+                                         or any(out["approximate"][s] for s in assessed)):
+        out["label"] += APPROXIMATE_SUFFIX
     return out
 
 
+PRIOR_SET_NOTE = "fitted value set by the prior"
+
+
 def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fixed_names=(),
-                     rel=BOUND_PROXIMITY_REL, identifiability=None):
+                     rel=BOUND_PROXIMITY_REL, identifiability=None, profile_info=None):
     """Status of every fitted parameter (N22, P3 decision 5).
 
     status: "interior"; "below_resolvable_rate" / "above_resolvable_rate" (within rel of a sampling-design bound:
@@ -656,8 +711,15 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
     IDENTIFIABILITY_LABELS) or "not assessed" without a profile; is_estimate only for "estimate (two-sided)". The
     ``identifiability`` column holds the profile result (or "not assessed") for every parameter.
 
+    DECISIONS_C1_FINAL item 3: ``profile_info`` (name -> value_data_only, lower, upper: the data-only optimum and the
+    profile interval, physical) adds value_fit (= value), value_data_only, profile_lower, profile_upper and
+    fit_inside_interval (None without a finite interval). A fitted value outside its interval gets
+    "; fitted value set by the prior" in status and label and is not a point estimate. An "estimate (two-sided)
+    (approximate: near-converged)" label counts as a point estimate.
+
     Returns:
-        DataFrame: parameter, group, value, lower, upper, status, label, is_estimate.
+        DataFrame: parameter, group, value, lower, upper, status, label, identifiability, is_estimate, value_fit,
+        value_data_only, profile_lower, profile_upper, fit_inside_interval.
     """
     th = np.asarray(theta_raw, dtype=float)
     lo = np.logaddexp(0.0, np.asarray(xl, dtype=float))  # softplus, as the model uses it
@@ -697,9 +759,18 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
             elif near_lo or near_hi:
                 status = "at_bound"
                 label = f"at optimizer bound ({'lower' if near_lo else 'upper'}; not a design bound)"
+        # DECISIONS_C1_FINAL item 3: data-only value, profile interval, and whether the fitted value lies in it.
+        pi = (profile_info or {}).get(name, {})
+        v_do = float(pi.get("value_data_only", float("nan")))
+        p_lo, p_hi = float(pi.get("lower", float("nan"))), float(pi.get("upper", float("nan")))
+        inside = (p_lo <= v <= p_hi) if (np.isfinite(p_lo) and np.isfinite(p_hi)) else None
+        is_est = status == "interior" and str(ident).startswith(IDENTIFIABILITY_LABELS[0])
+        if inside is False and name not in fixed:
+            status, label, is_est = f"{status}; {PRIOR_SET_NOTE}", f"{label}; {PRIOR_SET_NOTE}", False
         rows.append({"parameter": name, "group": g, "value": v, "lower": a, "upper": b, "status": status,
-                     "label": label, "identifiability": ident,
-                     "is_estimate": status == "interior" and ident == IDENTIFIABILITY_LABELS[0]})
+                     "label": label, "identifiability": ident, "is_estimate": is_est,
+                     "value_fit": v, "value_data_only": v_do, "profile_lower": p_lo, "profile_upper": p_hi,
+                     "fit_inside_interval": inside})
     return pd.DataFrame(rows)
 
 

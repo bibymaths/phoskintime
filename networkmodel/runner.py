@@ -1287,6 +1287,7 @@ def main():
         tol=1e-6,
         optimizer=args.optimizer,
     )
+    _ms_solutions = None  # DECISIONS_C1_FINAL item 2: kept multistart solutions for the profile reference
     if args.n_starts > 1:
         try:
             ms = run_multistart(ctx, n_starts=args.n_starts, seed=args.seed, max_workers=args.cores)
@@ -1314,6 +1315,13 @@ def main():
             ).iloc[0]
             best_x = np.asarray(best_row.values, dtype=np.float64)
             best_f = float(ms["summary"].loc[ms["summary"]["selected_best"], "final_objective"].iloc[0])
+            # DECISIONS_C1_FINAL item 2: the best kept multistart solutions (up to 5, by objective) seed the
+            # data-only profile reference.
+            _ok = ms["summary"][ms["summary"]["success"].astype(bool)].sort_values("final_objective")
+            _pars = ms["parameters"].set_index("start_id").drop(columns=["seed", "success", "selected_best"],
+                                                                 errors="ignore")
+            _ms_solutions = np.asarray([_pars.loc[int(_sid)].to_numpy(dtype=np.float64)[: best_x.size]
+                                        for _sid in _ok["start_id"].head(5)], dtype=np.float64)
             opt_state = None
             # Repopulate problem.final_loss_breakdown from the winning parameters.
             try:
@@ -1380,13 +1388,17 @@ def main():
                 lambdas=lambdas,
                 output_dir=args.output_dir,
             )
+            if _ms_solutions is not None and len(_ms_solutions):
+                from networkmodel.ProfileWorker import REFERENCE_STARTS_FILE
+
+                np.save(Path(profile_run_config_path).parent / REFERENCE_STARTS_FILE, _ms_solutions)
 
             profile_result = run_profile_likelihood_standalone_processes(
                 run_config_path=profile_run_config_path,
                 output_dir=args.output_dir,
                 parameter_indices=profile_indices,
                 grid_size=args.profile_grid_size,
-                max_workers=1,
+                max_workers=int(os.environ.get("PHOSKINTIME_PROFILE_WORKERS", "1")),  # parallel profile workers (default 1)
             )
 
             logger.info(
@@ -1695,15 +1707,27 @@ def main():
     # Pre-merge item 5: identifiability from profile likelihoods when they were run, else "not assessed".
     from networkmodel.utils import PROFILE_RULE, identifiability_from_profile
 
-    _ident, _ident_meta = {}, {"profiles_run": False}
+    _ident, _ident_meta, _profile_info = {}, {"profiles_run": False}, {}
     if profile_summary is not None and len(profile_summary) and profile_reference is not None:
         # DECISIONS_C1 items 1-2: data-only profiles, labels against the data-only reference.
         _f_ref, _thr = float(profile_reference["f_ref"]), float(profile_reference["threshold"])
         _details, _better = {}, []
+        _ref_status = str(profile_reference.get("status", ""))
+        _th_ref = np.asarray(profile_reference.get("theta_ref", theta_best), dtype=float)
+        _sp = lambda _x: np.logaddexp(0.0, np.asarray(_x, dtype=float))  # noqa: E731  (physical = softplus)
+        # DECISIONS_C1_FINAL item 3: data-only value of every parameter; interval for the profiled ones.
+        if profile_reference.get("usable", profile_reference.get("converged", False)):
+            _profile_info = {_n: {"value_data_only": float(_sp(_th_ref[_k]))} for _k, _n in enumerate(parameter_names)}
         for _pname, _pdf in profile_summary.groupby("parameter_name"):
-            _r = identifiability_from_profile(_pdf, f_ref=_f_ref, threshold=_thr)
+            _j = list(parameter_names).index(_pname)
+            _r = identifiability_from_profile(_pdf, f_ref=_f_ref, threshold=_thr, reference_status=_ref_status,
+                                              center_physical=float(_sp(_th_ref[_j])),
+                                              bounds_physical=(float(_sp(xl[_j])), float(_sp(xu[_j]))))
             _ident[_pname] = _r["label"]
-            _details[_pname] = {"sides": _r["sides"], "n_converged": _r["n_converged"]}
+            _details[_pname] = {"sides": _r["sides"], "n_usable": _r["n_usable"], "n_converged": _r["n_converged"],
+                                "approximate": _r["approximate"], "interval": list(_r["interval"])}
+            if _pname in _profile_info:
+                _profile_info[_pname].update(lower=_r["interval"][0], upper=_r["interval"][1])
             _better += _r["better_points"]
         for _bp in _better:
             logger.warning("[Identifiability] profile point beats the data-only reference: %s = %.6g (side %s), "
@@ -1719,12 +1743,16 @@ def main():
             logger.warning("[Identifiability] profile rebuild mismatch: data terms at theta-hat %.12g (fit) vs %.12g "
                            "(rebuild); every label set to 'not assessed'", _data_fit, _data_rebuild)
             _ident = {k: "not assessed" for k in _ident}
+            _profile_info = {}
         _ident_meta = {"profiles_run": True, "threshold": _thr, "f_ref": _f_ref,
                        "rebuild_check": {"data_terms_fit": _data_fit, "data_terms_rebuild": _data_rebuild,
                                          "ok": _rebuild_ok, "tolerance": "1e-8 relative"},
                        "f_at_theta_hat_data_only": float(profile_reference.get("f_at_theta_hat", float("nan"))),
                        "reference_status": profile_reference.get("status"),
                        "reference_converged": bool(profile_reference.get("converged", False)),
+                       "reference_usable": bool(profile_reference.get("usable", profile_reference.get("converged", False))),
+                       "reference_start": profile_reference.get("reference_start"),
+                       "reference_starts": profile_reference.get("starts"),
                        "n_eff": int(profile_reference.get("n_eff", 0)), "n_obs_incl_baseline": int(n_total_obs),
                        "rule": PROFILE_RULE + "; a side counts only with >= 2 converged refits (else 'not "
                                "assessed'); a side is bounded if a converged refit rises >= threshold above f_ref",
@@ -1732,7 +1760,14 @@ def main():
     elif profile_summary is not None and len(profile_summary):
         _ident_meta = {"profiles_run": True, "error": "no data-only reference; every label 'not assessed'"}
     param_status = parameter_status(parameter_names, theta_best, xl, xu, slices, _design_info,
-                                    fixed_names=_zi_names, identifiability=_ident)
+                                    fixed_names=_zi_names, identifiability=_ident, profile_info=_profile_info)
+    if _ident_meta.get("profiles_run"):
+        _fi = param_status[param_status["fit_inside_interval"].notna()]
+        _ident_meta["fit_inside_interval"] = {
+            "rule": "value_fit inside [profile_lower, profile_upper]; outside -> status/label '; fitted value set by "
+                    "the prior', not a point estimate (DECISIONS_C1_FINAL item 3)",
+            "n_evaluated": int(len(_fi)), "n_false": int((_fi["fit_inside_interval"] == False).sum()),  # noqa: E712
+            "false": [r.parameter for r in _fi.itertuples() if r.fit_inside_interval is False]}
     for _r in param_status.itertuples():
         if _r.status != "interior" or _r.identifiability != "not assessed":
             logger.warning("[Identifiability] %s = %.4g: %s", _r.parameter, _r.value, _r.label)
