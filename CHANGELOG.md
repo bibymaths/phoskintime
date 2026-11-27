@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Bounded optimizer (O01)
+
+No fitted result changes with the default settings (B2 and B4–B6 outputs are bit-identical).
+
+- New `[networkmodel] optimizer = "projected_gradient" | "lbfgsb"` (default `"projected_gradient"`) and `--optimizer`:
+  scipy L-BFGS-B on the raw box bounds with the jax gradient, for the fit, multistart and profiles.
+- The optimizer used, its stopping criteria, stop reason, KKT residual and active set are recorded in `metadata.json`.
+- Multistart and profile tables report the optimizer actually used and its own convergence status (multistart rows
+  said "converged" unconditionally before), and gain `stop_reason` (multistart also `kkt_residual`, `active_set_size`).
+- The log no longer says `n_gen` is "accepted but ignored": it is the optimizer iteration limit.
+
 ### Round 2 (2026-11-26, owner decisions)
 
 - Posterior/profile rebuilds read the run's own recorded settings (scaling, time grids, baseline times, solver) from
