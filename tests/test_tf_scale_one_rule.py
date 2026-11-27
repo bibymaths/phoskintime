@@ -13,7 +13,10 @@ def _bounds(monkeypatch, model):
     import networkmodel.utils as u
 
     monkeypatch.setattr(u, "MODEL", model)
-    idx, df_prot, df_rna, tf_mat, _ = _inputs()
+    import scipy.sparse as sp
+
+    idx, df_prot, df_rna, _, _ = _inputs()
+    tf_mat = sp.csr_matrix(np.array([[0.0, 1.0], [0.0, 0.0]]))  # one TF edge: A_i depends on tf_max (review)
     kin = SimpleNamespace(Kmat=np.array([[1.1, 0.9], [0.9, 1.1]]))
     return u.calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin, time_points=GRIDS)
 

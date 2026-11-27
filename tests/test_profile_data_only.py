@@ -134,3 +134,26 @@ def test_points_better_than_reference_are_flagged():
     assert out["label"] == "estimate (two-sided)"  # labelled against the reference, but flagged
     (bp,) = out["better_points"]
     assert bp["parameter"] == "p" and np.isclose(bp["delta"], -0.1) and np.isclose(bp["grid_value_physical"], 0.5)
+
+
+# ---------------------------------------------------------------- review C1-review MJ-1, MJ-2
+@pytest.mark.xfail(strict=True, reason="C1-review MJ-1")
+def test_n_eff_skips_modalities_with_zero_weight():
+    from networkmodel.utils import n_eff_from_loss_data
+
+    ld = {"t_prot": np.array([1, 2]), "obs_prot": np.array([1.2, 0.9]), "w_prot": np.ones(2), "prot_base_idx": 0,
+          "t_rna": np.array([1, 3]), "obs_rna": np.array([1.5, 2.0]), "w_rna": np.ones(2), "rna_base_idx": 0}
+    mode = SimpleNamespace(fit_protein=True, fit_mrna=True, fit_phospho=False)
+    assert n_eff_from_loss_data(ld, mode, weights={"protein": 1.0, "rna": 0.0, "phospho": 1.0}) == 2
+    assert n_eff_from_loss_data(ld, mode, weights={"protein": 1.0, "rna": 1.0}) == 4
+
+
+@pytest.mark.xfail(strict=True, reason="C1-review MJ-2")
+def test_non_converged_points_below_the_reference_are_flagged_too():
+    from networkmodel.utils import identifiability_from_profile
+
+    out = identifiability_from_profile(_prof([0.8, 2.0, 3.0], [1.3, 3.0], conv_b=[False, True, True]),
+                                       f_ref=1.0, threshold=0.1)
+    assert out["label"] == "estimate (two-sided)"
+    (bp,) = out["better_points"]
+    assert np.isclose(bp["delta"], -0.2) and bp["converged"] is False
