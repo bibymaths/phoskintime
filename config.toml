@@ -722,7 +722,7 @@ sensitivity_metric = "l2_norm"
 #   the best solution according to the scalar objective.
 #
 # Default 5 (owner decision, N22 P3 decision 6): start 0 is the default
-# parameter vector, starts 1-4 are successive uniform draws in the raw box
+# parameter vector, starts 1-4 are successive log-uniform draws in physical units within the bounds
 # from one random stream seeded with `seed`; the start with the lowest
 # objective is kept. Each start's status
 # (converged / near_converged / not_converged) is in
