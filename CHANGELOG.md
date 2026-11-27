@@ -20,6 +20,9 @@ All notable changes to this project are documented here.
   |α| <= 1e-12 (and no TF output) is fixed at its start value and reported as "not identifiable: no data influence"
   (metadata.json `zero_influence`); sites without kinase inflow are reported (N24). B4–B6: c_k[CDK1] fixed, MAPK3_T_202
   reported; fitted values unchanged.
+- Parameters within 1 % of a sampling-design bound are labelled "below resolvable rate (half-life > X)" or "above
+  resolvable rate (half-life < X)" (other bounds: "at optimizer bound"), in the new parameter_status.csv, metadata.json
+  `parameter_status`, and new status columns of model_parameters_{genes,genes_psites,kinases}.csv. Values unchanged.
 
 ### Bounded optimizer (O01)
 
