@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.xfail(strict=True, reason="C1-6")
 def test_solve_diffrax_returns_step_statistics_without_changing_the_trajectory():
     import jax.numpy as jnp
 

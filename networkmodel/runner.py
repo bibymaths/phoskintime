@@ -1333,6 +1333,13 @@ def main():
     _opt_res = getattr(problem, "last_optimizer_result", None)
     if _opt_res is not None:
         _update_metadata(args.output_dir, {"optimizer_result": _opt_res.summary()})
+    # DECISIONS_C1 item 6: ODE solver steps and rejections at the fitted optimum (stiffness on larger networks).
+    try:
+        _sst = problem.solver_stats(best_x)
+        _update_metadata(args.output_dir, {"solver_stats": {**_sst, "at": "fitted optimum (one solve on the fit grid)"}})
+        logger.info("[Solver] stats at the fitted optimum: %s", _sst)
+    except Exception:
+        logger.exception("[Solver] solver statistics at the fitted optimum could not be computed.")
 
     res = JaxoptResult(
         X=np.asarray([best_x], dtype=float),

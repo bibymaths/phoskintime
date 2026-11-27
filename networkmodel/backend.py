@@ -442,8 +442,13 @@ def networkmodel_solver_config() -> DiffraxSolverConfig:
                                max_steps=int(ODE_MAX_STEPS))
 
 
-def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None):
+def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig | None = None,
+                  return_stats: bool = False):
     """Solve an ODE trajectory with Diffrax
+
+    ``return_stats=True`` (DECISIONS_C1 item 6) also returns the solver statistics: num_steps, num_accepted_steps,
+    num_rejected_steps, max_steps, max_steps_fraction, solver, rtol, atol (eager calls only; the trajectory is the
+    same solve).
     
     Args:
         y0: Input value used by this routine.
@@ -505,6 +510,14 @@ def solve_diffrax(y0, t_eval, params=None, rhs=None, config: DiffraxSolverConfig
     ys = jnp.asarray(sol.ys, dtype=jnp.float64)
     if ys.shape[0] != ts.shape[0]:
         raise ValueError(f"Diffrax returned invalid shape {ys.shape}; expected first dimension {ts.shape[0]}.")
+    if return_stats:
+        st = sol.stats
+        n = int(st["num_steps"])
+        stats = {"num_steps": n, "num_accepted_steps": int(st["num_accepted_steps"]),
+                 "num_rejected_steps": int(st["num_rejected_steps"]), "max_steps": int(cfg.max_steps),
+                 "max_steps_fraction": n / float(cfg.max_steps), "solver": cfg.solver_name,
+                 "rtol": float(cfg.rtol), "atol": float(cfg.atol)}
+        return ys, stats
     return ys
 
 

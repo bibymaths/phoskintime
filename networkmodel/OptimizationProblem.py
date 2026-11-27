@@ -174,6 +174,8 @@ class GlobalODEScalarObjective:
             "phospho": self.lambdas.get("phospho", 1.0),
         }
         y0 = sys.y0() if hasattr(sys, "y0") else None
+        self._y0 = y0
+        self.solver_config = solver_config
         self._objective = make_simple_objective(
             loss_data,
             self.data_mode,
@@ -212,6 +214,22 @@ class GlobalODEScalarObjective:
         if self.optimizer not in OPTIMIZERS:
             raise ValueError(f"optimizer must be one of {OPTIMIZERS}, got {optimizer!r}.")
         self.last_optimizer_result = None
+
+    def solver_stats(self, x) -> dict:
+        """ODE solver statistics (steps, accepted, rejected; DECISIONS_C1 item 6) of one solve at ``x`` with the
+        objective's own RHS, initial state, time grid and solver configuration. Diagnostic only; no effect on the fit."""
+        import jax.numpy as jnp
+
+        from networkmodel.backend import make_networkmodel_rhs, networkmodel_solver_config, solve_diffrax
+
+        if self._y0 is None or not self.slices:
+            return {"available": False, "reason": "no networkmodel system/initial state"}
+        cfg = self.solver_config if self.solver_config is not None else networkmodel_solver_config()
+        rhs = make_networkmodel_rhs(self.sys, self.slices)
+        _, stats = solve_diffrax(self._y0, self.time_grid, params=jnp.asarray(x, dtype=jnp.float64), rhs=rhs,
+                                 config=cfg, return_stats=True)
+        stats["available"] = True
+        return stats
 
     def objective(self, x):
         """Evaluate the scalar objective
