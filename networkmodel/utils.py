@@ -713,7 +713,9 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
 
     DECISIONS_C1_FINAL item 3: ``profile_info`` (name -> value_data_only, lower, upper: the data-only optimum and the
     profile interval, physical) adds value_fit (= value), value_data_only, profile_lower, profile_upper and
-    fit_inside_interval (None without a finite interval). A fitted value outside its interval gets
+    fit_inside_interval: both limits finite -> lower <= fit <= upper; one limit open (NaN, e.g. the data-only
+    optimum at a bound) -> the fit is judged against the limit on its own side of value_data_only; None if that
+    limit is NaN too. A fitted value outside its interval gets
     "; fitted value set by the prior" in status and label and is not a point estimate. An "estimate (two-sided)
     (approximate: near-converged)" label counts as a point estimate.
 
@@ -763,7 +765,14 @@ def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fi
         pi = (profile_info or {}).get(name, {})
         v_do = float(pi.get("value_data_only", float("nan")))
         p_lo, p_hi = float(pi.get("lower", float("nan"))), float(pi.get("upper", float("nan")))
-        inside = (p_lo <= v <= p_hi) if (np.isfinite(p_lo) and np.isfinite(p_hi)) else None
+        if np.isfinite(p_lo) and np.isfinite(p_hi):
+            inside = bool(p_lo <= v <= p_hi)
+        elif np.isfinite(v_do) and v >= v_do and np.isfinite(p_hi):  # one side open (e.g. optimum at a bound):
+            inside = bool(v <= p_hi)                                  # judge the fit on its own side
+        elif np.isfinite(v_do) and v < v_do and np.isfinite(p_lo):
+            inside = bool(v >= p_lo)
+        else:
+            inside = None
         is_est = status == "interior" and str(ident).startswith(IDENTIFIABILITY_LABELS[0])
         if inside is False and name not in fixed:
             status, label, is_est = f"{status}; {PRIOR_SET_NOTE}", f"{label}; {PRIOR_SET_NOTE}", False

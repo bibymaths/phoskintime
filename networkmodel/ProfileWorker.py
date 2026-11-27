@@ -70,6 +70,19 @@ def _softplus_inv(y):
     return y + np.log(-np.expm1(-y))
 
 
+PROFILE_COLUMNS = ("parameter_name", "parameter_index", "grid_index", "side", "grid_value", "grid_value_physical",
+                   "objective_value", "iterations", "success", "optimizer_status", "convergence_status", "stop_reason",
+                   "failure_reason", "optimized_free_parameters", "data_mode", "active_loss_terms")
+
+
+def empty_profile_frame(param_name: str, idx: int) -> pd.DataFrame:
+    """Profile table with no points (empty grid), with the usual columns."""
+    df = pd.DataFrame({c: pd.Series(dtype=float if c in ("grid_value", "grid_value_physical", "objective_value")
+                                     else object) for c in PROFILE_COLUMNS})
+    df["success"] = df["success"].astype(bool)
+    return df
+
+
 def reference_path(output_dir: str | Path) -> Path:
     return Path(output_dir) / "profiles" / "profile_reference.json"
 
@@ -338,7 +351,9 @@ def run_one_parameter_profile(
                 partial_df.to_csv(param_out / f"profile_likelihood_{param_name}.csv", index=False)
                 _cleanup_after_grid_step(params, state, fixed_mask, fixed_values)
 
-        result_df = pd.DataFrame(rows)
+        # A parameter whose box is a point (masked, zero data influence) or whose reference sits on both bounds has
+        # no grid: an empty profile, labelled "not assessed" downstream.
+        result_df = pd.DataFrame(rows) if rows else empty_profile_frame(param_name, idx)
         result_df["delta_objective"] = result_df["objective_value"] - float(ref["f_ref"])
 
         from networkmodel.BayesianInference import annotate_profile
