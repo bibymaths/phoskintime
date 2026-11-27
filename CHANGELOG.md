@@ -11,6 +11,9 @@ All notable changes to this project are documented here.
   replicate data). For the default grids: 1.1e-4 to 9.21 /min (protein, phospho), 1.1e-4 to 0.576 /min (RNA). Replaces
   the hard-coded constants (B_i 0.005–0.15, D_i 0.01–0.1, Dp_i 0.01–5, c_k ≥ 0.01, E_i 0–20/5/8). All networkmodel
   fits change (B4–B6 objective −50 %, mainly phospho).
+- A_i and C_i bounds are coupled to the rate bounds and the fold-change range of the data (×/÷ 1.5):
+  A_i = [B_min R_lo, B_max R_hi], C_i = [D_min P_lo/R_hi, D_max P_hi/R_lo] (saturating: ×(1+R)), so every steady state
+  inside the data range is reachable; fitted A_i/C_i no longer stop on their bounds (B4–B6).
 
 ### Bounded optimizer (O01)
 
