@@ -59,3 +59,22 @@ def test_mask_fixes_the_coordinates():
     np.testing.assert_array_equal(xu2[mask], theta0[mask])
     np.testing.assert_array_equal(xl2[~mask], xl[~mask])
     assert (xl == -9.0).all()  # inputs not modified
+
+
+def test_e_i_of_a_protein_without_sites_is_masked():
+    """Review D-1: E_i acts only on site states, so a protein without sites has an E_i without data influence."""
+    from networkmodel.utils import apply_zero_influence_mask, zero_influence_parameters
+
+    idx, W, tf = _net()
+    idx.proteins = ["P0", "P1", "P2"]
+    idx.sites = [["a", "b"], ["c"], []]
+    idx.n_sites = [2, 1, 0]
+    idx.p2i["P2"] = 2
+    z = zero_influence_parameters(idx, W, tf)
+    assert z["E_i"] == ["P2"]
+    slices = {"E_i": slice(0, 3), "c_k": slice(3, 6)}
+    theta0 = np.linspace(0.0, 1.0, 6)
+    xl2, xu2, mask, names = apply_zero_influence_mask(z, idx, slices, theta0, np.full(6, -9.0), np.full(6, 9.0))
+    assert names == ["c_k[P1]", "c_k[K2]", "E_i[P2]"]
+    assert mask.tolist() == [False, False, True, False, True, True]
+    assert xl2[2] == xu2[2] == theta0[2]

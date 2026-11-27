@@ -473,11 +473,14 @@ def zero_influence_parameters(idx, W_global, tf_mat, threshold=ZERO_INFLUENCE_TH
     site_names = [f"{p}_{s}" for p, sites in zip(idx.proteins, idx.sites) for s in sites]
     inflow = present.any(axis=1) if present.size else np.zeros(len(site_names), dtype=bool)
     no_inflow = [n for n, ok in zip(site_names, inflow) if not ok]
-    return {"threshold": float(threshold), "c_k": ck, "sites_without_kinase_inflow": no_inflow}
+    # E_i of a protein without phosphosites: E_i acts only on site states (every model), so its data gradient is 0.
+    n_sites = getattr(idx, "n_sites", None)
+    e_i = [] if n_sites is None else [p for p, ns in zip(idx.proteins, n_sites) if int(ns) == 0]
+    return {"threshold": float(threshold), "c_k": ck, "E_i": e_i, "sites_without_kinase_inflow": no_inflow}
 
 
 def apply_zero_influence_mask(zero_influence, idx, slices, theta0, xl, xu):
-    """Fix the zero-influence c_k at their start values (lower = upper = theta0; N24, P3 decision 4).
+    """Fix the zero-influence c_k and E_i at their start values (lower = upper = theta0; N24, P3 decision 4).
 
     Returns:
         (xl, xu, mask, names): new bound arrays (inputs untouched), the boolean mask over theta and parameter names.
@@ -490,6 +493,11 @@ def apply_zero_influence_mask(zero_influence, idx, slices, theta0, xl, xu):
         j = sl.start + idx.k2i[k_name]
         mask[j] = True
         names.append(f"c_k[{k_name}]")
+    if "E_i" in slices:
+        for p_name in zero_influence.get("E_i", []):
+            j = slices["E_i"].start + list(idx.proteins).index(p_name)
+            mask[j] = True
+            names.append(f"E_i[{p_name}]")
     xl[mask] = np.asarray(theta0, dtype=float)[mask]
     xu[mask] = np.asarray(theta0, dtype=float)[mask]
     return xl, xu, mask, names
