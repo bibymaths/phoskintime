@@ -14,6 +14,8 @@ All notable changes to this project are documented here.
 - A_i and C_i bounds are coupled to the rate bounds and the fold-change range of the data (×/÷ 1.5):
   A_i = [B_min R_lo, B_max R_hi], C_i = [D_min P_lo/R_hi, D_max P_hi/R_lo] (saturating: ×(1+R)), so every steady state
   inside the data range is reachable; fitted A_i/C_i no longer stop on their bounds (B4–B6).
+- The c_k upper bound is the continuous rule clip(0.1/var(Kmat), 5, 15) instead of the step at var = 0.02 (N23, N25).
+  No fit reaches it (B4–B6 fitted values unchanged); random multistart start boxes change.
 
 ### Bounded optimizer (O01)
 
