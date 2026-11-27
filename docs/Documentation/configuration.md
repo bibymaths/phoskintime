@@ -114,7 +114,15 @@ Controls the global network-scale pipeline (`networkmodel/`). Consumed by `netwo
 
 ### Optimizer settings
 
-The current global path uses `jaxopt.ProjectedGradient` with `projection=project_bounds`. The runner exposes `--n-gen` as the command-line name for the maximum JAXopt iteration count; `config_loader.load_config_toml()` maps the `[networkmodel]` key `n_gen` to `MAX_ITERATIONS` in `networkmodel/config.py`.
+The fit, multistart and profiles use one bounded optimizer (`networkmodel/optimizers.py`, `minimize_bounded`),
+selected by `[networkmodel] optimizer` or `--optimizer`. The default is `jaxopt.ProjectedGradient` with
+`projection=project_bounds`; it stops after `n_gen` iterations (`--n-gen`, the iteration limit) or when its error
+(the norm of the projected-gradient step) is at most 1e-6. `"lbfgsb"` runs `scipy.optimize.minimize(method="L-BFGS-B")`
+on the same raw box bounds with the jax gradient (float64); fixed parameters stay exactly fixed. It stops on
+`ftol` 1e-10 or `pgtol` 1e-6 (maximum projected-gradient component), with `maxiter` 15000 and `maxfun` 30000 as caps;
+optional keys `lbfgsb_maxiter`, `lbfgsb_maxfun`, `lbfgsb_ftol`, `lbfgsb_pgtol`, `lbfgsb_maxcor`, `lbfgsb_maxls`
+override these. The optimizer, its criteria (`effective_settings.optimizer_criteria`) and its stop reason, KKT residual
+and active set (`optimizer_result`) are recorded in `metadata.json`.
 
 ```bash
 python -m networkmodel.runner --solver jaxopt --n-gen 30
@@ -122,7 +130,8 @@ python -m networkmodel.runner --solver jaxopt --n-gen 30
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `n_gen` | int | `200` in the loader fallback | Maximum JAXopt iterations, exposed as `MAX_ITERATIONS` |
+| `n_gen` | int | `200` in the loader fallback | ProjectedGradient iteration limit (maxiter), exposed as `MAX_ITERATIONS` |
+| `optimizer` | string | `"projected_gradient"` | `"projected_gradient"` (jaxopt) or `"lbfgsb"` (scipy L-BFGS-B) |
 | `hyperparam_scan` | bool | `false` | Enables the compatibility hyperparameter scan entry point |
 
 ### Loss and regularization

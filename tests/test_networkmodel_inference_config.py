@@ -59,7 +59,6 @@ def test_legacy_networkmodel_config_fields_are_not_exported():
     for field in (
             "population_size",
             "use_custom_solver",
-            "optimizer",
             "study_name",
             "sampler",
             "pruner",
@@ -72,7 +71,6 @@ def test_legacy_networkmodel_config_fields_are_not_exported():
     for constant in (
             "POPULATION_SIZE",
             "USE_CUSTOM_SOLVER",
-            "OPTIMIZER",
             "STUDY_NAME",
             "SAMPLER",
             "PRUNER",
@@ -95,3 +93,20 @@ def test_runner_wires_inference_without_new_legacy_config_imports():
     assert "configure_jax_parallelism" in source
     assert "parser.add_argument(\"--pop\"" not in source
     assert "parser.add_argument(\"--refine\"" not in source
+
+
+def test_optimizer_key_is_the_bounded_optimizer_choice(tmp_path):
+    """[networkmodel] optimizer (O01) selects the bounded optimizer; the legacy pymoo/optuna values are rejected."""
+    import pytest
+
+    cfg = load_config_toml("config.toml")
+    assert cfg.optimizer == "projected_gradient"  # the default stays ProjectedGradient (owner decision)
+    text = open("config.toml").read()
+    for value in ("lbfgsb", "pymoo"):
+        p = tmp_path / f"c_{value}.toml"
+        p.write_text(text.replace('optimizer = "projected_gradient"', f'optimizer = "{value}"', 1))
+        if value == "lbfgsb":
+            assert load_config_toml(p).optimizer == "lbfgsb"
+        else:
+            with pytest.raises(ValueError, match="optimizer must be"):
+                load_config_toml(p)

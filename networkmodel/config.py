@@ -105,6 +105,10 @@ HYPERPARAM_SCAN = _as_bool(getattr(cfg, "hyperparam_scan", False))
 
 # N_STARTS: int; default 1; controls multistart optimization count.
 N_STARTS = int(getattr(cfg, "n_starts", 1))
+# OPTIMIZER: "projected_gradient" (default, jaxopt) | "lbfgsb" (scipy L-BFGS-B); see networkmodel.optimizers (O01).
+OPTIMIZER = str(getattr(cfg, "optimizer", "projected_gradient"))
+# LBFGSB_CRITERIA: optional [networkmodel] lbfgsb_* overrides of networkmodel.optimizers.LBFGSB_DEFAULTS (None = default).
+LBFGSB_CRITERIA = {k: getattr(cfg, f"lbfgsb_{k}", None) for k in ("maxiter", "maxfun", "ftol", "pgtol", "maxcor", "maxls")}
 # PROFILE_LIKELIHOOD: bool; default False; controls profile-likelihood execution.
 PROFILE_LIKELIHOOD = _as_bool(getattr(cfg, "profile_likelihood", False))
 # PROFILE_INDICES: str; default ""; controls comma-separated raw parameter indices for profiling.

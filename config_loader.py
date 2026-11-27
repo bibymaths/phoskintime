@@ -130,6 +130,14 @@ class PhosKinConfig:
 
     # Inference / post-optimization analyses
     n_starts: int = 1
+    optimizer: str = "projected_gradient"
+    # Optional L-BFGS-B stopping criteria (None = networkmodel.optimizers.LBFGSB_DEFAULTS).
+    lbfgsb_maxiter: int | None = None
+    lbfgsb_maxfun: int | None = None
+    lbfgsb_ftol: float | None = None
+    lbfgsb_pgtol: float | None = None
+    lbfgsb_maxcor: int | None = None
+    lbfgsb_maxls: int | None = None
     profile_likelihood: bool = False
     profile_indices: str = ""
     profile_grid_size: int = 10
@@ -240,6 +248,7 @@ _NETWORKMODEL_TOP_LEVEL_KEYS = frozenset({
     "app_name", "version", "parent_package", "citation", "doi", "github_url", "docs_url", "cores", "seed",
     "kinase_net", "tf_net", "ms", "rna", "phospho", "kinopt", "tfopt", "output_dir", "output_directory",
     "normalize_fc_steady", "use_initial_condition_from_data", "hyperparam_scan", "n_gen", "loss", "n_starts",
+    "optimizer", "lbfgsb_maxiter", "lbfgsb_maxfun", "lbfgsb_ftol", "lbfgsb_pgtol", "lbfgsb_maxcor", "lbfgsb_maxls",
     "profile_likelihood", "profile_indices", "profile_grid_size", "posterior_sampling", "posterior_num_warmup",
     "posterior_num_samples", "scaling_method", "weighting_method_protein", "weighting_method_rna",
     "weighting_method_phospho", "sensitivity_analysis", "sensitivity_levels", "sensitivity_metric",
@@ -354,6 +363,16 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
 
     # Inference / post-optimization analyses
     n_starts = int(cfg.get("n_starts", 1))
+    optimizer = str(cfg.get("optimizer", "projected_gradient")).strip().lower()
+    if optimizer not in ("projected_gradient", "lbfgsb"):
+        raise ValueError(f"[networkmodel] optimizer must be 'projected_gradient' or 'lbfgsb', got {optimizer!r}.")
+    lbfgsb = {}
+    for _k, _cast in (("maxiter", int), ("maxfun", int), ("ftol", float), ("pgtol", float), ("maxcor", int),
+                      ("maxls", int)):
+        _v = cfg.get(f"lbfgsb_{_k}")
+        lbfgsb[_k] = None if _v is None else _cast(_v)
+        if lbfgsb[_k] is not None and not lbfgsb[_k] > 0:
+            raise ValueError(f"[networkmodel] lbfgsb_{_k} must be > 0, got {_v!r}.")
     profile_likelihood = bool(cfg.get("profile_likelihood", False))
     profile_indices = str(cfg.get("profile_indices", ""))
     profile_grid_size = int(cfg.get("profile_grid_size", 10))
@@ -495,6 +514,13 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
         hyperparam_scan=hyp_scan,
 
         n_starts=n_starts,
+        optimizer=optimizer,
+        lbfgsb_maxiter=lbfgsb["maxiter"],
+        lbfgsb_maxfun=lbfgsb["maxfun"],
+        lbfgsb_ftol=lbfgsb["ftol"],
+        lbfgsb_pgtol=lbfgsb["pgtol"],
+        lbfgsb_maxcor=lbfgsb["maxcor"],
+        lbfgsb_maxls=lbfgsb["maxls"],
         profile_likelihood=profile_likelihood,
         profile_indices=profile_indices,
         profile_grid_size=profile_grid_size,

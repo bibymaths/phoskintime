@@ -496,6 +496,20 @@ pinn_seed = 42
 # This is not an evolutionary generation count anymore.
 n_gen = 200
 
+# Bounded optimizer of the fit, multistart and profiles (KNOWN_ISSUES O01).
+#
+# "projected_gradient" (default):
+#   jaxopt.ProjectedGradient; stops after n_gen iterations or when its error
+#   (norm of the projected-gradient step) is <= 1e-6.
+#
+# "lbfgsb":
+#   scipy L-BFGS-B on the same raw box bounds with the jax gradient; stops on
+#   ftol 1e-10 / pgtol 1e-6 (maxiter 15000, maxfun 30000; see
+#   networkmodel/optimizers.py LBFGSB_DEFAULTS). n_gen does not apply.
+#
+# The optimizer used and its stop reason are recorded in metadata.json.
+optimizer = "projected_gradient"
+
 
 # ------------------------------------------------------------
 # LOSS FUNCTION

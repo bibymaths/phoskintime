@@ -350,6 +350,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         parameter_names=saved_parameter_names,
         maxiter=int(cfg.get("n_gen", 50)),
         tol=float(cfg.get("tol", 1e-6)),
+        optimizer=str(cfg.get("optimizer", "projected_gradient")),
     )
 
     return ctx
@@ -397,6 +398,7 @@ def write_posterior_payload(
             "prior": float(lambdas["prior"]),
         },
         "tol": float(getattr(ctx, "tol", 1e-6)),
+        "optimizer": str(getattr(ctx, "optimizer", "projected_gradient")),
     }
 
     preprocessed_kinase_net = getattr(runner_args, "preprocessed_kinase_net", "")

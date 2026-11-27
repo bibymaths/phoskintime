@@ -158,6 +158,7 @@ def _config_defaults(config: Any, resolved_config_path: Path, supplied_conf_path
         "weighting_method_rna": getattr(config, "weighting_method_rna", "uniform"),
         "sensitivity_metric": getattr(config, "sensitivity_metric", "total_signal"),
         "n_starts": int(getattr(config, "n_starts", 1)),
+        "optimizer": str(getattr(config, "optimizer", "projected_gradient")),
         "profile_likelihood": _as_bool(getattr(config, "profile_likelihood", False)),
         "profile_indices": str(getattr(config, "profile_indices", "")),
         "profile_grid_size": int(getattr(config, "profile_grid_size", 10)),
@@ -220,6 +221,10 @@ def build_parser(config_defaults: dict[str, Any]) -> argparse.ArgumentParser:
                         default=config_defaults["scan"])
     parser.add_argument("--sensitivity", action="store_true", help="Run a sensitivity analysis after optimization.",
                         default=config_defaults["sensitivity"])
+    parser.add_argument("--optimizer", type=str, choices=["projected_gradient", "lbfgsb"],
+                        default=config_defaults["optimizer"],
+                        help="Bounded optimizer of the fit (networkmodel.optimizers): projected_gradient (default, "
+                             "jaxopt, maxiter = n_gen) or lbfgsb (scipy L-BFGS-B, stops on ftol/pgtol).")
     parser.add_argument("--solver", type=str, choices=["jaxopt", "pymoo", "optuna"], default=config_defaults["solver"],
                         help="Choice of optimization solver. Legacy pymoo/optuna values map to jaxopt.")
     parser.add_argument("--enable-network-preprocessing", "--enable-hyperedge-preprocessing",
@@ -334,6 +339,7 @@ def _runtime_metadata_extra(args: argparse.Namespace) -> dict[str, Any]:
             "time_points_rna": args.time_points_rna,
             "time_points_phospho": args.time_points_phospho,
             "n_starts": args.n_starts,
+            "optimizer": args.optimizer,
             "profile_likelihood": args.profile_likelihood,
             "posterior_sampling": args.posterior_sampling,
             "enable_hyperedge_preprocessing": args.enable_network_preprocessing,
@@ -417,6 +423,12 @@ def _record_effective_settings(args, custom_bounds, slices, xl, xu, weight_cfg) 
         "drive_extrapolation": str(_nmc.DRIVE_EXTRAPOLATION),
         "drive_baseline_tau": float(_nmc.DRIVE_BASELINE_TAU),
         "seeds": {"seed": int(args.seed), "pinn_seed": int(getattr(args, "pinn_seed", args.seed))},
+        "optimizer": str(getattr(args, "optimizer", "projected_gradient")),
+        "optimizer_criteria": (
+            {"optimizer": "projected_gradient", "maxiter": int(getattr(args, "n_gen", 0)), "tol": 1e-6,
+             "tol_meaning": "jaxopt ProjectedGradient error (norm of the projected-gradient step) <= tol"}
+            if getattr(args, "optimizer", "projected_gradient") == "projected_gradient" else
+            {"optimizer": "lbfgsb", **__import__("networkmodel.optimizers", fromlist=["x"]).lbfgsb_criteria()}),
         "model_code": int(args.model_code) if hasattr(args, "model_code") else None,
     }})
 
@@ -1162,6 +1174,7 @@ def main():
         data_mode=mode,
         pinn_config=pinn_config,
         pinn_spec=pinn_spec,
+        optimizer=args.optimizer,
     )
 
     def _is_pinn_runtime() -> bool:
@@ -1248,6 +1261,7 @@ def main():
         parameter_names=parameter_names,
         maxiter=args.n_gen,
         tol=1e-6,
+        optimizer=args.optimizer,
     )
     if args.n_starts > 1:
         try:
@@ -1272,6 +1286,13 @@ def main():
     else:
         best_x, opt_state, best_f = problem.solve(theta0, maxiter=args.n_gen)
 
+    # O01: the optimizer used, its stopping criteria and why it stopped (single-start fit).
+    from common.results import update_metadata as _update_metadata
+
+    _opt_res = getattr(problem, "last_optimizer_result", None)
+    if _opt_res is not None:
+        _update_metadata(args.output_dir, {"optimizer_result": _opt_res.summary()})
+
     res = JaxoptResult(
         X=np.asarray([best_x], dtype=float),
         F=np.asarray([[best_f]], dtype=float),
@@ -1293,6 +1314,7 @@ def main():
         parameter_names=parameter_names,
         maxiter=args.n_gen,
         tol=1e-6,
+        optimizer=args.optimizer,
     )
 
     if args.profile_likelihood and args.profile_indices.strip():
