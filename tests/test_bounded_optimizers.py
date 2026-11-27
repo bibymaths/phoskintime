@@ -180,3 +180,61 @@ def test_jax_gradient_matches_central_fd_at_interior_point_of_b4(tmp_path):
         best = min(row["rel_err"])
         # central FD is O(h^2) and limited by the ODE solver tolerance (1e-8): the best step must agree to 1e-4
         assert best < 1e-4 or abs(row["grad"]) < 1e-10, row
+
+
+def test_lbfgsb_ftol_stop_is_converged_only_at_a_first_order_point():
+    """O01 review M1: an ftol stop with KKT residual > pgtol must not be labelled converged."""
+    from networkmodel.optimizers import minimize_bounded
+
+    c = np.array([0.3, -0.2])
+    r = minimize_bounded(_quad(c, [1e6, 1e-6]), np.array([0.9, 0.9]), -np.ones(2), np.ones(2), optimizer="lbfgsb",
+                         lbfgsb_options={"ftol": 1e-3, "pgtol": 1e-12})
+    assert r.converged == (r.kkt_residual <= 1e-12)
+    assert "KKT residual" in r.stop_reason
+
+
+def test_lbfgsb_nonfinite_gradient_is_counted_and_not_converged():
+    import jax
+    import jax.numpy as jnp
+
+    from networkmodel.optimizers import minimize_bounded
+
+    @jax.custom_vjp
+    def f(x):
+        return jnp.sum((x - 0.2) ** 2)
+
+    def f_fwd(x):
+        return f(x), x
+
+    def f_bwd(x, ct):
+        return (jnp.where(x[0] < 0.5, jnp.nan, 2 * (x - 0.2)) * ct,)
+
+    f.defvjp(f_fwd, f_bwd)
+    r = minimize_bounded(f, np.array([0.9, 0.9]), -np.ones(2), np.ones(2), optimizer="lbfgsb", diagnostics=False)
+    assert not r.converged
+    assert "non-finite gradient" in r.stop_reason
+
+
+def test_value_and_grad_cache_is_shared_by_bound_methods():
+    """O01 review R2: problem.objective is a new bound-method object per access; one compiled function per problem."""
+    import jax.numpy as jnp
+
+    from networkmodel import optimizers
+
+    class P:
+        def objective(self, x):
+            return jnp.sum(x ** 2)
+
+    p = P()
+    n0 = len(optimizers._VG_CACHE)
+    a = optimizers._value_and_grad(p.objective)
+    b = optimizers._value_and_grad(p.objective)
+    assert a is b and len(optimizers._VG_CACHE) == n0 + 1
+
+
+def test_kkt_diagnostics_degenerate_box_has_zero_projected_gradient():
+    from networkmodel.optimizers import kkt_diagnostics
+
+    d = kkt_diagnostics(None, np.array([0.5, 0.0]), np.array([0.5, -1.0]), np.array([0.5, 1.0]),
+                        grad=np.array([3.0, 0.0]))
+    assert d["proj_grad_norm"] == 0.0 and d["kkt_residual"] == 0.0
