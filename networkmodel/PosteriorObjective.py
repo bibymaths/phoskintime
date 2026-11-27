@@ -356,7 +356,7 @@ def build_networkmodel_posterior_context(run_config_path: str | Path, chain_outp
         maxiter=int(cfg.get("max_iter", cfg.get("n_gen", 50))),
         tol=float(cfg.get("tol", 1e-6)),
         optimizer=str(cfg.get("optimizer", "projected_gradient")),
-        n_eff=n_eff_from_loss_data(loss_data, mode),
+        n_eff=n_eff_from_loss_data(loss_data, mode, weights=lambdas),
     )
 
     return ctx

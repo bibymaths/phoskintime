@@ -137,7 +137,6 @@ def test_points_better_than_reference_are_flagged():
 
 
 # ---------------------------------------------------------------- review C1-review MJ-1, MJ-2
-@pytest.mark.xfail(strict=True, reason="C1-review MJ-1")
 def test_n_eff_skips_modalities_with_zero_weight():
     from networkmodel.utils import n_eff_from_loss_data
 
@@ -148,7 +147,6 @@ def test_n_eff_skips_modalities_with_zero_weight():
     assert n_eff_from_loss_data(ld, mode, weights={"protein": 1.0, "rna": 1.0}) == 4
 
 
-@pytest.mark.xfail(strict=True, reason="C1-review MJ-2")
 def test_non_converged_points_below_the_reference_are_flagged_too():
     from networkmodel.utils import identifiability_from_profile
 

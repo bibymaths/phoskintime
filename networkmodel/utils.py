@@ -544,13 +544,17 @@ def profile_threshold(f_ref, n_eff):
     return PROFILE_CHI2_95 * max(f_ref, 0.0) / max(int(n_eff), 1)
 
 
-def n_eff_from_loss_data(loss_data, mode):
+def n_eff_from_loss_data(loss_data, mode, weights=None):
     """Number of residuals that enter the active data terms (positive weight), without baseline rows whose observed
-    fold change is exactly 1 (the model observable is 1 there by construction, so the residual is identically 0)."""
+    fold change is exactly 1 (the model observable is 1 there by construction, so the residual is identically 0).
+    ``weights``: the objective's modality weights (lambda_protein / lambda_rna / lambda_phospho); a modality with
+    weight 0 does not enter the objective, so its residuals are not counted (C1 review MJ-1)."""
+    weights = weights or {}
     n = 0
-    for flag, key, base in (("fit_protein", "prot", "prot_base_idx"), ("fit_mrna", "rna", "rna_base_idx"),
-                            ("fit_phospho", "pho", "pho_base_idx")):
-        if not getattr(mode, flag, False):
+    for flag, key, base, wkey in (("fit_protein", "prot", "prot_base_idx", "protein"),
+                                  ("fit_mrna", "rna", "rna_base_idx", "rna"),
+                                  ("fit_phospho", "pho", "pho_base_idx", "phospho")):
+        if not getattr(mode, flag, False) or float(weights.get(wkey, 1.0)) == 0.0:
             continue
         t = np.asarray(loss_data[f"t_{key}"])
         obs = np.asarray(loss_data[f"obs_{key}"], dtype=float)
@@ -600,7 +604,7 @@ def identifiability_from_profile(profile, f_ref, threshold, min_points=2):
     Labels: both bounded -> "estimate (two-sided)"; bounded above + flat below -> "upper limit only" (and the
     mirror); both flat -> "not identifiable (flat)"; bounded on one side, the other not assessed -> "... (other side
     not assessed)"; otherwise "not assessed". A non-finite reference or threshold -> "not assessed".
-    Converged points below f_ref are reported in ``better_points`` (parameter, side, grid_value_physical, objective,
+    Finite points below f_ref (converged or not, with their status) are reported in ``better_points`` (parameter, side, grid_value_physical, objective,
     delta); they are not refitted.
 
     Returns:
@@ -617,10 +621,13 @@ def identifiability_from_profile(profile, f_ref, threshold, min_points=2):
         out["n_converged"][side] = int(d.size)
         if d.size >= int(min_points):
             out["sides"][side] = "bounded" if bool(np.any(d >= threshold)) else "flat"
-    for r in df[df["objective_value"].astype(float) < f_ref].itertuples():
+    # Any finite point below f_ref (converged or not) shows the reference is not the minimum (C1 review MJ-2).
+    fin = profile[np.isfinite(profile["objective_value"].astype(float))]
+    for r in fin[fin["objective_value"].astype(float) < f_ref].itertuples():
         out["better_points"].append({"parameter": str(getattr(r, "parameter_name", "")), "side": str(r.side),
                                      "grid_value_physical": float(r.grid_value_physical),
-                                     "objective": float(r.objective_value), "delta": float(r.objective_value) - f_ref})
+                                     "objective": float(r.objective_value), "delta": float(r.objective_value) - f_ref,
+                                     "converged": bool(r.converged)})
     lo, up = out["sides"]["below"], out["sides"]["above"]
     if lo == "bounded" and up == "bounded":
         out["label"] = IDENTIFIABILITY_LABELS[0]
