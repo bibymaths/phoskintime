@@ -18,7 +18,7 @@ def _bounds(monkeypatch, model):
     return u.calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin, time_points=GRIDS)
 
 
-@pytest.mark.parametrize("model", [1, 2, pytest.param(4, marks=pytest.mark.xfail(strict=True, reason="C1-5"))])
+@pytest.mark.parametrize("model", [1, 2, 4])
 def test_tf_scale_and_a_i_bounds_do_not_depend_on_the_model(monkeypatch, model):
     ref = _bounds(monkeypatch, 0)
     b = _bounds(monkeypatch, model)

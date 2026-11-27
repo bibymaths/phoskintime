@@ -393,13 +393,10 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
         logger.info("[Bounds] c_k upper limited to %g for MODEL %d: %s", CK_MODEL_LIMITS[MODEL]["max"], MODEL,
                     CK_MODEL_LIMITS[MODEL]["reason"])
 
-    # tf_scale (not a c_k rule): the saturating model allows a larger TF gain.
-    if MODEL == 4:
-        tf_lo, tf_hi = bounds_dict["tf_scale"]
-        if avg_density >= 2.0:
-            bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 6.0))
-        else:
-            bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 10.0))
+    # tf_scale: one rule for every model (DECISIONS_C1 item 5). The former saturating-model override
+    # (max(tf_hi, 6) / max(tf_hi, 10), added in 1f48b59 as "bounded forward flux allows more ... TF scale") is removed:
+    # saturation acts on translation (C R/(1+R)), not on the TF modulation of mRNA synthesis, so it gives no reason
+    # for a larger TF gain; through tf_max it also widened the A_i box (x11 instead of x6).
 
     # A_i, C_i coupled to the rate bounds and the data range (N22 decision 2; pre-merge item 2).
     # mRNA: R_ss = A f / B, f the TF modulation of backend._synth: u = u_raw/(1+|u_raw|) in (-1, 1); activation
