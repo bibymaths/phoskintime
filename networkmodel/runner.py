@@ -1708,7 +1708,19 @@ def main():
             logger.warning("[Identifiability] profile point beats the data-only reference: %s = %.6g (side %s), "
                            "objective %.10g, delta %.3g (not refitted)", _bp["parameter"],
                            _bp["grid_value_physical"], _bp["side"], _bp["objective"], _bp["delta"])
+        # Review m3: the worker rebuilds the objective; its data-only value at theta-hat must equal the fit's data
+        # terms (total - prior). A mismatch means the rebuild differs from the fit (then the labels are not trusted).
+        _bd = getattr(res, "loss_breakdown", {}) or {}
+        _data_fit = float(best_f) - float(_bd.get("prior", 0.0))
+        _data_rebuild = float(profile_reference.get("f_at_theta_hat", float("nan")))
+        _rebuild_ok = bool(np.isfinite(_data_rebuild) and abs(_data_rebuild - _data_fit) <= 1e-8 * max(1.0, abs(_data_fit)))
+        if not _rebuild_ok:
+            logger.warning("[Identifiability] profile rebuild mismatch: data terms at theta-hat %.12g (fit) vs %.12g "
+                           "(rebuild); every label set to 'not assessed'", _data_fit, _data_rebuild)
+            _ident = {k: "not assessed" for k in _ident}
         _ident_meta = {"profiles_run": True, "threshold": _thr, "f_ref": _f_ref,
+                       "rebuild_check": {"data_terms_fit": _data_fit, "data_terms_rebuild": _data_rebuild,
+                                         "ok": _rebuild_ok, "tolerance": "1e-8 relative"},
                        "f_at_theta_hat_data_only": float(profile_reference.get("f_at_theta_hat", float("nan"))),
                        "reference_status": profile_reference.get("status"),
                        "reference_converged": bool(profile_reference.get("converged", False)),
