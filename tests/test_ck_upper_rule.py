@@ -35,11 +35,7 @@ def test_no_jump_at_former_threshold(monkeypatch):
     assert abs(lo - hi) < 1e-5
 
 
-def test_model_adjustments_apply_to_the_rule(monkeypatch):
-    v = 0.01  # rule: 10
-    assert np.isclose(_ck_hi(monkeypatch, v, model=1), max(3.0, 0.75 * 10.0))
-    assert np.isclose(_ck_hi(monkeypatch, v, model=4), min(10.0, 1.5 * 10.0))
-
-
-def test_combinatorial_clamp_unchanged(monkeypatch):
-    assert np.isclose(_ck_hi(monkeypatch, 0.01, model=2), 2.5)
+def test_same_rule_for_every_model(monkeypatch):
+    """Pre-merge item 3: no undocumented per-model override (CK_MODEL_LIMITS is empty)."""
+    for model in (0, 1, 2, 4):
+        assert np.isclose(_ck_hi(monkeypatch, 0.01, model=model), 10.0)

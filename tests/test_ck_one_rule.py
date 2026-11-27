@@ -7,7 +7,6 @@ import pytest
 
 from tests.test_design_bounds import GRIDS, _inputs
 
-XF = pytest.mark.xfail(strict=True, reason="pre-merge 3: one c_k rule, no silent per-model overrides")
 
 
 def _ck_hi(monkeypatch, model, var=0.01):
@@ -20,7 +19,7 @@ def _ck_hi(monkeypatch, model, var=0.01):
     return u.calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin, time_points=GRIDS)["c_k"][1]
 
 
-@XF
+
 @pytest.mark.parametrize("model", [0, 1, 2, 4])
 def test_one_rule_unless_documented(monkeypatch, model):
     import networkmodel.utils as u

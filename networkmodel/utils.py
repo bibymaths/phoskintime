@@ -246,6 +246,10 @@ def inv_softplus(y):
     return out
 
 
+# Pre-merge item 3: model-specific c_k upper limits, each with its reason. Empty: one rule for all models
+# (clip(0.1 / var(Kmat), 5, 15)). Entry format: MODEL id -> {"max": float, "reason": str}.
+CK_MODEL_LIMITS: dict = {}
+
 # N22 (P3 decision 1): the first-order rate constants (unit 1/min) and the observation grid that resolves each.
 #   B_i  mRNA degradation                      -> RNA grid
 #   D_i  protein degradation                   -> protein grid
@@ -380,27 +384,17 @@ def calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin_in, *, time_points=No
         "tf_scale": (tf_scale_min, tf_scale_max)
     }
 
-    # Model-specific adjustments
-    # MODEL: 0 distributive, 1 sequential, 2 combinatorial, 4 saturating
-    if MODEL == 1:
-        # Sequential: tighter kinase gain, faster phospho turnover
-        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
+    # c_k upper bound: one rule for every model (pre-merge item 3). A model gets its own limit only as an entry of
+    # CK_MODEL_LIMITS, with the reason; the former undocumented overrides (sequential max(3, 0.75 hi), combinatorial
+    # min(2.5, hi), saturating min(10, 1.5 hi)) are removed.
+    if MODEL in CK_MODEL_LIMITS:
         ck_lo, ck_hi = bounds_dict["c_k"]
-        bounds_dict["c_k"] = (ck_lo, max(3.0, 0.75 * ck_hi))
+        bounds_dict["c_k"] = (ck_lo, min(ck_hi, CK_MODEL_LIMITS[MODEL]["max"]))
+        logger.info("[Bounds] c_k upper limited to %g for MODEL %d: %s", CK_MODEL_LIMITS[MODEL]["max"], MODEL,
+                    CK_MODEL_LIMITS[MODEL]["reason"])
 
-    elif MODEL == 2:
-        # Combinatorial: clamp hard (many transitions per state)
-        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
-        ck_lo, ck_hi = bounds_dict["c_k"]
-        bounds_dict["c_k"] = (ck_lo, min(2.5, ck_hi))
-        # E_i: sampling design for every model (N22); the former clamp to 2.5 / 8.0 is removed.
-
-    elif MODEL == 4:
-        # Saturating: bounded forward flux allows more kinase gain and TF scale
-        # Dp_i: sampling design for every model (N22); the former per-model re-set to (0.01, 5.0) is removed.
-        ck_lo, ck_hi = bounds_dict["c_k"]
-        bounds_dict["c_k"] = (ck_lo, min(10.0, 1.5 * ck_hi))
-
+    # tf_scale (not a c_k rule): the saturating model allows a larger TF gain.
+    if MODEL == 4:
         tf_lo, tf_hi = bounds_dict["tf_scale"]
         if avg_density >= 2.0:
             bounds_dict["tf_scale"] = (tf_lo, max(tf_hi, 6.0))
