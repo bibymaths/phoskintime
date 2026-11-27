@@ -659,6 +659,57 @@ def plot_gof_from_pareto_excel(
     logger.info(f"[Output] Goodness of fit plots generated for {len(sol_ids)} solutions into: {output_dir}")
 
 
+def annotate_parameter_tables(output_dir, param_status):
+    """Add the parameter status (N22, P3 decision 5) to the exported parameter tables and write parameter_status.csv.
+
+    model_parameters_genes.csv / _genes_psites.csv gain "Not_point_estimates" ("column: label; ..." for every value
+    of that row that is not a point estimate, empty otherwise); _genes_psites.csv also "Dp_status";
+    model_parameters_kinases.csv gains "Status". Labels come from networkmodel.utils.parameter_status.
+    """
+    st = param_status.set_index("parameter")
+    st.reset_index().to_csv(os.path.join(output_dir, "parameter_status.csv"), index=False)
+    label = st["label"].to_dict()
+    col_group = {"Synthesis_A": "A_i", "mRNA_Degradation_B": "B_i", "Translation_C": "C_i",
+                 "Protein_Degradation_D": "D_i", "De-Phosphorylation_E": "E_i"}
+
+    def _row_flags(prot, columns, extra=()):
+        out = []
+        for col in columns:
+            g = col_group.get(col)
+            if g is None:
+                continue
+            lab = label.get(f"{g}[{prot}]")
+            if lab is not None and lab != "estimate":
+                out.append(f"{col}: {lab}")
+        if "Global_TF_Scale" in columns and label.get("tf_scale", "estimate") != "estimate":
+            out.append(f"Global_TF_Scale: {label['tf_scale']}")
+        out.extend(extra)
+        return "; ".join(out)
+
+    path = os.path.join(output_dir, "model_parameters_genes.csv")
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        flags = []
+        for prot in df["Protein_Gene"]:
+            dps = [f"Dp_i[{n[5:-1]}]: {lab}" for n, lab in label.items()
+                   if n.startswith(f"Dp_i[{prot}_") and lab != "estimate"]
+            flags.append(_row_flags(prot, df.columns, dps))
+        df["Not_point_estimates"] = flags
+        df.to_csv(path, index=False)
+    path = os.path.join(output_dir, "model_parameters_genes_psites.csv")
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        df["Dp_status"] = [label.get(f"Dp_i[{p}_{s}]", "") if isinstance(s, str) else ""
+                           for p, s in zip(df["Protein_Gene"], df["psite"])]
+        df["Not_point_estimates"] = [_row_flags(p, df.columns) for p in df["Protein_Gene"]]
+        df.to_csv(path, index=False)
+    path = os.path.join(output_dir, "model_parameters_kinases.csv")
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        df["Status"] = [label.get(f"c_k[{k}]", "") for k in df["Kinase"]]
+        df.to_csv(path, index=False)
+
+
 def export_results(
         sys,
         idx,
@@ -669,6 +720,7 @@ def export_results(
         df_pred_r,
         df_pred_ph,
         output_dir,
+        param_status=None,
 ):
     """Export fitted trajectories and summary outputs
     
@@ -813,6 +865,9 @@ def export_results(
         }
     )
     df_kin_params.to_csv(os.path.join(output_dir, "model_parameters_kinases.csv"), index=False)
+
+    if param_status is not None:
+        annotate_parameter_tables(output_dir, param_status)  # N22 decision 5
 
     logger.info(f"[Output] Exports saved to {output_dir}")
 

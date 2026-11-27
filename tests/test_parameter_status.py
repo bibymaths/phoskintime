@@ -5,7 +5,6 @@ import pytest
 
 from tests.test_design_bounds import GRIDS
 
-pytestmark = pytest.mark.xfail(strict=True, reason="N22-D5: resolvable-rate labels in exports and metadata")
 
 
 def _inv_sp(x):

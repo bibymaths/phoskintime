@@ -1655,6 +1655,24 @@ def main():
     with open(os.path.join(args.output_dir, "fitted_params_picked.json"), "w") as f:
         json.dump(p_out, f, indent=2)
 
+    # N22 (P3 decision 5): parameters at a sampling-design bound are labelled, not reported as point estimates.
+    from networkmodel.utils import design_rate_bounds, parameter_status
+
+    _design_info = design_rate_bounds({"protein": args.time_points_protein, "rna": args.time_points_rna,
+                                       "phospho": args.time_points_phospho})
+    param_status = parameter_status(parameter_names, theta_best, xl, xu, slices, _design_info,
+                                    fixed_names=_zi_names)
+    for _r in param_status.itertuples():
+        if not _r.is_estimate:
+            logger.warning("[Identifiability] %s = %.4g: %s", _r.parameter, _r.value, _r.label)
+    _upd_meta(args.output_dir, {"parameter_status": {
+        "rule": f"within {100 * 0.01:g} % (physical) of a bound; design bounds: k_min = -ln(1-delta)/T, "
+                "k_max = -ln(delta)/dt_min",
+        "design": _design_info,
+        "counts": param_status["status"].value_counts().to_dict(),
+        "not_point_estimates": {r.parameter: r.label for r in param_status.itertuples() if not r.is_estimate},
+        "table": "parameter_status.csv"}})
+
     run_parameter_diagnostics(
         params=params,
         idx=idx,
@@ -1742,7 +1760,8 @@ def main():
     logger.info("[Simulate] Check complete. Inspect 'steady_state_plots' folder.")
 
     if dfp is not None and dfr is not None and dfph is not None:
-        export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir)
+        export_results(sys, idx, df_prot, df_rna, df_pho, dfp, dfr, dfph, args.output_dir,
+                       param_status=param_status)
 
     logger.info("[Done] Exported results saved.")
 

@@ -495,6 +495,68 @@ def apply_zero_influence_mask(zero_influence, idx, slices, theta0, xl, xu):
     return xl, xu, mask, names
 
 
+# N22 (P3 decision 5): a value within this relative distance (physical) of a bound is not a point estimate.
+BOUND_PROXIMITY_REL = 0.01
+
+
+def _fmt_half_life(minutes):
+    """Half-life in readable units: seconds below 2 min, minutes below 2 h, hours otherwise."""
+    if minutes < 2.0:
+        return f"{minutes * 60.0:.1f} s"
+    if minutes < 120.0:
+        return f"{minutes:.1f} min"
+    return f"{minutes / 60.0:.1f} h"
+
+
+def parameter_status(parameter_names, theta_raw, xl, xu, slices, design_info, fixed_names=(),
+                     rel=BOUND_PROXIMITY_REL):
+    """Status of every fitted parameter (N22, P3 decision 5).
+
+    status: "estimate"; "below_resolvable_rate" / "above_resolvable_rate" (within rel of a sampling-design bound:
+    label "below resolvable rate (half-life > X)" / "above resolvable rate (half-life < X)"); "at_bound" (within rel
+    of a bound that is not a design bound); "fixed_no_data_influence" (masked, N24). Only "estimate" is a point
+    estimate. Physical values (softplus of raw).
+
+    Returns:
+        DataFrame: parameter, group, value, lower, upper, status, label, is_estimate.
+    """
+    th = np.asarray(theta_raw, dtype=float)
+    lo = np.logaddexp(0.0, np.asarray(xl, dtype=float))  # softplus, as the model uses it
+    hi = np.logaddexp(0.0, np.asarray(xu, dtype=float))
+    val = np.logaddexp(0.0, th)
+    group_of = {}
+    for g, sl in slices.items():
+        for j in range(sl.start, sl.stop):
+            group_of[j] = g
+    design = design_info["groups"] if design_info else {}
+    fixed = set(fixed_names)
+    rows = []
+    for j, name in enumerate(parameter_names):
+        g = group_of.get(j, "")
+        v, a, b = float(val[j]), float(lo[j]), float(hi[j])
+        status, label = "estimate", "estimate"
+        if name in fixed:
+            status, label = "fixed_no_data_influence", ZERO_INFLUENCE_LABEL
+        else:
+            near_lo = abs(v - a) <= rel * max(abs(a), 1e-300)
+            near_hi = b > a and abs(b - v) <= rel * abs(b)
+            dg = design.get(g)
+            design_lo = dg is not None and np.isclose(a, dg["k_min"], rtol=1e-9)
+            design_hi = dg is not None and g != "c_k" and np.isclose(b, dg["k_max"], rtol=1e-9)
+            if near_lo and design_lo:
+                status = "below_resolvable_rate"
+                label = f"below resolvable rate (half-life > {_fmt_half_life(dg['half_life_max_min'])})"
+            elif near_hi and design_hi:
+                status = "above_resolvable_rate"
+                label = f"above resolvable rate (half-life < {_fmt_half_life(dg['half_life_min_min'])})"
+            elif near_lo or near_hi:
+                status = "at_bound"
+                label = f"at optimizer bound ({'lower' if near_lo else 'upper'}; not a design bound)"
+        rows.append({"parameter": name, "group": g, "value": v, "lower": a, "upper": b, "status": status,
+                     "label": label, "is_estimate": status == "estimate"})
+    return pd.DataFrame(rows)
+
+
 def _nondegenerate(mask_xl, mask_xu, eps=1e-14):
     """Handle internal nondegenerate"""
     return (mask_xu - mask_xl) > eps
