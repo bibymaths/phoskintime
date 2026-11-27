@@ -33,6 +33,10 @@ All notable changes to this project are documented here.
   is reported as converged (KKT <= 1e-6), near_converged (<= 1e-5) or not_converged (multistart_summary.csv,
   metadata.json `multistart`). ProjectedGradient stays selectable. All networkmodel fits change (B4–B6 −3 to −5 % vs
   ProjectedGradient at 200 iterations under the new bounds).
+- Review fixes (no fitted value changes): E_i of a protein without phosphosites is fixed and labelled "not
+  identifiable: no data influence"; a finite run with KKT residual <= pgtol is classed converged; c_k at its floor is
+  labelled by its time constant 1/c_k; the Dp flags in model_parameters_genes.csv match sites exactly; masked
+  parameters are no longer counted in the active set; multistart metadata states the start rule (one random stream).
 
 ### Bounded optimizer (O01)
 
