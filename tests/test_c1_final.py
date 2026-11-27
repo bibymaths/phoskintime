@@ -8,6 +8,7 @@ Item 3 (C1F-3): profile interval (threshold crossings), value_fit, value_data_on
 status "... ; fitted value set by the prior" and not a point estimate.
 """
 import numpy as np
+import pytest
 import pandas as pd
 
 from tests.test_parameter_status import _case
@@ -99,3 +100,27 @@ def test_parameter_status_reports_fit_inside_interval():
     assert "fitted value set by the prior" in tf["status"] and "fitted value set by the prior" in tf["label"]
     assert not tf["is_estimate"]
     assert pd.isna(st.loc["Dp_i[P_s1]", "fit_inside_interval"])
+
+
+@pytest.mark.xfail(strict=True, reason="C1F-3 one-sided")
+def test_fit_outside_on_its_own_side_counts_when_the_other_side_is_open():
+    """B4 E_i[ABL2]: data-only optimum at the lower bound (lower limit NaN), fit 1.08 above the upper limit 0.90."""
+    from networkmodel.utils import parameter_status
+
+    d, names, slices, th, xl, xu = _case()
+    prof = {"tf_scale": {"value_data_only": 0.5, "lower": float("nan"), "upper": 1.0},   # fit 1.313 > 1.0
+            "c_k[K1]": {"value_data_only": 1e-3, "lower": float("nan"), "upper": 5.0}}  # fit inside on its side
+    st = parameter_status(names, th, xl, xu, slices, d, fixed_names=["c_k[K3]"], profile_info=prof).set_index(
+        "parameter")
+    assert st.loc["tf_scale", "fit_inside_interval"] == False  # noqa: E712
+    assert st.loc["c_k[K1]", "fit_inside_interval"] == True  # noqa: E712
+
+
+@pytest.mark.xfail(strict=True, reason="C1F masked parameter")
+def test_profile_of_a_parameter_with_an_empty_grid_is_not_assessed(tmp_path):
+    from networkmodel.ProfileWorker import empty_profile_frame
+    from networkmodel.utils import identifiability_from_profile
+
+    df = empty_profile_frame("c_k[K3]", 11)
+    assert len(df) == 0 and {"side", "objective_value", "convergence_status", "grid_value_physical"} <= set(df)
+    assert identifiability_from_profile(df, f_ref=1.0, threshold=0.1)["label"] == "not assessed"
