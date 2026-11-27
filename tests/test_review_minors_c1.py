@@ -8,7 +8,6 @@ import pytest
 from tests.test_design_bounds import GRIDS, _inputs
 
 
-@pytest.mark.xfail(strict=True, reason="m1")
 def test_model2_bounds_need_n_sites(monkeypatch):
     import networkmodel.utils as u
 
@@ -19,7 +18,6 @@ def test_model2_bounds_need_n_sites(monkeypatch):
         u.calculate_bio_bounds(idx, df_prot, df_rna, tf_mat, kin, time_points=GRIDS)
 
 
-@pytest.mark.xfail(strict=True, reason="m6")
 def test_kinase_table_has_is_estimate(tmp_path):
     from networkmodel.export import annotate_parameter_tables
     from tests.test_parameter_status import _case

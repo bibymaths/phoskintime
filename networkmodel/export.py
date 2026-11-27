@@ -664,7 +664,7 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
 
     model_parameters_genes.csv / _genes_psites.csv gain "Not_point_estimates" ("column: label; ..." for every value
     of that row that is not a point estimate, i.e. not "estimate (two-sided)" by a profile; empty otherwise); _genes_psites.csv also "Dp_status";
-    model_parameters_kinases.csv gains "Status". Labels come from networkmodel.utils.parameter_status.
+    model_parameters_kinases.csv gains "Status" and "Is_estimate". Labels come from networkmodel.utils.parameter_status.
     sites_by_protein: {protein: [site, ...]} (idx order); without it, Dp_i names are matched by the prefix
     "Dp_i[<protein>_", which is ambiguous when one protein name is a prefix of another (P3 review D-5).
     """
@@ -713,6 +713,7 @@ def annotate_parameter_tables(output_dir, param_status, sites_by_protein=None):
     if os.path.exists(path):
         df = pd.read_csv(path)
         df["Status"] = [label.get(f"c_k[{k}]", "") for k in df["Kinase"]]
+        df["Is_estimate"] = [bool(est.get(f"c_k[{k}]", False)) for k in df["Kinase"]]  # review m6
         df.to_csv(path, index=False)
 
 
