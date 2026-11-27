@@ -29,6 +29,10 @@ All notable changes to this project are documented here.
 - Parameters within 1 % of a sampling-design bound are labelled "below resolvable rate (half-life > X)" or "above
   resolvable rate (half-life < X)" (other bounds: "at optimizer bound"), in the new parameter_status.csv, metadata.json
   `parameter_status`, and new status columns of model_parameters_{genes,genes_psites,kinases}.csv. Values unchanged.
+- Default optimizer: L-BFGS-B (`optimizer = "lbfgsb"`) with `n_starts = 5` seeded starts, the best kept; every start
+  is reported as converged (KKT <= 1e-6), near_converged (<= 1e-5) or not_converged (multistart_summary.csv,
+  metadata.json `multistart`). ProjectedGradient stays selectable. All networkmodel fits change (B4–B6 −3 to −5 % vs
+  ProjectedGradient at 200 iterations under the new bounds).
 
 ### Bounded optimizer (O01)
 
