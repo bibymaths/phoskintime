@@ -162,9 +162,22 @@ def test_n_gen_is_a_deprecated_alias_of_max_iter(tmp_path):
     assert "\nmax_iter = 200" in src and "\nn_gen =" not in src
     old = tmp_path / "old.toml"
     old.write_text(src.replace("\nmax_iter = 200", "\nn_gen = 33"))
-    with pytest.warns(DeprecationWarning, match="max_iter"):
+    with pytest.warns(FutureWarning, match="max_iter"):
         assert load_config_toml(old).maximum_iterations == 33
     both = tmp_path / "both.toml"
     both.write_text(src.replace("\nmax_iter = 200", "\nmax_iter = 200\nn_gen = 33"))
     with pytest.raises(ValueError, match="max_iter only"):
         load_config_toml(both)
+
+
+def test_n_gen_warning_is_visible_with_default_filters(tmp_path):
+    """Review D-6: the deprecation notice must show under Python's default warning filters."""
+    import subprocess
+
+    src = (ROOT / "config.toml").read_text().replace("\nmax_iter = 200", "\nn_gen = 33")
+    p = tmp_path / "old.toml"
+    p.write_text(src)
+    code = f"from config_loader import load_config_toml; load_config_toml({str(p)!r})"
+    r = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert "n_gen is deprecated" in r.stderr

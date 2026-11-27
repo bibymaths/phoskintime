@@ -357,7 +357,9 @@ def load_config_toml(path: str | Path) -> PhosKinConfig:
     if "n_gen" in cfg:
         import warnings
 
-        warnings.warn("[networkmodel] n_gen is deprecated: use max_iter.", DeprecationWarning, stacklevel=2)
+        # FutureWarning: shown by default to end users (DeprecationWarning is hidden outside __main__; review D-6)
+        warnings.warn("[networkmodel] n_gen is deprecated: use max_iter (same meaning).", FutureWarning,
+                      stacklevel=2)
     max_iter = int(cfg.get("max_iter", cfg.get("n_gen", 200)))
 
     # Loss
