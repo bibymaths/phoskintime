@@ -10,6 +10,18 @@ All notable changes to this project are documented here.
   `n_gen` / `--n-gen` are still accepted (deprecation warning; giving both keys is an error); saved posterior/profile
   run configs with `n_gen` still load.
 
+### Pre-merge round (owner decisions, branch opt/2026-12)
+
+- A_i bounds include the TF modulation factor ([B_min R_lo/(1 + tf_max/2), B_max R_hi (1 + tf_max)] when the
+  network has TF edges); the C_i upper bound includes the phospho outflux ((D_max + κ Dp_max) P_hi/R_lo, κ = 1, or the
+  maximum sites per protein for the combinatorial model). Fitted objective changes ≤ 6e-5 on B4–B7.
+- One c_k upper rule for all models, clip(0.1/var(Kmat), 5, 15); the sequential, combinatorial (2.5) and saturating
+  overrides are removed (no model needed its own limit; `CK_MODEL_LIMITS` is the place for a documented one).
+- Identifiability labels: interior parameters are "not assessed" unless profile likelihoods were run; then
+  "estimate (two-sided)", "upper limit only", "lower limit only" or "not identifiable (flat)". Only two-sided
+  parameters count as point estimates in parameter_status.csv, metadata and the export tables.
+- Prior centres checked: all inside their bounds (the prior is 24–28 % of the fitted objective on B4–B7).
+
 ### Parameter bounds and identifiability (N22, owner decisions, branch opt/2026-12) — changed results
 
 - Rate constants B_i, D_i, E_i, Dp_i (1/min) and the c_k lower bound now come from the sampling design:

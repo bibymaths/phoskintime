@@ -347,6 +347,10 @@ Phosphorylation dynamics:
 
 ---
 
+### Reported parameter values
+
+Parameter values of the network model are reported as estimates only when profile likelihoods show that the data bound them on both sides (label "estimate (two-sided)"). Every fitted value is listed in `parameter_status.csv` (and in metadata.json `parameter_status`) with its label: "upper limit only", "lower limit only" or "not identifiable (flat)" from a profile; "not assessed" when no profile was run; "below / above resolvable rate" when it sits at a bound set by the sampling design; "not identifiable: no data influence" when the network gives it no effect on the data. Values with any of these labels are model settings that reproduce the fit, not measurements. On the ABL2 subnetwork, 1 to 2 of 15 to 16 interior parameters per model are two-sided estimates (KNOWN_ISSUES N27 in the repository).
+
 ## Module Architecture
 
 The package is structured to separate data management, topology construction, physics kernels, numerical integration, and optimization.
