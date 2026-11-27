@@ -22,7 +22,6 @@ import subprocess
 from networkmodel.backend import (
     DataMode,
     ensure_jax_float64,
-    optimize_scalar_objective,
     project_alpha_blocks,
     project_beta_blocks,
     project_bounds,
@@ -30,6 +29,7 @@ from networkmodel.backend import (
 
 from config.config import setup_logger
 from networkmodel.config import RESULTS_DIR
+from networkmodel.optimizers import minimize_bounded
 
 logger = setup_logger(log_dir=RESULTS_DIR)
 
@@ -50,6 +50,7 @@ class InferenceContext:
     loss_kwargs: Mapping | None = None
     maxiter: int = 50
     tol: float = 1e-6
+    optimizer: str = "projected_gradient"  # networkmodel.optimizers.OPTIMIZERS ([networkmodel] optimizer)
 
     def build_worker_kwargs(self, start_id: int, seed: int, theta_start: np.ndarray) -> dict:
         """Create an immutable per-worker copy of numeric residual/loss metadata."""
@@ -180,7 +181,7 @@ def _run_one_start(ctx: InferenceContext, start_id: int, seed: int, theta_start:
     worker_kwargs = ctx.build_worker_kwargs(start_id, seed, theta_start)
     begin = time.perf_counter()
     try:
-        params, state, value = optimize_scalar_objective(
+        res = minimize_bounded(
             ctx.objective_fun,
             worker_kwargs["theta_start"],
             worker_kwargs["lower"],
@@ -189,20 +190,25 @@ def _run_one_start(ctx: InferenceContext, start_id: int, seed: int, theta_start:
             tol=ctx.tol,
             fixed_mask=worker_kwargs["fixed_mask"],
             fixed_values=worker_kwargs["fixed_values"],
+            optimizer=ctx.optimizer,
             logger_obj=logger,
         )
+        params, value = res.theta, res.final_objective
         elapsed = time.perf_counter() - begin
         row = {
             "start_id": start_id,
             "seed": seed,
-            "convergence_status": "converged",
+            "convergence_status": res.status,
             "success": True,
             "failure_reason": "",
             "final_objective": float(value),
             "active_loss_terms": ",".join(ctx.mode.active_loss_terms),
-            "number_of_iterations": int(getattr(state, "iter_num", -1)),
+            "number_of_iterations": int(res.iterations),
             "solver_status": "diffrax",
-            "optimizer_status": "jaxopt.ProjectedGradient",
+            "optimizer_status": res.label,
+            "stop_reason": res.stop_reason,
+            "kkt_residual": float(res.kkt_residual),
+            "active_set_size": len(res.active_lower) + len(res.active_upper),
             "runtime_seconds": elapsed,
             "data_mode": ctx.mode.data_mode,
             "available_layers": ",".join(ctx.mode.available_layers),
@@ -535,7 +541,7 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
             fixed_mask[idx] = True
             fixed_values[idx] = gv
             try:
-                params, state, value = optimize_scalar_objective(
+                res = minimize_bounded(
                     ctx.objective_fun,
                     fixed_values,
                     lower_eff,
@@ -544,10 +550,13 @@ def run_profile_likelihood(ctx: InferenceContext, *, parameter_indices: Sequence
                     tol=ctx.tol,
                     fixed_mask=fixed_mask,
                     fixed_values=fixed_values,
+                    optimizer=ctx.optimizer,
                     logger_obj=logger,
                 )
+                params, value = res.theta, res.final_objective
                 row = {"parameter_name": names[idx], "parameter_index": idx, "grid_value": gv, "objective_value": value,
-                       "iterations": int(getattr(state, "iter_num", -1)), "success": True, "optimizer_status": "jaxopt.ProjectedGradient", "failure_reason": "",
+                       "iterations": int(res.iterations), "success": True, "optimizer_status": res.label,
+                       "convergence_status": res.status, "stop_reason": res.stop_reason, "failure_reason": "",
                        "optimized_free_parameters": json.dumps(params.tolist()), "data_mode": ctx.mode.data_mode,
                        "active_loss_terms": ",".join(ctx.mode.active_loss_terms)}
             except Exception as exc:
@@ -586,7 +595,9 @@ def annotate_profile(df: pd.DataFrame, *, theta_hat_raw: float, objective_at_the
     df["theta_hat_raw"] = float(theta_hat_raw)
     df["objective_at_theta_hat"] = float(objective_at_theta_hat)
     df["delta_vs_theta_hat"] = df["objective_value"] - float(objective_at_theta_hat)
-    if "iterations" in df:
+    if "convergence_status" in df:  # the optimizer's own stop criterion (networkmodel.optimizers)
+        df["converged"] = df["success"].astype(bool) & (df["convergence_status"] == "converged")
+    elif "iterations" in df:
         df["converged"] = df["success"].astype(bool) & (df["iterations"] < int(maxiter))
     return df
 

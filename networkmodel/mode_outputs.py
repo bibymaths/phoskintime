@@ -12,7 +12,8 @@ from matplotlib import pyplot as plt
 from networkmodel.backend import DataMode
 
 
-def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_value: float | None = None) -> Path:
+def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_value: float | None = None,
+                        objective_backend: str = "jaxopt.ProjectedGradient") -> Path:
     """Write scalar-run mode metadata
     
     Args:
@@ -30,7 +31,7 @@ def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_val
         "available_layers": list(mode.available_layers),
         "active_loss_terms": list(mode.active_loss_terms),
         "skipped_loss_terms": list(mode.skipped_loss_terms),
-        "objective_backend": "jaxopt.ProjectedGradient",
+        "objective_backend": str(objective_backend),  # the optimizer actually used (networkmodel.optimizers label)
         "solver_backend": "diffrax.Kvaerno4/Kvaerno5",
     }
     if objective_value is not None:
@@ -40,7 +41,8 @@ def write_mode_metadata(output_dir: str | Path, mode: DataMode, *, objective_val
     return path
 
 
-def write_scalar_result_tables(output_dir: str | Path, mode: DataMode, objective_values) -> dict[str, Path]:
+def write_scalar_result_tables(output_dir: str | Path, mode: DataMode, objective_values,
+                               objective_backend: str = "jaxopt.ProjectedGradient") -> dict[str, Path]:
     """Write scalar objective result tables
     
     Args:
@@ -63,7 +65,8 @@ def write_scalar_result_tables(output_dir: str | Path, mode: DataMode, objective
     legacy_path = out / "pareto_F.csv"
     df.to_csv(scalar_path, index=False)
     df[["scalar_objective"]].to_csv(legacy_path, index=False)
-    metadata_path = write_mode_metadata(out, mode, objective_value=float(values[0]) if values.size else None)
+    metadata_path = write_mode_metadata(out, mode, objective_value=float(values[0]) if values.size else None,
+                                        objective_backend=objective_backend)
     return {"scalar_objective": scalar_path, "legacy_objective": legacy_path, "metadata": metadata_path}
 
 

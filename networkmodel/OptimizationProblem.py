@@ -9,7 +9,6 @@ from networkmodel.backend import (
     detect_data_mode,
     ensure_jax_float64,
     make_simple_objective,
-    optimize_scalar_objective,
     validate_loss_data,
 )
 
@@ -113,7 +112,8 @@ class GlobalODEScalarObjective:
     """Evaluate and solve the scalar global ODE objective"""
 
     def __init__(self, sys, slices, loss_data, defaults, lambdas, time_grid, xl, xu, fail_value=1e12,
-                 data_mode: DataMode | None = None, pinn_config=None, pinn_spec=None, solver_config=None, **_):
+                 data_mode: DataMode | None = None, pinn_config=None, pinn_spec=None, solver_config=None,
+                 optimizer: str = "projected_gradient", **_):
         """Initialize GlobalODEScalarObjective
         
         Args:
@@ -206,6 +206,12 @@ class GlobalODEScalarObjective:
             solver_config=solver_config,
         )
         self.final_loss_breakdown = {}
+        from networkmodel.optimizers import OPTIMIZERS
+
+        self.optimizer = str(optimizer).strip().lower()
+        if self.optimizer not in OPTIMIZERS:
+            raise ValueError(f"optimizer must be one of {OPTIMIZERS}, got {optimizer!r}.")
+        self.last_optimizer_result = None
 
     def objective(self, x):
         """Evaluate the scalar objective
@@ -235,7 +241,7 @@ class GlobalODEScalarObjective:
         out["F"] = np.asarray([self.evaluate(x)], dtype=np.float64)
 
     def solve(self, theta0, maxiter=50, tol=1e-6):
-        """Run scalar ProjectedGradient optimization
+        """Run the scalar bounded optimization with self.optimizer (networkmodel.optimizers; default ProjectedGradient)
         
         Args:
             theta0: Input value used by this routine.
@@ -294,8 +300,12 @@ class GlobalODEScalarObjective:
 
             return params, state, value
 
-        params, state, value = optimize_scalar_objective(self.objective, theta0, self.xl, self.xu, maxiter=maxiter,
-                                                         tol=tol, logger_obj=logger)
+        from networkmodel.optimizers import minimize_bounded
+
+        res = minimize_bounded(self.objective, theta0, self.xl, self.xu, maxiter=maxiter, tol=tol,
+                               optimizer=self.optimizer, logger_obj=logger)
+        self.last_optimizer_result = res
+        params, state, value = res.theta, res.state, res.final_objective
         for name, sl in self.slices.items():
             delta = np.max(np.abs(params[sl] - theta0[sl])) if (sl.stop - sl.start) else 0.0
             logger.info("[Optimizer] Parameter group movement %s: max_abs_delta=%.8g", name, float(delta))

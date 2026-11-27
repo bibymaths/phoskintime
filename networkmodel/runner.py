@@ -1374,7 +1374,10 @@ def main():
     np.save(os.path.join(args.output_dir, "pareto_F.npy"), F)
 
     # Also write CSV/JSON summaries with mode metadata.
-    output_paths = write_scalar_result_tables(args.output_dir, mode, F.reshape(-1))
+    from networkmodel.optimizers import OPTIMIZER_LABELS
+
+    output_paths = write_scalar_result_tables(args.output_dir, mode, F.reshape(-1),
+                                              objective_backend=OPTIMIZER_LABELS[problem.optimizer])
     df_pareto = pd.read_csv(output_paths["legacy_objective"])
     logger.info(f"[Output] Saved scalar objective table: {len(df_pareto)} solution(s)")
 

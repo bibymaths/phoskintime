@@ -30,7 +30,7 @@ import pandas as pd
 
 from networkmodel.PosteriorObjective import build_networkmodel_posterior_context
 from networkmodel.BayesianInference import _param_names
-from networkmodel.backend import optimize_scalar_objective
+from networkmodel.optimizers import minimize_bounded
 from config.config import setup_logger
 
 
@@ -155,7 +155,7 @@ def run_one_parameter_profile(
             state = None
 
             try:
-                params, state, value = optimize_scalar_objective(
+                res = minimize_bounded(
                     ctx.objective_fun,
                     fixed_values,
                     lower_eff,
@@ -164,8 +164,10 @@ def run_one_parameter_profile(
                     tol=ctx.tol,
                     fixed_mask=fixed_mask,
                     fixed_values=fixed_values,
+                    optimizer=ctx.optimizer,
                     logger_obj=logger,
                 )
+                params, value, state = res.theta, res.final_objective, res.state
 
                 row = {
                     "parameter_name": param_name,
@@ -173,9 +175,11 @@ def run_one_parameter_profile(
                     "grid_index": grid_i,
                     "grid_value": float(gv),
                     "objective_value": float(value),
-                    "iterations": int(getattr(state, "iter_num", -1)),
+                    "iterations": int(res.iterations),
                     "success": True,
-                    "optimizer_status": "jaxopt.ProjectedGradient",
+                    "optimizer_status": res.label,
+                    "convergence_status": res.status,
+                    "stop_reason": res.stop_reason,
                     "failure_reason": "",
                     "optimized_free_parameters": json.dumps(
                         np.asarray(params, dtype=float).tolist()
