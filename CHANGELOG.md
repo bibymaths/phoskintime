@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### C1 final decisions (owner, branch opt/2026-12)
+
+- protwise multistart demo: start rule changed; fitted protwise results unchanged (notebook 03 uses the shared
+  multistart start generator, now log-uniform in physical space; its optimization/ tables change, its fitted
+  parameters and trajectories do not).
+- The data-only profile reference is the best usable refit from the fitted values and the best kept multistart
+  solutions (up to 5). Usable reference and profile points: converged (KKT ≤ 1e-6) or near-converged (≤ 1e-5, the
+  N26 noise level), with the status recorded per point; labels resting on near-converged evidence end in
+  "(approximate: near-converged)". "not assessed" only without a usable reference start or with fewer than two
+  usable points on a side. Profile labels change (more sides assessed); fitted values unchanged.
+- parameter_status.csv and metadata.json gain value_fit, value_data_only, profile_lower, profile_upper (threshold
+  crossings of the data-only profile) and fit_inside_interval; a fitted value outside its interval is marked
+  "fitted value set by the prior" and is not a point estimate. Without profiles the new columns are empty.
+- `PHOSKINTIME_PROFILE_WORKERS` (environment, default 1): number of parallel profile workers.
+
 ### C1 decisions (owner, branch opt/2026-12) — changed results
 
 - Profile likelihoods are data-only: the prior is off for the reference optimum (a data-only refit from the fitted
