@@ -16,6 +16,10 @@ All notable changes to this project are documented here.
   inside the data range is reachable; fitted A_i/C_i no longer stop on their bounds (B4–B6).
 - The c_k upper bound is the continuous rule clip(0.1/var(Kmat), 5, 15) instead of the step at var = 0.02 (N23, N25).
   No fit reaches it (B4–B6 fitted values unchanged); random multistart start boxes change.
+- Parameters without data influence are detected when the network is built: a c_k whose kinase has only edges with
+  |α| <= 1e-12 (and no TF output) is fixed at its start value and reported as "not identifiable: no data influence"
+  (metadata.json `zero_influence`); sites without kinase inflow are reported (N24). B4–B6: c_k[CDK1] fixed, MAPK3_T_202
+  reported; fitted values unchanged.
 
 ### Bounded optimizer (O01)
 
