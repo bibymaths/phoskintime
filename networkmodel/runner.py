@@ -1376,6 +1376,7 @@ def main():
 
     profile_summary = None  # pre-merge item 5: profile results feed the identifiability labels
     profile_reference = None  # DECISIONS_C1 item 1: data-only reference optimum and threshold
+    profile_refinement = None  # DECISIONS_C1_REFINE A: reference refinement rounds
     if args.profile_likelihood and args.profile_indices.strip():
         try:
             logger.info("[Profile] Profile likelihood requested for indices: %s", args.profile_indices)
@@ -1408,6 +1409,7 @@ def main():
             )
             profile_summary = profile_result["summary"]
             profile_reference = profile_result.get("reference")
+            profile_refinement = profile_result.get("refinement")
 
         except Exception:
             logger.exception("[Profile] Profile likelihood failed.")
@@ -1729,6 +1731,14 @@ def main():
             if _pname in _profile_info:
                 _profile_info[_pname].update(lower=_r["interval"][0], upper=_r["interval"][1])
             _better += _r["better_points"]
+        # DECISIONS_C1_REFINE A: parameters whose profiles still beat the reference after the last round.
+        from networkmodel.utils import UNSTABLE_REFERENCE_LABEL
+
+        for _pname in (profile_refinement or {}).get("unstable_parameters", []):
+            if _pname in _ident:
+                _ident[_pname] = UNSTABLE_REFERENCE_LABEL
+                if _pname in _profile_info:
+                    _profile_info[_pname].update(lower=float("nan"), upper=float("nan"))
         for _bp in _better:
             logger.warning("[Identifiability] profile point beats the data-only reference: %s = %.6g (side %s), "
                            "objective %.10g, delta %.3g (not refitted)", _bp["parameter"],
@@ -1745,6 +1755,7 @@ def main():
             _ident = {k: "not assessed" for k in _ident}
             _profile_info = {}
         _ident_meta = {"profiles_run": True, "threshold": _thr, "f_ref": _f_ref,
+                       "reference_refinement": profile_refinement,
                        "rebuild_check": {"data_terms_fit": _data_fit, "data_terms_rebuild": _data_rebuild,
                                          "ok": _rebuild_ok, "tolerance": "1e-8 relative"},
                        "f_at_theta_hat_data_only": float(profile_reference.get("f_at_theta_hat", float("nan"))),

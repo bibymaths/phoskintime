@@ -115,7 +115,7 @@ def select_reference(records):
     return min(usable, key=lambda r: float(r["f"])) if usable else None
 
 
-def run_reference(*, run_config_path: str | Path) -> dict:
+def run_reference(*, run_config_path: str | Path, starts_file: str | Path | None = None) -> dict:
     """Write <output_dir>/profiles/profile_reference.json: the data-only reference and the profile threshold.
 
     DECISIONS_C1_FINAL item 2: the data-only objective is refitted from theta-hat and from the best kept multistart
@@ -136,7 +136,10 @@ def run_reference(*, run_config_path: str | Path) -> dict:
     theta_hat = np.asarray(ctx.theta0, dtype=np.float64)
     starts = [("theta_hat", theta_hat)]
     extra = Path(run_cfg["payload_dir"]) / REFERENCE_STARTS_FILE
-    if extra.exists():
+    if starts_file is not None:  # DECISIONS_C1_REFINE A: refinement round, only the given starts
+        starts = [(f"refine_start{k + 1}", np.asarray(th, dtype=np.float64))
+                  for k, th in enumerate(np.atleast_2d(np.load(starts_file)))]
+    elif extra.exists():
         for k, th in enumerate(np.atleast_2d(np.load(extra))[:5]):
             th = np.asarray(th, dtype=np.float64)
             if th.shape == theta_hat.shape and not any(np.array_equal(th, s[1]) for s in starts):
@@ -404,10 +407,12 @@ def main() -> None:
     parser.add_argument("--grid-size", type=int, default=10)
     parser.add_argument("--reference", action="store_true",
                         help="compute the data-only reference optimum and threshold (run before the parameters)")
+    parser.add_argument("--starts-file", default=None,
+                        help="with --reference: refit only from these raw starts (.npy rows; refinement round)")
     args = parser.parse_args()
 
     if args.reference:
-        run_reference(run_config_path=args.run_config)
+        run_reference(run_config_path=args.run_config, starts_file=args.starts_file)
         return
     if args.parameter_index < 0:
         parser.error("--parameter-index is required without --reference")

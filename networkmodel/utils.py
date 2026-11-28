@@ -595,6 +595,18 @@ def profile_grid_physical(v, lo, hi, n_per_side, decade_points=3):
     return side(lo), side(hi)
 
 
+REFERENCE_BEAT_TOL = 1e-5  # DECISIONS_C1_REFINE A: a profile point beats the reference by more than the N26 noise
+REFINE_MAX_ROUNDS = 3
+UNSTABLE_REFERENCE_LABEL = "not assessed (reference unstable)"
+
+
+def points_beating_reference(summary, f_ref, tol=REFERENCE_BEAT_TOL):
+    """Finite profile points with objective < f_ref - tol (any status), lowest objective first."""
+    obj = summary["objective_value"].astype(float)
+    m = np.isfinite(obj) & (obj < float(f_ref) - float(tol))
+    return summary[m].sort_values("objective_value", kind="stable")
+
+
 USABLE_STATUSES = ("converged", "near_converged")  # DECISIONS_C1_FINAL item 2: KKT <= 1e-6 or <= 1e-5 (N26 noise)
 APPROXIMATE_SUFFIX = " (approximate: near-converged)"
 

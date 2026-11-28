@@ -12,7 +12,6 @@ import pytest
 import networkmodel.BayesianInference as bi
 
 
-@pytest.mark.xfail(strict=True, reason="C1R")
 def test_points_beating_reference_uses_the_noise_tolerance():
     from networkmodel.utils import REFERENCE_BEAT_TOL, points_beating_reference
 
@@ -78,7 +77,6 @@ def _run(tmp_path, monkeypatch, beat_rounds):
     return out, calls
 
 
-@pytest.mark.xfail(strict=True, reason="C1R")
 def test_one_refinement_round_when_the_new_reference_holds(tmp_path, monkeypatch):
     out, calls = _run(tmp_path, monkeypatch, beat_rounds={0})
     assert out["refinement"]["rounds"] == 1 and out["refinement"]["unstable_parameters"] == []
@@ -88,7 +86,6 @@ def test_one_refinement_round_when_the_new_reference_holds(tmp_path, monkeypatch
     assert (out["summary"]["objective_value"] >= 0.9).all()  # profiles recomputed against the new reference
 
 
-@pytest.mark.xfail(strict=True, reason="C1R")
 def test_at_most_three_rounds_then_unstable(tmp_path, monkeypatch):
     out, calls = _run(tmp_path, monkeypatch, beat_rounds={0, 1, 2, 3})
     assert out["refinement"]["rounds"] == 3 and calls["ref"] == 4
@@ -96,13 +93,11 @@ def test_at_most_three_rounds_then_unstable(tmp_path, monkeypatch):
     assert len(out["refinement"]["history"]) == 4
 
 
-@pytest.mark.xfail(strict=True, reason="C1R")
 def test_no_round_when_nothing_beats_the_reference(tmp_path, monkeypatch):
     out, calls = _run(tmp_path, monkeypatch, beat_rounds=set())
     assert out["refinement"]["rounds"] == 0 and calls["ref"] == 1
 
 
-@pytest.mark.xfail(strict=True, reason="C1R")
 def test_unstable_label_is_not_an_estimate():
     from networkmodel.utils import UNSTABLE_REFERENCE_LABEL
 

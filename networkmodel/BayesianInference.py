@@ -362,11 +362,7 @@ def run_profile_likelihood_standalone_processes(
         n_workers,
     )
 
-    pending = list(indices)
-    running: list[tuple[int, subprocess.Popen, object, Path]] = []
-    statuses = []
-
-    def _start_worker(param_idx: int):
+    def _start_worker(param_idx: int, starts_file: Path | None = None):
         worker_dir = worker_root / (f"param_{param_idx:04d}" if param_idx >= 0 else "reference")
         worker_dir.mkdir(parents=True, exist_ok=True)
 
@@ -383,6 +379,8 @@ def run_profile_likelihood_standalone_processes(
             cmd += ["--parameter-index", str(param_idx), "--grid-size", str(int(grid_size))]
         else:  # DECISIONS_C1 item 1: data-only reference optimum and threshold, before any parameter
             cmd += ["--reference"]
+            if starts_file is not None:  # DECISIONS_C1_REFINE A: refinement round, refit from these starts
+                cmd += ["--starts-file", str(starts_file)]
 
         env = os.environ.copy()
         env.setdefault("OMP_NUM_THREADS", "1")
@@ -406,100 +404,144 @@ def run_profile_likelihood_standalone_processes(
 
         return param_idx, proc, fh, worker_log
 
-    # DECISIONS_C1 item 1: the data-only reference is computed once, before the parameter workers.
+    # DECISIONS_C1 item 1: the data-only reference is computed before the parameter workers.
     ref_path = out / "profile_reference.json"
-    _, ref_proc, ref_fh, ref_log = _start_worker(-1)
-    ref_rc = ref_proc.wait(timeout=timeout_seconds or None) if hasattr(ref_proc, "wait") else None
-    while ref_rc is None:
-        ref_rc = ref_proc.poll()
-        if ref_rc is None:
-            time.sleep(2.0)
-    ref_fh.close()
-    if int(ref_rc) != 0 or not ref_path.exists():
-        raise RuntimeError(f"Profile reference worker failed (return code {ref_rc}); see {ref_log}.")
-    with open(ref_path) as f:
-        reference = json.load(f)
 
-    # Keep only max_workers active at once.
-    while pending or running:
-        while pending and len(running) < n_workers:
-            running.append(_start_worker(pending.pop(0)))
+    def _reference(starts_file: Path | None = None) -> dict:
+        _, ref_proc, ref_fh, ref_log = _start_worker(-1, starts_file)
+        ref_rc = ref_proc.wait(timeout=timeout_seconds or None) if hasattr(ref_proc, "wait") else None
+        while ref_rc is None:
+            ref_rc = ref_proc.poll()
+            if ref_rc is None:
+                time.sleep(2.0)
+        ref_fh.close()
+        if int(ref_rc) != 0 or not ref_path.exists():
+            raise RuntimeError(f"Profile reference worker failed (return code {ref_rc}); see {ref_log}.")
+        with open(ref_path) as f:
+            return json.load(f)
 
-        still_running = []
+    def _profiles(reference: dict):
+        pending = list(indices)
+        running: list[tuple[int, subprocess.Popen, object, Path]] = []
+        statuses = []
+        # Keep only max_workers active at once.
+        while pending or running:
+            while pending and len(running) < n_workers:
+                running.append(_start_worker(pending.pop(0)))
 
-        for param_idx, proc, fh, worker_log in running:
-            return_code = proc.poll()
+            still_running = []
 
-            if return_code is None:
-                still_running.append((param_idx, proc, fh, worker_log))
+            for param_idx, proc, fh, worker_log in running:
+                return_code = proc.poll()
+
+                if return_code is None:
+                    still_running.append((param_idx, proc, fh, worker_log))
+                    continue
+
+                fh.close()
+
+                status_path = worker_root / f"param_{param_idx:04d}" / "profile_status.json"
+
+                if status_path.exists():
+                    with open(status_path) as f:
+                        status = json.load(f)
+                else:
+                    status = {
+                        "parameter_index": param_idx,
+                        "success": False,
+                        "state": "missing_status",
+                        "failure_reason": "profile_status.json was not written",
+                        "result_csv": "",
+                    }
+
+                status["return_code"] = int(return_code)
+                status["worker_log"] = str(worker_log)
+                statuses.append(status)
+
+            running = still_running
+
+            if running:
+                time.sleep(2.0)
+
+        status_df = pd.DataFrame(statuses)
+        status_df.to_csv(out / "profile_worker_status.csv", index=False)
+
+        result_dfs = []
+
+        for status in statuses:
+            if not bool(status.get("success", False)):
                 continue
 
-            fh.close()
+            result_csv = status.get("result_csv", "")
+            if not result_csv or not Path(result_csv).exists():
+                continue
 
-            status_path = worker_root / f"param_{param_idx:04d}" / "profile_status.json"
+            df = pd.read_csv(result_csv)
+            result_dfs.append(df)
 
-            if status_path.exists():
-                with open(status_path) as f:
-                    status = json.load(f)
-            else:
-                status = {
-                    "parameter_index": param_idx,
-                    "success": False,
-                    "state": "missing_status",
-                    "failure_reason": "profile_status.json was not written",
-                    "result_csv": "",
-                }
+            # Copy per-parameter CSV into canonical profiles directory.
+            target = out / Path(result_csv).name
+            df.to_csv(target, index=False)
 
-            status["return_code"] = int(return_code)
-            status["worker_log"] = str(worker_log)
-            statuses.append(status)
+            try:
+                _plot_profile(
+                    df,
+                    plot_dir / Path(result_csv).name.replace(".csv", ".png"),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "[Profile] Could not plot profile %s: %s",
+                    result_csv,
+                    exc,
+                )
 
-        running = still_running
-
-        if running:
-            time.sleep(2.0)
-
-    status_df = pd.DataFrame(statuses)
-    status_df.to_csv(out / "profile_worker_status.csv", index=False)
-
-    result_dfs = []
-
-    for status in statuses:
-        if not bool(status.get("success", False)):
-            continue
-
-        result_csv = status.get("result_csv", "")
-        if not result_csv or not Path(result_csv).exists():
-            continue
-
-        df = pd.read_csv(result_csv)
-        result_dfs.append(df)
-
-        # Copy per-parameter CSV into canonical profiles directory.
-        target = out / Path(result_csv).name
-        df.to_csv(target, index=False)
-
-        try:
-            _plot_profile(
-                df,
-                plot_dir / Path(result_csv).name.replace(".csv", ".png"),
-            )
-        except Exception as exc:
-            logger.warning(
-                "[Profile] Could not plot profile %s: %s",
-                result_csv,
-                exc,
+        if not result_dfs:
+            raise RuntimeError(
+                "All standalone profile workers failed. "
+                "See profiles/profile_worker_status.csv and profile_workers/*/worker_stdout_stderr.log."
             )
 
-    if not result_dfs:
-        raise RuntimeError(
-            "All standalone profile workers failed. "
-            "See profiles/profile_worker_status.csv and profile_workers/*/worker_stdout_stderr.log."
-        )
+        summary = pd.concat(result_dfs, ignore_index=True)
+        # DECISIONS_C1 item 1: deltas relative to the data-only reference, not the grid minimum.
+        summary["delta_objective"] = summary["objective_value"] - float(reference["f_ref"])
 
-    summary = pd.concat(result_dfs, ignore_index=True)
-    # DECISIONS_C1 item 1: deltas relative to the data-only reference, not the grid minimum.
-    summary["delta_objective"] = summary["objective_value"] - float(reference["f_ref"])
+        return summary, status_df, result_dfs, statuses
+
+    # DECISIONS_C1_REFINE A: iterative reference refinement. A profile point that beats the reference by more than
+    # REFERENCE_BEAT_TOL (N26 noise) means the reference is not the data-only minimum: refit the reference from the
+    # best such point (and the previous reference) and recompute every profile; at most REFINE_MAX_ROUNDS rounds.
+    # Parameters whose profiles still beat the reference afterwards are reported as unstable.
+    from networkmodel.utils import REFERENCE_BEAT_TOL, REFINE_MAX_ROUNDS, points_beating_reference
+
+    reference = _reference()
+    history = []
+    rounds = 0
+    while True:
+        summary, status_df, result_dfs, statuses = _profiles(reference)
+        beat = points_beating_reference(summary, float(reference.get("f_ref", float("nan"))))
+        history.append({"round": rounds, "f_ref": reference.get("f_ref"), "reference_status": reference.get("status"),
+                        "reference_start": reference.get("reference_start"), "n_beating": int(len(beat)),
+                        "best_beating_objective": float(beat["objective_value"].iloc[0]) if len(beat) else None,
+                        "beating_parameters": sorted(set(beat["parameter_name"])) if len(beat) else []})
+        summary.to_csv(out / f"profile_likelihood_summary_round{rounds}.csv", index=False)
+        if beat.empty or rounds >= REFINE_MAX_ROUNDS:
+            break
+        rounds += 1
+        best = np.asarray(json.loads(beat["optimized_free_parameters"].iloc[0]), dtype=np.float64)
+        starts = [best]
+        if "theta_ref" in reference and np.asarray(reference["theta_ref"]).shape == best.shape:
+            starts.append(np.asarray(reference["theta_ref"], dtype=np.float64))
+        starts_file = out / f"profile_reference_refine_round{rounds}.npy"
+        np.save(starts_file, np.vstack(starts))
+        logger.info("[Profile] Refinement round %d: %d points beat f_ref %.10g by > %g (best %.10g, %s); refitting "
+                    "the reference.", rounds, len(beat), reference.get("f_ref"), REFERENCE_BEAT_TOL,
+                    beat["objective_value"].iloc[0], beat["parameter_name"].iloc[0])
+        reference = _reference(starts_file)
+    unstable = history[-1]["beating_parameters"]
+    refinement = {"rounds": rounds, "max_rounds": REFINE_MAX_ROUNDS, "tolerance": REFERENCE_BEAT_TOL,
+                  "unstable_parameters": unstable, "history": history}
+    with open(out / "profile_reference_refinement.json", "w") as f:
+        json.dump(refinement, f, indent=2)
 
     summary.to_csv(out / "profile_likelihood_summary.csv", index=False)
 
@@ -523,6 +565,7 @@ def run_profile_likelihood_standalone_processes(
         "worker_status": status_df,
         "output_dir": out,
         "reference": reference,
+        "refinement": refinement,
     }
 
 
