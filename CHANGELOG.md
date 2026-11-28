@@ -18,6 +18,9 @@ All notable changes to this project are documented here.
   crossings of the data-only profile) and fit_inside_interval; a fitted value outside its interval is marked
   "fitted value set by the prior" and is not a point estimate. Without profiles the new columns are empty.
 - `PHOSKINTIME_PROFILE_WORKERS` (environment, default 1): number of parallel profile workers.
+- Profile reference refinement: a profile point that beats the data-only reference by more than 1e-5 triggers a
+  reference refit from that point and a full profile recompute (at most 3 rounds); parameters still beaten are
+  "not assessed (reference unstable)". Labels can change (B5: 16 of 21); fitted values unchanged.
 
 ### C1 decisions (owner, branch opt/2026-12) — changed results
 
